@@ -5,13 +5,13 @@ import {
   DBKeys,
   DBModel,
   getDBKey,
-  index,
   InternalError,
   onCreate,
   readonly,
 } from "@decaf-ts/db-decorators";
 import { apply, metadata } from "@decaf-ts/reflection";
 import { Repository } from "../repository/Repository";
+import {index} from "../model/decorators";
 
 export type IdOnCreateData = {
   sequence?: Constructor<Sequence>;
@@ -75,15 +75,14 @@ export async function pkOnCreate<T extends DBModel, V extends Repository<T>>(
 }
 
 export function pk(sequence?: Constructor<Sequence>, opts?: SequenceOptions) {
-  const data: IdOnCreateData = {
-    sequence: sequence,
-    options: opts,
-  };
   return apply(
     index(),
     required(),
     readonly(),
     metadata(getDBKey(DBKeys.ID), {}),
-    onCreate(pkOnCreate, data),
+    onCreate(pkOnCreate, {
+      sequence: sequence,
+      options: opts,
+    } as IdOnCreateData),
   );
 }

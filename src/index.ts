@@ -11,6 +11,12 @@
  * @memberOf module:ts-workspace
  */
 
+export * from "./identity";
+export * from "./interfaces";
+export * from "./model";
+export * from "./persistence";
+export * from "./repository";
+
 /**
  * @summary stores the current package version
  * @description this is how you should document a constant

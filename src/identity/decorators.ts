@@ -1,4 +1,17 @@
-import Constructor = jest.Constructor;
+import { Constructor, required } from "@decaf-ts/decorator-validation";
+import { SequenceOptions } from "../interfaces/SequenceOptions";
+import { Sequence } from "../interfaces/Sequence";
+import {
+  DBKeys,
+  DBModel,
+  getDBKey,
+  index,
+  InternalError,
+  onCreate,
+  readonly,
+} from "@decaf-ts/db-decorators";
+import { apply, metadata } from "@decaf-ts/reflection";
+import { Repository } from "../repository/Repository";
 
 export type IdOnCreateData = {
   sequence?: Constructor<Sequence>;
@@ -23,14 +36,13 @@ export type IdOnCreateData = {
  * @param key
  * @param model
  */
-export async function idOnCreate<
-  T extends DBModel,
-  V extends IRepository<T>,
-  Y = IdOnCreateData,
->(this: V, data: Y, key: string, model: T): Promise<void> {
-  const self = this;
-  const args: IdOnCreateData = data || ({} as IdOnCreateData);
-  if (!args.sequence) return;
+export async function pkOnCreate<T extends DBModel, V extends Repository<T>>(
+  this: V,
+  data: IdOnCreateData,
+  key: string,
+  model: T,
+): Promise<void> {
+  if (!data.sequence) return;
 
   const setPrimaryKeyValue = function (
     target: T,
@@ -45,49 +57,33 @@ export async function idOnCreate<
     });
   };
 
-  let sequencer: Sequence;
+  let sequence: Sequence;
   try {
-    sequencer = new args.sequence(
-      this,
-      Object.assign({}, args.options || {}) as SequenceOptions,
+    sequence = await this.adapter.getSequence(
+      model,
+      data.sequence,
+      data.options,
     );
   } catch (e: any) {
     throw new InternalError(
-      `Failed to instantiate Sequence ${args.sequence.name}: ${e}`,
+      `Failed to instantiate Sequence ${data.sequence.name}: ${e}`,
     );
   }
 
-  // const hasPrimaryKey = model[key] !== undefined;
-  const next = await sequencer.next();
+  const next = await sequence.next();
   setPrimaryKeyValue(model, key, next);
-  let repository: IRepository<Seq>;
-  let dbSequence: Seq;
-  try {
-    repository = DBModel.findRepository(Seq);
-    if (!repository) throw new InternalError(`No Sequence repository found`);
-    dbSequence = await repository.read(self.class.name);
-  } catch (e: any) {
-    if (!(e instanceof NotFoundError)) throw e;
-    dbSequence = new Seq({
-      name: self.class.name,
-    });
-  }
-
-  dbSequence.current = next;
-  try {
-    await createOrUpdate(dbSequence, repository!);
-  } catch (e: any) {
-    throw new InternalError(
-      sf("Failed to update sequence for table {0}: {1}", self.class.name, e),
-    );
-  }
 }
 
-export function pk() {
+export function pk(sequence?: Constructor<Sequence>, opts?: SequenceOptions) {
+  const data: IdOnCreateData = {
+    sequence: sequence,
+    options: opts,
+  };
   return apply(
     index(),
     required(),
     readonly(),
     metadata(getDBKey(DBKeys.ID), {}),
+    onCreate(pkOnCreate, data),
   );
 }

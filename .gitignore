@@ -11,4 +11,5 @@
 /.idea
 !/.idea/runConfigurations
 /.token
+/.npmtoken
 /node_modules

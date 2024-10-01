@@ -11,7 +11,7 @@ import {
 } from "@decaf-ts/db-decorators";
 import { apply, metadata } from "@decaf-ts/reflection";
 import { Repository } from "../repository/Repository";
-import {index} from "../model/decorators";
+import { index } from "../model/decorators";
 
 export type IdOnCreateData = {
   sequence?: Constructor<Sequence>;

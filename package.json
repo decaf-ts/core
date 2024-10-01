@@ -19,7 +19,7 @@
     "test:integration": "jest --coverage --testPathPattern=\"/tests/(integration)\" --passWithNoTests --detectOpenHandles",
     "test:all": "jest --coverage --testPathPattern=\"/tests/(unit|integration)\" --passWithNoTests --detectOpenHandles",
     "lint": "eslint .",
-    "lint-fix": "eslint . && eslint --fix ./src/*",
+    "lint-fix": "eslint --fix ./src/*",
     "test:circular": "dpdm -T --no-warning --no-tree ./src/index.ts",
     "prepare-release": "npm run lint-fix && npm run build:prod && npm run test && npm run docs",
     "release": "./bin/tag-release.sh",

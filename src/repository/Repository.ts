@@ -1,5 +1,9 @@
 import {
+  DBKeys,
   DBModel,
+  findModelId,
+  findPrimaryKey,
+  getDBKey,
   InternalError,
   Repository as Rep,
 } from "@decaf-ts/db-decorators";
@@ -7,14 +11,19 @@ import { ObserverError } from "./errors";
 import { Observable } from "../interfaces/Observable";
 import { Observer } from "../interfaces/Observer";
 import { Adapter } from "../persistence/Adapter";
+import { Constructor } from "@decaf-ts/decorator-validation";
+import { getPersistenceKey, PersistenceKeys } from "../persistence";
+import { getTableName } from "./utils";
 
-export abstract class Repository<T extends DBModel>
+export class Repository<T extends DBModel, V = any>
   extends Rep<T>
   implements Observable
 {
   private observers: Observer[] = [];
 
-  private readonly _adapter!: Adapter;
+  private readonly _adapter!: Adapter<any, V>;
+  private _tableName!: string;
+  private _pk!: string;
 
   get adapter() {
     if (!this._adapter)
@@ -24,24 +33,43 @@ export abstract class Repository<T extends DBModel>
     return this._adapter;
   }
 
-  protected constructor() {
-    super();
+  protected get tableName() {
+    if (!this._tableName) this._tableName = getTableName(this.class);
+    return this._tableName;
+  }
+
+  protected get pk() {
+    if (!this._pk) this._pk = findPrimaryKey(new this.class()).id;
+    return this._pk;
+  }
+
+  constructor(adapter?: Adapter<any, V>, clazz?: Constructor<T>) {
+    super(clazz);
+    if (adapter) this._adapter = adapter;
   }
 
   async create(model: T, ...args: any[]): Promise<T> {
-    return this.adapter.create<T>(model, ...args);
+    // eslint-disable-next-line prefer-const
+    let { record, id } = await this.adapter.prepare(model, this.pk);
+    record = await this.adapter.create(this.tableName, id, record, ...args);
+    return this.adapter.revert(record, this.class, this.pk, id);
   }
 
-  async read(key: string, ...args: any[]): Promise<T> {
-    return this.adapter.read<T>(key, ...args);
+  async read(id: string, ...args: any[]): Promise<T> {
+    const m = await this.adapter.read(this.tableName, id, ...args);
+    return this.adapter.revert(m, this.class, this.pk, id);
   }
 
   async update(model: T, ...args: any[]): Promise<T> {
-    return this.adapter.update<T>(model, ...args);
+    // eslint-disable-next-line prefer-const
+    let { record, id } = await this.adapter.prepare(model, this.pk);
+    record = await this.adapter.update(this.tableName, id, record, ...args);
+    return this.adapter.revert(record, this.class, this.pk, id);
   }
 
-  async delete(key: string, ...args: any[]): Promise<T> {
-    return this.adapter.delete<T>(key, ...args);
+  async delete(id: string, ...args: any[]): Promise<T> {
+    const m = await this.adapter.delete(this.tableName, id, ...args);
+    return this.adapter.revert(m, this.class, this.pk, id);
   }
 
   /**
@@ -80,5 +108,39 @@ export abstract class Repository<T extends DBModel>
         })
         .catch((e: any) => reject(new ObserverError(e)));
     });
+  }
+
+  static forModel<T extends DBModel>(model: Constructor<T>): Repository<T> {
+    const repository = Reflect.getMetadata(
+      getDBKey(DBKeys.REPOSITORY),
+      model.constructor,
+    );
+    if (!repository)
+      throw new InternalError(
+        `No registered repository found for model ${model.constructor.name}`,
+      );
+    const flavour = Reflect.getMetadata(
+      getPersistenceKey(PersistenceKeys.ADAPTER),
+      repository.constructor,
+    );
+    if (!flavour)
+      throw new InternalError(
+        `No registered persistence adapter found for model ${model.constructor.name}`,
+      );
+    const adapter = Adapter.get(flavour);
+    if (!adapter)
+      throw new InternalError(
+        `No registered persistence adapter found flavour ${flavour}`,
+      );
+
+    let repo: Repository<T>;
+    try {
+      repo = repository(adapter);
+    } catch (e: any) {
+      throw new InternalError(
+        `Failed to boot repository for ${model.constructor.name} using persistence adapter ${flavour}`,
+      );
+    }
+    return repo;
   }
 }

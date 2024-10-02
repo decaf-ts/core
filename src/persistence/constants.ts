@@ -4,4 +4,6 @@ export const PersistenceKeys: Record<string, string> = {
   UNIQUE: "unique",
   ADAPTER: "adapter",
   INJECTABLE: "decaf-adapter-{0}",
+  TABLE: "table",
+  COLUMN: "column",
 };

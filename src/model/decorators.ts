@@ -1,13 +1,4 @@
-/**
- * @summary Index Decorator
- * @description properties decorated will the index in the
- * DB for performance in queries
- *
- * @param {OrderDirection[]} [directions]
- * @param {string[]} [compositions]
- *
- * @function index
- */ import {
+import {
   ConflictError,
   DBModel,
   getDBKey,
@@ -19,7 +10,26 @@ import { apply, metadata } from "@decaf-ts/reflection";
 import { PersistenceKeys } from "../persistence/constants";
 import { IndexMetadata } from "../repository/types";
 import { OrderDirection } from "../repository/constants";
+import { getPersistenceKey } from "../persistence";
 
+export function table(tableName: string) {
+  return metadata(getPersistenceKey(PersistenceKeys.TABLE), tableName);
+}
+
+export function column(columnName: string) {
+  return metadata(getPersistenceKey(PersistenceKeys.COLUMN), columnName);
+}
+
+/**
+ * @summary Index Decorator
+ * @description properties decorated will the index in the
+ * DB for performance in queries
+ *
+ * @param {OrderDirection[]} [directions]
+ * @param {string[]} [compositions]
+ *
+ * @function index
+ */
 export function index(compositions?: string[], directions?: OrderDirection[]) {
   return metadata(
     getDBKey(

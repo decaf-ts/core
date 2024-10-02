@@ -6,5 +6,6 @@
  * @category Sequences
  */
 export interface SequenceOptions {
-  startingValue: string | number;
+  name?: string;
+  startingValue?: string | number;
 }

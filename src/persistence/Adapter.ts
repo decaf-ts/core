@@ -1,16 +1,34 @@
-import { DBModel, InternalError, NotFoundError } from "@decaf-ts/db-decorators";
-import { Injectables } from "@decaf-ts/injectable-decorators";
-import { genAdapterInjectableKey } from "./utils";
+import {
+  DBModel,
+  findModelId,
+  InternalError,
+  NotFoundError,
+} from "@decaf-ts/db-decorators";
 import { Observer } from "../interfaces/Observer";
 import { ObserverError } from "../repository/errors";
-import { IAdapter } from "../interfaces/IAdapter";
 import { Sequence } from "../interfaces/Sequence";
-import { Constructor } from "@decaf-ts/decorator-validation";
+import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
+import { getColumnName } from "./utils";
+import { Observable, RawExecutor } from "../interfaces";
 
-export abstract class Adapter<T = string> implements IAdapter<T> {
-  private static _current: Adapter<any>;
+export abstract class Adapter<Y, T = string>
+  implements RawExecutor<T>, Observable
+{
+  private static _current: Adapter<any, any>;
+  private static _cache: Record<string, Adapter<any, any>> = {};
+
   private observers: Observer[] = [];
+  private readonly _native: Y;
+
+  get native() {
+    return this._native;
+  }
+
+  constructor(native: Y, flavour: string) {
+    this._native = native;
+    Adapter._cache[flavour] = this;
+  }
 
   abstract createIndex(...args: any[]): Promise<any>;
 
@@ -20,13 +38,69 @@ export abstract class Adapter<T = string> implements IAdapter<T> {
     options?: SequenceOptions,
   ): Promise<Sequence>;
 
-  abstract create<V>(model: V, ...args: any[]): Promise<V>;
+  async prepare<V extends DBModel>(
+    model: V,
+    pk: string | number,
+  ): Promise<{
+    record: Record<string, any>;
+    id: string;
+  }> {
+    return {
+      record: Object.entries(model).reduce(
+        (accum: Record<string, any>, [key, val]) => {
+          const mappedProp = getColumnName(model, key);
+          accum[mappedProp] = val;
+          return accum;
+        },
+        {},
+      ),
+      id: (model as Record<string, any>)[pk],
+    };
+  }
 
-  abstract read<V>(key: string | number, ...args: any[]): Promise<V>;
+  async revert<V extends DBModel>(
+    obj: Record<string, any>,
+    clazz: string | Constructor<V>,
+    pk: string,
+    id: string | number,
+  ): Promise<V> {
+    const ob: Record<string, any> = {};
+    ob[pk] = id;
+    const m = (
+      typeof clazz === "string" ? Model.build(ob, clazz) : new clazz(ob)
+    ) as V;
+    return Object.keys(m).reduce((accum: V, key) => {
+      if (key === pk) return accum;
+      (accum as Record<string, any>)[key] = obj[getColumnName(accum, key)];
+      return accum;
+    }, m);
+  }
 
-  abstract update<V>(model: V, ...args: any[]): Promise<V>;
+  abstract create(
+    tableName: string,
+    id: string | number,
+    model: Record<string, any>,
+    ...args: any[]
+  ): Promise<Record<string, any>>;
 
-  abstract delete<V>(key: string | number, ...args: any[]): Promise<V>;
+  abstract read(
+    tableName: string,
+    id: string | number,
+    ...args: any[]
+  ): Promise<Record<string, any>>;
+
+  abstract update(
+    tableName: string,
+    id: string | number,
+    model: Record<string, any>,
+    ...args: any[]
+  ): Promise<Record<string, any>>;
+
+  abstract delete(
+    tableName: string,
+    id: string | number,
+    ...args: any[]
+  ): Promise<Record<string, any>>;
 
   abstract raw<V>(rawInput: T, ...args: any[]): Promise<V>;
 
@@ -73,14 +147,10 @@ export abstract class Adapter<T = string> implements IAdapter<T> {
   }
 
   static get(flavour: any): Adapter<any> | undefined {
-    const adapter = Injectables.get(
-      genAdapterInjectableKey(flavour),
-    ) as Adapter<any>;
-    if (!adapter)
-      throw new InternalError(
-        `No Adapter registered under ${flavour}. Did you use the @adapter decorator?`,
-      );
-    return adapter;
+    if (flavour in this._cache) return this._cache[flavour];
+    throw new InternalError(
+      `No Adapter registered under ${flavour}. Did you use the @adapter decorator?`,
+    );
   }
 
   static setCurrent(flavour: string) {

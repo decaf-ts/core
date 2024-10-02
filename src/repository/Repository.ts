@@ -1,7 +1,6 @@
 import {
   DBKeys,
   DBModel,
-  findModelId,
   findPrimaryKey,
   getDBKey,
   InternalError,

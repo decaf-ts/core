@@ -1,4 +1,4 @@
-import { Model, sf } from "@decaf-ts/decorator-validation";
+import { sf } from "@decaf-ts/decorator-validation";
 import { PersistenceKeys } from "./constants";
 import { DBModel } from "@decaf-ts/db-decorators";
 import { getPersistenceKey } from "./decorators";

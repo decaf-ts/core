@@ -1,8 +1,4 @@
-import {
-  inject,
-  injectable,
-  Injectables,
-} from "@decaf-ts/injectable-decorators";
+import { inject, injectable } from "@decaf-ts/injectable-decorators";
 import {
   DBKeys,
   DBModel,

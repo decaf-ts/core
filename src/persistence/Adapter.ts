@@ -1,9 +1,4 @@
-import {
-  DBModel,
-  findModelId,
-  InternalError,
-  NotFoundError,
-} from "@decaf-ts/db-decorators";
+import { DBModel, InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 import { Observer } from "../interfaces/Observer";
 import { ObserverError } from "../repository/errors";
 import { Sequence } from "../interfaces/Sequence";

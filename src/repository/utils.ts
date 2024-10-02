@@ -4,10 +4,12 @@ import {
   getDBKey,
   InternalError,
 } from "@decaf-ts/db-decorators";
-import { Adapter, getPersistenceKey, PersistenceKeys } from "../persistence";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import { Repository } from "./Repository";
 import { Constructor } from "@decaf-ts/decorator-validation";
+import { Adapter } from "../persistence/Adapter";
+import { getPersistenceKey } from "../persistence/decorators";
+import { PersistenceKeys } from "../persistence/constants";
 
 export function bootRepository<T extends DBModel>(
   model: Constructor<T>,
@@ -38,10 +40,16 @@ export function bootRepository<T extends DBModel>(
   return injectableName;
 }
 
-export function getTableName<T extends DBModel>(model: T | Constructor<T>) {
+export function getTableName<T extends DBModel>(model: T | any) {
   const metadata = Reflect.getMetadata(
     getPersistenceKey(PersistenceKeys.TABLE),
-    model.constructor,
+    model instanceof DBModel ? model.constructor : model,
   );
-  return metadata ? metadata : model.constructor.name;
+  if (metadata) {
+    return metadata;
+  }
+  if (model instanceof DBModel) {
+    return model.constructor.name;
+  }
+  return model.name;
 }

@@ -11,8 +11,9 @@ import { Observable } from "../interfaces/Observable";
 import { Observer } from "../interfaces/Observer";
 import { Adapter } from "../persistence/Adapter";
 import { Constructor } from "@decaf-ts/decorator-validation";
-import { getPersistenceKey, PersistenceKeys } from "../persistence";
 import { getTableName } from "./utils";
+import { getPersistenceKey } from "../persistence/decorators";
+import { PersistenceKeys } from "../persistence/constants";
 
 export class Repository<T extends DBModel, V = any>
   extends Rep<T>

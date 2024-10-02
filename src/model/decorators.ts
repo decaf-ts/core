@@ -4,13 +4,12 @@ import {
   getDBKey,
   IRepository,
   NotFoundError,
-  onCreateUpdate,
 } from "@decaf-ts/db-decorators";
 import { apply, metadata } from "@decaf-ts/reflection";
 import { PersistenceKeys } from "../persistence/constants";
 import { IndexMetadata } from "../repository/types";
 import { OrderDirection } from "../repository/constants";
-import { getPersistenceKey } from "../persistence";
+import { getPersistenceKey } from "../persistence/decorators";
 
 export function table(tableName: string) {
   return metadata(getPersistenceKey(PersistenceKeys.TABLE), tableName);
@@ -69,7 +68,7 @@ export async function uniqueOnCreateUpdate<
  */
 export function unique() {
   return apply(
-    onCreateUpdate(uniqueOnCreateUpdate),
+    // onCreateUpdate(uniqueOnCreateUpdate),
     metadata(getDBKey(PersistenceKeys.UNIQUE), {}),
   );
 }

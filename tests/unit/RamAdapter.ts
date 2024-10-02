@@ -2,7 +2,7 @@ import {Adapter} from "../../src";
 import { Lock } from "@decaf-ts/transactional-decorators";
 import {Sequence, SequenceOptions} from "../../src";
 import {Constructor} from "@decaf-ts/decorator-validation";
-import {ConflictError, DBModel, InternalError, NotFoundError} from "@decaf-ts/db-decorators";
+import {BaseError, ConflictError, DBModel, InternalError, NotFoundError} from "@decaf-ts/db-decorators";
 
 
 export class RamAdapter extends Adapter<{}, string>{
@@ -82,5 +82,9 @@ export class RamAdapter extends Adapter<{}, string>{
 
   async getSequence<V>(model: V, sequence: Constructor<Sequence>, options: SequenceOptions | undefined): Promise<Sequence> {
     return undefined as unknown as Sequence;
+  }
+
+  protected parseError<V extends BaseError>(err: Error): V {
+    return new InternalError(err) as V;
   }
 }

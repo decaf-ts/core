@@ -1,11 +1,20 @@
-import { DBModel, InternalError, NotFoundError } from "@decaf-ts/db-decorators";
+import {
+  BaseError,
+  DBModel,
+  InternalError,
+  NotFoundError,
+} from "@decaf-ts/db-decorators";
 import { Observer } from "../interfaces/Observer";
 import { ObserverError } from "../repository/errors";
 import { Sequence } from "../interfaces/Sequence";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { getColumnName } from "./utils";
-import { Observable, RawExecutor } from "../interfaces";
+import { getPersistenceKey } from "./decorators";
+import { PersistenceKeys } from "../../src/persistence/constants";
+import { metadata } from "@decaf-ts/reflection";
+import { RawExecutor } from "../interfaces/RawExecutor";
+import { Observable } from "../interfaces/Observable";
 
 export abstract class Adapter<Y, T = string>
   implements RawExecutor<T>, Observable
@@ -25,6 +34,12 @@ export abstract class Adapter<Y, T = string>
     Adapter._cache[flavour] = this;
   }
 
+  protected isReserved(attr: string) {
+    return !attr;
+  }
+
+  protected abstract parseError(err: Error): BaseError;
+
   abstract createIndex(...args: any[]): Promise<any>;
 
   abstract getSequence<V extends DBModel>(
@@ -40,15 +55,30 @@ export abstract class Adapter<Y, T = string>
     record: Record<string, any>;
     id: string;
   }> {
+    const rec = Object.entries(model).reduce(
+      (accum: Record<string, any>, [key, val]) => {
+        if (key === pk) return accum;
+        const mappedProp = getColumnName(model, key);
+        if (this.isReserved(mappedProp))
+          throw new InternalError(`Property name ${mappedProp} is reserved`);
+        accum[mappedProp] = val;
+        return accum;
+      },
+      {},
+    );
+
+    const md = Reflect.getMetadata(
+      getPersistenceKey(PersistenceKeys.METADATA),
+      model.constructor,
+    );
+    if (md)
+      metadata(
+        getPersistenceKey(PersistenceKeys.METADATA),
+        md,
+      )(rec.constructor);
+
     return {
-      record: Object.entries(model).reduce(
-        (accum: Record<string, any>, [key, val]) => {
-          const mappedProp = getColumnName(model, key);
-          accum[mappedProp] = val;
-          return accum;
-        },
-        {},
-      ),
+      record: rec,
       id: (model as Record<string, any>)[pk],
     };
   }

@@ -11,7 +11,7 @@ import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { getColumnName } from "./utils";
 import { getPersistenceKey } from "./decorators";
-import { PersistenceKeys } from "../../src/persistence/constants";
+import { PersistenceKeys } from "../persistence/constants";
 import { metadata } from "@decaf-ts/reflection";
 import { RawExecutor } from "../interfaces/RawExecutor";
 import { Observable } from "../interfaces/Observable";
@@ -55,30 +55,18 @@ export abstract class Adapter<Y, T = string>
     record: Record<string, any>;
     id: string;
   }> {
-    const rec = Object.entries(model).reduce(
-      (accum: Record<string, any>, [key, val]) => {
-        if (key === pk) return accum;
-        const mappedProp = getColumnName(model, key);
-        if (this.isReserved(mappedProp))
-          throw new InternalError(`Property name ${mappedProp} is reserved`);
-        accum[mappedProp] = val;
-        return accum;
-      },
-      {},
-    );
-
-    const md = Reflect.getMetadata(
-      getPersistenceKey(PersistenceKeys.METADATA),
-      model.constructor,
-    );
-    if (md)
-      metadata(
-        getPersistenceKey(PersistenceKeys.METADATA),
-        md,
-      )(rec.constructor);
-
     return {
-      record: rec,
+      record: Object.entries(model).reduce(
+        (accum: Record<string, any>, [key, val]) => {
+          if (key === pk) return accum;
+          const mappedProp = getColumnName(model, key);
+          if (this.isReserved(mappedProp))
+            throw new InternalError(`Property name ${mappedProp} is reserved`);
+          accum[mappedProp] = val;
+          return accum;
+        },
+        {},
+      ),
       id: (model as Record<string, any>)[pk],
     };
   }

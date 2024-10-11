@@ -68,6 +68,7 @@ export abstract class Adapter<Y, T = string>
       Object.defineProperty(result, PersistenceKeys.METADATA, {
         enumerable: false,
         writable: false,
+        configurable: true,
         value: (model as any)[PersistenceKeys.METADATA],
       });
     return {

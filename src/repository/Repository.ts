@@ -96,8 +96,8 @@ export class Repository<T extends DBModel, V = any>
     )
       Object.defineProperty(model, PersistenceKeys.METADATA, {
         enumerable: false,
-        configurable: false,
         writable: false,
+        configurable: true,
         value: (oldModel as any)[PersistenceKeys.METADATA],
       });
     return [model, ...args];

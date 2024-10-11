@@ -10,11 +10,9 @@ import { Sequence } from "../interfaces/Sequence";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { getColumnName } from "./utils";
-import { getPersistenceKey } from "./decorators";
-import { PersistenceKeys } from "../persistence/constants";
-import { metadata } from "@decaf-ts/reflection";
 import { RawExecutor } from "../interfaces/RawExecutor";
 import { Observable } from "../interfaces/Observable";
+import { PersistenceKeys } from "./constants";
 
 export abstract class Adapter<Y, T = string>
   implements RawExecutor<T>, Observable
@@ -55,18 +53,25 @@ export abstract class Adapter<Y, T = string>
     record: Record<string, any>;
     id: string;
   }> {
+    const result = Object.entries(model).reduce(
+      (accum: Record<string, any>, [key, val]) => {
+        if (key === pk) return accum;
+        const mappedProp = getColumnName(model, key);
+        if (this.isReserved(mappedProp))
+          throw new InternalError(`Property name ${mappedProp} is reserved`);
+        accum[mappedProp] = val;
+        return accum;
+      },
+      {},
+    );
+    if ((model as any)[PersistenceKeys.METADATA])
+      Object.defineProperty(result, PersistenceKeys.METADATA, {
+        enumerable: false,
+        writable: false,
+        value: (model as any)[PersistenceKeys.METADATA],
+      });
     return {
-      record: Object.entries(model).reduce(
-        (accum: Record<string, any>, [key, val]) => {
-          if (key === pk) return accum;
-          const mappedProp = getColumnName(model, key);
-          if (this.isReserved(mappedProp))
-            throw new InternalError(`Property name ${mappedProp} is reserved`);
-          accum[mappedProp] = val;
-          return accum;
-        },
-        {},
-      ),
+      record: result,
       id: (model as Record<string, any>)[pk],
     };
   }
@@ -82,11 +87,20 @@ export abstract class Adapter<Y, T = string>
     const m = (
       typeof clazz === "string" ? Model.build(ob, clazz) : new clazz(ob)
     ) as V;
-    return Object.keys(m).reduce((accum: V, key) => {
+    const metadata = obj[PersistenceKeys.METADATA];
+    const result = Object.keys(m).reduce((accum: V, key) => {
       if (key === pk) return accum;
       (accum as Record<string, any>)[key] = obj[getColumnName(accum, key)];
       return accum;
     }, m);
+    if (metadata)
+      Object.defineProperty(result, PersistenceKeys.METADATA, {
+        enumerable: false,
+        configurable: false,
+        writable: false,
+        value: metadata,
+      });
+    return result;
   }
 
   abstract create(

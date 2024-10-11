@@ -1,10 +1,14 @@
 import {
   DBKeys,
   DBModel,
+  enforceDBDecorators,
+  findModelId,
   findPrimaryKey,
   getDBKey,
   InternalError,
+  OperationKeys,
   Repository as Rep,
+  ValidationError,
 } from "@decaf-ts/db-decorators";
 import { ObserverError } from "./errors";
 import { Observable } from "../interfaces/Observable";
@@ -65,6 +69,38 @@ export class Repository<T extends DBModel, V = any>
     let { record, id } = await this.adapter.prepare(model, this.pk);
     record = await this.adapter.update(this.tableName, id, record, ...args);
     return this.adapter.revert(record, this.class, this.pk, id);
+  }
+
+  protected async updatePrefix(
+    model: T,
+    ...args: any[]
+  ): Promise<[T, ...args: any[]]> {
+    model = new this.class(model);
+    const pk = findModelId(model);
+
+    const oldModel = await this.read(pk);
+
+    await enforceDBDecorators(
+      this,
+      model,
+      OperationKeys.UPDATE,
+      OperationKeys.ON,
+      oldModel,
+    );
+
+    const errors = model.hasErrors(oldModel);
+    if (errors) throw new ValidationError(errors.toString());
+    if (
+      (oldModel as any)[PersistenceKeys.METADATA] &&
+      !(model as any)[PersistenceKeys.METADATA]
+    )
+      Object.defineProperty(model, PersistenceKeys.METADATA, {
+        enumerable: false,
+        configurable: false,
+        writable: false,
+        value: (oldModel as any)[PersistenceKeys.METADATA],
+      });
+    return [model, ...args];
   }
 
   async delete(id: string, ...args: any[]): Promise<T> {

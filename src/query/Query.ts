@@ -10,6 +10,8 @@ import {
 import { SelectSelector } from "./selectors";
 import { DBModel } from "@decaf-ts/db-decorators";
 import { Adapter } from "../persistence";
+import { SelectClause } from "./clauses/SelectClause";
+import { InsertClause } from "./clauses/InsertClause";
 
 /**
  * @summary Helper Class to build queries
@@ -28,7 +30,7 @@ export class Query<Q, M extends DBModel> {
    * @param {SelectSelector} [selector]
    */
   select(selector?: SelectSelector): SelectOption<M> {
-    return Statement.select(this.adapter, selector);
+    return SelectClause.from<Q, M>(this.adapter.Statement, selector);
   }
   /**
    * @summary Creates a Min Clause
@@ -60,6 +62,6 @@ export class Query<Q, M extends DBModel> {
   }
 
   insert(): InsertOption<M> {
-    return Statement.insert(this.adapter);
+    return InsertClause.from<Q, M>(this.adapter.Statement);
   }
 }

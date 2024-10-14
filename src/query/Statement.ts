@@ -37,7 +37,7 @@ export class Statement<Q> extends Model implements Executor, RawExecutor<Q> {
   @clauseSequence()
   protected clauses?: Clause<any>[] = undefined;
   @required()
-  protected db?: Adapter<any, Q> = undefined;
+  protected adapter: Adapter<any, Q>;
   @required()
   protected target?: Constructor<any> = undefined;
   @required()
@@ -45,7 +45,7 @@ export class Statement<Q> extends Model implements Executor, RawExecutor<Q> {
 
   constructor(db: Adapter<any, Q>) {
     super();
-    this.db = db;
+    this.adapter = db;
   }
 
   /**
@@ -98,7 +98,7 @@ export class Statement<Q> extends Model implements Executor, RawExecutor<Q> {
   }
 
   raw<Y>(rawInput: Q, ...args: any[]): Promise<Y> {
-    return this.db!.raw(rawInput, ...args);
+    return this.adapter!.raw(rawInput, ...args);
   }
 
   /**
@@ -131,6 +131,10 @@ export class Statement<Q> extends Model implements Executor, RawExecutor<Q> {
     this.clauses.push(clause);
   }
 
+  getAdapter(): Adapter<any, Q> {
+    return this.adapter;
+  }
+
   /**
    * @summary Defines the output class (when existing)
    * @param {Constructor} clazz
@@ -147,21 +151,6 @@ export class Statement<Q> extends Model implements Executor, RawExecutor<Q> {
     this.type = type;
   }
 
-  /**
-   * @summary Creates a SELECT statement
-   * @param {Database} db
-   * @param {SelectSelector} [selector]
-   */
-  static select<Q, M extends DBModel>(
-    db: Adapter<any, Q>,
-    selector?: SelectSelector,
-  ): SelectOption<M> {
-    return SelectClause.from<Q, M>(new Statement<Q>(db), selector);
-  }
-
-  static insert<Q, M extends DBModel>(db: Adapter<any, Q>): InsertOption<M> {
-    return InsertClause.from<Q, M>(new Statement<Q>(db));
-  }
   //
   // static insertInto<V, Y>(
   //   db: RawExecutor<Y>,

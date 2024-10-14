@@ -1,6 +1,5 @@
 import { Executor } from "../interfaces";
 import {
-  constructFromObject,
   Model,
   ModelArg,
   required,
@@ -44,10 +43,14 @@ export abstract class Clause<Q>
 
   protected constructor(clause?: ModelArg<Clause<Q>>) {
     super();
-    constructFromObject<Clause<Q>>(this, clause);
+    Model.fromObject<Clause<Q>>(this, clause);
     if (!this.statement)
       throw new QueryError("Missing statement. Should be impossible");
     this.statement.addClause(this);
+  }
+
+  protected get adapter() {
+    return this.statement.getAdapter();
   }
 
   /**
@@ -65,7 +68,7 @@ export abstract class Clause<Q>
    * @abstract
    */
   async execute<R>(): Promise<R> {
-    return this.statement!.execute();
+    return this.statement.execute();
   }
 
   toString() {

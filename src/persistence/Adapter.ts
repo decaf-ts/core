@@ -14,6 +14,8 @@ import { RawExecutor } from "../interfaces/RawExecutor";
 import { Observable } from "../interfaces/Observable";
 import { PersistenceKeys } from "./constants";
 import { Const, GroupOperator, Operator } from "../query/constants";
+import { Query } from "../query/Query";
+import { Statement } from "../query/Statement";
 
 /**
  * @summary Abstract Decaf-ts Persistence Adapter Class
@@ -34,7 +36,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
   private static _current: Adapter<any, any>;
   private static _cache: Record<string, Adapter<any, any>> = {};
 
-  private observers: Observer[] = [];
+  private readonly _observers: Observer[] = [];
   private readonly _native: Y;
 
   get native() {
@@ -44,6 +46,14 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
   constructor(native: Y, flavour: string) {
     this._native = native;
     Adapter._cache[flavour] = this;
+  }
+
+  Query<M extends DBModel>(): Query<Q, M> {
+    return new Query(this);
+  }
+
+  get Statement() {
+    return new Statement(this);
   }
 
   protected isReserved(attr: string) {
@@ -155,9 +165,9 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
    * @see {Observable#observe}
    */
   observe(observer: Observer): void {
-    const index = this.observers.indexOf(observer);
+    const index = this._observers.indexOf(observer);
     if (index !== -1) throw new InternalError("Observer already registered");
-    this.observers.push(observer);
+    this._observers.push(observer);
   }
 
   /**
@@ -167,9 +177,9 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
    * @see {Observable#unObserve}
    */
   unObserve(observer: Observer): void {
-    const index = this.observers.indexOf(observer);
+    const index = this._observers.indexOf(observer);
     if (index === -1) throw new InternalError("Failed to find Observer");
-    this.observers.splice(index, 1);
+    this._observers.splice(index, 1);
   }
 
   /**
@@ -178,7 +188,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
    */
   async updateObservers(...args: any[]): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      Promise.all(this.observers.map((o: Observer) => o.refresh(...args)))
+      Promise.all(this._observers.map((o: Observer) => o.refresh(...args)))
         .then(() => {
           resolve();
         })

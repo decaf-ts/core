@@ -7,16 +7,13 @@ import {
   sf,
 } from "@decaf-ts/decorator-validation";
 import { Executor, RawExecutor } from "../interfaces";
-import { SelectSelector } from "./selectors";
-import { InsertOption, SelectOption } from "./options";
 import { MandatoryPriorities, StatementType } from "./constants";
 import { QueryError } from "./errors";
 import { Clause } from "./Clause";
 import { clauseSequence } from "../validators";
-import { SelectClause } from "./clauses/SelectClause";
-import { InsertClause } from "./clauses/InsertClause";
-import { DBModel } from "@decaf-ts/db-decorators";
 import { Adapter } from "../persistence";
+import { Repository } from "../repository";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 /**
  * @summary Statement Class
@@ -31,7 +28,10 @@ import { Adapter } from "../persistence";
  *
  * @category Query
  */
-export class Statement<Q> extends Model implements Executor, RawExecutor<Q> {
+export abstract class Statement<Q>
+  extends Model
+  implements Executor, RawExecutor<Q>
+{
   @required()
   @minlength(MandatoryPriorities.length)
   @clauseSequence()
@@ -40,61 +40,65 @@ export class Statement<Q> extends Model implements Executor, RawExecutor<Q> {
   protected adapter: Adapter<any, Q>;
   @required()
   protected target?: Constructor<any> = undefined;
+
+  private fullRecord: boolean = false;
+
   @required()
   protected type?: string = undefined;
 
-  constructor(db: Adapter<any, Q>) {
+  protected constructor(db: Adapter<any, Q>) {
     super();
     this.adapter = db;
+  }
+
+  protected build(): Q {
+    if (!this.clauses)
+      throw new QueryError(sf("Failed to build Statement:\n{0}", "No Clauses"));
+
+    this.clauses.sort((c1, c2) => {
+      return c1.getPriority() - c2.getPriority();
+    });
+
+    const errors = this.hasErrors();
+    if (errors)
+      throw new QueryError(
+        sf("Poorly built statement: {0}", errors.toString()),
+      );
+
+    let query: Q;
+    try {
+      const iterator = function (
+        clauses: Clause<any>[],
+        previous: any = {},
+      ): Q {
+        const c = clauses.shift();
+        if (!c) return previous as Q;
+        const results = c.build(previous);
+        return iterator(clauses, results as any);
+      };
+
+      query = iterator(new Array(...(this.clauses as Clause<Q>[]))) as Q;
+    } catch (e: any) {
+      throw new QueryError(e);
+    }
+
+    return query;
   }
 
   /**
    * @inheritDoc
    */
   async execute<Y>(): Promise<Y> {
-    return undefined as Y;
-    //   if (!this.clauses)
-    //     throw new QueryError(
-    //       stringFormat("Failed to build Statement:\n{0}", "No Clauses"),
-    //     );
-    //
-    //   this.clauses.sort((c1, c2) => {
-    //     return c1.getPriority() - c2.getPriority();
-    //   });
-    //
-    //   const errors = this.hasErrors();
-    //   if (errors)
-    //     throw new QueryError(
-    //       stringFormat("Poorly built statement: {0}", errors.toString()),
-    //     );
-    //   const query: V = buildQueryStatement(this.clauses);
-    //
-    //   switch (this.type) {
-    //     case StatementType.TRANSACTION:
-    //       return query as V;
-    //     case StatementType.QUERY:
-    //     default:
-    //       try {
-    //         const results: Y = (await this.raw(query as V)) as Z;
-    //         const { docs, warning } = results;
-    //         if (warning) console.warn(warning);
-    //         if (!docs || !docs.length) return [] as unknown as V;
-    //         const manager = getManager<any>(
-    //           this.outputClazz as Constructor<any>,
-    //         ) as TableManager<any>;
-    //         if (!manager)
-    //           throw new InternalError(
-    //             sf("Failed to get Manager for {0}", this.outputClazz.name),
-    //           );
-    //         return results.docs.map((d) =>
-    //           (query as V).fields
-    //             ? trimModel(d)
-    //             : (manager as any)["repository"].rebuildModel(d),
-    //         ) as unknown as T;
-    //       } catch (e: any) {
-    //         throw new InternalError(e);
-    //       }
-    //   }
+    const query: Q = this.build();
+    try {
+      const results: Y = (await this.raw(query)) as Y;
+      if (!this.fullRecord) return results;
+      return Array.isArray(results)
+        ? results.map((el) => new (this.target as Constructor<any>)(el))
+        : new (this.target as Constructor<any>)(results);
+    } catch (e: any) {
+      throw new InternalError(e);
+    }
   }
 
   raw<Y>(rawInput: Q, ...args: any[]): Promise<Y> {
@@ -147,6 +151,10 @@ export class Statement<Q> extends Model implements Executor, RawExecutor<Q> {
     this.target = clazz;
   }
 
+  setFullRecord() {
+    this.fullRecord = true;
+  }
+
   setMode(type: StatementType) {
     this.type = type;
   }
@@ -158,25 +166,4 @@ export class Statement<Q> extends Model implements Executor, RawExecutor<Q> {
   // ): IntoOption<V> {
   //   return InsertClause.from(new Statement<V, Y>(db)).into(table);
   // }
-
-  private static buildQueryStatement<Q>(clauses: Clause<Q>[]): Q {
-    let query: Q;
-    try {
-      const iterator = function (
-        clauses: Clause<any>[],
-        previous: any = {},
-      ): Q {
-        const c = clauses.shift();
-        if (!c) return previous as Q;
-        const results = c.build(previous);
-        return iterator(clauses, results as any);
-      };
-
-      query = iterator(new Array(...(clauses as Clause<Q>[]))) as Q;
-    } catch (e: any) {
-      throw new QueryError(e);
-    }
-
-    return query;
-  }
 }

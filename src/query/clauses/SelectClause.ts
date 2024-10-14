@@ -86,7 +86,7 @@ export class SelectClause<Q, M extends DBModel>
   /**
    * @inheritDoc
    */
-  from(tableName: Constructor<M>): WhereOption {
+  from(tableName: Constructor<M>, alias?: string): WhereOption {
     return FromClause.from(this!.statement, tableName);
   }
   /**

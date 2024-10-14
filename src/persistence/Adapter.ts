@@ -43,7 +43,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     return this._native;
   }
 
-  constructor(native: Y, flavour: string) {
+  protected constructor(native: Y, flavour: string) {
     this._native = native;
     Adapter._cache[flavour] = this;
   }
@@ -52,9 +52,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     return new Query(this);
   }
 
-  get Statement() {
-    return new Statement(this);
-  }
+  abstract get Statement(): Statement<Q>;
 
   protected isReserved(attr: string) {
     return !attr;

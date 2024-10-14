@@ -59,7 +59,7 @@ export class FromClause<Q, M extends DBModel>
         : this.selector;
     if (!this.selector)
       throw new QueryError(stringFormat("Could not find selector model: {0}"));
-    this.statement!.setTarget(this.selector as Constructor<M>);
+    this.statement.setTarget(this.selector as Constructor<M>);
   }
 
   /**
@@ -93,19 +93,19 @@ export class FromClause<Q, M extends DBModel>
    * @inheritDoc
    */
   groupBy(selector: GroupBySelector): Executor {
-    return GroupByClause.from(this!.statement, selector);
+    return GroupByClause.from(this.statement, selector);
   }
   /**
    * @inheritDoc
    */
   limit(selector: LimitSelector): OffsetOption {
-    return LimitClause.from(this!.statement, selector);
+    return LimitClause.from(this.statement, selector);
   }
   /**
    * @inheritDoc
    */
   offset(selector: OffsetSelector): Executor {
-    return OffsetClause.from(this!.statement, selector);
+    return OffsetClause.from(this.statement, selector);
   }
 
   /**

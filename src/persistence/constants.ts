@@ -7,4 +7,5 @@ export const PersistenceKeys: Record<string, string> = {
   TABLE: "table",
   COLUMN: "column",
   METADATA: "__metadata",
+  CLAUSE_SEQUENCE: "clause-sequence",
 };

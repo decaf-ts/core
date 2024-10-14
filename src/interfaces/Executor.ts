@@ -1,6 +1,8 @@
 /**
  * @summary processes query objects
  *
+ * @typedef V the output
+ *
  * @interface Executor
  *
  * @category Query
@@ -13,5 +15,5 @@ export interface Executor {
    *
    * @method
    */
-  execute<V>(...args: any): Promise<V[]>;
+  execute<V>(...args: any): Promise<V>;
 }

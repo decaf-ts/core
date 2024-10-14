@@ -1,11 +1,12 @@
 /**
  * @summary Executes a raw instruction in the Database
- * @typeDef T The input type
+ * @typeDef Q The input type
+ * @typeDef R The result type
  *
  * @interface RawExecutor
  * @category Query
  */
-export interface RawExecutor<T> {
+export interface RawExecutor<Q> {
   /**
    * @summary Executes a raw instruction in the Database
    *
@@ -15,5 +16,5 @@ export interface RawExecutor<T> {
    *
    * @method
    */
-  raw<V>(rawInput: T, ...args: any[]): Promise<V>;
+  raw<R>(rawInput: Q, ...args: any[]): Promise<R>;
 }

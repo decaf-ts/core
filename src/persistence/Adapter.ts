@@ -13,10 +13,24 @@ import { getColumnName } from "./utils";
 import { RawExecutor } from "../interfaces/RawExecutor";
 import { Observable } from "../interfaces/Observable";
 import { PersistenceKeys } from "./constants";
+import { Const, GroupOperator, Operator } from "../query/constants";
 
-export abstract class Adapter<Y, T = string>
-  implements RawExecutor<T>, Observable
-{
+/**
+ * @summary Abstract Decaf-ts Persistence Adapter Class
+ * @description Offers the base implementation for all Adapter Classes
+ * and manages them various registered {@link Adapter}s
+ *
+ * @typedef Y the underlying persistence object type
+ * @typedef Q The query object the adapter uses
+ *
+ * @param {Y} native the underlying persistence object
+ * @param {string} flavour the under witch the persistence adapter should be stored
+ *
+ * @class Adapter
+ * @implements RawExecutor
+ * @implements Observable
+ */
+export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
   private static _current: Adapter<any, any>;
   private static _cache: Record<string, Adapter<any, any>> = {};
 
@@ -36,6 +50,8 @@ export abstract class Adapter<Y, T = string>
     return !attr;
   }
 
+  abstract translate(operator: Operator | GroupOperator | Const): string;
+
   protected abstract parseError(err: Error): BaseError;
 
   abstract createIndex(...args: any[]): Promise<any>;
@@ -46,8 +62,8 @@ export abstract class Adapter<Y, T = string>
     options?: SequenceOptions,
   ): Promise<Sequence>;
 
-  async prepare<V extends DBModel>(
-    model: V,
+  async prepare<M extends DBModel>(
+    model: M,
     pk: string | number,
   ): Promise<{
     record: Record<string, any>;
@@ -77,19 +93,19 @@ export abstract class Adapter<Y, T = string>
     };
   }
 
-  async revert<V extends DBModel>(
+  async revert<M extends DBModel>(
     obj: Record<string, any>,
-    clazz: string | Constructor<V>,
+    clazz: string | Constructor<M>,
     pk: string,
     id: string | number,
-  ): Promise<V> {
+  ): Promise<M> {
     const ob: Record<string, any> = {};
     ob[pk] = id;
     const m = (
       typeof clazz === "string" ? Model.build(ob, clazz) : new clazz(ob)
-    ) as V;
+    ) as M;
     const metadata = obj[PersistenceKeys.METADATA];
-    const result = Object.keys(m).reduce((accum: V, key) => {
+    const result = Object.keys(m).reduce((accum: M, key) => {
       if (key === pk) return accum;
       (accum as Record<string, any>)[key] = obj[getColumnName(accum, key)];
       return accum;
@@ -130,7 +146,7 @@ export abstract class Adapter<Y, T = string>
     ...args: any[]
   ): Promise<Record<string, any>>;
 
-  abstract raw<V>(rawInput: T, ...args: any[]): Promise<V>;
+  abstract raw<R>(rawInput: Q, ...args: any[]): Promise<R>;
 
   /**
    * @summary Registers an {@link Observer}
@@ -174,7 +190,7 @@ export abstract class Adapter<Y, T = string>
     return this._current;
   }
 
-  static get(flavour: any): Adapter<any> | undefined {
+  static get<Y, Q>(flavour: any): Adapter<Y, Q> | undefined {
     if (flavour in this._cache) return this._cache[flavour];
     throw new InternalError(
       `No Adapter registered under ${flavour}. Did you use the @adapter decorator?`,

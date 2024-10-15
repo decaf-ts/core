@@ -3,6 +3,7 @@ import {
   Model,
   ModelErrorDefinition,
   required,
+  sf,
   stringFormat,
 } from "@decaf-ts/decorator-validation";
 import { Executor } from "../interfaces";
@@ -25,7 +26,7 @@ import { OperationResult } from "./types";
  * @subcategory Conditions
  */
 
-export class Condition extends Model implements Executor {
+export class Condition extends Model {
   @required()
   protected attr1?: string | Condition = undefined;
   @required()
@@ -42,32 +43,6 @@ export class Condition extends Model implements Executor {
     this.attr1 = attr1;
     this.operator = operator;
     this.comparison = comparison;
-  }
-
-  /**
-   * @inheritDoc
-   */
-  execute<V>(): V {
-    let op: OperationResult = {};
-    if (
-      [GroupOperator.AND, GroupOperator.OR, Operator.NOT].indexOf(
-        this.operator as GroupOperator,
-      ) === -1
-    ) {
-      op[this.attr1 as string] = {} as Record<any, any>;
-      op[this.attr1 as string][this.operator as Operator] = this.comparison;
-    } else if (this.operator === Operator.NOT) {
-      op = (this.attr1 as Condition).execute();
-      op[Operator.NOT] = {};
-      op[Operator.NOT][(this.attr1 as Condition).attr1 as string] =
-        this.comparison;
-    } else {
-      const op1: any = (this.attr1 as Condition).execute();
-      const op2: any = (this.comparison as Condition).execute();
-      op = Condition.merge(this.operator as GroupOperator, op1, op2);
-    }
-
-    return op as V;
   }
 
   /**
@@ -111,10 +86,7 @@ export class Condition extends Model implements Executor {
       if (Object.values(Operator).indexOf(this.operator as Operator) === -1)
         return {
           operator: {
-            condition: stringFormat(
-              "Invalid operator {0}",
-              this.operator as string,
-            ),
+            condition: sf("Invalid operator {0}", this.operator as string),
           },
         } as ModelErrorDefinition;
     }
@@ -126,10 +98,7 @@ export class Condition extends Model implements Executor {
       )
         return {
           comparison: {
-            condition: stringFormat(
-              "Invalid operator {0}",
-              this.operator as string,
-            ),
+            condition: sf("Invalid operator {0}", this.operator as string),
           },
         } as ModelErrorDefinition;
       if (
@@ -139,10 +108,7 @@ export class Condition extends Model implements Executor {
       )
         return {
           operator: {
-            condition: stringFormat(
-              "Invalid operator {0}",
-              this.operator as string,
-            ),
+            condition: sf("Invalid operator {0}", this.operator as string),
           },
         } as ModelErrorDefinition;
       // if (this.operator !== Operator.NOT && typeof this.attr1.attr1 !== "string")
@@ -307,16 +273,6 @@ export class Condition extends Model implements Executor {
       }
     }
   };
-
-  static merge(
-    op: GroupOperator,
-    obj1: OperationResult,
-    obj2: OperationResult,
-  ): OperationResult {
-    const result: OperationResult = {};
-    result[op] = [obj1, obj2];
-    return result;
-  }
 
   static get builder(): ConditionBuilderOption {
     return new Condition.Builder();

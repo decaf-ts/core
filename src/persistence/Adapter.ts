@@ -17,6 +17,7 @@ import { Const, GroupOperator, Operator } from "../query/constants";
 import { Query } from "../query/Query";
 import { Statement } from "../query/Statement";
 import { ClauseFactory } from "../query/ClauseFactory";
+import { Condition } from "../query";
 
 /**
  * @summary Abstract Decaf-ts Persistence Adapter Class
@@ -53,6 +54,8 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     return new Query(this);
   }
 
+  abstract parseCondition(condition: Condition): Q;
+
   abstract get Statement(): Statement<Q>;
 
   abstract get Clauses(): ClauseFactory<Y, Q>;
@@ -60,8 +63,6 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
   protected isReserved(attr: string) {
     return !attr;
   }
-
-  abstract translate(operator: Operator | GroupOperator | Const): string;
 
   protected abstract parseError(err: Error): BaseError;
 

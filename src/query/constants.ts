@@ -1,24 +1,24 @@
 export enum Operator {
-  EQUAL = "$eq",
-  DIFFERENT = "$ne",
-  BIGGER = "$gt",
-  BIGGER_EQ = "$gte",
-  SMALLER = "$lt",
-  SMALLER_EQ = "$lte",
+  EQUAL = "EQUAL",
+  DIFFERENT = "DIFFERENT",
+  BIGGER = "BIGGER",
+  BIGGER_EQ = "BIGGER_EQ",
+  SMALLER = "SMALLER",
+  SMALLER_EQ = "SMALLER_EQ",
   // BETWEEN = "BETWEEN",
-  NOT = "$not",
-  IN = "$in",
+  NOT = "NOT",
+  IN = "IN",
   // IS = "IS",
-  REGEXP = "$regex",
+  REGEXP = "REGEXP",
 }
 
 export enum GroupOperator {
-  AND = "$and",
-  OR = "$or",
+  AND = "AND",
+  OR = "OR",
 }
 
 export enum Const {
-  NULL = "null",
+  NULL = "NULL",
 }
 
 /**

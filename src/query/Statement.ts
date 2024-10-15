@@ -40,12 +40,12 @@ export abstract class Statement<Q>
   @required()
   protected target?: Constructor<any> = undefined;
 
-  private fullRecord: boolean = false;
+  protected fullRecord: boolean = false;
 
   @required()
   protected type?: string = undefined;
 
-  constructor(db: Adapter<any, Q>) {
+  protected constructor(db: Adapter<any, Q>) {
     super();
     this.adapter = db;
   }
@@ -100,7 +100,7 @@ export abstract class Statement<Q>
     }
   }
 
-  raw<Y>(rawInput: Q, ...args: any[]): Promise<Y> {
+  async raw<Y>(rawInput: Q, ...args: any[]): Promise<Y> {
     return this.adapter.raw(rawInput, ...args);
   }
 
@@ -157,12 +157,4 @@ export abstract class Statement<Q>
   setMode(type: StatementType) {
     this.type = type;
   }
-
-  //
-  // static insertInto<V, Y>(
-  //   db: RawExecutor<Y>,
-  //   table: Constructor<V>,
-  // ): IntoOption<V> {
-  //   return InsertClause.from(new Statement<V, Y>(db)).into(table);
-  // }
 }

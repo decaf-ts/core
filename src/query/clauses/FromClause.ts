@@ -59,17 +59,7 @@ export abstract class FromClause<Q, M extends DBModel>
   /**
    * @inheritDoc
    */
-  abstract build(query: Q): Q; //{
-  // const selectors: any = {};
-  // selectors[ReservedAttributes.TABLE] = {};
-  // selectors[ReservedAttributes.TABLE][Operator.EQUAL] =
-  //   typeof this.selector === "string"
-  //     ? this.selector
-  //     : (this.selector!.name as string);
-  // query.selector = selectors;
-  // return query;
-  //   return undefined as Q;
-  // }
+  abstract build(query: Q): Q;
 
   /**
    * @inheritDoc

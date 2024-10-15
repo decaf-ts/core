@@ -10,8 +10,6 @@ import {
 import { SelectSelector } from "./selectors";
 import { DBModel } from "@decaf-ts/db-decorators";
 import { Adapter } from "../persistence";
-import { SelectClause } from "./clauses/SelectClause";
-import { InsertClause } from "./clauses/InsertClause";
 
 /**
  * @summary Helper Class to build queries

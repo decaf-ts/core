@@ -18,14 +18,22 @@ import { Constructor } from "@decaf-ts/decorator-validation";
 import { getTableName } from "./utils";
 import { getPersistenceKey } from "../persistence/decorators";
 import { PersistenceKeys } from "../persistence/constants";
+import {
+  Condition,
+  OrderBySelector,
+  Query,
+  SelectSelector,
+  WhereOption,
+} from "../query";
+import { OrderDirection } from "./constants";
 
-export class Repository<T extends DBModel, V = any>
-  extends Rep<T>
+export class Repository<M extends DBModel, Q>
+  extends Rep<M>
   implements Observable
 {
   private observers: Observer[] = [];
 
-  private readonly _adapter!: Adapter<any, V>;
+  private readonly _adapter!: Adapter<any, Q>;
   private _tableName!: string;
   private _pk!: string;
 
@@ -47,24 +55,24 @@ export class Repository<T extends DBModel, V = any>
     return this._pk;
   }
 
-  constructor(adapter?: Adapter<any, V>, clazz?: Constructor<T>) {
+  constructor(adapter?: Adapter<any, Q>, clazz?: Constructor<M>) {
     super(clazz);
     if (adapter) this._adapter = adapter;
   }
 
-  async create(model: T, ...args: any[]): Promise<T> {
+  async create(model: M, ...args: any[]): Promise<M> {
     // eslint-disable-next-line prefer-const
     let { record, id } = await this.adapter.prepare(model, this.pk);
     record = await this.adapter.create(this.tableName, id, record, ...args);
     return this.adapter.revert(record, this.class, this.pk, id);
   }
 
-  async read(id: string, ...args: any[]): Promise<T> {
+  async read(id: string, ...args: any[]): Promise<M> {
     const m = await this.adapter.read(this.tableName, id, ...args);
     return this.adapter.revert(m, this.class, this.pk, id);
   }
 
-  async update(model: T, ...args: any[]): Promise<T> {
+  async update(model: M, ...args: any[]): Promise<M> {
     // eslint-disable-next-line prefer-const
     let { record, id } = await this.adapter.prepare(model, this.pk);
     record = await this.adapter.update(this.tableName, id, record, ...args);
@@ -72,9 +80,9 @@ export class Repository<T extends DBModel, V = any>
   }
 
   protected async updatePrefix(
-    model: T,
+    model: M,
     ...args: any[]
-  ): Promise<[T, ...args: any[]]> {
+  ): Promise<[M, ...args: any[]]> {
     model = new this.class(model);
     const pk = findModelId(model);
 
@@ -103,9 +111,27 @@ export class Repository<T extends DBModel, V = any>
     return [model, ...args];
   }
 
-  async delete(id: string, ...args: any[]): Promise<T> {
+  async delete(id: string, ...args: any[]): Promise<M> {
     const m = await this.adapter.delete(this.tableName, id, ...args);
     return this.adapter.revert(m, this.class, this.pk, id);
+  }
+
+  select(selector?: SelectSelector): WhereOption {
+    return new Query<Q, M>(this.adapter).select(selector).from(this.class);
+  }
+
+  query<V>(
+    condition: Condition,
+    orderBy: string,
+    order: OrderDirection = OrderDirection.ASC,
+    limit?: number,
+    skip?: number,
+  ): Promise<V[]> {
+    const sort: OrderBySelector = [orderBy as string, order as OrderDirection];
+    const query = this.select().where(condition).orderBy(sort);
+    if (limit) query.limit(limit);
+    if (skip) query.offset(skip);
+    return query.execute() as Promise<V[]>;
   }
 
   /**
@@ -146,7 +172,9 @@ export class Repository<T extends DBModel, V = any>
     });
   }
 
-  static forModel<T extends DBModel>(model: Constructor<T>): Repository<T> {
+  static forModel<M extends DBModel>(
+    model: Constructor<M>,
+  ): Repository<M, any> {
     const repository = Reflect.getMetadata(
       getDBKey(DBKeys.REPOSITORY),
       model.constructor,
@@ -169,7 +197,7 @@ export class Repository<T extends DBModel, V = any>
         `No registered persistence adapter found flavour ${flavour}`,
       );
 
-    let repo: Repository<T>;
+    let repo: Repository<M, any>;
     try {
       repo = repository(adapter);
     } catch (e: any) {

@@ -13,7 +13,7 @@ import { PersistenceKeys } from "../persistence/constants";
 
 export function bootRepository<T extends DBModel>(
   model: Constructor<T>,
-  original: (...args: any[]) => Repository<T>,
+  original: (...args: any[]) => Repository<T, any>,
 ) {
   const injectableName: string | undefined = Reflect.getMetadata(
     getDBKey(DBKeys.REPOSITORY),

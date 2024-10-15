@@ -28,7 +28,7 @@ export abstract class InsertClause<Q, M extends DBModel>
   implements InsertOption<M>, IntoOption<M>
 {
   @required()
-  private table?: string = undefined;
+  protected table?: string = undefined;
 
   protected constructor(clause?: ModelArg<InsertClause<Q, M>>) {
     super(clause);

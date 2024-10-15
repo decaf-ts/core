@@ -36,16 +36,14 @@ export type IdOnCreateData = {
  * @param key
  * @param model
  */
-export async function pkOnCreate<T extends DBModel, V extends Repository<T>>(
-  this: V,
-  data: IdOnCreateData,
-  key: string,
-  model: T,
-): Promise<void> {
+export async function pkOnCreate<
+  M extends DBModel,
+  V extends Repository<M, any>,
+>(this: V, data: IdOnCreateData, key: string, model: M): Promise<void> {
   if (!data.sequence) return;
 
   const setPrimaryKeyValue = function (
-    target: T,
+    target: M,
     propertyKey: string,
     value: string | number,
   ) {

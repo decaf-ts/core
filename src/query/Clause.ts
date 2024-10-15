@@ -53,6 +53,10 @@ export abstract class Clause<Q>
     return this.statement.getAdapter();
   }
 
+  protected get Clauses() {
+    return this.statement.getAdapter().Clauses;
+  }
+
   /**
    * @summary return the priority of the clause
    * @see Priority

@@ -26,7 +26,7 @@ import { Statement } from "../Statement";
  * @category Query
  * @subcategory Clauses
  */
-export class OrderByClause<Q>
+export abstract class OrderByClause<Q>
   extends SelectorBasedClause<Q, OrderBySelector[]>
   implements LimitOption, OffsetOption
 {
@@ -40,49 +40,38 @@ export class OrderByClause<Q>
   /**
    * @inheritDoc
    */
-  build(query: Q): Q {
-    // query.sort = query.sort || [];
-    // this.selector!.forEach((s) => {
-    //   const [selector, value] = s;
-    //   const rec: any = {};
-    //   rec[selector] = value;
-    //   (query.sort as any[]).push(rec as any);
-    //   if (!query.selector[selector]) {
-    //     query.selector[selector] = {};
-    //     query.selector[selector][Operator.BIGGER] = null;
-    //   }
-    //   // query.fields = query.fields || [];
-    //   // query.fields = [...new Set([...query.fields, selector]).keys()]
-    // });
-    return query;
-  }
+  abstract build(query: Q): Q; // {
+  // query.sort = query.sort || [];
+  // this.selector!.forEach((s) => {
+  //   const [selector, value] = s;
+  //   const rec: any = {};
+  //   rec[selector] = value;
+  //   (query.sort as any[]).push(rec as any);
+  //   if (!query.selector[selector]) {
+  //     query.selector[selector] = {};
+  //     query.selector[selector][Operator.BIGGER] = null;
+  //   }
+  //   // query.fields = query.fields || [];
+  //   // query.fields = [...new Set([...query.fields, selector]).keys()]
+  // });
+  //   return query;
+  // }
   /**
    * @inheritDoc
    */
   groupBy(selector: GroupBySelector): Executor {
-    return GroupByClause.from(this.statement, selector);
+    return this.Clauses.groupBy(this.statement, selector);
   }
   /**
    * @inheritDoc
    */
   limit(selector: LimitSelector): OffsetOption {
-    return LimitClause.from(this.statement, selector);
+    return this.Clauses.limit(this.statement, selector);
   }
   /**
    * @inheritDoc
    */
   offset(selector: OffsetSelector): Executor {
-    return OffsetClause.from(this.statement, selector);
-  }
-  /**
-   * @summary Factory method for {@link OrderByClause}
-   * @param {Statement} statement
-   * @param {OrderBySelector} selector
-   */
-  static from<Q>(
-    statement: Statement<Q>,
-    selector: OrderBySelector[],
-  ): OrderByClause<Q> {
-    return new OrderByClause({ selector: selector, statement: statement });
+    return this.Clauses.offset(this.statement, selector);
   }
 }

@@ -16,6 +16,7 @@ import { PersistenceKeys } from "./constants";
 import { Const, GroupOperator, Operator } from "../query/constants";
 import { Query } from "../query/Query";
 import { Statement } from "../query/Statement";
+import { ClauseFactory } from "../query/ClauseFactory";
 
 /**
  * @summary Abstract Decaf-ts Persistence Adapter Class
@@ -53,6 +54,8 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
   }
 
   abstract get Statement(): Statement<Q>;
+
+  abstract get Clauses(): ClauseFactory<Y, Q>;
 
   protected isReserved(attr: string) {
     return !attr;

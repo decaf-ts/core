@@ -12,7 +12,6 @@ import { QueryError } from "./errors";
 import { Clause } from "./Clause";
 import { clauseSequence } from "../validators";
 import { Adapter } from "../persistence";
-import { Repository } from "../repository";
 import { InternalError } from "@decaf-ts/db-decorators";
 
 /**
@@ -46,7 +45,7 @@ export abstract class Statement<Q>
   @required()
   protected type?: string = undefined;
 
-  protected constructor(db: Adapter<any, Q>) {
+  constructor(db: Adapter<any, Q>) {
     super();
     this.adapter = db;
   }
@@ -102,7 +101,7 @@ export abstract class Statement<Q>
   }
 
   raw<Y>(rawInput: Q, ...args: any[]): Promise<Y> {
-    return this.adapter!.raw(rawInput, ...args);
+    return this.adapter.raw(rawInput, ...args);
   }
 
   /**

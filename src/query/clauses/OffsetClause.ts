@@ -15,8 +15,11 @@ import { Model, ModelArg } from "@decaf-ts/decorator-validation";
  * @category Query
  * @subcategory Clauses
  */
-export class OffsetClause<Q> extends SelectorBasedClause<Q, GroupBySelector> {
-  constructor(clause?: ModelArg<OffsetClause<Q>>) {
+export abstract class OffsetClause<Q> extends SelectorBasedClause<
+  Q,
+  OffsetSelector
+> {
+  protected constructor(clause?: ModelArg<OffsetClause<Q>>) {
     super(clause);
     Model.fromObject<OffsetClause<Q>>(
       this,
@@ -26,21 +29,10 @@ export class OffsetClause<Q> extends SelectorBasedClause<Q, GroupBySelector> {
   /**
    * @inheritDoc
    */
-  build(query: Q): Q {
-    // const skip: number = parseInt(this.selector as string);
-    // if (isNaN(skip)) throw new QueryError("Failed to parse offset");
-    // query.skip = skip;
-    return query;
-  }
-  /**
-   * @summary Factory method for {@link OffsetClause}
-   * @param {Statement} statement
-   * @param {OffsetSelector} selector
-   */
-  static from<Q>(
-    statement: Statement<Q>,
-    selector: OffsetSelector,
-  ): OffsetClause<Q> {
-    return new OffsetClause({ selector: selector, statement: statement });
-  }
+  abstract build(query: Q): Q; // {
+  // const skip: number = parseInt(this.selector as string);
+  // if (isNaN(skip)) throw new QueryError("Failed to parse offset");
+  // query.skip = skip;
+  // return query;
+  // }
 }

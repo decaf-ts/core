@@ -19,7 +19,7 @@ import {
  * @category Query
  * @subcategory Clauses
  */
-export class ValuesClause<Q, M> extends Clause<Q> {
+export abstract class ValuesClause<Q, M> extends Clause<Q> {
   @required()
   @type(Array.name)
   models?: M[] = undefined;
@@ -34,15 +34,5 @@ export class ValuesClause<Q, M> extends Clause<Q> {
   /**
    * @inheritDoc
    */
-  build(query: Q): Q {
-    return query;
-  }
-  /**
-   * @summary Factory method for {@link ValuesClause}
-   * @param {Statement} statement
-   * @param {T[]} values
-   */
-  static from<Q, M>(statement: Statement<Q>, values: M[]): ValuesClause<Q, M> {
-    return new ValuesClause<Q, M>({ statement: statement, models: values });
-  }
+  abstract build(query: Q): Q;
 }

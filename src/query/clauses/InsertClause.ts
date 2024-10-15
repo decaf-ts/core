@@ -1,4 +1,3 @@
-import type { Statement } from "../Statement";
 import { Condition } from "../Condition";
 import { InsertOption, IntoOption, OrderAndGroupOption } from "../options";
 import { Priority } from "../constants";
@@ -10,8 +9,6 @@ import {
   required,
 } from "@decaf-ts/decorator-validation";
 import { Executor } from "../../interfaces";
-import { WhereClause } from "./WhereClause";
-import { ValuesClause } from "./ValuesClause";
 import { DBModel } from "@decaf-ts/db-decorators";
 
 /**
@@ -26,7 +23,7 @@ import { DBModel } from "@decaf-ts/db-decorators";
  * @category Query
  * @subcategory Clauses
  */
-export class InsertClause<Q, M extends DBModel>
+export abstract class InsertClause<Q, M extends DBModel>
   extends Clause<Q>
   implements InsertOption<M>, IntoOption<M>
 {
@@ -43,37 +40,26 @@ export class InsertClause<Q, M extends DBModel>
   /**
    * @inheritDoc
    */
-  build(query: Q): Q {
-    return query;
-  }
+  abstract build(query: Q): Q;
 
   /**
    * @inheritDoc
    */
   into(table: Constructor<M>): IntoOption<M> {
-    this.table = table.name;
-    this.statement!.setTarget(table);
+    this.table = table.name; // TODO get mapped name
+    this.statement.setTarget(table);
     return this;
   }
   /**
    * @inheritDoc
    */
   values(...models: M[]): Executor {
-    return ValuesClause.from(this.statement as Statement<Q>, models);
+    return this.Clauses.values(this.statement, models);
   }
   /**
    * @inheritDoc
    */
   where(condition: Condition): OrderAndGroupOption {
-    return WhereClause.from(this.statement as Statement<Q>, condition);
-  }
-  /**
-   * @summary Factory method for {@link InsertClause}
-   * @param {Statement} statement
-   */
-  static from<Q, M extends DBModel>(
-    statement: Statement<Q>,
-  ): InsertClause<Q, M> {
-    return new InsertClause<Q, M>({ statement: statement });
+    return this.Clauses.where(this.statement, condition);
   }
 }

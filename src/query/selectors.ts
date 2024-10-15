@@ -1,12 +1,13 @@
 import { OrderDirection } from "../repository";
 import { Constructor } from "@decaf-ts/decorator-validation";
+import { DBModel } from "@decaf-ts/db-decorators";
 
 /**
  * @typedef FromSelector
  *
  * @category Clauses
  */
-export type FromSelector = Constructor<any> | string;
+export type FromSelector<M extends DBModel> = Constructor<M> | string;
 /**
  * @typedef GroupBySelector
  *

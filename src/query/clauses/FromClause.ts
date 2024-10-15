@@ -16,18 +16,12 @@ import { SelectorBasedClause } from "./SelectorBasedClause";
 import { Executor } from "../../interfaces";
 import { QueryError } from "../errors";
 import { Condition } from "../Condition";
-import { Statement } from "../Statement";
 import {
   Constructor,
   Model,
   ModelArg,
   stringFormat,
 } from "@decaf-ts/decorator-validation";
-import { LimitClause } from "./LimitClause";
-import { OffsetClause } from "./OffsetClause";
-import { OrderByClause } from "./OrderByClause";
-import { GroupByClause } from "./GroupByClause";
-import { WhereClause } from "./WhereClause";
 import { DBModel } from "@decaf-ts/db-decorators";
 
 /**
@@ -42,8 +36,8 @@ import { DBModel } from "@decaf-ts/db-decorators";
  * @category Query
  * @subcategory Clauses
  */
-export class FromClause<Q, M extends DBModel>
-  extends SelectorBasedClause<Q, FromSelector>
+export abstract class FromClause<Q, M extends DBModel>
+  extends SelectorBasedClause<Q, FromSelector<M>>
   implements WhereOption
 {
   protected constructor(clause?: ModelArg<FromClause<Q, M>>) {
@@ -65,58 +59,46 @@ export class FromClause<Q, M extends DBModel>
   /**
    * @inheritDoc
    */
-  build(query: Q): Q {
-    // const selectors: any = {};
-    // selectors[ReservedAttributes.TABLE] = {};
-    // selectors[ReservedAttributes.TABLE][Operator.EQUAL] =
-    //   typeof this.selector === "string"
-    //     ? this.selector
-    //     : (this.selector!.name as string);
-    // query.selector = selectors;
-    // return query;
-    return undefined as Q;
-  }
+  abstract build(query: Q): Q; //{
+  // const selectors: any = {};
+  // selectors[ReservedAttributes.TABLE] = {};
+  // selectors[ReservedAttributes.TABLE][Operator.EQUAL] =
+  //   typeof this.selector === "string"
+  //     ? this.selector
+  //     : (this.selector!.name as string);
+  // query.selector = selectors;
+  // return query;
+  //   return undefined as Q;
+  // }
 
   /**
    * @inheritDoc
    */
   where(condition: Condition): OrderAndGroupOption {
-    return WhereClause.from(this.statement, condition);
+    return this.Clauses.where(this.statement, condition);
   }
   /**
    * @inheritDoc
    */
   orderBy(...selector: OrderBySelector[]): LimitOption & OffsetOption {
-    return OrderByClause.from(this.statement, selector);
+    return this.Clauses.orderBy(this.statement, selector);
   }
   /**
    * @inheritDoc
    */
   groupBy(selector: GroupBySelector): Executor {
-    return GroupByClause.from(this.statement, selector);
+    return this.Clauses.groupBy(this.statement, selector);
   }
   /**
    * @inheritDoc
    */
   limit(selector: LimitSelector): OffsetOption {
-    return LimitClause.from(this.statement, selector);
+    return this.Clauses.limit(this.statement, selector);
   }
   /**
    * @inheritDoc
    */
   offset(selector: OffsetSelector): Executor {
-    return OffsetClause.from(this.statement, selector);
-  }
-
-  /**
-   * @summary Factory method for {@link FromClause}
-   * @param {Statement} statement
-   * @param {FromSelector} selector
-   */
-  static from<Q, M extends DBModel>(
-    statement: Statement<Q>,
-    selector: FromSelector,
-  ): FromClause<Q, M> {
-    return new FromClause({ selector: selector, statement: statement });
+    return this.Clauses.offset(this.statement, selector);
   }
 }

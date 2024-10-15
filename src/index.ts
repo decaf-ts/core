@@ -15,7 +15,9 @@ export * from "./identity";
 export * from "./interfaces";
 export * from "./model";
 export * from "./persistence";
+export * from "./query";
 export * from "./repository";
+export * from "./validators";
 
 /**
  * @summary stores the current package version

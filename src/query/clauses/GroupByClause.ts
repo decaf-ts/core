@@ -21,8 +21,11 @@ import { SelectorBasedClause } from "./SelectorBasedClause";
  * @category Query
  * @subcategory Clauses
  */
-export class GroupByClause<Q> extends SelectorBasedClause<Q, GroupBySelector> {
-  constructor(clause?: ModelArg<GroupByClause<Q>>) {
+export abstract class GroupByClause<Q> extends SelectorBasedClause<
+  Q,
+  GroupBySelector
+> {
+  protected constructor(clause?: ModelArg<GroupByClause<Q>>) {
     super(clause);
     Model.fromObject<GroupByClause<Q>>(
       this,
@@ -32,25 +35,5 @@ export class GroupByClause<Q> extends SelectorBasedClause<Q, GroupBySelector> {
   /**
    * @inheritDoc
    */
-  build(query: Q): Q {
-    return query;
-  }
-
-  hasErrors(...exceptions: any[]): ModelErrorDefinition | undefined {
-    return new ModelErrorDefinition({
-      groupBy: "GroupBy is not implemented",
-    } as unknown as ModelErrors);
-  }
-
-  /**
-   * @summary Factory method for {@link GroupByClause}
-   * @param {Statement} statement
-   * @param {GroupBySelector} selector
-   */
-  static from<Q>(
-    statement: Statement<Q>,
-    selector: GroupBySelector,
-  ): GroupByClause<Q> {
-    return new GroupByClause({ selector: selector, statement: statement });
-  }
+  abstract build(query: Q): Q;
 }

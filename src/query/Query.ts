@@ -30,7 +30,7 @@ export class Query<Q, M extends DBModel> {
    * @param {SelectSelector} [selector]
    */
   select(selector?: SelectSelector): SelectOption<M> {
-    return SelectClause.from<Q, M>(this.adapter.Statement, selector);
+    return this.adapter.Clauses.select<M>(selector);
   }
   /**
    * @summary Creates a Min Clause
@@ -62,6 +62,6 @@ export class Query<Q, M extends DBModel> {
   }
 
   insert(): InsertOption<M> {
-    return InsertClause.from<Q, M>(this.adapter.Statement);
+    return this.adapter.Clauses.insert<M>();
   }
 }

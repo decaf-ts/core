@@ -20,11 +20,11 @@ import { OffsetClause } from "./OffsetClause";
  * @category Query
  * @subcategory Clauses
  */
-export class LimitClause<Q>
+export abstract class LimitClause<Q>
   extends SelectorBasedClause<Q, LimitSelector>
   implements OffsetOption
 {
-  constructor(clause?: ModelArg<LimitClause<Q>>) {
+  protected constructor(clause?: ModelArg<LimitClause<Q>>) {
     super(clause);
     Model.fromObject<LimitClause<Q>>(
       this,
@@ -34,25 +34,14 @@ export class LimitClause<Q>
   /**
    * @inheritDoc
    */
-  build(query: Q): Q {
-    // query.limit = this.selector as number;
-    return query;
-  }
+  abstract build(query: Q): Q; //{
+  // query.limit = this.selector as number;
+  //   return query;
+  // }
   /**
    * @inheritDoc
    */
   offset(selector: OffsetSelector): Executor {
-    return OffsetClause.from(this.statement, selector);
-  }
-  /**
-   * @summary Factory method for {@link LimitClause}
-   * @param {Statement} statement
-   * @param {LimitSelector} selector
-   */
-  static from<Q>(
-    statement: Statement<Q>,
-    selector: LimitSelector,
-  ): LimitClause<Q> {
-    return new LimitClause({ selector: selector, statement: statement });
+    return this.Clauses.offset(this.statement, selector);
   }
 }

@@ -304,7 +304,7 @@ export interface InsertOption<M extends DBModel> {
    * @param {string | Constructor} table
    * @method
    */
-  into(table: string | Constructor<M>): IntoOption<M>;
+  into(table: Constructor<M>): IntoOption<M>;
 }
 
 /**

@@ -7,7 +7,7 @@ import {Model} from "@decaf-ts/decorator-validation";
 Model.setBuilder(Model.fromModel)
 
 describe("Adapter", () => {
-  let adapter: Adapter<any>
+  let adapter: Adapter<Record<string, any>, any>
 
   it("instantiates", () => {
     adapter = new RamAdapter();

@@ -27,7 +27,7 @@ import {
 } from "../query";
 import { OrderDirection } from "./constants";
 
-export class Repository<M extends DBModel, Q>
+export class Repository<M extends DBModel, Q = any>
   extends Rep<M>
   implements Observable
 {
@@ -120,7 +120,7 @@ export class Repository<M extends DBModel, Q>
     return new Query<Q, M>(this.adapter).select(selector).from(this.class);
   }
 
-  query<V>(
+  async query<V>(
     condition: Condition,
     orderBy: string,
     order: OrderDirection = OrderDirection.ASC,

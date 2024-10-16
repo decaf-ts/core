@@ -1,3 +1,6 @@
+import { InjectablesRegistry } from "./repository";
+import { Injectables } from "@decaf-ts/injectable-decorators";
+
 /**
  * @summary Module summary
  * @description Module description
@@ -18,6 +21,8 @@ export * from "./persistence";
 export * from "./query";
 export * from "./repository";
 export * from "./validators";
+
+Injectables.setRegistry(new InjectablesRegistry());
 
 /**
  * @summary stores the current package version

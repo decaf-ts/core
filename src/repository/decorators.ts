@@ -7,7 +7,9 @@ import {
 } from "@decaf-ts/db-decorators";
 import { metadata } from "@decaf-ts/reflection";
 import { Constructor } from "@decaf-ts/decorator-validation";
-import { bootRepository } from "./utils";
+import { Repository } from "./Repository";
+import { generateInjectableNameForRepository } from "./utils";
+import { getPersistenceKey, PersistenceKeys } from "../persistence";
 
 export function repository<T extends DBModel>(
   model: Constructor<T>,
@@ -15,11 +17,15 @@ export function repository<T extends DBModel>(
 ) {
   return (original: any, propertyKey?: string) => {
     if (propertyKey) {
-      const injectableName = bootRepository(model, original);
-      return inject(injectableName)(original, propertyKey);
+      // const flavour = Reflect.getMetadata(
+      //   getPersistenceKey(PersistenceKeys.ADAPTER),
+      //   original.constructor,
+      // );
+      return inject(nameOverride || model.name)(original, propertyKey);
     }
 
     metadata(getDBKey(DBKeys.REPOSITORY), nameOverride || original.name)(model);
+    Repository.register(nameOverride || original.name, original);
     return injectable(
       nameOverride || original.name,
       true,

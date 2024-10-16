@@ -1,5 +1,8 @@
-import { Constructor, required } from "@decaf-ts/decorator-validation";
-import { SequenceOptions } from "../interfaces/SequenceOptions";
+import { required } from "@decaf-ts/decorator-validation";
+import {
+  DefaultSequenceOptions,
+  SequenceOptions,
+} from "../interfaces/SequenceOptions";
 import { Sequence } from "../interfaces/Sequence";
 import {
   DBKeys,
@@ -12,11 +15,7 @@ import {
 import { apply, metadata } from "@decaf-ts/reflection";
 import { Repository } from "../repository/Repository";
 import { index } from "../model/decorators";
-
-export type IdOnCreateData = {
-  sequence?: Constructor<Sequence>;
-  options?: SequenceOptions;
-};
+import { sequenceNameForModel } from "./utils";
 
 /**
  * @summary Primary Key Decorator
@@ -39,13 +38,13 @@ export type IdOnCreateData = {
 export async function pkOnCreate<
   M extends DBModel,
   V extends Repository<M, any>,
->(this: V, data: IdOnCreateData, key: string, model: M): Promise<void> {
-  if (!data.sequence) return;
+>(this: V, data: SequenceOptions, key: string, model: M): Promise<void> {
+  if (!data.type) return;
 
   const setPrimaryKeyValue = function (
     target: M,
     propertyKey: string,
-    value: string | number,
+    value: string | number | bigint,
   ) {
     Object.defineProperty(target, propertyKey, {
       enumerable: true,
@@ -54,17 +53,13 @@ export async function pkOnCreate<
       value: value,
     });
   };
-
+  if (!data.name) data.name = sequenceNameForModel(model, "pk");
   let sequence: Sequence;
   try {
-    sequence = await this.adapter.getSequence(
-      model,
-      data.sequence,
-      data.options,
-    );
+    sequence = await this.adapter.Sequence(data);
   } catch (e: any) {
     throw new InternalError(
-      `Failed to instantiate Sequence ${data.sequence.name}: ${e}`,
+      `Failed to instantiate Sequence ${data.name}: ${e}`,
     );
   }
 
@@ -72,15 +67,12 @@ export async function pkOnCreate<
   setPrimaryKeyValue(model, key, next);
 }
 
-export function pk(sequence?: Constructor<Sequence>, opts?: SequenceOptions) {
+export function pk(opts: SequenceOptions = DefaultSequenceOptions) {
   return apply(
     index(),
     required(),
     readonly(),
-    metadata(getDBKey(DBKeys.ID), {}),
-    onCreate(pkOnCreate, {
-      sequence: sequence,
-      options: opts,
-    } as IdOnCreateData),
+    metadata(getDBKey(DBKeys.ID), opts),
+    onCreate(pkOnCreate, opts),
   );
 }

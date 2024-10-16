@@ -12,6 +12,7 @@ export interface Sequence {
    *
    * @method
    */
-  next(): Promise<string | number>;
-  current(): Promise<string | number>;
+  next(): Promise<string | number | bigint>;
+  current(): Promise<string | number | bigint>;
+  // range(): Promise<string[] | number[] | bigint[]>;
 }

@@ -31,6 +31,9 @@ export class Repository<M extends DBModel, Q = any>
   extends Rep<M>
   implements Observable
 {
+  private static _cache: Record<string, Constructor<Repository<DBModel, any>>> =
+    {};
+
   private observers: Observer[] = [];
 
   private readonly _adapter!: Adapter<any, Q>;
@@ -175,36 +178,65 @@ export class Repository<M extends DBModel, Q = any>
   static forModel<M extends DBModel>(
     model: Constructor<M>,
   ): Repository<M, any> {
-    const repository = Reflect.getMetadata(
+    const repoName: string | undefined = Reflect.getMetadata(
       getDBKey(DBKeys.REPOSITORY),
-      model.constructor,
+      model,
     );
-    if (!repository)
-      throw new InternalError(
-        `No registered repository found for model ${model.constructor.name}`,
-      );
-    const flavour = Reflect.getMetadata(
+    let flavour: string | undefined = Reflect.getMetadata(
       getPersistenceKey(PersistenceKeys.ADAPTER),
-      repository.constructor,
+      model,
     );
-    if (!flavour)
-      throw new InternalError(
-        `No registered persistence adapter found for model ${model.constructor.name}`,
-      );
-    const adapter = Adapter.get(flavour);
+    let adapter: Adapter<any, any> | undefined = flavour
+      ? Adapter.get(flavour)
+      : undefined;
+
+    let repoConstructor: Constructor<Repository<M>>;
+    if (!repoName) {
+      if (!adapter)
+        throw new InternalError(
+          `Cannot boot a standard repository without an adapter definition. Did you @use on the model ${model.name}`,
+        );
+      repoConstructor = Repository;
+    } else {
+      repoConstructor = this.get(repoName);
+      flavour =
+        flavour ||
+        Reflect.getMetadata(
+          getPersistenceKey(PersistenceKeys.ADAPTER),
+          repoConstructor,
+        );
+      if (!flavour)
+        throw new InternalError(
+          `No registered persistence adapter found for model ${model.name}`,
+        );
+
+      adapter = Adapter.get(flavour);
+    }
+
     if (!adapter)
       throw new InternalError(
         `No registered persistence adapter found flavour ${flavour}`,
       );
 
-    let repo: Repository<M, any>;
-    try {
-      repo = repository(adapter);
-    } catch (e: any) {
-      throw new InternalError(
-        `Failed to boot repository for ${model.constructor.name} using persistence adapter ${flavour}`,
-      );
-    }
-    return repo;
+    return new repoConstructor(adapter, model);
+  }
+
+  private static get<M extends DBModel>(
+    name: string,
+  ): Constructor<Repository<M>> {
+    if (name in this._cache)
+      return this._cache[name] as Constructor<Repository<M>>;
+    throw new InternalError(
+      `Could not find repository registered under ${name}`,
+    );
+  }
+
+  static register<M extends DBModel>(
+    name: string,
+    repo: Constructor<Repository<M, any>>,
+  ) {
+    if (name in this._cache)
+      throw new InternalError(`${name} already registered as a repository`);
+    this._cache[name] = repo;
   }
 }

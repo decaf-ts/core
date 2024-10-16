@@ -94,6 +94,10 @@ export class RamAdapter extends Adapter<Record<string, any>, string>{
     throw new InternalError(`Not implemented`)
   }
 
+  Sequence(options: SequenceOptions): Promise<Sequence> {
+    throw new InternalError(`Not implemented`)
+  }
+
   parseCondition(condition: Condition): string {
     throw new InternalError(`Not implemented`)
   }

@@ -3,7 +3,7 @@ export const PersistenceKeys: Record<string, string> = {
   INDEX: "index",
   UNIQUE: "unique",
   ADAPTER: "adapter",
-  INJECTABLE: "decaf-adapter-{0}",
+  INJECTABLE: "decaf_{0}_adapter_for_{1}",
   TABLE: "table",
   COLUMN: "column",
   METADATA: "__metadata",

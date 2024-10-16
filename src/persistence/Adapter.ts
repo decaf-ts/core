@@ -13,7 +13,6 @@ import { getColumnName } from "./utils";
 import { RawExecutor } from "../interfaces/RawExecutor";
 import { Observable } from "../interfaces/Observable";
 import { PersistenceKeys } from "./constants";
-import { Const, GroupOperator, Operator } from "../query/constants";
 import { Query } from "../query/Query";
 import { Statement } from "../query/Statement";
 import { ClauseFactory } from "../query/ClauseFactory";
@@ -45,7 +44,10 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     return this._native;
   }
 
-  protected constructor(native: Y, flavour: string) {
+  protected constructor(
+    native: Y,
+    readonly flavour: string,
+  ) {
     this._native = native;
     Adapter._cache[flavour] = this;
   }
@@ -66,13 +68,9 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   protected abstract parseError(err: Error): BaseError;
 
-  abstract createIndex(...args: any[]): Promise<any>;
+  abstract createIndex<M extends DBModel>(...models: M[]): Promise<any>;
 
-  abstract getSequence<V extends DBModel>(
-    model: V,
-    sequence: Constructor<Sequence>,
-    options?: SequenceOptions,
-  ): Promise<Sequence>;
+  abstract Sequence(options: SequenceOptions): Promise<Sequence>;
 
   async prepare<M extends DBModel>(
     model: M,
@@ -204,9 +202,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   static get<Y, Q>(flavour: any): Adapter<Y, Q> | undefined {
     if (flavour in this._cache) return this._cache[flavour];
-    throw new InternalError(
-      `No Adapter registered under ${flavour}. Did you use the @adapter decorator?`,
-    );
+    throw new InternalError(`No Adapter registered under ${flavour}.`);
   }
 
   static setCurrent(flavour: string) {

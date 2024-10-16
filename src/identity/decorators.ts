@@ -16,6 +16,8 @@ import { apply, metadata } from "@decaf-ts/reflection";
 import { Repository } from "../repository/Repository";
 import { index } from "../model/decorators";
 import { sequenceNameForModel } from "./utils";
+import { PersistenceKeys } from "../persistence";
+import { Lock } from "@decaf-ts/transactional-decorators/lib/locks/Lock";
 
 /**
  * @summary Primary Key Decorator
@@ -41,6 +43,11 @@ export async function pkOnCreate<
 >(this: V, data: SequenceOptions, key: string, model: M): Promise<void> {
   if (!data.type) return;
 
+  if (Repository.getMetadata(model) === PersistenceKeys.BULK) {
+    if (!(model as Record<string, any>)[key]) await this.adapter.lock.acquire();
+    else return;
+  }
+
   const setPrimaryKeyValue = function (
     target: M,
     propertyKey: string,
@@ -65,6 +72,10 @@ export async function pkOnCreate<
 
   const next = await sequence.next();
   setPrimaryKeyValue(model, key, next);
+  if (Repository.getMetadata(model) === PersistenceKeys.BULK) {
+    Repository.removeMetadata(model);
+    this.adapter.lock.release();
+  }
 }
 
 export function pk(
@@ -73,11 +84,12 @@ export function pk(
     "cycle" | "startWith" | "incrementBy"
   > = DefaultSequenceOptions,
 ) {
+  opts = Object.assign({}, DefaultSequenceOptions, opts) as SequenceOptions;
   return apply(
     index(),
     required(),
     readonly(),
-    metadata(getDBKey(DBKeys.ID), opts),
+    metadata(getDBKey(DBKeys.ID), opts as SequenceOptions),
     onCreate(pkOnCreate, opts as SequenceOptions),
   );
 }

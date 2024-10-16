@@ -7,8 +7,6 @@ import {BaseError, ConflictError, DBModel, InternalError, NotFoundError} from "@
 
 export class RamAdapter extends Adapter<Record<string, any>, string>{
 
-  private readonly lock: Lock = new Lock();
-  
   private indexes: Record<string, Record<string | number, Record<string, any>>> = {};
 
   private sequences: Record<string, string | number> = {};
@@ -21,14 +19,14 @@ export class RamAdapter extends Adapter<Record<string, any>, string>{
     return Promise.resolve(undefined);
   }
 
-  async prepare<V extends DBModel>(model: V, pk: string | number): Promise<{ record: Record<string, any>; id: string }> {
-    const prepared = await super.prepare(model, pk);
+  prepare<V extends DBModel>(model: V, pk: string | number): { record: Record<string, any>; id: string } {
+    const prepared = super.prepare(model, pk);
     delete prepared.record[pk]
     return prepared;
   }
 
 
-  async revert<V extends DBModel>(obj: Record<string, any>, clazz: string | Constructor<V>, pk: string, id: string | number): Promise<V> {
+  revert<V extends DBModel>(obj: Record<string, any>, clazz: string | Constructor<V>, pk: string, id: string | number): V {
     return super.revert(obj, clazz, pk ,id);
   }
 

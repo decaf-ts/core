@@ -5,5 +5,5 @@ export function sequenceNameForModel<M extends DBModel>(
   model: M,
   ...args: string[]
 ) {
-  return [getTableName(model), ...args, "sequence"].join("_");
+  return [getTableName(model), ...args].join("_");
 }

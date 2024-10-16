@@ -17,6 +17,8 @@ import { Query } from "../query/Query";
 import { Statement } from "../query/Statement";
 import { ClauseFactory } from "../query/ClauseFactory";
 import { Condition } from "../query";
+import { Lock } from "@decaf-ts/transactional-decorators/lib/locks/Lock";
+import { AdapterLock } from "./AdapterLock";
 
 /**
  * @summary Abstract Decaf-ts Persistence Adapter Class
@@ -39,9 +41,17 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   private readonly _observers: Observer[] = [];
   private readonly _native: Y;
+  private _lock?: AdapterLock;
 
   get native() {
     return this._native;
+  }
+
+  get lock(): AdapterLock {
+    if (!this._lock) {
+      this._lock = new AdapterLock();
+    }
+    return this._lock;
   }
 
   protected constructor(
@@ -72,13 +82,13 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   abstract Sequence(options: SequenceOptions): Promise<Sequence>;
 
-  async prepare<M extends DBModel>(
+  prepare<M extends DBModel>(
     model: M,
     pk: string | number,
-  ): Promise<{
+  ): {
     record: Record<string, any>;
     id: string;
-  }> {
+  } {
     const result = Object.entries(model).reduce(
       (accum: Record<string, any>, [key, val]) => {
         if (key === pk) return accum;
@@ -103,12 +113,12 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     };
   }
 
-  async revert<M extends DBModel>(
+  revert<M extends DBModel>(
     obj: Record<string, any>,
     clazz: string | Constructor<M>,
     pk: string,
     id: string | number,
-  ): Promise<M> {
+  ): M {
     const ob: Record<string, any> = {};
     ob[pk] = id;
     const m = (
@@ -139,7 +149,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   async createAll(
     tableName: string,
-    id: string[] | number[],
+    id: (string | number)[],
     model: Record<string, any>[],
     ...args: any[]
   ): Promise<Record<string, any>[]> {

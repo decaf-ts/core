@@ -9,6 +9,7 @@ import {
   OperationKeys,
   Repository as Rep,
   ValidationError,
+  wrapMethod,
 } from "@decaf-ts/db-decorators";
 import { ObserverError } from "./errors";
 import { Observable } from "../interfaces/Observable";
@@ -26,6 +27,7 @@ import {
   WhereOption,
 } from "../query";
 import { OrderDirection } from "./constants";
+import { SequenceOptions } from "../interfaces";
 
 export class Repository<M extends DBModel, Q = any>
   extends Rep<M>
@@ -61,13 +63,60 @@ export class Repository<M extends DBModel, Q = any>
   constructor(adapter?: Adapter<any, Q>, clazz?: Constructor<M>) {
     super(clazz);
     if (adapter) this._adapter = adapter;
+    [this.createAll, this.readAll, this.updateAll, this.deleteAll].forEach(
+      (m) => {
+        const name = m.name;
+        wrapMethod(
+          this,
+          (this as any)[name + "Prefix"],
+          m,
+          (this as any)[name + "Suffix"],
+        );
+      },
+    );
   }
 
   async create(model: M, ...args: any[]): Promise<M> {
     // eslint-disable-next-line prefer-const
-    let { record, id } = await this.adapter.prepare(model, this.pk);
+    let { record, id } = this.adapter.prepare(model, this.pk);
     record = await this.adapter.create(this.tableName, id, record, ...args);
     return this.adapter.revert(record, this.class, this.pk, id);
+  }
+
+  async createAll(models: M[], ...args: any[]): Promise<M[]> {
+    if (!models.length) return models;
+    const prepared = models.map((m) => this.adapter.prepare(m, this.pk));
+    const ids = await (
+      await this.adapter.Sequence(Repository.getSequenceOptions(models[0]))
+    ).range(models.length);
+    const ids2 = prepared.map((p) => p.id);
+    let records = prepared.map((p) => p.record);
+    records = await this.adapter.createAll(
+      this.tableName,
+      ids as (string | number)[],
+      records,
+      ...args,
+    );
+    return records.map((r, i) =>
+      this.adapter.revert(r, this.class, this.pk, ids[i] as string | number),
+    );
+  }
+
+  protected async createAllPrefix(models: M[], ...args: any[]) {
+    await Promise.all(
+      models.map(async (m) => {
+        m = new this.class(m);
+        Repository.setMetadata(m, PersistenceKeys.BULK);
+        await enforceDBDecorators(
+          this,
+          m,
+          OperationKeys.CREATE,
+          OperationKeys.ON,
+        );
+        return m;
+      }),
+    );
+    return [models, ...args];
   }
 
   async read(id: string, ...args: any[]): Promise<M> {
@@ -86,11 +135,9 @@ export class Repository<M extends DBModel, Q = any>
     model: M,
     ...args: any[]
   ): Promise<[M, ...args: any[]]> {
-    model = new this.class(model);
     const pk = findModelId(model);
-
     const oldModel = await this.read(pk);
-
+    model = this.merge(oldModel, model);
     await enforceDBDecorators(
       this,
       model,
@@ -101,16 +148,10 @@ export class Repository<M extends DBModel, Q = any>
 
     const errors = model.hasErrors(oldModel);
     if (errors) throw new ValidationError(errors.toString());
-    if (
-      (oldModel as any)[PersistenceKeys.METADATA] &&
-      !(model as any)[PersistenceKeys.METADATA]
-    )
-      Object.defineProperty(model, PersistenceKeys.METADATA, {
-        enumerable: false,
-        writable: false,
-        configurable: true,
-        value: (oldModel as any)[PersistenceKeys.METADATA],
-      });
+    if (Repository.getMetadata(oldModel)) {
+      if (!Repository.getMetadata(model))
+        Repository.setMetadata(model, Repository.getMetadata(oldModel));
+    }
     return [model, ...args];
   }
 
@@ -134,7 +175,7 @@ export class Repository<M extends DBModel, Q = any>
     const query = this.select().where(condition).orderBy(sort);
     if (limit) query.limit(limit);
     if (skip) query.offset(skip);
-    return query.execute() as Promise<V[]>;
+    return (await query.execute()) as V[];
   }
 
   /**
@@ -238,5 +279,40 @@ export class Repository<M extends DBModel, Q = any>
     if (name in this._cache)
       throw new InternalError(`${name} already registered as a repository`);
     this._cache[name] = repo;
+  }
+
+  static setMetadata<M extends DBModel>(model: M, metadata: any) {
+    Object.defineProperty(model, PersistenceKeys.METADATA, {
+      enumerable: false,
+      configurable: true,
+      writable: false,
+      value: metadata,
+    });
+  }
+
+  static getMetadata<M extends DBModel>(model: M) {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      model,
+      PersistenceKeys.METADATA,
+    );
+    return descriptor ? descriptor.value : undefined;
+  }
+
+  static removeMetadata<M extends DBModel>(model: M) {
+    const descriptor = Object.getOwnPropertyDescriptor(
+      model,
+      PersistenceKeys.METADATA,
+    );
+    if (descriptor) delete (model as any)[PersistenceKeys.METADATA];
+  }
+
+  static getSequenceOptions<M extends DBModel>(model: M) {
+    const pk = findPrimaryKey(model).id;
+    const metadata = Reflect.getMetadata(getDBKey(DBKeys.ID), model, pk);
+    if (!metadata)
+      throw new InternalError(
+        "No sequence options defined for model. did you use the @pk decorator?",
+      );
+    return metadata as SequenceOptions;
   }
 }

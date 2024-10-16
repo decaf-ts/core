@@ -137,11 +137,32 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     ...args: any[]
   ): Promise<Record<string, any>>;
 
+  async createAll(
+    tableName: string,
+    id: string[] | number[],
+    model: Record<string, any>[],
+    ...args: any[]
+  ): Promise<Record<string, any>[]> {
+    if (id.length !== model.length)
+      throw new InternalError("Ids and models must have the same length");
+    return Promise.all(
+      id.map((i, count) => this.create(tableName, i, model[count], ...args)),
+    );
+  }
+
   abstract read(
     tableName: string,
     id: string | number,
     ...args: any[]
   ): Promise<Record<string, any>>;
+
+  async readAll(
+    tableName: string,
+    id: string[] | number[],
+    ...args: any[]
+  ): Promise<Record<string, any>[]> {
+    return Promise.all(id.map((i) => this.read(tableName, i, ...args)));
+  }
 
   abstract update(
     tableName: string,
@@ -150,11 +171,32 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     ...args: any[]
   ): Promise<Record<string, any>>;
 
+  async updateAll(
+    tableName: string,
+    id: string[] | number[],
+    model: Record<string, any>[],
+    ...args: any[]
+  ): Promise<Record<string, any>[]> {
+    if (id.length !== model.length)
+      throw new InternalError("Ids and models must have the same length");
+    return Promise.all(
+      id.map((i, count) => this.update(tableName, i, model[count], ...args)),
+    );
+  }
+
   abstract delete(
     tableName: string,
     id: string | number,
     ...args: any[]
   ): Promise<Record<string, any>>;
+
+  async deleteAll(
+    tableName: string,
+    id: string[] | number[],
+    ...args: any[]
+  ): Promise<Record<string, any>[]> {
+    return Promise.all(id.map((i) => this.delete(tableName, i, ...args)));
+  }
 
   abstract raw<R>(rawInput: Q, ...args: any[]): Promise<R>;
 

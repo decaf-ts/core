@@ -67,12 +67,17 @@ export async function pkOnCreate<
   setPrimaryKeyValue(model, key, next);
 }
 
-export function pk(opts: SequenceOptions = DefaultSequenceOptions) {
+export function pk(
+  opts: Omit<
+    SequenceOptions,
+    "cycle" | "startWith" | "incrementBy"
+  > = DefaultSequenceOptions,
+) {
   return apply(
     index(),
     required(),
     readonly(),
     metadata(getDBKey(DBKeys.ID), opts),
-    onCreate(pkOnCreate, opts),
+    onCreate(pkOnCreate, opts as SequenceOptions),
   );
 }

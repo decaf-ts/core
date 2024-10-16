@@ -175,9 +175,9 @@ export class Repository<M extends DBModel, Q = any>
     });
   }
 
-  static forModel<M extends DBModel>(
+  static forModel<M extends DBModel, R extends Repository<M, any>>(
     model: Constructor<M>,
-  ): Repository<M, any> {
+  ): R {
     const repoName: string | undefined = Reflect.getMetadata(
       getDBKey(DBKeys.REPOSITORY),
       model,
@@ -190,15 +190,15 @@ export class Repository<M extends DBModel, Q = any>
       ? Adapter.get(flavour)
       : undefined;
 
-    let repoConstructor: Constructor<Repository<M>>;
+    let repoConstructor: Constructor<R>;
     if (!repoName) {
       if (!adapter)
         throw new InternalError(
           `Cannot boot a standard repository without an adapter definition. Did you @use on the model ${model.name}`,
         );
-      repoConstructor = Repository;
+      repoConstructor = Repository as unknown as Constructor<R>;
     } else {
-      repoConstructor = this.get(repoName);
+      repoConstructor = this.get(repoName) as unknown as Constructor<R>;
       flavour =
         flavour ||
         Reflect.getMetadata(

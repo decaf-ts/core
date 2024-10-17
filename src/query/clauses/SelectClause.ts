@@ -7,8 +7,8 @@ import {
   SelectOption,
   WhereOption,
 } from "../options";
-import { Priority, StatementType } from "../constants";
-import { Constructor, Model, ModelArg } from "@decaf-ts/decorator-validation";
+import { Const, Priority, StatementType } from "../constants";
+import { Constructor, ModelArg } from "@decaf-ts/decorator-validation";
 import { SelectSelector } from "../selectors";
 import { DBModel } from "@decaf-ts/db-decorators";
 
@@ -34,24 +34,14 @@ export abstract class SelectClause<Q, M extends DBModel>
   private isMin = false;
 
   protected constructor(clause?: ModelArg<SelectClause<Q, M>>) {
-    super(clause);
-    Model.fromObject<SelectClause<Q, M>>(
-      this,
-      Object.assign({}, clause, { priority: Priority.SELECT }),
-    );
+    super(Object.assign({}, clause, { priority: Priority.SELECT }));
+    if (this.selector === Const.FULL_RECORD) this.statement.setFullRecord();
     this.statement.setMode(StatementType.QUERY);
   }
   /**
    * @inheritDoc
    */
   abstract build(query: Q): Q;
-  // if (this.selector === FULL_RECORD) return query;
-  // query.fields =
-  //   typeof this.selector === "string"
-  //     ? [this.selector as string]
-  //     : (this.selector as string[]);
-  //   return query;
-  // }
   /**
    * @inheritDoc
    */
@@ -84,7 +74,7 @@ export abstract class SelectClause<Q, M extends DBModel>
   /**
    * @inheritDoc
    */
-  from(tableName: Constructor<M>, alias?: string): WhereOption {
+  from(tableName: Constructor<M>): WhereOption {
     return this.Clauses.from(this.statement, tableName);
   }
 }

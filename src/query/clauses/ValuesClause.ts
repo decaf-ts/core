@@ -1,6 +1,5 @@
 import { Clause } from "../Clause";
 import { Priority } from "../constants";
-import { Statement } from "../Statement";
 import {
   Model,
   ModelArg,
@@ -25,11 +24,8 @@ export abstract class ValuesClause<Q, M> extends Clause<Q> {
   models?: M[] = undefined;
 
   protected constructor(clause?: ModelArg<ValuesClause<Q, M>>) {
-    super(clause);
-    Model.fromObject<ValuesClause<Q, M>>(
-      this,
-      Object.assign({}, clause, { priority: Priority.FROM }),
-    );
+    super(Object.assign({}, clause, { priority: Priority.FROM }));
+    this.models = clause?.models;
   }
   /**
    * @inheritDoc

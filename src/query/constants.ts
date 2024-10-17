@@ -19,6 +19,7 @@ export enum GroupOperator {
 
 export enum Const {
   NULL = "NULL",
+  FULL_RECORD = "*",
 }
 
 /**

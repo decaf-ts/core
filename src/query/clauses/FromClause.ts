@@ -41,12 +41,7 @@ export abstract class FromClause<Q, M extends DBModel>
   implements WhereOption
 {
   protected constructor(clause?: ModelArg<FromClause<Q, M>>) {
-    super(clause);
-    Model.fromObject<FromClause<Q, M>>(
-      this,
-      Object.assign({}, clause, { priority: Priority.FROM }),
-    );
-
+    super(Object.assign({}, clause, { priority: Priority.FROM }));
     this.selector =
       typeof this.selector === "string"
         ? Model.get(this.selector)

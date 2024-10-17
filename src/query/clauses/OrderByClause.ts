@@ -1,6 +1,5 @@
 import { SelectorBasedClause } from "./SelectorBasedClause";
-import { Operator, Priority } from "../constants";
-import { LimitClause } from "./LimitClause";
+import { Priority } from "../constants";
 import {
   GroupBySelector,
   LimitSelector,
@@ -8,11 +7,8 @@ import {
   OrderBySelector,
 } from "../selectors";
 import { LimitOption, OffsetOption } from "../options";
-import { OffsetClause } from "./OffsetClause";
 import { Executor } from "../../interfaces";
-import { GroupByClause } from "./GroupByClause";
 import { Model, ModelArg } from "@decaf-ts/decorator-validation";
-import { Statement } from "../Statement";
 /**
  * @summary The ORDER BY clause
  *
@@ -31,31 +27,12 @@ export abstract class OrderByClause<Q>
   implements LimitOption, OffsetOption
 {
   protected constructor(clause?: ModelArg<OrderByClause<Q>>) {
-    super(clause);
-    Model.fromObject<OrderByClause<Q>>(
-      this,
-      Object.assign({}, clause, { priority: Priority.ORDER_BY }),
-    );
+    super(Object.assign({}, clause, { priority: Priority.ORDER_BY }));
   }
   /**
    * @inheritDoc
    */
-  abstract build(query: Q): Q; // {
-  // query.sort = query.sort || [];
-  // this.selector!.forEach((s) => {
-  //   const [selector, value] = s;
-  //   const rec: any = {};
-  //   rec[selector] = value;
-  //   (query.sort as any[]).push(rec as any);
-  //   if (!query.selector[selector]) {
-  //     query.selector[selector] = {};
-  //     query.selector[selector][Operator.BIGGER] = null;
-  //   }
-  //   // query.fields = query.fields || [];
-  //   // query.fields = [...new Set([...query.fields, selector]).keys()]
-  // });
-  //   return query;
-  // }
+  abstract build(query: Q): Q;
   /**
    * @inheritDoc
    */

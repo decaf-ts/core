@@ -1,4 +1,3 @@
-import { Statement } from "./Statement";
 import {
   CountOption,
   DistinctOption,
@@ -10,6 +9,7 @@ import {
 import { SelectSelector } from "./selectors";
 import { DBModel } from "@decaf-ts/db-decorators";
 import { Adapter } from "../persistence";
+import { Const } from "./constants";
 
 /**
  * @summary Helper Class to build queries
@@ -27,7 +27,7 @@ export class Query<Q, M extends DBModel> {
    * @summary Creates a Select Clause
    * @param {SelectSelector} [selector]
    */
-  select(selector?: SelectSelector): SelectOption<M> {
+  select(selector: SelectSelector = Const.FULL_RECORD): SelectOption<M> {
     return this.adapter.Clauses.select<M>(selector);
   }
   /**

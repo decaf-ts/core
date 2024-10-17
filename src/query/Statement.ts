@@ -4,6 +4,7 @@ import {
   Model,
   ModelErrorDefinition,
   required,
+  type,
   sf,
 } from "@decaf-ts/decorator-validation";
 import { Executor, RawExecutor } from "../interfaces";
@@ -12,7 +13,7 @@ import { QueryError } from "./errors";
 import { Clause } from "./Clause";
 import { clauseSequence } from "../validators";
 import { Adapter } from "../persistence";
-import { InternalError } from "@decaf-ts/db-decorators";
+import { findPrimaryKey, InternalError } from "@decaf-ts/db-decorators";
 
 /**
  * @summary Statement Class
@@ -36,6 +37,7 @@ export abstract class Statement<Q>
   @clauseSequence()
   protected clauses?: Clause<any>[] = undefined;
   @required()
+  @type(["object"])
   protected adapter: Adapter<any, Q>;
   @required()
   protected target?: Constructor<any> = undefined;
@@ -100,8 +102,28 @@ export abstract class Statement<Q>
     }
   }
 
-  async raw<Y>(rawInput: Q, ...args: any[]): Promise<Y> {
-    return this.adapter.raw(rawInput, ...args);
+  async raw<R>(rawInput: Q, ...args: any[]): Promise<R> {
+    const results = await this.adapter.raw<R>(rawInput, ...args);
+    if (!this.fullRecord) return results;
+    if (!this.target)
+      throw new InternalError(
+        "No target defined in statement. should never happen",
+      );
+
+    const pkAttr = findPrimaryKey(new this.target() as any).id;
+
+    const processor = function recordProcessor(this: Statement<Q>, r: any) {
+      const id = r[pkAttr];
+      return this.adapter.revert(
+        r,
+        this.target as Constructor<any>,
+        pkAttr,
+        id,
+      ) as any;
+    }.bind(this);
+
+    if (Array.isArray(results)) return results.map(processor) as R;
+    return processor(results) as R;
   }
 
   /**

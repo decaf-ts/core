@@ -3,9 +3,7 @@ import { OffsetOption } from "../options";
 import { Executor } from "../../interfaces";
 import { LimitSelector, OffsetSelector } from "../selectors";
 import { Priority } from "../constants";
-import { Statement } from "../Statement";
-import { Model, ModelArg } from "@decaf-ts/decorator-validation";
-import { OffsetClause } from "./OffsetClause";
+import { ModelArg } from "@decaf-ts/decorator-validation";
 
 /**
  * @summary Limit Clause
@@ -25,19 +23,12 @@ export abstract class LimitClause<Q>
   implements OffsetOption
 {
   protected constructor(clause?: ModelArg<LimitClause<Q>>) {
-    super(clause);
-    Model.fromObject<LimitClause<Q>>(
-      this,
-      Object.assign({}, clause, { priority: Priority.GROUP_BY }),
-    );
+    super(Object.assign({}, clause, { priority: Priority.GROUP_BY }));
   }
   /**
    * @inheritDoc
    */
-  abstract build(query: Q): Q; //{
-  // query.limit = this.selector as number;
-  //   return query;
-  // }
+  abstract build(query: Q): Q;
   /**
    * @inheritDoc
    */

@@ -31,11 +31,7 @@ export abstract class InsertClause<Q, M extends DBModel>
   protected table?: string = undefined;
 
   protected constructor(clause?: ModelArg<InsertClause<Q, M>>) {
-    super(clause);
-    Model.fromObject<InsertClause<Q, M>>(
-      this,
-      Object.assign({}, clause, { priority: Priority.SELECT }),
-    );
+    super(Object.assign({}, clause, { priority: Priority.SELECT }));
   }
   /**
    * @inheritDoc

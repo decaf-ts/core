@@ -25,7 +25,7 @@ export abstract class SelectorBasedClause<Q, S> extends Clause<Q> {
 
   protected constructor(clause?: ModelArg<SelectorBasedClause<Q, S>>) {
     super(clause);
-    Model.fromObject<SelectorBasedClause<Q, S>>(this, clause);
+    this.selector = (clause as { selector: S }).selector;
   }
 
   toString() {

@@ -29,10 +29,11 @@ import {
 import { OrderDirection } from "./constants";
 import { SequenceOptions } from "../interfaces";
 import { sequenceNameForModel } from "../identity/utils";
+import { Queriable } from "../interfaces/Queriable";
 
 export class Repository<M extends DBModel, Q = any>
   extends Rep<M>
-  implements Observable
+  implements Observable, Queriable
 {
   private static _cache: Record<string, Constructor<Repository<DBModel, any>>> =
     {};
@@ -226,12 +227,12 @@ export class Repository<M extends DBModel, Q = any>
     order: OrderDirection = OrderDirection.ASC,
     limit?: number,
     skip?: number,
-  ): Promise<V[]> {
+  ): Promise<V> {
     const sort: OrderBySelector = [orderBy as string, order as OrderDirection];
     const query = this.select().where(condition).orderBy(sort);
     if (limit) query.limit(limit);
     if (skip) query.offset(skip);
-    return (await query.execute()) as V[];
+    return query.execute<V>();
   }
 
   /**

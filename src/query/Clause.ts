@@ -43,9 +43,12 @@ export abstract class Clause<Q>
 
   protected constructor(clause?: ModelArg<Clause<Q>>) {
     super();
-    Model.fromObject<Clause<Q>>(this, clause);
-    if (!this.statement)
-      throw new QueryError("Missing statement. Should be impossible");
+    this.priority = clause?.priority;
+    this.statement = clause?.statement;
+    if (!this.statement || !this.priority)
+      throw new QueryError(
+        "Missing statement or priority. Should be impossible",
+      );
     this.statement.addClause(this);
   }
 

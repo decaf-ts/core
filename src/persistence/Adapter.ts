@@ -17,8 +17,6 @@ import { Query } from "../query/Query";
 import { Statement } from "../query/Statement";
 import { ClauseFactory } from "../query/ClauseFactory";
 import { Condition } from "../query";
-import { Lock } from "@decaf-ts/transactional-decorators/lib/locks/Lock";
-import { AdapterLock } from "./AdapterLock";
 
 /**
  * @summary Abstract Decaf-ts Persistence Adapter Class
@@ -41,17 +39,9 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   private readonly _observers: Observer[] = [];
   private readonly _native: Y;
-  private _lock?: AdapterLock;
 
   get native() {
     return this._native;
-  }
-
-  get lock(): AdapterLock {
-    if (!this._lock) {
-      this._lock = new AdapterLock();
-    }
-    return this._lock;
   }
 
   protected constructor(

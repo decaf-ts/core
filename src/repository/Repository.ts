@@ -89,7 +89,6 @@ export class Repository<M extends DBModel, Q = any>
     const ids = await (
       await this.adapter.Sequence(Repository.getSequenceOptions(models[0]))
     ).range(models.length);
-    const ids2 = prepared.map((p) => p.id);
     let records = prepared.map((p) => p.record);
     records = await this.adapter.createAll(
       this.tableName,
@@ -103,7 +102,7 @@ export class Repository<M extends DBModel, Q = any>
   }
 
   protected async createAllPrefix(models: M[], ...args: any[]) {
-    await Promise.all(
+    models = await Promise.all(
       models.map(async (m) => {
         m = new this.class(m);
         Repository.setMetadata(m, PersistenceKeys.BULK);
@@ -153,6 +152,44 @@ export class Repository<M extends DBModel, Q = any>
         Repository.setMetadata(model, Repository.getMetadata(oldModel));
     }
     return [model, ...args];
+  }
+
+  protected async updateAllPrefix(models: M[], ...args: any[]): Promise<any[]> {
+    const ids = models.map((m) => findModelId(m));
+    const oldModels = await this.readAll(ids);
+    models = models.map((m, i) => {
+      m = this.merge(oldModels[i], m);
+      if (Repository.getMetadata(oldModels[i])) {
+        if (!Repository.getMetadata(m))
+          Repository.setMetadata(m, Repository.getMetadata(oldModels[i]));
+      }
+      return m;
+    });
+    await Promise.all(
+      models.map((m, i) =>
+        enforceDBDecorators(
+          this,
+          m,
+          OperationKeys.UPDATE,
+          OperationKeys.ON,
+          oldModels[i],
+        ),
+      ),
+    );
+
+    const errors = models
+      .map((m, i) => m.hasErrors(oldModels[i], m))
+      .reduce((accum: string | undefined, e, i) => {
+        if (!!e)
+          accum =
+            typeof accum === "string"
+              ? accum + `\n - ${i}: ${e.toString()}`
+              : ` - ${i}: ${e.toString()}`;
+        return accum;
+      }, undefined);
+    if (errors) throw new ValidationError(errors);
+
+    return [models, ...args];
   }
 
   async delete(id: string, ...args: any[]): Promise<M> {

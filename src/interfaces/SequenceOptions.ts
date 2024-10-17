@@ -16,7 +16,7 @@ export interface SequenceOptions {
 }
 
 export const DefaultSequenceOptions: SequenceOptions = {
-  type: undefined,
+  type: "Number",
   startWith: 0,
   incrementBy: 1,
   cycle: false,

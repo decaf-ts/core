@@ -1,4 +1,4 @@
-import { required } from "@decaf-ts/decorator-validation";
+import { required, type } from "@decaf-ts/decorator-validation";
 import {
   DefaultSequenceOptions,
   SequenceOptions,
@@ -41,11 +41,8 @@ export async function pkOnCreate<
   M extends DBModel,
   V extends Repository<M, any>,
 >(this: V, data: SequenceOptions, key: string, model: M): Promise<void> {
-  if (!data.type) return;
-
-  if (Repository.getMetadata(model) === PersistenceKeys.BULK) {
-    if (!(model as Record<string, any>)[key]) await this.adapter.lock.acquire();
-    else return;
+  if (!data.type || (model as Record<string, any>)[key]) {
+    return;
   }
 
   const setPrimaryKeyValue = function (
@@ -72,10 +69,6 @@ export async function pkOnCreate<
 
   const next = await sequence.next();
   setPrimaryKeyValue(model, key, next);
-  if (Repository.getMetadata(model) === PersistenceKeys.BULK) {
-    Repository.removeMetadata(model);
-    this.adapter.lock.release();
-  }
 }
 
 export function pk(
@@ -89,6 +82,7 @@ export function pk(
     index(),
     required(),
     readonly(),
+    // type([String.name, Number.name, BigInt.name]),
     metadata(getDBKey(DBKeys.ID), opts as SequenceOptions),
     onCreate(pkOnCreate, opts as SequenceOptions),
   );

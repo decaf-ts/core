@@ -28,6 +28,7 @@ import {
 } from "../query";
 import { OrderDirection } from "./constants";
 import { SequenceOptions } from "../interfaces";
+import { sequenceNameForModel } from "../identity/utils";
 
 export class Repository<M extends DBModel, Q = any>
   extends Rep<M>
@@ -86,9 +87,7 @@ export class Repository<M extends DBModel, Q = any>
   async createAll(models: M[], ...args: any[]): Promise<M[]> {
     if (!models.length) return models;
     const prepared = models.map((m) => this.adapter.prepare(m, this.pk));
-    const ids = await (
-      await this.adapter.Sequence(Repository.getSequenceOptions(models[0]))
-    ).range(models.length);
+    const ids = prepared.map((p) => p.id);
     let records = prepared.map((p) => p.record);
     records = await this.adapter.createAll(
       this.tableName,
@@ -102,10 +101,19 @@ export class Repository<M extends DBModel, Q = any>
   }
 
   protected async createAllPrefix(models: M[], ...args: any[]) {
+    if (!models.length) return [models, ...args];
+    const opts = Repository.getSequenceOptions(models[0]);
+    let ids: (string | number | bigint | undefined)[] = [];
+    if (opts.type) {
+      if (!opts.name) opts.name = sequenceNameForModel(models[0], "pk");
+      ids = await (await this.adapter.Sequence(opts)).range(models.length);
+    }
+    const pk = findPrimaryKey(models[0]).id;
+
     models = await Promise.all(
-      models.map(async (m) => {
+      models.map(async (m, i) => {
         m = new this.class(m);
-        Repository.setMetadata(m, PersistenceKeys.BULK);
+        (m as Record<string, any>)[pk] = ids[i];
         await enforceDBDecorators(
           this,
           m,
@@ -115,6 +123,17 @@ export class Repository<M extends DBModel, Q = any>
         return m;
       }),
     );
+    const errors = models
+      .map((m) => m.hasErrors())
+      .reduce((accum: string | undefined, e, i) => {
+        if (!!e)
+          accum =
+            typeof accum === "string"
+              ? accum + `\n - ${i}: ${e.toString()}`
+              : ` - ${i}: ${e.toString()}`;
+        return accum;
+      }, undefined);
+    if (errors) throw new ValidationError(errors);
     return [models, ...args];
   }
 
@@ -163,7 +182,6 @@ export class Repository<M extends DBModel, Q = any>
         if (!Repository.getMetadata(m))
           Repository.setMetadata(m, Repository.getMetadata(oldModels[i]));
       }
-      Repository.setMetadata(m, PersistenceKeys.BULK);
       return m;
     });
     await Promise.all(

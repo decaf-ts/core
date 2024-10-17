@@ -8,5 +8,4 @@ export enum PersistenceKeys {
   COLUMN = "column",
   METADATA = "__metadata",
   CLAUSE_SEQUENCE = "clause-sequence",
-  BULK = "bulk",
 }

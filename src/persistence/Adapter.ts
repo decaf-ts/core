@@ -117,7 +117,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     obj: Record<string, any>,
     clazz: string | Constructor<M>,
     pk: string,
-    id: string | number,
+    id: string | number | bigint,
   ): M {
     const ob: Record<string, any> = {};
     ob[pk] = id;
@@ -162,13 +162,13 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   abstract read(
     tableName: string,
-    id: string | number,
+    id: string | number | bigint,
     ...args: any[]
   ): Promise<Record<string, any>>;
 
   async readAll(
     tableName: string,
-    id: string[] | number[],
+    id: (string | number | bigint)[],
     ...args: any[]
   ): Promise<Record<string, any>[]> {
     return Promise.all(id.map((i) => this.read(tableName, i, ...args)));
@@ -196,13 +196,13 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   abstract delete(
     tableName: string,
-    id: string | number,
+    id: string | number | bigint,
     ...args: any[]
   ): Promise<Record<string, any>>;
 
   async deleteAll(
     tableName: string,
-    id: string[] | number[],
+    id: (string | number | bigint)[],
     ...args: any[]
   ): Promise<Record<string, any>[]> {
     return Promise.all(id.map((i) => this.delete(tableName, i, ...args)));

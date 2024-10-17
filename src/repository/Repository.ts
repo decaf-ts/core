@@ -163,6 +163,7 @@ export class Repository<M extends DBModel, Q = any>
         if (!Repository.getMetadata(m))
           Repository.setMetadata(m, Repository.getMetadata(oldModels[i]));
       }
+      Repository.setMetadata(m, PersistenceKeys.BULK);
       return m;
     });
     await Promise.all(

@@ -211,7 +211,7 @@ export class Repository<M extends DBModel, Q = any>
     return [models, ...args];
   }
 
-  async delete(id: string, ...args: any[]): Promise<M> {
+  async delete(id: string | number | bigint, ...args: any[]): Promise<M> {
     const m = await this.adapter.delete(this.tableName, id, ...args);
     return this.adapter.revert(m, this.class, this.pk, id);
   }

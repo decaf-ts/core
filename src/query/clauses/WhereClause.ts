@@ -4,6 +4,7 @@ import {
   ModelArg,
   ModelErrorDefinition,
   required,
+  type,
 } from "@decaf-ts/decorator-validation";
 import { LimitOption, OffsetOption, OrderAndGroupOption } from "../options";
 import { Priority } from "../constants";
@@ -31,10 +32,12 @@ export abstract class WhereClause<Q>
   implements OrderAndGroupOption
 {
   @required()
+  @type("Condition")
   condition?: Condition = undefined;
 
   protected constructor(clause?: ModelArg<WhereClause<Q>>) {
     super(Object.assign({}, clause, { priority: Priority.WHERE }));
+    this.condition = clause?.condition;
   }
   /**
    * @inheritDoc

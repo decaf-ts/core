@@ -4,12 +4,9 @@ import {
   ModelErrorDefinition,
   required,
   sf,
-  stringFormat,
 } from "@decaf-ts/decorator-validation";
-import { Executor } from "../interfaces";
 import { GroupOperator, Operator } from "./constants";
 import { QueryError } from "./errors";
-import { OperationResult } from "./types";
 
 /**
  * @summary Condition Class

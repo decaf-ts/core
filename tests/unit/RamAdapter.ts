@@ -27,7 +27,7 @@ export class RamAdapter extends Adapter<Record<string, any>, string> {
     return Promise.resolve(undefined);
   }
 
-  async createIndex(...args: any[]): Promise<any> {
+  async index(...models: Record<string, any>[]): Promise<any> {
     return Promise.resolve(undefined);
   }
 

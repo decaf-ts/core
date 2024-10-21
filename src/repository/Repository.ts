@@ -1,5 +1,4 @@
 import {
-  DataCache,
   DBKeys,
   enforceDBDecorators,
   findModelId,
@@ -28,16 +27,7 @@ import { OrderDirection } from "./constants";
 import { SequenceOptions } from "../interfaces";
 import { sequenceNameForModel } from "../identity/utils";
 import { Queriable } from "../interfaces/Queriable";
-
-// declare module "@decaf-ts/db-decorators" {
-//   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-//   // @ts-expect-error
-//   declare interface IRepository<M extends Model> extends BulkCrudOperator<M> {
-//     readonly cache: DataCache;
-//     readonly class: Constructor<M>;
-//     select(selector?: SelectSelector): WhereOption;
-//     query<V>(condition: Condition, orderBy: string, order: OrderDirection, limit?: number, skip?: number): Promise<V>;
-// }
+import { getAllPropertyDecorators } from "@decaf-ts/reflection";
 
 export class Repository<M extends Model, Q = any>
   extends Rep<M>
@@ -379,5 +369,19 @@ export class Repository<M extends Model, Q = any>
         "No sequence options defined for model. did you use the @pk decorator?"
       );
     return metadata as SequenceOptions;
+  }
+
+  static indexes<M extends Model>(model: M | Constructor<M>) {
+    const indexDecorators = getAllPropertyDecorators(
+      model instanceof Model ? model : new model(),
+      Repository.key(DBKeys.INDEX)
+    );
+    return Object.entries(indexDecorators || {}).reduce(
+      (accum: string[], [key, val]) => {
+        if (val.find((v) => v.key === "")) accum.push(key);
+        return accum;
+      },
+      []
+    );
   }
 }

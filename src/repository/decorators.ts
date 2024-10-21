@@ -10,10 +10,6 @@ export function repository<T extends Model>(
 ): any {
   return ((original: any, propertyKey?: any) => {
     if (propertyKey) {
-      // const flavour = Reflect.getMetadata(
-      //   getPersistenceKey(PersistenceKeys.ADAPTER),
-      //   original.constructor,
-      // );
       return inject(nameOverride || model.name)(original, propertyKey);
     }
 

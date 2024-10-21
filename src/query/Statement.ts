@@ -14,6 +14,7 @@ import { Clause } from "./Clause";
 import { clauseSequence } from "../validators";
 import { Adapter } from "../persistence";
 import { findPrimaryKey, InternalError } from "@decaf-ts/db-decorators";
+import { WhereClause } from "./clauses";
 
 /**
  * @summary Statement Class
@@ -55,7 +56,7 @@ export abstract class Statement<Q>
   protected build(): Q {
     if (!this.clauses)
       throw new QueryError(sf("Failed to build Statement:\n{0}", "No Clauses"));
-
+    const adapter = this.adapter;
     this.clauses.sort((c1, c2) => {
       return c1.getPriority() - c2.getPriority();
     });
@@ -63,14 +64,14 @@ export abstract class Statement<Q>
     const errors = this.hasErrors();
     if (errors)
       throw new QueryError(
-        sf("Poorly built statement: {0}", errors.toString()),
+        sf("Poorly built statement: {0}", errors.toString())
       );
 
     let query: Q;
     try {
       const iterator = function (
         clauses: Clause<any>[],
-        previous: any = {},
+        previous: any = {}
       ): Q {
         const c = clauses.shift();
         if (!c) return previous as Q;
@@ -107,7 +108,7 @@ export abstract class Statement<Q>
     if (!this.fullRecord) return results;
     if (!this.target)
       throw new InternalError(
-        "No target defined in statement. should never happen",
+        "No target defined in statement. should never happen"
       );
 
     const pkAttr = findPrimaryKey(new this.target() as any).id;
@@ -118,7 +119,7 @@ export abstract class Statement<Q>
         r,
         this.target as Constructor<any>,
         pkAttr,
-        id,
+        id
       ) as any;
     }.bind(this);
 
@@ -167,7 +168,7 @@ export abstract class Statement<Q>
   setTarget(clazz: Constructor<any>) {
     if (this.target)
       throw new QueryError(
-        sf("Output class already defined to {0}", this.target!.name),
+        sf("Output class already defined to {0}", this.target!.name)
       );
     this.target = clazz;
   }

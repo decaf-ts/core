@@ -15,7 +15,6 @@ import { Observer } from "../interfaces/Observer";
 import { Adapter } from "../persistence/Adapter";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { getTableName } from "./utils";
-import { getPersistenceKey } from "../persistence/decorators";
 import { PersistenceKeys } from "../persistence/constants";
 import {
   Condition,
@@ -279,7 +278,7 @@ export class Repository<M extends Model, Q = any>
       model
     );
     let flavour: string | undefined = Reflect.getMetadata(
-      getPersistenceKey(PersistenceKeys.ADAPTER),
+      Adapter.key(PersistenceKeys.ADAPTER),
       model
     );
     let adapter: Adapter<any, any> | undefined = flavour
@@ -298,7 +297,7 @@ export class Repository<M extends Model, Q = any>
       flavour =
         flavour ||
         Reflect.getMetadata(
-          getPersistenceKey(PersistenceKeys.ADAPTER),
+          Adapter.key(PersistenceKeys.ADAPTER),
           repoConstructor
         );
       if (!flavour)

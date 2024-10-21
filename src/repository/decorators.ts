@@ -1,14 +1,14 @@
 import { inject, injectable } from "@decaf-ts/injectable-decorators";
 import { DBKeys, IRepository } from "@decaf-ts/db-decorators";
 import { metadata } from "@decaf-ts/reflection";
-import { Constructor } from "@decaf-ts/decorator-validation";
+import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { Repository } from "./Repository";
 
 export function repository<T extends Model>(
   model: Constructor<T>,
   nameOverride?: string
-) {
-  return (original: any, propertyKey?: string) => {
+): any {
+  return ((original: any, propertyKey?: string) => {
     if (propertyKey) {
       // const flavour = Reflect.getMetadata(
       //   getPersistenceKey(PersistenceKeys.ADAPTER),
@@ -34,5 +34,5 @@ export function repository<T extends Model>(
         });
       }
     )(original);
-  };
+  }) as any;
 }

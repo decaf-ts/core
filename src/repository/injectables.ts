@@ -5,7 +5,8 @@ import {
 import { Repository } from "./Repository";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { generateInjectableNameForRepository } from "./utils";
-import { getPersistenceKey, PersistenceKeys } from "../persistence";
+import { PersistenceKeys } from "../persistence/constants";
+import { Adapter } from "../persistence/Adapter";
 
 export class InjectablesRegistry extends InjectableRegistryImp {
   constructor() {
@@ -21,11 +22,11 @@ export class InjectablesRegistry extends InjectableRegistryImp {
         if (injectable) {
           const flavour =
             Reflect.getMetadata(
-              getPersistenceKey(PersistenceKeys.ADAPTER),
+              Adapter.key(PersistenceKeys.ADAPTER),
               injectable.constructor
             ) ||
             Reflect.getMetadata(
-              getPersistenceKey(PersistenceKeys.ADAPTER),
+              Adapter.key(PersistenceKeys.ADAPTER),
               m as ModelConstructor<any>
             );
           Injectables.register(

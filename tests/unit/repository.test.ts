@@ -3,14 +3,7 @@ import { RamAdapter } from "./RamAdapter";
 import { Repository } from "../../src/repository/Repository";
 import { model, Model, ModelArg } from "@decaf-ts/decorator-validation";
 import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
-import {
-  Adapter,
-  BaseModel,
-  getPersistenceKey,
-  PersistenceKeys,
-  repository,
-  uses,
-} from "../../src";
+import { Adapter, BaseModel, repository, uses } from "../../src";
 
 Model.setBuilder(Model.fromModel);
 
@@ -77,10 +70,6 @@ describe("Repository", () => {
         }
       }
 
-      const metadata = Reflect.getMetadata(
-        getPersistenceKey(PersistenceKeys.ADAPTER),
-        StandardRepoTestModel
-      );
       const repo = Repository.forModel(StandardRepoTestModel);
       expect(repo).toBeDefined();
       expect(repo).toBeInstanceOf(Repository);

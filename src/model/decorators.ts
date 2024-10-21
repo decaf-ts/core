@@ -8,7 +8,7 @@ import { apply, metadata } from "@decaf-ts/reflection";
 import { PersistenceKeys } from "../persistence/constants";
 import { IndexMetadata } from "../repository/types";
 import { OrderDirection } from "../repository/constants";
-import { propMetadata } from "@decaf-ts/decorator-validation";
+import { Model, propMetadata } from "@decaf-ts/decorator-validation";
 import { Adapter } from "../persistence";
 
 export function table(tableName: string) {

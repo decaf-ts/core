@@ -3,7 +3,6 @@ import { Injectables } from "@decaf-ts/injectable-decorators";
 import { Repository } from "./Repository";
 import { Constructor, sf } from "@decaf-ts/decorator-validation";
 import { Adapter } from "../persistence/Adapter";
-import { getPersistenceKey } from "../persistence/decorators";
 import { PersistenceKeys } from "../persistence/constants";
 import { Model } from "@decaf-ts/decorator-validation";
 
@@ -22,7 +21,7 @@ export function bootRepository<T extends Model>(
       `No Repository defined for model ${model.constructor.name}`
     );
   const flavour = Reflect.getMetadata(
-    getPersistenceKey(PersistenceKeys.ADAPTER),
+    Adapter.key(PersistenceKeys.ADAPTER),
     original
   );
   if (!flavour)
@@ -39,7 +38,7 @@ export function bootRepository<T extends Model>(
 
 export function getTableName<T extends Model>(model: T | Constructor<T>) {
   const metadata = Reflect.getMetadata(
-    getPersistenceKey(PersistenceKeys.TABLE),
+    Adapter.key(PersistenceKeys.TABLE),
     model instanceof Model ? model.constructor : model
   );
   if (metadata) {
@@ -56,7 +55,7 @@ export function generateInjectableNameForRepository<T extends Model>(
   flavour?: string
 ) {
   if (!flavour) {
-    const key = getPersistenceKey(PersistenceKeys.ADAPTER);
+    const key = Adapter.key(PersistenceKeys.ADAPTER);
     flavour = Reflect.getMetadata(
       key,
       model instanceof Model ? model.constructor : model

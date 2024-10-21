@@ -1,19 +1,12 @@
 import { inject, injectable } from "@decaf-ts/injectable-decorators";
-import {
-  DBKeys,
-  DBModel,
-  getDBKey,
-  IRepository,
-} from "@decaf-ts/db-decorators";
+import { DBKeys, IRepository } from "@decaf-ts/db-decorators";
 import { metadata } from "@decaf-ts/reflection";
 import { Constructor } from "@decaf-ts/decorator-validation";
 import { Repository } from "./Repository";
-import { generateInjectableNameForRepository } from "./utils";
-import { getPersistenceKey, PersistenceKeys } from "../persistence";
 
-export function repository<T extends DBModel>(
+export function repository<T extends Model>(
   model: Constructor<T>,
-  nameOverride?: string,
+  nameOverride?: string
 ) {
   return (original: any, propertyKey?: string) => {
     if (propertyKey) {
@@ -24,7 +17,10 @@ export function repository<T extends DBModel>(
       return inject(nameOverride || model.name)(original, propertyKey);
     }
 
-    metadata(getDBKey(DBKeys.REPOSITORY), nameOverride || original.name)(model);
+    metadata(
+      Repository.key(DBKeys.REPOSITORY),
+      nameOverride || original.name
+    )(model);
     Repository.register(nameOverride || original.name, original);
     return injectable(
       nameOverride || original.name,
@@ -36,7 +32,7 @@ export function repository<T extends DBModel>(
           writable: false,
           value: model,
         });
-      },
+      }
     )(original);
   };
 }

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 import {
   GroupBySelector,
   LimitSelector,
@@ -6,9 +7,8 @@ import {
   SelectSelector,
 } from "./selectors";
 import { Executor } from "../interfaces";
-import { Constructor } from "@decaf-ts/decorator-validation";
+import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { Condition } from "./Condition";
-import { DBModel } from "@decaf-ts/db-decorators";
 
 /**
  * @summary Statement Builder interface
@@ -153,7 +153,7 @@ export interface WhereOption extends OrderAndGroupOption {
  * @category Query
  * @subcategory Options
  */
-export interface FromOption<M extends DBModel> {
+export interface FromOption<M extends Model> {
   /**
    * @summary selects records from a table
    *
@@ -173,7 +173,7 @@ export interface FromOption<M extends DBModel> {
  * @category Query
  * @subcategory Options
  */
-export interface DistinctOption<M extends DBModel> extends FromOption<M> {}
+export interface DistinctOption<M extends Model> extends FromOption<M> {}
 
 /**
  * @summary Max Option Interface
@@ -185,7 +185,7 @@ export interface DistinctOption<M extends DBModel> extends FromOption<M> {}
  * @category Query
  * @subcategory Options
  */
-export interface MaxOption<M extends DBModel> extends FromOption<M> {}
+export interface MaxOption<M extends Model> extends FromOption<M> {}
 
 /**
  * @summary Min Option Interface
@@ -197,7 +197,7 @@ export interface MaxOption<M extends DBModel> extends FromOption<M> {}
  * @category Query
  * @subcategory Options
  */
-export interface MinOption<M extends DBModel> extends FromOption<M> {}
+export interface MinOption<M extends Model> extends FromOption<M> {}
 
 /**
  * @summary Count Option Interface
@@ -209,7 +209,7 @@ export interface MinOption<M extends DBModel> extends FromOption<M> {}
  * @category Query
  * @subcategory Options
  */
-export interface CountOption<M extends DBModel> extends FromOption<M> {}
+export interface CountOption<M extends Model> extends FromOption<M> {}
 
 /**
  * @summary Select Option Interface
@@ -221,7 +221,7 @@ export interface CountOption<M extends DBModel> extends FromOption<M> {}
  * @category Query
  * @subcategory Options
  */
-export interface SelectOption<M extends DBModel> extends FromOption<M> {
+export interface SelectOption<M extends Model> extends FromOption<M> {
   /**
    * @summary selects distinct values
    *
@@ -261,7 +261,7 @@ export interface SelectOption<M extends DBModel> extends FromOption<M> {
  * @category Query
  * @subcategory Options
  */
-export interface IntoOption<M extends DBModel> {
+export interface IntoOption<M extends Model> {
   /**
    * @summary sets the models to insert
    *
@@ -297,7 +297,7 @@ export interface ValuesOption extends Executor {}
  * @category Query
  * @subcategory Options
  */
-export interface InsertOption<M extends DBModel> {
+export interface InsertOption<M extends Model> {
   /**
    * @summary selects the table to insert records into
    *

@@ -8,7 +8,7 @@ import {
 } from "../selectors";
 import { LimitOption, OffsetOption } from "../options";
 import { Executor } from "../../interfaces";
-import { Model, ModelArg } from "@decaf-ts/decorator-validation";
+import { ModelArg } from "@decaf-ts/decorator-validation";
 /**
  * @summary The ORDER BY clause
  *

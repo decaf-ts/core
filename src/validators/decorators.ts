@@ -1,11 +1,11 @@
 import {
   DEFAULT_ERROR_MESSAGES,
-  getValidationKey,
+  propMetadata,
+  Validation,
   ValidationKeys,
   ValidationMetadata,
 } from "@decaf-ts/decorator-validation";
 import { PersistenceKeys } from "../persistence";
-import { metadata } from "@decaf-ts/reflection";
 
 Object.defineProperty(DEFAULT_ERROR_MESSAGES, PersistenceKeys.CLAUSE_SEQUENCE, {
   value: "Invalid clause sequence: {0}",
@@ -25,14 +25,14 @@ Object.defineProperty(ValidationKeys, "CLAUSE_SEQUENCE", {
  * @subcategory Validation
  */
 export function clauseSequence(message?: string) {
-  return metadata<ValidationMetadata>(
-    getValidationKey(ValidationKeys.REQUIRED),
+  return propMetadata<ValidationMetadata>(
+    Validation.key(ValidationKeys.REQUIRED),
     {
       message:
         message ||
         ((DEFAULT_ERROR_MESSAGES as any)[
           PersistenceKeys.CLAUSE_SEQUENCE as any
         ] as string),
-    },
+    }
   );
 }

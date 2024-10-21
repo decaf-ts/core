@@ -1,22 +1,22 @@
 import {
   ConflictError,
-  DBModel,
-  getDBKey,
   IRepository,
   NotFoundError,
+  Repository,
 } from "@decaf-ts/db-decorators";
 import { apply, metadata } from "@decaf-ts/reflection";
 import { PersistenceKeys } from "../persistence/constants";
 import { IndexMetadata } from "../repository/types";
 import { OrderDirection } from "../repository/constants";
-import { getPersistenceKey } from "../persistence/decorators";
+import { propMetadata } from "@decaf-ts/decorator-validation";
+import { Adapter } from "../persistence";
 
 export function table(tableName: string) {
-  return metadata(getPersistenceKey(PersistenceKeys.TABLE), tableName);
+  return metadata(Adapter.key(PersistenceKeys.TABLE), tableName);
 }
 
 export function column(columnName: string) {
-  return metadata(getPersistenceKey(PersistenceKeys.COLUMN), columnName);
+  return propMetadata(Adapter.key(PersistenceKeys.COLUMN), columnName);
 }
 
 /**
@@ -30,19 +30,19 @@ export function column(columnName: string) {
  * @function index
  */
 export function index(compositions?: string[], directions?: OrderDirection[]) {
-  return metadata(
-    getDBKey(
-      `${PersistenceKeys.INDEX}${compositions && compositions.length ? `.${compositions.join(".")}` : ""}`,
+  return propMetadata(
+    Repository.key(
+      `${PersistenceKeys.INDEX}${compositions && compositions.length ? `.${compositions.join(".")}` : ""}`
     ),
     {
       directions: directions,
       compositions: compositions,
-    } as IndexMetadata,
+    } as IndexMetadata
   );
 }
 
 export async function uniqueOnCreateUpdate<
-  T extends DBModel,
+  T extends Model,
   V extends IRepository<T>,
   Y = any,
 >(this: V, data: Y, key: string, model: T): Promise<void> {
@@ -53,7 +53,7 @@ export async function uniqueOnCreateUpdate<
     if (e instanceof NotFoundError) return;
   }
   throw new ConflictError(
-    `model already exists with ${key} equal to ${JSON.stringify((model as any)[key], undefined, 2)}`,
+    `model already exists with ${key} equal to ${JSON.stringify((model as any)[key], undefined, 2)}`
   );
 }
 
@@ -69,6 +69,6 @@ export async function uniqueOnCreateUpdate<
 export function unique() {
   return apply(
     // onCreateUpdate(uniqueOnCreateUpdate),
-    metadata(getDBKey(PersistenceKeys.UNIQUE), {}),
+    propMetadata(Repository.key(PersistenceKeys.UNIQUE), {})
   );
 }

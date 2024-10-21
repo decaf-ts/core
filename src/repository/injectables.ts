@@ -4,8 +4,7 @@ import {
 } from "@decaf-ts/injectable-decorators";
 import { Repository } from "./Repository";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
-import { bootRepository, generateInjectableNameForRepository } from "./utils";
-import { DBModel } from "@decaf-ts/db-decorators";
+import { generateInjectableNameForRepository } from "./utils";
 import { getPersistenceKey, PersistenceKeys } from "../persistence";
 
 export class InjectablesRegistry extends InjectableRegistryImp {
@@ -23,20 +22,21 @@ export class InjectablesRegistry extends InjectableRegistryImp {
           const flavour =
             Reflect.getMetadata(
               getPersistenceKey(PersistenceKeys.ADAPTER),
-              injectable.constructor,
+              injectable.constructor
             ) ||
             Reflect.getMetadata(
               getPersistenceKey(PersistenceKeys.ADAPTER),
-              m as ModelConstructor<any>,
+              m as ModelConstructor<any>
             );
           Injectables.register(
             injectable,
             generateInjectableNameForRepository(
               m as ModelConstructor<any>,
-              flavour,
-            ),
+              flavour
+            )
           );
         }
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: any) {
         return undefined;
       }

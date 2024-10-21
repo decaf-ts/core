@@ -22,7 +22,6 @@ import {
   ModelArg,
   stringFormat,
 } from "@decaf-ts/decorator-validation";
-import { DBModel } from "@decaf-ts/db-decorators";
 
 /**
  * @summary The FROM clause
@@ -36,7 +35,7 @@ import { DBModel } from "@decaf-ts/db-decorators";
  * @category Query
  * @subcategory Clauses
  */
-export abstract class FromClause<Q, M extends DBModel>
+export abstract class FromClause<Q, M extends Model>
   extends SelectorBasedClause<Q, FromSelector<M>>
   implements WhereOption
 {

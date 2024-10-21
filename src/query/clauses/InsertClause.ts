@@ -9,7 +9,6 @@ import {
   required,
 } from "@decaf-ts/decorator-validation";
 import { Executor } from "../../interfaces";
-import { DBModel } from "@decaf-ts/db-decorators";
 
 /**
  * @summary The INSERT/INTO clause
@@ -23,7 +22,7 @@ import { DBModel } from "@decaf-ts/db-decorators";
  * @category Query
  * @subcategory Clauses
  */
-export abstract class InsertClause<Q, M extends DBModel>
+export abstract class InsertClause<Q, M extends Model>
   extends Clause<Q>
   implements InsertOption<M>, IntoOption<M>
 {

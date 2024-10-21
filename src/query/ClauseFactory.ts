@@ -8,7 +8,6 @@ import { SelectClause } from "./clauses/SelectClause";
 import { ValuesClause } from "./clauses/ValuesClause";
 import { WhereClause } from "./clauses/WhereClause";
 import { Adapter } from "../persistence";
-import { DBModel } from "@decaf-ts/db-decorators";
 import { Condition } from "./Condition";
 import {
   FromSelector,
@@ -19,6 +18,7 @@ import {
   SelectSelector,
 } from "./selectors";
 import { Statement } from "./Statement";
+import { Model } from "@decaf-ts/decorator-validation";
 
 export abstract class ClauseFactory<Y, Q> {
   /**
@@ -26,9 +26,9 @@ export abstract class ClauseFactory<Y, Q> {
    * @param {Statement} statement
    * @param {FromSelector} selector
    */
-  abstract from<M extends DBModel>(
+  abstract from<M extends Model>(
     statement: Statement<Q>,
-    selector: FromSelector<M>,
+    selector: FromSelector<M>
   ): FromClause<Q, M>;
   /**
    * @summary Factory method for {@link GroupByClause}
@@ -37,13 +37,13 @@ export abstract class ClauseFactory<Y, Q> {
    */
   abstract groupBy(
     statement: Statement<Q>,
-    selector: GroupBySelector,
+    selector: GroupBySelector
   ): GroupByClause<Q>;
   /**
    * @summary Factory method for {@link InsertClause}
    * @param {Statement} statement
    */
-  abstract insert<M extends DBModel>(): InsertClause<Q, M>;
+  abstract insert<M extends Model>(): InsertClause<Q, M>;
   /**
    * @summary Factory method for {@link LimitClause}
    * @param {Statement} statement
@@ -51,7 +51,7 @@ export abstract class ClauseFactory<Y, Q> {
    */
   abstract limit(
     statement: Statement<Q>,
-    selector: LimitSelector,
+    selector: LimitSelector
   ): LimitClause<Q>;
   /**
    * @summary Factory method for {@link OffsetClause}
@@ -60,7 +60,7 @@ export abstract class ClauseFactory<Y, Q> {
    */
   abstract offset(
     statement: Statement<Q>,
-    selector: OffsetSelector,
+    selector: OffsetSelector
   ): OffsetClause<Q>;
   /**
    * @summary Factory method for {@link OrderByClause}
@@ -69,24 +69,24 @@ export abstract class ClauseFactory<Y, Q> {
    */
   abstract orderBy(
     statement: Statement<Q>,
-    selector: OrderBySelector[],
+    selector: OrderBySelector[]
   ): OrderByClause<Q>;
   /**
    * @summary Factory method for {@link SelectClause}
    * @param {Statement} statement
    * @param {SelectSelector} [selector]
    */
-  abstract select<M extends DBModel>(
-    selector?: SelectSelector,
+  abstract select<M extends Model>(
+    selector?: SelectSelector
   ): SelectClause<Q, M>;
   /**
    * @summary Factory method for {@link ValuesClause}
    * @param {Statement} statement
    * @param {M[]} values
    */
-  abstract values<M extends DBModel>(
+  abstract values<M extends Model>(
     statement: Statement<Q>,
-    values: M[],
+    values: M[]
   ): ValuesClause<Q, M>;
   /**
    * @summary Factory method for {@link WhereClause}

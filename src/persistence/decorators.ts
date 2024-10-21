@@ -1,10 +1,7 @@
 import { metadata } from "@decaf-ts/reflection";
 import { PersistenceKeys } from "./constants";
-
-export function getPersistenceKey(key: string) {
-  return PersistenceKeys.REFLECT + key;
-}
+import { Adapter } from "./Adapter";
 
 export function uses(flavour: string) {
-  return metadata(getPersistenceKey(PersistenceKeys.ADAPTER), flavour);
+  return metadata(Adapter.key(PersistenceKeys.ADAPTER), flavour);
 }

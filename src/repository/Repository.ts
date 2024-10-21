@@ -1,10 +1,8 @@
 import {
   DBKeys,
-  DBModel,
   enforceDBDecorators,
   findModelId,
   findPrimaryKey,
-  getDBKey,
   InternalError,
   OperationKeys,
   Repository as Rep,
@@ -15,7 +13,7 @@ import { ObserverError } from "./errors";
 import { Observable } from "../interfaces/Observable";
 import { Observer } from "../interfaces/Observer";
 import { Adapter } from "../persistence/Adapter";
-import { Constructor } from "@decaf-ts/decorator-validation";
+import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { getTableName } from "./utils";
 import { getPersistenceKey } from "../persistence/decorators";
 import { PersistenceKeys } from "../persistence/constants";
@@ -31,11 +29,11 @@ import { SequenceOptions } from "../interfaces";
 import { sequenceNameForModel } from "../identity/utils";
 import { Queriable } from "../interfaces/Queriable";
 
-export class Repository<M extends DBModel, Q = any>
+export class Repository<M extends Model, Q = any>
   extends Rep<M>
   implements Observable, Queriable
 {
-  private static _cache: Record<string, Constructor<Repository<DBModel, any>>> =
+  private static _cache: Record<string, Constructor<Repository<Model, any>>> =
     {};
 
   private observers: Observer[] = [];
@@ -47,7 +45,7 @@ export class Repository<M extends DBModel, Q = any>
   get adapter() {
     if (!this._adapter)
       throw new InternalError(
-        `No adapter found for this repository. did you use the @uses decorator or pass it in the constructor?`,
+        `No adapter found for this repository. did you use the @uses decorator or pass it in the constructor?`
       );
     return this._adapter;
   }
@@ -72,9 +70,9 @@ export class Repository<M extends DBModel, Q = any>
           this,
           (this as any)[name + "Prefix"],
           m,
-          (this as any)[name + "Suffix"],
+          (this as any)[name + "Suffix"]
         );
-      },
+      }
     );
   }
 
@@ -94,10 +92,10 @@ export class Repository<M extends DBModel, Q = any>
       this.tableName,
       ids as (string | number)[],
       records,
-      ...args,
+      ...args
     );
     return records.map((r, i) =>
-      this.adapter.revert(r, this.class, this.pk, ids[i] as string | number),
+      this.adapter.revert(r, this.class, this.pk, ids[i] as string | number)
     );
   }
 
@@ -119,15 +117,15 @@ export class Repository<M extends DBModel, Q = any>
           this,
           m,
           OperationKeys.CREATE,
-          OperationKeys.ON,
+          OperationKeys.ON
         );
         return m;
-      }),
+      })
     );
     const errors = models
       .map((m) => m.hasErrors())
       .reduce((accum: string | undefined, e, i) => {
-        if (!!e)
+        if (e)
           accum =
             typeof accum === "string"
               ? accum + `\n - ${i}: ${e.toString()}`
@@ -162,7 +160,7 @@ export class Repository<M extends DBModel, Q = any>
       model,
       OperationKeys.UPDATE,
       OperationKeys.ON,
-      oldModel,
+      oldModel
     );
 
     const errors = model.hasErrors(oldModel);
@@ -192,15 +190,15 @@ export class Repository<M extends DBModel, Q = any>
           m,
           OperationKeys.UPDATE,
           OperationKeys.ON,
-          oldModels[i],
-        ),
-      ),
+          oldModels[i]
+        )
+      )
     );
 
     const errors = models
       .map((m, i) => m.hasErrors(oldModels[i], m))
       .reduce((accum: string | undefined, e, i) => {
-        if (!!e)
+        if (e)
           accum =
             typeof accum === "string"
               ? accum + `\n - ${i}: ${e.toString()}`
@@ -226,7 +224,7 @@ export class Repository<M extends DBModel, Q = any>
     orderBy: string,
     order: OrderDirection = OrderDirection.ASC,
     limit?: number,
-    skip?: number,
+    skip?: number
   ): Promise<V> {
     const sort: OrderBySelector = [orderBy as string, order as OrderDirection];
     const query = this.select().where(condition).orderBy(sort);
@@ -273,16 +271,16 @@ export class Repository<M extends DBModel, Q = any>
     });
   }
 
-  static forModel<M extends DBModel, R extends Repository<M, any>>(
-    model: Constructor<M>,
+  static forModel<M extends Model, R extends Repository<M, any>>(
+    model: Constructor<M>
   ): R {
     const repoName: string | undefined = Reflect.getMetadata(
-      getDBKey(DBKeys.REPOSITORY),
-      model,
+      Repository.key(DBKeys.REPOSITORY),
+      model
     );
     let flavour: string | undefined = Reflect.getMetadata(
       getPersistenceKey(PersistenceKeys.ADAPTER),
-      model,
+      model
     );
     let adapter: Adapter<any, any> | undefined = flavour
       ? Adapter.get(flavour)
@@ -292,7 +290,7 @@ export class Repository<M extends DBModel, Q = any>
     if (!repoName) {
       if (!adapter)
         throw new InternalError(
-          `Cannot boot a standard repository without an adapter definition. Did you @use on the model ${model.name}`,
+          `Cannot boot a standard repository without an adapter definition. Did you @use on the model ${model.name}`
         );
       repoConstructor = Repository as unknown as Constructor<R>;
     } else {
@@ -301,11 +299,11 @@ export class Repository<M extends DBModel, Q = any>
         flavour ||
         Reflect.getMetadata(
           getPersistenceKey(PersistenceKeys.ADAPTER),
-          repoConstructor,
+          repoConstructor
         );
       if (!flavour)
         throw new InternalError(
-          `No registered persistence adapter found for model ${model.name}`,
+          `No registered persistence adapter found for model ${model.name}`
         );
 
       adapter = Adapter.get(flavour);
@@ -313,32 +311,32 @@ export class Repository<M extends DBModel, Q = any>
 
     if (!adapter)
       throw new InternalError(
-        `No registered persistence adapter found flavour ${flavour}`,
+        `No registered persistence adapter found flavour ${flavour}`
       );
 
     return new repoConstructor(adapter, model);
   }
 
-  private static get<M extends DBModel>(
-    name: string,
+  private static get<M extends Model>(
+    name: string
   ): Constructor<Repository<M>> {
     if (name in this._cache)
       return this._cache[name] as Constructor<Repository<M>>;
     throw new InternalError(
-      `Could not find repository registered under ${name}`,
+      `Could not find repository registered under ${name}`
     );
   }
 
-  static register<M extends DBModel>(
+  static register<M extends Model>(
     name: string,
-    repo: Constructor<Repository<M, any>>,
+    repo: Constructor<Repository<M, any>>
   ) {
     if (name in this._cache)
       throw new InternalError(`${name} already registered as a repository`);
     this._cache[name] = repo;
   }
 
-  static setMetadata<M extends DBModel>(model: M, metadata: any) {
+  static setMetadata<M extends Model>(model: M, metadata: any) {
     Object.defineProperty(model, PersistenceKeys.METADATA, {
       enumerable: false,
       configurable: true,
@@ -347,28 +345,28 @@ export class Repository<M extends DBModel, Q = any>
     });
   }
 
-  static getMetadata<M extends DBModel>(model: M) {
+  static getMetadata<M extends Model>(model: M) {
     const descriptor = Object.getOwnPropertyDescriptor(
       model,
-      PersistenceKeys.METADATA,
+      PersistenceKeys.METADATA
     );
     return descriptor ? descriptor.value : undefined;
   }
 
-  static removeMetadata<M extends DBModel>(model: M) {
+  static removeMetadata<M extends Model>(model: M) {
     const descriptor = Object.getOwnPropertyDescriptor(
       model,
-      PersistenceKeys.METADATA,
+      PersistenceKeys.METADATA
     );
     if (descriptor) delete (model as any)[PersistenceKeys.METADATA];
   }
 
-  static getSequenceOptions<M extends DBModel>(model: M) {
+  static getSequenceOptions<M extends Model>(model: M) {
     const pk = findPrimaryKey(model).id;
-    const metadata = Reflect.getMetadata(getDBKey(DBKeys.ID), model, pk);
+    const metadata = Reflect.getMetadata(Repository.key(DBKeys.ID), model, pk);
     if (!metadata)
       throw new InternalError(
-        "No sequence options defined for model. did you use the @pk decorator?",
+        "No sequence options defined for model. did you use the @pk decorator?"
       );
     return metadata as SequenceOptions;
   }

@@ -7,9 +7,9 @@ import {
   SelectOption,
 } from "./options";
 import { SelectSelector } from "./selectors";
-import { DBModel } from "@decaf-ts/db-decorators";
 import { Adapter } from "../persistence";
 import { Const } from "./constants";
+import { Model } from "@decaf-ts/decorator-validation";
 
 /**
  * @summary Helper Class to build queries
@@ -20,7 +20,7 @@ import { Const } from "./constants";
  *
  * @category Query
  */
-export class Query<Q, M extends DBModel> {
+export class Query<Q, M extends Model> {
   constructor(private adapter: Adapter<any, Q>) {}
 
   /**

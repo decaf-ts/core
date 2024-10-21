@@ -1,17 +1,16 @@
-import { sf } from "@decaf-ts/decorator-validation";
+import { sf, Model } from "@decaf-ts/decorator-validation";
 import { PersistenceKeys } from "./constants";
-import { DBModel } from "@decaf-ts/db-decorators";
-import { getPersistenceKey } from "./decorators";
+import { Adapter } from "./Adapter";
 
 export function genAdapterInjectableKey(flavour: string) {
   return sf(PersistenceKeys.INJECTABLE, flavour);
 }
 
-export function getColumnName<T extends DBModel>(model: T, attribute: string) {
+export function getColumnName<T extends Model>(model: T, attribute: string) {
   const metadata = Reflect.getMetadata(
-    getPersistenceKey(PersistenceKeys.COLUMN),
+    Adapter.key(PersistenceKeys.COLUMN),
     model,
-    attribute,
+    attribute
   );
   return metadata ? metadata : attribute;
 }

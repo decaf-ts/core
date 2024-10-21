@@ -1,13 +1,21 @@
-import {Adapter, ClauseFactory, Statement, Condition} from "../../src";
+import { Adapter, ClauseFactory, Statement, Condition } from "../../src";
 import { Lock } from "@decaf-ts/transactional-decorators";
-import {Sequence, SequenceOptions} from "../../src";
-import {Constructor} from "@decaf-ts/decorator-validation";
-import {BaseError, ConflictError, DBModel, InternalError, NotFoundError} from "@decaf-ts/db-decorators";
+import { Sequence, SequenceOptions } from "../../src";
+import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import {
+  BaseError,
+  ConflictError,
+  InternalError,
+  NotFoundError,
+} from "@decaf-ts/db-decorators";
 
+export class RamAdapter extends Adapter<Record<string, any>, string> {
+  private indexes: Record<
+    string,
+    Record<string | number, Record<string, any>>
+  > = {};
 
-export class RamAdapter extends Adapter<Record<string, any>, string>{
-
-  private indexes: Record<string, Record<string | number, Record<string, any>>> = {};
+  private lock = new Lock();
 
   private sequences: Record<string, string | number> = {};
 
@@ -19,54 +27,86 @@ export class RamAdapter extends Adapter<Record<string, any>, string>{
     return Promise.resolve(undefined);
   }
 
-  prepare<V extends DBModel>(model: V, pk: string | number): { record: Record<string, any>; id: string } {
+  prepare<V extends Model>(
+    model: V,
+    pk: string | number
+  ): { record: Record<string, any>; id: string } {
     const prepared = super.prepare(model, pk);
-    delete prepared.record[pk]
+    delete prepared.record[pk];
     return prepared;
   }
 
-
-  revert<V extends DBModel>(obj: Record<string, any>, clazz: string | Constructor<V>, pk: string, id: string | number): V {
-    return super.revert(obj, clazz, pk ,id);
+  revert<V extends Model>(
+    obj: Record<string, any>,
+    clazz: string | Constructor<V>,
+    pk: string,
+    id: string | number
+  ): V {
+    return super.revert(obj, clazz, pk, id);
   }
 
-  async create(tableName: string, id : string | number, model: Record<string, any>, args: any): Promise<Record<string, any>> {
+  async create(
+    tableName: string,
+    id: string | number,
+    model: Record<string, any>,
+    args: any
+  ): Promise<Record<string, any>> {
     await this.lock.acquire();
-    if (!this.native[tableName])
-      this.native[tableName] = {};
+    if (!this.native[tableName]) this.native[tableName] = {};
     if (id in this.native[tableName])
-      throw new ConflictError(`Record with id ${id} already exists in table ${tableName}`);
+      throw new ConflictError(
+        `Record with id ${id} already exists in table ${tableName}`
+      );
     this.native[tableName][id] = model;
     this.lock.release();
     return model;
   }
 
-  async read(tableName: string, id: string | number, args: any): Promise<Record<string, any>> {
+  async read(
+    tableName: string,
+    id: string | number,
+    args: any
+  ): Promise<Record<string, any>> {
     if (!(tableName in this.native))
       throw new NotFoundError(`Table ${tableName} not found`);
     if (!(id in this.native[tableName]))
-      throw new NotFoundError(`Record with id ${id} not found in table ${tableName}`);
+      throw new NotFoundError(
+        `Record with id ${id} not found in table ${tableName}`
+      );
     return this.native[tableName][id];
   }
 
-  async update(tableName: string, id : string | number, model: Record<string, any>, args: any): Promise<Record<string, any>> {
+  async update(
+    tableName: string,
+    id: string | number,
+    model: Record<string, any>,
+    args: any
+  ): Promise<Record<string, any>> {
     await this.lock.acquire();
     if (!(tableName in this.native))
       throw new NotFoundError(`Table ${tableName} not found`);
     if (!(id in this.native[tableName]))
-      throw new NotFoundError(`Record with id ${id} not found in table ${tableName}`);
+      throw new NotFoundError(
+        `Record with id ${id} not found in table ${tableName}`
+      );
     this.native[tableName][id] = model;
     this.lock.release();
     return model;
   }
 
-  async delete(tableName: string, id: string | number, args: any): Promise<Record<string, any>> {
+  async delete(
+    tableName: string,
+    id: string | number,
+    args: any
+  ): Promise<Record<string, any>> {
     await this.lock.acquire();
     if (!(tableName in this.native))
       throw new NotFoundError(`Table ${tableName} not found`);
     if (!(id in this.native[tableName]))
-      throw new NotFoundError(`Record with id ${id} not found in table ${tableName}`);
-    const natived =  this.native[tableName][id];
+      throw new NotFoundError(
+        `Record with id ${id} not found in table ${tableName}`
+      );
+    const natived = this.native[tableName][id];
     delete this.native[tableName][id];
     this.lock.release();
     return natived;
@@ -76,7 +116,11 @@ export class RamAdapter extends Adapter<Record<string, any>, string>{
     return Promise.resolve(undefined) as Z;
   }
 
-  async getSequence<V>(model: V, sequence: Constructor<Sequence>, options: SequenceOptions | undefined): Promise<Sequence> {
+  async getSequence<V>(
+    model: V,
+    sequence: Constructor<Sequence>,
+    options: SequenceOptions | undefined
+  ): Promise<Sequence> {
     return undefined as unknown as Sequence;
   }
 
@@ -85,18 +129,18 @@ export class RamAdapter extends Adapter<Record<string, any>, string>{
   }
 
   get Clauses(): ClauseFactory<Record<string, any>, string> {
-    throw new InternalError(`Not implemented`)
+    throw new InternalError(`Not implemented`);
   }
 
   get Statement(): Statement<string> {
-    throw new InternalError(`Not implemented`)
+    throw new InternalError(`Not implemented`);
   }
 
   Sequence(options: SequenceOptions): Promise<Sequence> {
-    throw new InternalError(`Not implemented`)
+    throw new InternalError(`Not implemented`);
   }
 
   parseCondition(condition: Condition): string {
-    throw new InternalError(`Not implemented`)
+    throw new InternalError(`Not implemented`);
   }
 }

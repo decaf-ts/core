@@ -1,5 +1,5 @@
 import { Clause } from "../Clause";
-import { Model, ModelArg, required } from "@decaf-ts/decorator-validation";
+import { ModelArg, required } from "@decaf-ts/decorator-validation";
 
 /**
  * @summary The base Selector based clause

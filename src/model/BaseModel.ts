@@ -1,7 +1,7 @@
-import { DBModel, DBOperations, timestamp } from "@decaf-ts/db-decorators";
-import { ModelArg } from "@decaf-ts/decorator-validation";
+import { DBOperations, timestamp } from "@decaf-ts/db-decorators";
+import { ModelArg, Model } from "@decaf-ts/decorator-validation";
 
-export abstract class BaseModel extends DBModel {
+export abstract class BaseModel extends Model {
   @timestamp(DBOperations.CREATE)
   createdOn?: Date = undefined;
   @timestamp()

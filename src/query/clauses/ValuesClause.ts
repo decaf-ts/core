@@ -1,11 +1,6 @@
 import { Clause } from "../Clause";
 import { Priority } from "../constants";
-import {
-  Model,
-  ModelArg,
-  required,
-  type,
-} from "@decaf-ts/decorator-validation";
+import { ModelArg, required, type } from "@decaf-ts/decorator-validation";
 
 /**
  * @summary The VALUES clause

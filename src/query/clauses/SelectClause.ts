@@ -8,9 +8,8 @@ import {
   WhereOption,
 } from "../options";
 import { Const, Priority, StatementType } from "../constants";
-import { Constructor, ModelArg } from "@decaf-ts/decorator-validation";
+import { Constructor, ModelArg, Model } from "@decaf-ts/decorator-validation";
 import { SelectSelector } from "../selectors";
-import { DBModel } from "@decaf-ts/db-decorators";
 
 /**
  * @summary The SELECT clause
@@ -24,7 +23,7 @@ import { DBModel } from "@decaf-ts/db-decorators";
  * @category Query
  * @subcategory Clauses
  */
-export abstract class SelectClause<Q, M extends DBModel>
+export abstract class SelectClause<Q, M extends Model>
   extends SelectorBasedClause<Q, SelectSelector>
   implements SelectOption<M>
 {

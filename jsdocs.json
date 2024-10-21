@@ -29,13 +29,13 @@
   },
   "templates": {
     "default": {
-      "useLongnameInNav": true
+      "useLongnameInNav": false
     },
     "better-docs": {
-      "name": "persistence",
-      "title": "decaf-ts persistence module",
+      "name": "core",
+      "title": "decaf-ts core module",
       "hideGenerator": true,
-      "useLongnameInNav": true,
+      "useLongnameInNav": false,
       "navLinks": [
         {
           "label": "Test Coverage",
@@ -43,7 +43,7 @@
         },
         {
           "label": "Github Repository",
-          "href": "https://github.com/decaf-ts/persistence#readme"
+          "href": "https://github.com/decaf-ts/core#readme"
         },
         {
           "label": "Github Profile",
@@ -53,12 +53,12 @@
     },
     "cleverLinks": true,
     "monospaceLinks": true,
-    "useLongnameInNav": true,
+    "useLongnameInNav": false,
     "search": true
   },
   "opts": {
     "encoding": "utf-8",
-    "useLongnameInNav": true,
+    "useLongnameInNav": false,
     "template": "./node_modules/better-docs",
     "destination": "./docs/",
     "readme": "./README.md",

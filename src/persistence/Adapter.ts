@@ -1,6 +1,5 @@
 import {
   BaseError,
-  DBModel,
   InternalError,
   NotFoundError,
 } from "@decaf-ts/db-decorators";
@@ -46,13 +45,13 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   protected constructor(
     native: Y,
-    readonly flavour: string,
+    readonly flavour: string
   ) {
     this._native = native;
     Adapter._cache[flavour] = this;
   }
 
-  Query<M extends DBModel>(): Query<Q, M> {
+  Query<M extends Model>(): Query<Q, M> {
     return new Query(this);
   }
 
@@ -68,13 +67,13 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   protected abstract parseError(err: Error): BaseError;
 
-  abstract createIndex<M extends DBModel>(...models: M[]): Promise<any>;
+  abstract createIndex<M extends Model>(...models: M[]): Promise<any>;
 
   abstract Sequence(options: SequenceOptions): Promise<Sequence>;
 
-  prepare<M extends DBModel>(
+  prepare<M extends Model>(
     model: M,
-    pk: string | number,
+    pk: string | number
   ): {
     record: Record<string, any>;
     id: string;
@@ -88,7 +87,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
         accum[mappedProp] = val;
         return accum;
       },
-      {},
+      {}
     );
     if ((model as any)[PersistenceKeys.METADATA])
       Object.defineProperty(result, PersistenceKeys.METADATA, {
@@ -103,11 +102,11 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     };
   }
 
-  revert<M extends DBModel>(
+  revert<M extends Model>(
     obj: Record<string, any>,
     clazz: string | Constructor<M>,
     pk: string,
-    id: string | number | bigint,
+    id: string | number | bigint
   ): M {
     const ob: Record<string, any> = {};
     ob[pk] = id;
@@ -146,7 +145,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
     return Promise.all(
-      id.map((i, count) => this.create(tableName, i, model[count], ...args)),
+      id.map((i, count) => this.create(tableName, i, model[count], ...args))
     );
   }
 
@@ -180,7 +179,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
     return Promise.all(
-      id.map((i, count) => this.update(tableName, i, model[count], ...args)),
+      id.map((i, count) => this.update(tableName, i, model[count], ...args))
     );
   }
 
@@ -252,5 +251,9 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     if (!adapter)
       throw new NotFoundError(`No persistence flavour ${flavour} registered`);
     this._current = adapter;
+  }
+
+  static key(key: string) {
+    return PersistenceKeys.REFLECT + key;
   }
 }

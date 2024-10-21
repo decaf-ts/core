@@ -8,7 +8,7 @@ export function repository<T extends Model>(
   model: Constructor<T>,
   nameOverride?: string
 ): any {
-  return ((original: any, propertyKey?: string) => {
+  return ((original: any, propertyKey?: any) => {
     if (propertyKey) {
       // const flavour = Reflect.getMetadata(
       //   getPersistenceKey(PersistenceKeys.ADAPTER),

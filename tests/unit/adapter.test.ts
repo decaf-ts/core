@@ -1,52 +1,105 @@
-import {RamAdapter} from "./RamAdapter";
-import {Adapter} from "../../src";
-import {TestModel} from "./TestModel";
-import {findPrimaryKey} from "@decaf-ts/db-decorators";
-import {Model} from "@decaf-ts/decorator-validation";
+import { RamAdapter } from "./RamAdapter";
+import { Adapter, repository, uses } from "../../src";
+import { TestModel } from "./TestModel";
+import { findPrimaryKey, Repository } from "@decaf-ts/db-decorators";
+import {
+  Constructor,
+  Model,
+  ModelArg,
+  model,
+} from "@decaf-ts/decorator-validation";
 
-Model.setBuilder(Model.fromModel)
+Model.setBuilder(Model.fromModel);
 
 describe("Adapter", () => {
-  let adapter: Adapter<Record<string, any>, any>
+  let adapter: Adapter<Record<string, any>, any>;
+
+  beforeAll(() => {
+    adapter = new RamAdapter();
+  });
 
   it("instantiates", () => {
-    adapter = new RamAdapter();
     expect(adapter).toBeDefined();
     expect(Adapter["_cache"]["ram"]).toBeDefined();
-  })
+  });
 
   it("defines current", () => {
     expect(Adapter.current).toBeUndefined();
     Adapter.setCurrent("ram");
     expect(Adapter.current).toBeDefined();
     expect(Adapter.current).toEqual(Adapter.get("ram"));
-  })
+  });
 
-  let model: TestModel;
-  let prepared: Record<string, any>
+  let create: TestModel;
+  let prepared: Record<string, any>;
 
   it("prepares models", async () => {
-    model = new TestModel({
+    create = new TestModel({
       id: Date.now().toString(),
       name: "test_name",
-      nif: "123456789"
-    })
+      nif: "123456789",
+    });
 
-    const {record, id} = await adapter.prepare(model, findPrimaryKey(model).id);
+    const { record, id } = adapter.prepare(create, findPrimaryKey(create).id);
     expect(record).toMatchObject({
-      tst_name: model.name,
-      tst_nif: model.nif,
+      tst_name: create.name,
+      tst_nif: create.nif,
       createdOn: undefined,
-      updatedOn: undefined
-    })
-    expect(id).toEqual(model.id);
+      updatedOn: undefined,
+    });
+    expect(id).toEqual(create.id);
     prepared = record;
-  })
+  });
 
   it("reverts models", async () => {
-    const reverted = await adapter.revert(prepared, TestModel, "id", model.id as string) as TestModel;
+    const reverted = adapter.revert(
+      prepared,
+      TestModel,
+      "id",
+      create.id as string
+    ) as TestModel;
     expect(reverted).toBeDefined();
     expect(reverted).toBeInstanceOf(TestModel);
-    expect(reverted.equals(model)).toEqual(true)
-  })
-})
+    expect(reverted.equals(create)).toEqual(true);
+  });
+
+  describe("Model management", () => {
+    @uses("ram")
+    @model()
+    class ManagedModel extends Model {
+      constructor(arg?: ModelArg<ManagedModel>) {
+        super(arg);
+      }
+    }
+
+    // it("Fails to recognized an unregistered model", () => {
+    //   const managedModels = Adapter.models("ram");
+    //   expect(managedModels).toBeDefined();
+    // });
+
+    it("Recognized a registered model", () => {
+      const managedModels = Adapter.models("ram");
+      expect(managedModels).toBeDefined();
+    });
+
+    @model()
+    class Managed2Model extends Model {
+      constructor(arg?: ModelArg<ManagedModel>) {
+        super(arg);
+      }
+    }
+
+    @repository(Managed2Model)
+    @uses("ram")
+    class Managed2ModelRepository extends Repository<Managed2Model> {
+      constructor(clazz: Constructor<Managed2Model>) {
+        super(clazz);
+      }
+    }
+
+    it("Recognized a registered model", () => {
+      const managedModels = Adapter.models("ram");
+      expect(managedModels).toBeDefined();
+    });
+  });
+});

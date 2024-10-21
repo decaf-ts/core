@@ -2,13 +2,14 @@ import {
   BaseError,
   InternalError,
   NotFoundError,
+  Repository,
 } from "@decaf-ts/db-decorators";
 import { Observer } from "../interfaces/Observer";
 import { ObserverError } from "../repository/errors";
 import { Sequence } from "../interfaces/Sequence";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
-import { getColumnName } from "./utils";
+import { getColumnName, getModelsByFlavour } from "./utils";
 import { RawExecutor } from "../interfaces/RawExecutor";
 import { Observable } from "../interfaces/Observable";
 import { PersistenceKeys } from "./constants";
@@ -66,6 +67,8 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
   }
 
   protected abstract parseError(err: Error): BaseError;
+
+  abstract initialize(...args: any[]): Promise<void>;
 
   abstract createIndex<M extends Model>(...models: M[]): Promise<any>;
 
@@ -254,6 +257,10 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
   }
 
   static key(key: string) {
-    return PersistenceKeys.REFLECT + key;
+    return Repository.key(key);
+  }
+
+  static models<M extends Model>(flavour: string) {
+    return getModelsByFlavour<M>(flavour);
   }
 }

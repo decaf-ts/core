@@ -1,40 +1,8 @@
-import { DBKeys, InternalError } from "@decaf-ts/db-decorators";
-import { Injectables } from "@decaf-ts/injectable-decorators";
-import { Repository } from "./Repository";
+import { InternalError } from "@decaf-ts/db-decorators";
 import { Constructor, sf } from "@decaf-ts/decorator-validation";
 import { Adapter } from "../persistence/Adapter";
 import { PersistenceKeys } from "../persistence/constants";
 import { Model } from "@decaf-ts/decorator-validation";
-
-export function bootRepository<T extends Model>(
-  model: Constructor<T>,
-  original: Constructor<Repository<T>>
-): Repository<T> {
-  const repo = Repository.forModel(model);
-  console.log(repo);
-  const injectableName: string | undefined = Reflect.getMetadata(
-    Repository.key(DBKeys.REPOSITORY),
-    model
-  );
-  if (!injectableName)
-    throw new InternalError(
-      `No Repository defined for model ${model.constructor.name}`
-    );
-  const flavour = Reflect.getMetadata(
-    Adapter.key(PersistenceKeys.ADAPTER),
-    original
-  );
-  if (!flavour)
-    throw new InternalError(
-      `Could not find persistence adapter definition for repository ${original.name}`
-    );
-  try {
-    const adapter = Adapter.get(flavour);
-    return Injectables.get(injectableName, adapter) as Repository<T>;
-  } catch (e: any) {
-    throw new InternalError(e);
-  }
-}
 
 export function getTableName<T extends Model>(model: T | Constructor<T>) {
   const metadata = Reflect.getMetadata(

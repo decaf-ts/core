@@ -1,4 +1,5 @@
 import {
+  DataCache,
   DBKeys,
   enforceDBDecorators,
   findModelId,
@@ -27,6 +28,16 @@ import { OrderDirection } from "./constants";
 import { SequenceOptions } from "../interfaces";
 import { sequenceNameForModel } from "../identity/utils";
 import { Queriable } from "../interfaces/Queriable";
+
+// declare module "@decaf-ts/db-decorators" {
+//   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+//   // @ts-expect-error
+//   declare interface IRepository<M extends Model> extends BulkCrudOperator<M> {
+//     readonly cache: DataCache;
+//     readonly class: Constructor<M>;
+//     select(selector?: SelectSelector): WhereOption;
+//     query<V>(condition: Condition, orderBy: string, order: OrderDirection, limit?: number, skip?: number): Promise<V>;
+// }
 
 export class Repository<M extends Model, Q = any>
   extends Rep<M>

@@ -1,15 +1,16 @@
 import {
   ConflictError,
   IRepository,
-  NotFoundError,
-  Repository,
+  onCreateUpdate,
 } from "@decaf-ts/db-decorators";
 import { apply, metadata } from "@decaf-ts/reflection";
 import { PersistenceKeys } from "../persistence/constants";
 import { IndexMetadata } from "../repository/types";
 import { OrderDirection } from "../repository/constants";
 import { Model, propMetadata } from "@decaf-ts/decorator-validation";
-import { Adapter } from "../persistence";
+import { Adapter } from "../persistence/Adapter";
+import { Repository } from "../repository/Repository";
+import { Condition } from "../query/Condition";
 
 export function table(tableName: string) {
   return metadata(Adapter.key(PersistenceKeys.TABLE), tableName);
@@ -42,19 +43,18 @@ export function index(compositions?: string[], directions?: OrderDirection[]) {
 }
 
 export async function uniqueOnCreateUpdate<
-  T extends Model,
-  V extends IRepository<T>,
+  M extends Model,
+  R extends Repository<M>,
   Y = any,
->(this: V, data: Y, key: string, model: T): Promise<void> {
+>(this: R, data: Y, key: string, model: M): Promise<void> {
   if (!(model as any)[key]) return;
-  try {
-    await this.read((model as any)[key]);
-  } catch (e: any) {
-    if (e instanceof NotFoundError) return;
-  }
-  throw new ConflictError(
-    `model already exists with ${key} equal to ${JSON.stringify((model as any)[key], undefined, 2)}`
-  );
+  const existing = await this.select()
+    .where(Condition.attribute(key).eq((model as any)[key]))
+    .execute<M[]>();
+  if (existing.length)
+    throw new ConflictError(
+      `model already exists with property ${key} equal to ${JSON.stringify((model as any)[key], undefined, 2)}`
+    );
 }
 
 /**
@@ -68,7 +68,7 @@ export async function uniqueOnCreateUpdate<
  */
 export function unique() {
   return apply(
-    // onCreateUpdate(uniqueOnCreateUpdate),
+    onCreateUpdate(uniqueOnCreateUpdate),
     propMetadata(Repository.key(PersistenceKeys.UNIQUE), {})
   );
 }

@@ -23,6 +23,10 @@ export class RamAdapter extends Adapter<Record<string, any>, string> {
     super({}, flavour);
   }
 
+  initialize(args: any): Promise<void> {
+    return Promise.resolve(undefined);
+  }
+
   async createIndex(...args: any[]): Promise<any> {
     return Promise.resolve(undefined);
   }

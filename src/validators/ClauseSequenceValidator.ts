@@ -6,8 +6,9 @@ import {
 } from "@decaf-ts/decorator-validation";
 import { isEqual } from "@decaf-ts/reflection";
 import { Clause } from "../query/Clause";
-import { MandatoryPriorities, QueryError } from "../query";
-import { PersistenceKeys } from "../persistence";
+import { MandatoryPriorities } from "../query/constants";
+import { QueryError } from "../query/errors";
+import { PersistenceKeys } from "../persistence/constants";
 
 /**
  * @summary Validates a {@link Sequence}'s {@link Clause}s
@@ -23,21 +24,21 @@ import { PersistenceKeys } from "../persistence";
 @validator(PersistenceKeys.CLAUSE_SEQUENCE)
 export class ClauseSequenceValidator extends Validator {
   constructor(
-    message: string = DEFAULT_ERROR_MESSAGES[PersistenceKeys.CLAUSE_SEQUENCE],
+    message: string = DEFAULT_ERROR_MESSAGES[PersistenceKeys.CLAUSE_SEQUENCE]
   ) {
     super(message);
   }
 
   private validateSequence(
     clauses: Clause<any>[],
-    message?: string,
+    message?: string
   ): string | undefined {
     return MandatoryPriorities.every(
-      (p) => !!clauses.find((c) => c.getPriority() === p),
+      (p) => !!clauses.find((c) => c.getPriority() === p)
     )
       ? undefined
       : this.getMessage(
-          sf(message || this.message, "Missing required Clause Priorities"),
+          sf(message || this.message, "Missing required Clause Priorities")
         );
   }
 
@@ -61,7 +62,7 @@ export class ClauseSequenceValidator extends Validator {
         !value.every((e) => e instanceof Clause)
       )
         return this.getMessage(
-          sf(message || this.message, "No or invalid Clauses found"),
+          sf(message || this.message, "No or invalid Clauses found")
         );
 
       const clauses: Clause<any>[] = value as Clause<any>[];
@@ -74,22 +75,22 @@ export class ClauseSequenceValidator extends Validator {
               accum += sf(
                 "\nClause {0}: {1}",
                 c.constructor.name,
-                errs.toString(),
+                errs.toString()
               );
             else
               accum = sf(
                 "Clause {0}: {1}",
                 c.constructor.name,
-                errs.toString(),
+                errs.toString()
               );
           return accum;
         },
-        undefined,
+        undefined
       );
 
       if (clauseErrors)
         return this.getMessage(
-          sf(message || this.message, clauseErrors.toString()),
+          sf(message || this.message, clauseErrors.toString())
         );
 
       const verifyPriority = () => {
@@ -108,7 +109,7 @@ export class ClauseSequenceValidator extends Validator {
       const priorityCheck = verifyPriority();
       if (priorityCheck !== true)
         return this.getMessage(
-          sf(message || this.message, "Invalid prioritization"),
+          sf(message || this.message, "Invalid prioritization")
         );
 
       const sequenceCheck = this.validateSequence(clauses, message);
@@ -116,7 +117,7 @@ export class ClauseSequenceValidator extends Validator {
         return this.getMessage(sf(message || this.message, "Invalid sequence"));
     } catch (e: any) {
       throw new QueryError(
-        sf("Failed to verify clause sequence {0}: {1}", value, e),
+        sf("Failed to verify clause sequence {0}: {1}", value, e)
       );
     }
   }

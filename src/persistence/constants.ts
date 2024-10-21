@@ -1,5 +1,4 @@
 export enum PersistenceKeys {
-  REFLECT = "model.persistence.",
   INDEX = "index",
   UNIQUE = "unique",
   ADAPTER = "adapter",

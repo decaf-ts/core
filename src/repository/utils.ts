@@ -3,20 +3,7 @@ import { Constructor, sf } from "@decaf-ts/decorator-validation";
 import { Adapter } from "../persistence/Adapter";
 import { PersistenceKeys } from "../persistence/constants";
 import { Model } from "@decaf-ts/decorator-validation";
-
-export function getTableName<T extends Model>(model: T | Constructor<T>) {
-  const metadata = Reflect.getMetadata(
-    Adapter.key(PersistenceKeys.TABLE),
-    model instanceof Model ? model.constructor : model
-  );
-  if (metadata) {
-    return metadata;
-  }
-  if (model instanceof Model) {
-    return model.constructor.name;
-  }
-  return model.name;
-}
+import { Repository } from "./Repository";
 
 export function generateInjectableNameForRepository<T extends Model>(
   model: Constructor<T> | T,
@@ -33,5 +20,5 @@ export function generateInjectableNameForRepository<T extends Model>(
         `Could not retrieve flavour from model ${model instanceof Model ? model.constructor.name : model.name}`
       );
   }
-  return sf(PersistenceKeys.INJECTABLE, flavour, getTableName(model));
+  return sf(PersistenceKeys.INJECTABLE, flavour, Repository.table(model));
 }

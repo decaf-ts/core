@@ -1,22 +1,27 @@
 import {
   BaseError,
+  DBKeys,
   InternalError,
   NotFoundError,
-  Repository,
 } from "@decaf-ts/db-decorators";
 import { Observer } from "../interfaces/Observer";
 import { ObserverError } from "../repository/errors";
 import { Sequence } from "../interfaces/Sequence";
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import {
+  Constructor,
+  Model,
+  ModelConstructor,
+  ModelRegistry,
+} from "@decaf-ts/decorator-validation";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
-import { getColumnName, getModelsByFlavour } from "./utils";
 import { RawExecutor } from "../interfaces/RawExecutor";
 import { Observable } from "../interfaces/Observable";
 import { PersistenceKeys } from "./constants";
 import { Query } from "../query/Query";
 import { Statement } from "../query/Statement";
 import { ClauseFactory } from "../query/ClauseFactory";
-import { Condition } from "../query";
+import { Condition } from "../query/Condition";
+import { Repository } from "../repository/Repository";
 
 /**
  * @summary Abstract Decaf-ts Persistence Adapter Class
@@ -84,7 +89,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     const result = Object.entries(model).reduce(
       (accum: Record<string, any>, [key, val]) => {
         if (key === pk) return accum;
-        const mappedProp = getColumnName(model, key);
+        const mappedProp = Repository.column(model, key);
         if (this.isReserved(mappedProp))
           throw new InternalError(`Property name ${mappedProp} is reserved`);
         accum[mappedProp] = val;
@@ -119,7 +124,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     const metadata = obj[PersistenceKeys.METADATA];
     const result = Object.keys(m).reduce((accum: M, key) => {
       if (key === pk) return accum;
-      (accum as Record<string, any>)[key] = obj[getColumnName(accum, key)];
+      (accum as Record<string, any>)[key] = obj[Repository.column(accum, key)];
       return accum;
     }, m);
     if (metadata)
@@ -261,6 +266,37 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
   }
 
   static models<M extends Model>(flavour: string) {
-    return getModelsByFlavour<M>(flavour);
+    try {
+      const registry = (Model as any).getRegistry() as ModelRegistry<any>;
+      const cache = (
+        registry as unknown as { cache: Record<string, ModelConstructor<any>> }
+      ).cache;
+      const managedModels: ModelConstructor<any>[] = Object.values(cache)
+        .map((m: ModelConstructor<M>) => {
+          let f = Reflect.getMetadata(
+            Adapter.key(PersistenceKeys.ADAPTER),
+            m as ModelConstructor<any>
+          );
+          if (f && f === flavour) return m;
+          if (!f) {
+            const repo = Reflect.getMetadata(
+              Repository.key(DBKeys.REPOSITORY),
+              m as ModelConstructor<any>
+            );
+            if (!repo) return;
+            const repository = Repository.forModel(m);
+
+            f = Reflect.getMetadata(
+              Adapter.key(PersistenceKeys.ADAPTER),
+              repository
+            );
+            return f;
+          }
+        })
+        .filter((m) => !!m);
+      return managedModels;
+    } catch (e: any) {
+      throw new InternalError(e);
+    }
   }
 }

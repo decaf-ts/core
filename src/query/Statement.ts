@@ -15,6 +15,7 @@ import { clauseSequence } from "../validators";
 import { Adapter } from "../persistence";
 import { findPrimaryKey, InternalError } from "@decaf-ts/db-decorators";
 import { WhereClause } from "./clauses";
+import { Repository } from "../repository";
 
 /**
  * @summary Statement Class
@@ -56,7 +57,6 @@ export abstract class Statement<Q>
   protected build(): Q {
     if (!this.clauses)
       throw new QueryError(sf("Failed to build Statement:\n{0}", "No Clauses"));
-    const adapter = this.adapter;
     this.clauses.sort((c1, c2) => {
       return c1.getPriority() - c2.getPriority();
     });
@@ -91,13 +91,9 @@ export abstract class Statement<Q>
    * @inheritDoc
    */
   async execute<Y>(): Promise<Y> {
-    const query: Q = this.build();
     try {
-      const results: Y = (await this.raw(query)) as Y;
-      if (!this.fullRecord) return results;
-      return Array.isArray(results)
-        ? results.map((el) => new (this.target as Constructor<any>)(el))
-        : new (this.target as Constructor<any>)(results);
+      const query: Q = this.build();
+      return this.raw(query);
     } catch (e: any) {
       throw new InternalError(e);
     }

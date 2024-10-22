@@ -14,7 +14,6 @@ import { Observable } from "../interfaces/Observable";
 import { Observer } from "../interfaces/Observer";
 import { Adapter } from "../persistence/Adapter";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
-import { getTableName } from "./utils";
 import { PersistenceKeys } from "../persistence/constants";
 import {
   Condition,
@@ -28,6 +27,7 @@ import { SequenceOptions } from "../interfaces";
 import { sequenceNameForModel } from "../identity/utils";
 import { Queriable } from "../interfaces/Queriable";
 import { getAllPropertyDecorators } from "@decaf-ts/reflection";
+import { IndexMetadata } from "./types";
 
 export class Repository<M extends Model, Q = any>
   extends Rep<M>
@@ -51,7 +51,7 @@ export class Repository<M extends Model, Q = any>
   }
 
   protected get tableName() {
-    if (!this._tableName) this._tableName = getTableName(this.class);
+    if (!this._tableName) this._tableName = Repository.table(this.class);
     return this._tableName;
   }
 
@@ -374,14 +374,44 @@ export class Repository<M extends Model, Q = any>
   static indexes<M extends Model>(model: M | Constructor<M>) {
     const indexDecorators = getAllPropertyDecorators(
       model instanceof Model ? model : new model(),
-      Repository.key(DBKeys.INDEX)
+      DBKeys.REFLECT
     );
     return Object.entries(indexDecorators || {}).reduce(
-      (accum: string[], [key, val]) => {
-        if (val.find((v) => v.key === "")) accum.push(key);
+      (accum: Record<string, Record<string, IndexMetadata>>, [k, val]) => {
+        const decs = val.filter((v) => v.key.startsWith(PersistenceKeys.INDEX));
+        if (decs && decs.length) {
+          for (const dec of decs) {
+            const { key, props } = dec;
+            accum[k] = accum[k] || {};
+            accum[k][key] = props as IndexMetadata;
+          }
+        }
         return accum;
       },
-      []
+      {}
     );
+  }
+
+  static table<M extends Model>(model: M | Constructor<M>) {
+    const metadata = Reflect.getMetadata(
+      Adapter.key(PersistenceKeys.TABLE),
+      model instanceof Model ? model.constructor : model
+    );
+    if (metadata) {
+      return metadata;
+    }
+    if (model instanceof Model) {
+      return model.constructor.name;
+    }
+    return model.name;
+  }
+
+  static column<M extends Model>(model: M, attribute: string) {
+    const metadata = Reflect.getMetadata(
+      Adapter.key(PersistenceKeys.COLUMN),
+      model,
+      attribute
+    );
+    return metadata ? metadata : attribute;
   }
 }

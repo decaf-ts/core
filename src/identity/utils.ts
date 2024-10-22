@@ -1,9 +1,9 @@
 import { Model } from "@decaf-ts/decorator-validation";
-import { getTableName } from "../repository/utils";
+import { Repository } from "../repository/Repository";
 
 export function sequenceNameForModel<M extends Model>(
   model: M,
   ...args: string[]
 ) {
-  return [getTableName(model), ...args].join("_");
+  return [Repository.table(model), ...args].join("_");
 }

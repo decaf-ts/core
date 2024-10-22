@@ -14,8 +14,6 @@ import { Clause } from "./Clause";
 import { clauseSequence } from "../validators";
 import { Adapter } from "../persistence";
 import { findPrimaryKey, InternalError } from "@decaf-ts/db-decorators";
-import { WhereClause } from "./clauses";
-import { Repository } from "../repository";
 
 /**
  * @summary Statement Class

@@ -1,8 +1,4 @@
-import {
-  ConflictError,
-  IRepository,
-  onCreateUpdate,
-} from "@decaf-ts/db-decorators";
+import { ConflictError, onCreateUpdate } from "@decaf-ts/db-decorators";
 import { apply, metadata } from "@decaf-ts/reflection";
 import { PersistenceKeys } from "../persistence/constants";
 import { IndexMetadata } from "../repository/types";

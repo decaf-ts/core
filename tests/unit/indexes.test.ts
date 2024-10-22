@@ -29,6 +29,21 @@ describe("Indexes", () => {
   it("extracts indexes", () => {
     const indexes = Repository.indexes(IndexedModel);
     expect(indexes).toBeDefined();
-    expect(indexes).toEqual(expect.arrayContaining(["id", "name"]));
+    expect(indexes).toEqual(
+      expect.objectContaining({
+        id: {
+          index: {
+            compositions: undefined,
+            directions: undefined,
+          },
+        },
+        name: {
+          index: {
+            compositions: undefined,
+            directions: undefined,
+          },
+        },
+      })
+    );
   });
 });

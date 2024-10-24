@@ -7,4 +7,9 @@ export enum PersistenceKeys {
   COLUMN = "column",
   METADATA = "__metadata",
   CLAUSE_SEQUENCE = "clause-sequence",
+  // Relations
+  ONE_TO_ONE = "one-to-one",
+  ONE_TO_MANY = "one-to-many",
+  MANY_TO_ONE = "many-to-one",
+  POPULATE = "populate",
 }

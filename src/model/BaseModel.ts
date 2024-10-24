@@ -3,9 +3,9 @@ import { ModelArg, Model } from "@decaf-ts/decorator-validation";
 
 export abstract class BaseModel extends Model {
   @timestamp(DBOperations.CREATE)
-  createdOn?: Date = undefined;
+  createdOn!: Date;
   @timestamp()
-  updatedOn?: Date = undefined;
+  updatedOn!: Date;
 
   protected constructor(arg?: ModelArg<BaseModel>) {
     super(arg);

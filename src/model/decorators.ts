@@ -1,12 +1,34 @@
-import { ConflictError, onCreateUpdate } from "@decaf-ts/db-decorators";
+import {
+  ConflictError,
+  onCreate,
+  onCreateUpdate,
+  onDelete,
+  onUpdate,
+  afterAny,
+} from "@decaf-ts/db-decorators";
 import { apply, metadata } from "@decaf-ts/reflection";
 import { PersistenceKeys } from "../persistence/constants";
-import { IndexMetadata } from "../repository/types";
-import { OrderDirection } from "../repository/constants";
-import { Model, propMetadata } from "@decaf-ts/decorator-validation";
+import { CascadeMetadata, IndexMetadata } from "../repository/types";
+import { DefaultCascade, OrderDirection } from "../repository/constants";
+import {
+  Constructor,
+  Model,
+  propMetadata,
+  type,
+} from "@decaf-ts/decorator-validation";
 import { Adapter } from "../persistence/Adapter";
 import { Repository } from "../repository/Repository";
 import { Condition } from "../query/Condition";
+import { RelationsMetadata } from "./types";
+import {
+  oneToManyOnCreate,
+  oneToManyOnDelete,
+  oneToManyOnUpdate,
+  oneToOneOnCreate,
+  oneToOneOnDelete,
+  oneToOneOnUpdate,
+  populate as pop,
+} from "./construction";
 
 export function table(tableName: string) {
   return metadata(Adapter.key(PersistenceKeys.TABLE), tableName);
@@ -66,5 +88,108 @@ export function unique() {
   return apply(
     onCreateUpdate(uniqueOnCreateUpdate),
     propMetadata(Repository.key(PersistenceKeys.UNIQUE), {})
+  );
+}
+
+/**
+ * @summary One To One relation Decorators
+ *
+ * @param {Constructor<any>} clazz the {@link Sequence} to use. Defaults to {@link NoneSequence}
+ * @param {CascadeMetadata} [cascadeOptions]
+ * @param {boolean} populate If true, replaces the specified key in the document with the corresponding record from the database
+ *
+ * @function onToOne
+ *
+ * @memberOf module:wallet-db.Decorators
+ *
+ * @see oneToMany
+ * @see manyToOne
+ */
+export function oneToOne<M extends Model>(
+  clazz: Constructor<M>,
+  cascadeOptions: CascadeMetadata = DefaultCascade,
+  populate: boolean = true
+) {
+  Model.register(clazz);
+  const metadata: RelationsMetadata = {
+    class: clazz.constructor.name,
+    cascade: cascadeOptions,
+    populate: populate,
+  };
+  return apply(
+    type([clazz.name, String.name]),
+    onCreate(oneToOneOnCreate, metadata),
+    onUpdate(oneToOneOnUpdate, metadata),
+    onDelete(oneToOneOnDelete, metadata),
+    afterAny(pop, metadata),
+    propMetadata(Repository.key(PersistenceKeys.ONE_TO_ONE), metadata)
+  );
+}
+
+/**
+ * @summary One To Many relation Decorators
+ *
+ * @param {Constructor<any>} clazz the {@link Sequence} to use. Defaults to {@link NoneSequence}
+ * @param {CascadeMetadata} [cascadeOptions]
+ *
+ * @function oneToMany
+ *
+ * @memberOf module:wallet-db.Decorators
+ *
+ * @see oneToOne
+ * @see manyToOne
+ */
+export function oneToMany<M extends Model>(
+  clazz: Constructor<M>,
+  cascadeOptions: CascadeMetadata = DefaultCascade,
+  populate: boolean = true
+) {
+  Model.register(clazz);
+  const metadata: RelationsMetadata = {
+    class: clazz.constructor.name,
+    cascade: cascadeOptions,
+    populate: populate,
+  };
+  return apply(
+    type([clazz.name, String.name]),
+    onCreate(oneToManyOnCreate, metadata),
+    onUpdate(oneToManyOnUpdate, metadata),
+    onDelete(oneToManyOnDelete, metadata),
+    afterAny(pop, metadata),
+    propMetadata(Repository.key(PersistenceKeys.ONE_TO_MANY), metadata)
+  );
+}
+
+/**
+ * @summary Many To One relation Decorators
+ *
+ * @param {Constructor<any>} clazz the {@link Sequence} to use. Defaults to {@link NoneSequence}
+ * @param {CascadeMetadata} [cascadeOptions]
+ *
+ * @function manyToOne
+ *
+ * @memberOf module:wallet-db.Decorators
+ *
+ * @see oneToMany
+ * @see oneToOne
+ */
+export function manyToOne(
+  clazz: Constructor<any>,
+  cascadeOptions: CascadeMetadata = DefaultCascade,
+  populate = true
+) {
+  Model.register(clazz);
+  const metadata: RelationsMetadata = {
+    class: clazz.constructor.name,
+    cascade: cascadeOptions,
+    populate: populate,
+  };
+  return apply(
+    type([clazz.name, String.name]),
+    // onCreate(oneToManyOnCreate, metadata),
+    // onUpdate(oneToManyOnUpdate, metadata),
+    // onDelete(oneToManyOnDelete, metadata),
+    // afterAll(populate, metadata),
+    propMetadata(Repository.key(PersistenceKeys.MANY_TO_ONE), metadata)
   );
 }

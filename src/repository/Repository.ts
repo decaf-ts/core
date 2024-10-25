@@ -1,5 +1,4 @@
 import {
-  argsWithContext,
   DBKeys,
   enforceDBDecorators,
   findPrimaryKey,
@@ -28,6 +27,7 @@ import { Queriable } from "../interfaces/Queriable";
 import { getAllPropertyDecorators } from "@decaf-ts/reflection";
 import { IndexMetadata } from "./types";
 import { Sequence } from "../persistence/Sequence";
+import { Context } from "@decaf-ts/db-decorators";
 
 export class Repository<M extends Model, Q = any>
   extends Rep<M>
@@ -73,6 +73,16 @@ export class Repository<M extends Model, Q = any>
     );
   }
 
+  async context(
+    operation:
+      | OperationKeys.CREATE
+      | OperationKeys.READ
+      | OperationKeys.UPDATE
+      | OperationKeys.DELETE
+  ): Promise<Context<M>> {
+    return this.adapter.context(operation, this.class);
+  }
+
   async create(model: M, ...args: any[]): Promise<M> {
     // eslint-disable-next-line prefer-const
     let { record, id } = this.adapter.prepare(model, this.pk);
@@ -97,7 +107,12 @@ export class Repository<M extends Model, Q = any>
   }
 
   protected async createAllPrefix(models: M[], ...args: any[]) {
-    const contextArgs = argsWithContext(args);
+    const contextArgs = await Context.args(
+      this,
+      OperationKeys.CREATE,
+      this.class,
+      args
+    );
     if (!models.length) return [models, ...contextArgs.args];
     const opts = Repository.getSequenceOptions(models[0]);
     let ids: (string | number | bigint | undefined)[] = [];
@@ -150,7 +165,12 @@ export class Repository<M extends Model, Q = any>
     model: M,
     ...args: any[]
   ): Promise<[M, ...args: any[]]> {
-    const contextArgs = argsWithContext(args);
+    const contextArgs = await Context.args(
+      this,
+      OperationKeys.UPDATE,
+      this.class,
+      args
+    );
     const pk = (model as Record<string, any>)[this.pk];
     if (!pk)
       throw new InternalError(
@@ -177,7 +197,12 @@ export class Repository<M extends Model, Q = any>
   }
 
   protected async updateAllPrefix(models: M[], ...args: any[]): Promise<any[]> {
-    const contextArgs = argsWithContext(args);
+    const contextArgs = await Context.args(
+      this,
+      OperationKeys.UPDATE,
+      this.class,
+      args
+    );
     const ids = models.map((m) => {
       const id = (m as Record<string, any>)[this.pk];
       if (!id) throw new InternalError("missing id on update operation");

@@ -1,8 +1,10 @@
 import {
   BaseError,
+  Context,
   DBKeys,
   InternalError,
   NotFoundError,
+  OperationKeys,
 } from "@decaf-ts/db-decorators";
 import { Observer } from "../interfaces/Observer";
 import { ObserverError } from "../repository/errors";
@@ -81,6 +83,17 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   async timestamp(): Promise<Date> {
     return new Date();
+  }
+
+  async context<M extends Model>(
+    operation:
+      | OperationKeys.CREATE
+      | OperationKeys.READ
+      | OperationKeys.UPDATE
+      | OperationKeys.DELETE,
+    model: Constructor<M>
+  ) {
+    return Context.from(operation, model);
   }
 
   prepare<M extends Model>(

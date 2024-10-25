@@ -36,7 +36,7 @@ import { Context } from "@decaf-ts/db-decorators/lib/repository/Context";
  */
 export async function pkOnCreate<M extends Model, V extends Repository<M, any>>(
   this: V,
-  context: Context,
+  context: Context<M>,
   data: SequenceOptions,
   key: string,
   model: M

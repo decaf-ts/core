@@ -18,7 +18,7 @@ import { Context } from "@decaf-ts/db-decorators/lib/repository/Context";
 
 export async function createOrUpdate<M extends Model>(
   model: M,
-  context: Context,
+  context: Context<M>,
   repository: Repository<M> | undefined = undefined,
   pk?: string
 ): Promise<M> {
@@ -45,7 +45,7 @@ export async function oneToOneOnCreate<
   M extends Model,
   R extends Repository<M>,
   Y extends RelationsMetadata,
->(this: R, context: Context, data: Y, key: string, model: M): Promise<void> {
+>(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
   const propertyValue: any = (model as Record<string, any>)[key];
   if (!propertyValue) return;
 
@@ -71,7 +71,7 @@ export async function oneToOneOnUpdate<
   M extends Model,
   R extends Repository<M>,
   Y extends RelationsMetadata,
->(this: R, context: Context, data: Y, key: string, model: M): Promise<void> {
+>(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
   const propertyValue: any = (model as Record<string, any>)[key];
   if (!propertyValue) return;
   if (data.cascade.update !== Cascade.CASCADE) return;
@@ -103,7 +103,7 @@ export async function oneToOneOnDelete<
   M extends Model,
   R extends Repository<M>,
   Y extends RelationsMetadata,
->(this: R, context: Context, data: Y, key: string, model: M): Promise<void> {
+>(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
   const propertyValue: any = (model as Record<string, any>)[key];
   if (!propertyValue) return;
   if (data.cascade.update !== Cascade.CASCADE) return;
@@ -121,7 +121,7 @@ export async function oneToManyOnCreate<
   M extends Model,
   R extends Repository<M>,
   Y extends RelationsMetadata,
->(this: R, context: Context, data: Y, key: string, model: M): Promise<void> {
+>(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
   const propertyValues: any = (model as Record<string, any>)[key];
   if (!propertyValues || !propertyValues.length) return;
   const arrayType = typeof propertyValues[0];
@@ -157,7 +157,7 @@ export async function oneToManyOnUpdate<
   M extends Model,
   R extends Repository<M>,
   Y extends RelationsMetadata,
->(this: R, context: Context, data: Y, key: string, model: M): Promise<void> {
+>(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
   const { cascade } = data;
   if (cascade.update !== Cascade.CASCADE) return;
   return oneToManyOnCreate.call(this, context, data, key, model);
@@ -167,7 +167,13 @@ export async function oneToManyOnDelete<
   M extends Model,
   R extends Repository<M>,
   Y extends RelationsMetadata,
->(this: R, context: Context, data: Y, key: string, id: string): Promise<void> {
+>(
+  this: R,
+  context: Context<M>,
+  data: Y,
+  key: string,
+  id: string
+): Promise<void> {
   if (data.cascade.delete !== Cascade.CASCADE) return;
   const model = await this.read(id);
   const values = (model as Record<string, any>)[key];
@@ -205,9 +211,9 @@ export function getPopulateKey(
   return [PersistenceKeys.POPULATE, tableName, fieldName, id].join(".");
 }
 
-export async function cacheModelForPopulate(
-  context: Context,
-  parentModel: any,
+export async function cacheModelForPopulate<M extends Model>(
+  context: Context<M>,
+  parentModel: M,
   propertyKey: string,
   pkValue: string | number,
   cacheValue: any
@@ -224,7 +230,7 @@ export async function populate<
   M extends Model,
   R extends Repository<M>,
   Y extends RelationsMetadata,
->(this: R, context: Context, data: Y, key: string, model: M): Promise<void> {
+>(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
   if (!data.populate) return;
   const nested: any = (model as Record<string, any>)[key];
   if (
@@ -234,8 +240,8 @@ export async function populate<
     return;
 
   async function fetchPopulateValue(
-    c: Context,
-    model: Model,
+    c: Context<M>,
+    model: M,
     propName: string,
     propKeyValue: any
   ) {

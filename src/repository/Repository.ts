@@ -187,7 +187,10 @@ export class Repository<M extends Model, Q = any>
       oldModel
     );
 
-    const errors = model.hasErrors(oldModel);
+    const errors = model.hasErrors(
+      oldModel,
+      ...Repository.relations(this.class)
+    );
     if (errors) throw new ValidationError(errors.toString());
     if (Repository.getMetadata(oldModel)) {
       if (!Repository.getMetadata(model))
@@ -413,6 +416,22 @@ export class Repository<M extends Model, Q = any>
       },
       {}
     );
+  }
+
+  static relations<M extends Model>(model: M | Constructor<M>) {
+    const result: string[] = [];
+    let prototype =
+      model instanceof Model
+        ? Object.getPrototypeOf(model)
+        : (model as any).prototype;
+    while (prototype != null) {
+      const props: string[] = prototype[PersistenceKeys.RELATIONS];
+      if (props) {
+        result.push(...props);
+      }
+      prototype = Object.getPrototypeOf(prototype);
+    }
+    return result;
   }
 
   static table<M extends Model>(model: M | Constructor<M>) {

@@ -14,6 +14,7 @@ import {
   Constructor,
   list,
   Model,
+  prop,
   propMetadata,
   type,
 } from "@decaf-ts/decorator-validation";
@@ -118,6 +119,7 @@ export function oneToOne<M extends Model>(
     populate: populate,
   };
   return apply(
+    prop(PersistenceKeys.RELATIONS),
     type([clazz.name, String.name, Number.name, BigInt.name]),
     onCreate(oneToOneOnCreate, metadata),
     onUpdate(oneToOneOnUpdate, metadata),
@@ -152,7 +154,8 @@ export function oneToMany<M extends Model>(
     populate: populate,
   };
   return apply(
-    // @ts-expect-error forced override of previous decorator
+    prop(PersistenceKeys.RELATIONS),
+    // @ts-expect-error purposeful override
     list([clazz, String, Number, BigInt]),
     onCreate(oneToManyOnCreate, metadata),
     onUpdate(oneToManyOnUpdate, metadata),
@@ -187,6 +190,7 @@ export function manyToOne(
     populate: populate,
   };
   return apply(
+    prop(PersistenceKeys.RELATIONS),
     type([clazz.name, String.name, Number.name, BigInt.name]),
     // onCreate(oneToManyOnCreate, metadata),
     // onUpdate(oneToManyOnUpdate, metadata),

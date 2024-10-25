@@ -6,10 +6,11 @@ export enum PersistenceKeys {
   TABLE = "table",
   COLUMN = "column",
   METADATA = "__metadata",
+  RELATIONS = "__relations",
   CLAUSE_SEQUENCE = "clause-sequence",
   // Relations
-  ONE_TO_ONE = "one-to-one",
-  ONE_TO_MANY = "one-to-many",
-  MANY_TO_ONE = "many-to-one",
+  ONE_TO_ONE = "relations.one-to-one",
+  ONE_TO_MANY = "relations.one-to-many",
+  MANY_TO_ONE = "relations.many-to-one",
   POPULATE = "populate",
 }

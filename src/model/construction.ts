@@ -19,8 +19,7 @@ import { Context } from "@decaf-ts/db-decorators/lib/repository/Context";
 export async function createOrUpdate<M extends Model>(
   model: M,
   context: Context<M>,
-  repository: Repository<M> | undefined = undefined,
-  pk?: string
+  repository?: Repository<M>
 ): Promise<M> {
   if (!repository) {
     const constructor = Model.get(model.constructor.name);
@@ -28,8 +27,7 @@ export async function createOrUpdate<M extends Model>(
       throw new InternalError(`Could not find model ${model.constructor.name}`);
     repository = Repository.forModel(constructor) as Repository<M>;
   }
-  if (!pk) pk = findPrimaryKey(model).id;
-  if (typeof (model as Record<string, any>)[pk] === "undefined")
+  if (typeof (model as Record<string, any>)[repository.pk] === "undefined")
     return repository.create(model, context);
   else {
     try {
@@ -167,15 +165,8 @@ export async function oneToManyOnDelete<
   M extends Model,
   R extends Repository<M>,
   Y extends RelationsMetadata,
->(
-  this: R,
-  context: Context<M>,
-  data: Y,
-  key: string,
-  id: string
-): Promise<void> {
+>(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
   if (data.cascade.delete !== Cascade.CASCADE) return;
-  const model = await this.read(id);
   const values = (model as Record<string, any>)[key];
   if (!values || !values.length) return;
   const arrayType = typeof values[0];
@@ -188,15 +179,14 @@ export async function oneToManyOnDelete<
   const repo = isInstantiated
     ? Repository.forModel(values[0])
     : repositoryFromTypeMetadata(model, key);
-  let pk: string;
-  if (isInstantiated) pk = findPrimaryKey(values[0]).id;
+
   const uniqueValues = new Set([
     ...(isInstantiated
-      ? values
-      : values.map((v: Record<string, any>) => v[pk])),
+      ? values.map((v: Record<string, any>) => v[repo.pk])
+      : values),
   ]);
 
-  for (const id of uniqueValues) {
+  for (const id of uniqueValues.values()) {
     const deleted = await repo.delete(id, context);
     await cacheModelForPopulate(context, model, key, id, deleted);
   }

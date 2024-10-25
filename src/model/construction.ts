@@ -105,14 +105,25 @@ export async function oneToOneOnDelete<
   const propertyValue: any = (model as Record<string, any>)[key];
   if (!propertyValue) return;
   if (data.cascade.update !== Cascade.CASCADE) return;
-  const innerRepo = repositoryFromTypeMetadata(model, key);
+  const innerRepo: Repository<M> = repositoryFromTypeMetadata(model, key);
+  let deleted: M;
   if (!(propertyValue instanceof Model))
-    await innerRepo.delete((model as Record<string, any>)[key], context);
-  else
-    await innerRepo.delete(
-      findModelId((model as Record<string, any>)[key]),
+    deleted = await innerRepo.delete(
+      (model as Record<string, any>)[key],
       context
     );
+  else
+    deleted = await innerRepo.delete(
+      (model as Record<string, any>)[key][innerRepo.pk],
+      context
+    );
+  await cacheModelForPopulate(
+    context,
+    model,
+    key,
+    (deleted as Record<string, any>)[innerRepo.pk],
+    deleted
+  );
 }
 
 export async function oneToManyOnCreate<
@@ -134,7 +145,7 @@ export async function oneToManyOnCreate<
       const read = await repo.read(id);
       await cacheModelForPopulate(context, model, key, id, read);
     }
-    (model as any)[key] = uniqueValues;
+    (model as any)[key] = [...uniqueValues];
     return;
   }
 
@@ -175,7 +186,7 @@ export async function oneToManyOnDelete<
     throw new InternalError(
       `Invalid operation. All elements of property ${key} must match the same type.`
     );
-  const isInstantiated = arrayType === Object.name;
+  const isInstantiated = arrayType === "object";
   const repo = isInstantiated
     ? Repository.forModel(values[0])
     : repositoryFromTypeMetadata(model, key);
@@ -223,42 +234,39 @@ export async function populate<
 >(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
   if (!data.populate) return;
   const nested: any = (model as Record<string, any>)[key];
-  if (
-    typeof nested === "undefined" ||
-    (Array.isArray(nested) && nested.length === 0)
-  )
-    return;
+  const isArr = Array.isArray(nested);
+  if (typeof nested === "undefined" || (isArr && nested.length === 0)) return;
 
-  async function fetchPopulateValue(
+  async function fetchPopulateValues(
     c: Context<M>,
     model: M,
     propName: string,
-    propKeyValue: any
+    propKeyValues: any[]
   ) {
-    const cacheKey = getPopulateKey(
-      model.constructor.name,
-      propName,
-      propKeyValue
-    );
-    return c.get(cacheKey);
+    let cacheKey: string;
+    let val: any;
+    const results: M[] = [];
+    for (const proKeyValue of propKeyValues) {
+      cacheKey = getPopulateKey(model.constructor.name, propName, proKeyValue);
+      try {
+        val = await c.get(cacheKey);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      } catch (e: any) {
+        const repo = repositoryFromTypeMetadata(model, propName);
+        if (!repo) throw new InternalError("Could not find repo");
+        val = await repo.read(proKeyValue);
+      }
+      results.push(val);
+    }
+    return results;
   }
-  if (!Array.isArray(nested)) {
-    (model as any)[key] = await fetchPopulateValue(
-      context,
-      model,
-      key,
-      (model as Record<string, any>)[key]
-    );
-    return;
-  }
-
-  const result: M[] = [];
-
-  for (const v of nested) {
-    const record = await fetchPopulateValue(context, model, key, v);
-    result.concat([record]);
-  }
-  (model as Record<string, any>)[key] = result;
+  const res = await fetchPopulateValues(
+    context,
+    model,
+    key,
+    isArr ? nested : [nested]
+  );
+  (model as Record<string, any>)[key] = isArr ? res : res[0];
 }
 
 const commomTypes = [

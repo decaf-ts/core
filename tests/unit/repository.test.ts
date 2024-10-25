@@ -57,10 +57,6 @@ describe("Repository", () => {
   });
 
   describe("Repository registration", () => {
-    it("fails to retrieve the repository for this model without registration", () => {
-      expect(() => Repository.forModel(TestModel)).toThrowError(InternalError);
-    });
-
     it("succeeds when using @use on the model level", () => {
       @uses("ram")
       @model()

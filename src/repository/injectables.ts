@@ -20,6 +20,7 @@ export class InjectablesRegistry extends InjectableRegistryImp {
         const m = Model.get(name);
         if (m) injectable = Repository.forModel(m);
         if (injectable) {
+          if (injectable instanceof Repository) return injectable as T;
           const flavour =
             Reflect.getMetadata(
               Adapter.key(PersistenceKeys.ADAPTER),

@@ -82,8 +82,8 @@ export async function oneToOneOnUpdate<
     return;
   }
 
-  const updated = await createOrUpdate(model, this);
-  const pk = findPrimaryKey(model).id;
+  const updated = await createOrUpdate((model as Record<string, any>)[key]);
+  const pk = findPrimaryKey(updated).id;
   await cacheModelForPopulate.call(
     this,
     model,
@@ -98,15 +98,14 @@ export async function oneToOneOnDelete<
   M extends Model,
   R extends Repository<M>,
   Y extends RelationsMetadata,
->(this: R, data: Y, key: string, id: any): Promise<void> {
-  const read: any = await this.read(id);
-  const propertyValue: any = (read as Record<string, any>)[key];
+>(this: R, data: Y, key: string, model: M): Promise<void> {
+  const propertyValue: any = (model as Record<string, any>)[key];
   if (!propertyValue) return;
   if (data.cascade.update !== Cascade.CASCADE) return;
-  const innerRepo = repositoryFromTypeMetadata(read, key);
+  const innerRepo = repositoryFromTypeMetadata(model, key);
   if (!(propertyValue instanceof Model))
-    await innerRepo.delete((read as Record<string, any>)[key]);
-  else await innerRepo.delete(findModelId((read as Record<string, any>)[key]));
+    await innerRepo.delete((model as Record<string, any>)[key]);
+  else await innerRepo.delete(findModelId((model as Record<string, any>)[key]));
 }
 
 export async function oneToManyOnCreate<

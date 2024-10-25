@@ -6,7 +6,6 @@ import {
 } from "@decaf-ts/db-decorators";
 import { Observer } from "../interfaces/Observer";
 import { ObserverError } from "../repository/errors";
-import { Sequence } from "../interfaces/Sequence";
 import {
   Constructor,
   Model,
@@ -22,6 +21,7 @@ import { Statement } from "../query/Statement";
 import { ClauseFactory } from "../query/ClauseFactory";
 import { Condition } from "../query/Condition";
 import { Repository } from "../repository/Repository";
+import { Sequence } from "./Sequence";
 
 /**
  * @summary Abstract Decaf-ts Persistence Adapter Class
@@ -78,6 +78,10 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
   abstract index<M extends Model>(...models: M[]): Promise<any>;
 
   abstract Sequence(options: SequenceOptions): Promise<Sequence>;
+
+  async timestamp(): Promise<Date> {
+    return new Date();
+  }
 
   prepare<M extends Model>(
     model: M,

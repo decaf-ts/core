@@ -12,6 +12,7 @@ import { CascadeMetadata, IndexMetadata } from "../repository/types";
 import { DefaultCascade, OrderDirection } from "../repository/constants";
 import {
   Constructor,
+  list,
   Model,
   propMetadata,
   type,
@@ -112,12 +113,12 @@ export function oneToOne<M extends Model>(
 ) {
   Model.register(clazz);
   const metadata: RelationsMetadata = {
-    class: clazz.constructor.name,
+    class: clazz.name,
     cascade: cascadeOptions,
     populate: populate,
   };
   return apply(
-    type([clazz.name, String.name]),
+    type([clazz.name, String.name, Number.name, BigInt.name]),
     onCreate(oneToOneOnCreate, metadata),
     onUpdate(oneToOneOnUpdate, metadata),
     onDelete(oneToOneOnDelete, metadata),
@@ -146,12 +147,12 @@ export function oneToMany<M extends Model>(
 ) {
   Model.register(clazz);
   const metadata: RelationsMetadata = {
-    class: clazz.constructor.name,
+    class: clazz.name,
     cascade: cascadeOptions,
     populate: populate,
   };
   return apply(
-    type([clazz.name, String.name]),
+    type([clazz.name, String.name, Number.name, BigInt.name]),
     onCreate(oneToManyOnCreate, metadata),
     onUpdate(oneToManyOnUpdate, metadata),
     onDelete(oneToManyOnDelete, metadata),
@@ -180,12 +181,12 @@ export function manyToOne(
 ) {
   Model.register(clazz);
   const metadata: RelationsMetadata = {
-    class: clazz.constructor.name,
+    class: clazz.name,
     cascade: cascadeOptions,
     populate: populate,
   };
   return apply(
-    type([clazz.name, String.name]),
+    type([clazz.name, String.name, Number.name, BigInt.name]),
     // onCreate(oneToManyOnCreate, metadata),
     // onUpdate(oneToManyOnUpdate, metadata),
     // onDelete(oneToManyOnDelete, metadata),

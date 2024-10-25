@@ -1,7 +1,6 @@
 import {
   DBKeys,
   enforceDBDecorators,
-  findModelId,
   findPrimaryKey,
   InternalError,
   OperationKeys,
@@ -33,8 +32,10 @@ export class Repository<M extends Model, Q = any>
   extends Rep<M>
   implements Observable, Queriable
 {
-  private static _cache: Record<string, Constructor<Repository<Model, any>>> =
-    {};
+  private static _cache: Record<
+    string,
+    Constructor<Repository<Model, any>> | Repository<Model, any>
+  > = {};
 
   private observers: Observer[] = [];
 
@@ -63,6 +64,7 @@ export class Repository<M extends Model, Q = any>
   constructor(adapter?: Adapter<any, Q>, clazz?: Constructor<M>) {
     super(clazz);
     if (adapter) this._adapter = adapter;
+    if (clazz) Repository.register(clazz, this);
     [this.createAll, this.readAll, this.updateAll, this.deleteAll].forEach(
       (m) => {
         const name = m.name;
@@ -107,7 +109,7 @@ export class Repository<M extends Model, Q = any>
       if (!opts.name) opts.name = sequenceNameForModel(models[0], "pk");
       ids = await (await this.adapter.Sequence(opts)).range(models.length);
     }
-    const pk = findPrimaryKey(models[0]).id;
+    const pk = this.pk;
 
     models = await Promise.all(
       models.map(async (m, i) => {
@@ -143,7 +145,7 @@ export class Repository<M extends Model, Q = any>
 
   async update(model: M, ...args: any[]): Promise<M> {
     // eslint-disable-next-line prefer-const
-    let { record, id } = await this.adapter.prepare(model, this.pk);
+    let { record, id } = this.adapter.prepare(model, this.pk);
     record = await this.adapter.update(this.tableName, id, record, ...args);
     return this.adapter.revert(record, this.class, this.pk, id);
   }
@@ -152,7 +154,7 @@ export class Repository<M extends Model, Q = any>
     model: M,
     ...args: any[]
   ): Promise<[M, ...args: any[]]> {
-    const pk = findModelId(model);
+    const pk = (model as Record<string, any>)[this.pk];
     const oldModel = await this.read(pk);
     model = this.merge(oldModel, model);
     await enforceDBDecorators(
@@ -173,7 +175,7 @@ export class Repository<M extends Model, Q = any>
   }
 
   protected async updateAllPrefix(models: M[], ...args: any[]): Promise<any[]> {
-    const ids = models.map((m) => findModelId(m));
+    const ids = models.map((m) => (m as Record<string, any>)[this.pk]);
     const oldModels = await this.readAll(ids);
     models = models.map((m, i) => {
       m = this.merge(oldModels[i], m);
@@ -233,6 +235,10 @@ export class Repository<M extends Model, Q = any>
     return query.execute<V>();
   }
 
+  async timestamp() {
+    return this.adapter.timestamp();
+  }
+
   /**
    * @summary Registers an {@link Observer}
    * @param {Observer} observer
@@ -274,63 +280,47 @@ export class Repository<M extends Model, Q = any>
   static forModel<M extends Model, R extends Repository<M, any>>(
     model: Constructor<M>
   ): R {
-    const repoName: string | undefined = Reflect.getMetadata(
-      Repository.key(DBKeys.REPOSITORY),
-      model
-    );
-    let flavour: string | undefined = Reflect.getMetadata(
-      Adapter.key(PersistenceKeys.ADAPTER),
-      model
-    );
-    let adapter: Adapter<any, any> | undefined = flavour
+    let repo: Repository<M> | Constructor<Repository<M>>;
+    try {
+      repo = this.get(model);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e: any) {
+      repo = Repository;
+    }
+
+    if (repo instanceof Repository) return repo as R;
+
+    const flavour: string | undefined =
+      Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model) ||
+      Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), repo);
+    const adapter: Adapter<any, any> | undefined = flavour
       ? Adapter.get(flavour)
       : undefined;
-
-    let repoConstructor: Constructor<R>;
-    if (!repoName) {
-      if (!adapter)
-        throw new InternalError(
-          `Cannot boot a standard repository without an adapter definition. Did you @use on the model ${model.name}`
-        );
-      repoConstructor = Repository as unknown as Constructor<R>;
-    } else {
-      repoConstructor = this.get(repoName) as unknown as Constructor<R>;
-      flavour =
-        flavour ||
-        Reflect.getMetadata(
-          Adapter.key(PersistenceKeys.ADAPTER),
-          repoConstructor
-        );
-      if (!flavour)
-        throw new InternalError(
-          `No registered persistence adapter found for model ${model.name}`
-        );
-
-      adapter = Adapter.get(flavour);
-    }
 
     if (!adapter)
       throw new InternalError(
         `No registered persistence adapter found flavour ${flavour}`
       );
 
-    return new repoConstructor(adapter, model);
+    return new repo(adapter, model) as R;
   }
 
   private static get<M extends Model>(
-    name: string
-  ): Constructor<Repository<M>> {
+    model: Constructor<M>
+  ): Constructor<Repository<M>> | Repository<M> {
+    const name = this.table(model);
     if (name in this._cache)
-      return this._cache[name] as Constructor<Repository<M>>;
+      return this._cache[name] as Constructor<Repository<M>> | Repository<M>;
     throw new InternalError(
       `Could not find repository registered under ${name}`
     );
   }
 
   static register<M extends Model>(
-    name: string,
-    repo: Constructor<Repository<M, any>>
+    model: Constructor<M>,
+    repo: Constructor<Repository<M, any>> | Repository<M, any>
   ) {
+    const name = this.table(model);
     if (name in this._cache)
       throw new InternalError(`${name} already registered as a repository`);
     this._cache[name] = repo;

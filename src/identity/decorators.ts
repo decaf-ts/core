@@ -3,7 +3,6 @@ import {
   DefaultSequenceOptions,
   SequenceOptions,
 } from "../interfaces/SequenceOptions";
-import { Sequence } from "../interfaces/Sequence";
 import {
   DBKeys,
   InternalError,
@@ -14,6 +13,7 @@ import { apply } from "@decaf-ts/reflection";
 import { Repository } from "../repository/Repository";
 import { index } from "../model/decorators";
 import { sequenceNameForModel } from "./utils";
+import { Sequence } from "../persistence/Sequence";
 
 /**
  * @summary Primary Key Decorator

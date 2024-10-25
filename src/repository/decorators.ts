@@ -17,7 +17,7 @@ export function repository<T extends Model>(
       Repository.key(DBKeys.REPOSITORY),
       nameOverride || original.name
     )(model);
-    Repository.register(nameOverride || original.name, original);
+    Repository.register(model, original);
     return injectable(
       nameOverride || original.name,
       true,

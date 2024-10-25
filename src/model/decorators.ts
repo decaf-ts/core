@@ -152,7 +152,8 @@ export function oneToMany<M extends Model>(
     populate: populate,
   };
   return apply(
-    type([clazz.name, String.name, Number.name, BigInt.name]),
+    // @ts-expect-error forced override of previous decorator
+    list([clazz, String, Number, BigInt]),
     onCreate(oneToManyOnCreate, metadata),
     onUpdate(oneToManyOnUpdate, metadata),
     onDelete(oneToManyOnDelete, metadata),

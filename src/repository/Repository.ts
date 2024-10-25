@@ -1,4 +1,5 @@
 import {
+  argsWithContext,
   DBKeys,
   enforceDBDecorators,
   findPrimaryKey,
@@ -6,7 +7,7 @@ import {
   OperationKeys,
   Repository as Rep,
   ValidationError,
-  wrapMethod,
+  wrapMethodWithContext,
 } from "@decaf-ts/db-decorators";
 import { ObserverError } from "./errors";
 import { Observable } from "../interfaces/Observable";
@@ -23,10 +24,10 @@ import {
 } from "../query";
 import { OrderDirection } from "./constants";
 import { SequenceOptions } from "../interfaces";
-import { sequenceNameForModel } from "../identity/utils";
 import { Queriable } from "../interfaces/Queriable";
 import { getAllPropertyDecorators } from "@decaf-ts/reflection";
 import { IndexMetadata } from "./types";
+import { Sequence } from "../persistence/Sequence";
 
 export class Repository<M extends Model, Q = any>
   extends Rep<M>
@@ -41,7 +42,6 @@ export class Repository<M extends Model, Q = any>
 
   private readonly _adapter!: Adapter<any, Q>;
   private _tableName!: string;
-  private _pk!: string;
 
   get adapter() {
     if (!this._adapter)
@@ -56,11 +56,6 @@ export class Repository<M extends Model, Q = any>
     return this._tableName;
   }
 
-  protected get pk() {
-    if (!this._pk) this._pk = findPrimaryKey(new this.class()).id;
-    return this._pk;
-  }
-
   constructor(adapter?: Adapter<any, Q>, clazz?: Constructor<M>) {
     super(clazz);
     if (adapter) this._adapter = adapter;
@@ -68,7 +63,7 @@ export class Repository<M extends Model, Q = any>
     [this.createAll, this.readAll, this.updateAll, this.deleteAll].forEach(
       (m) => {
         const name = m.name;
-        wrapMethod(
+        wrapMethodWithContext(
           this,
           (this as any)[name + "Prefix"],
           m,
@@ -102,21 +97,22 @@ export class Repository<M extends Model, Q = any>
   }
 
   protected async createAllPrefix(models: M[], ...args: any[]) {
-    if (!models.length) return [models, ...args];
+    const contextArgs = argsWithContext(args);
+    if (!models.length) return [models, ...contextArgs.args];
     const opts = Repository.getSequenceOptions(models[0]);
     let ids: (string | number | bigint | undefined)[] = [];
     if (opts.type) {
-      if (!opts.name) opts.name = sequenceNameForModel(models[0], "pk");
+      if (!opts.name) opts.name = Sequence.pk(models[0]);
       ids = await (await this.adapter.Sequence(opts)).range(models.length);
     }
-    const pk = this.pk;
 
     models = await Promise.all(
       models.map(async (m, i) => {
         m = new this.class(m);
-        (m as Record<string, any>)[pk] = ids[i];
+        (m as Record<string, any>)[this.pk] = ids[i];
         await enforceDBDecorators(
           this,
+          contextArgs.context,
           m,
           OperationKeys.CREATE,
           OperationKeys.ON
@@ -135,7 +131,7 @@ export class Repository<M extends Model, Q = any>
         return accum;
       }, undefined);
     if (errors) throw new ValidationError(errors);
-    return [models, ...args];
+    return [models, ...contextArgs.args];
   }
 
   async read(id: string | number | bigint, ...args: any[]): Promise<M> {
@@ -154,11 +150,17 @@ export class Repository<M extends Model, Q = any>
     model: M,
     ...args: any[]
   ): Promise<[M, ...args: any[]]> {
+    const contextArgs = argsWithContext(args);
     const pk = (model as Record<string, any>)[this.pk];
-    const oldModel = await this.read(pk);
+    if (!pk)
+      throw new InternalError(
+        `No value for the Id is defined under the property ${this.pk}`
+      );
+    const oldModel = await this.read(pk, ...contextArgs.args);
     model = this.merge(oldModel, model);
     await enforceDBDecorators(
       this,
+      contextArgs.context,
       model,
       OperationKeys.UPDATE,
       OperationKeys.ON,
@@ -171,12 +173,17 @@ export class Repository<M extends Model, Q = any>
       if (!Repository.getMetadata(model))
         Repository.setMetadata(model, Repository.getMetadata(oldModel));
     }
-    return [model, ...args];
+    return [model, ...contextArgs.args];
   }
 
   protected async updateAllPrefix(models: M[], ...args: any[]): Promise<any[]> {
-    const ids = models.map((m) => (m as Record<string, any>)[this.pk]);
-    const oldModels = await this.readAll(ids);
+    const contextArgs = argsWithContext(args);
+    const ids = models.map((m) => {
+      const id = (m as Record<string, any>)[this.pk];
+      if (!id) throw new InternalError("missing id on update operation");
+      return id;
+    });
+    const oldModels = await this.readAll(ids, ...contextArgs.args);
     models = models.map((m, i) => {
       m = this.merge(oldModels[i], m);
       if (Repository.getMetadata(oldModels[i])) {
@@ -189,6 +196,7 @@ export class Repository<M extends Model, Q = any>
       models.map((m, i) =>
         enforceDBDecorators(
           this,
+          contextArgs.context,
           m,
           OperationKeys.UPDATE,
           OperationKeys.ON,
@@ -209,7 +217,7 @@ export class Repository<M extends Model, Q = any>
       }, undefined);
     if (errors) throw new ValidationError(errors);
 
-    return [models, ...args];
+    return [models, ...contextArgs.args];
   }
 
   async delete(id: string | number | bigint, ...args: any[]): Promise<M> {

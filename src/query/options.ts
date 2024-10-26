@@ -9,6 +9,7 @@ import {
 import { Executor } from "../interfaces";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { Condition } from "./Condition";
+import { Paginatable } from "../interfaces/Paginatable";
 
 /**
  * @summary Statement Builder interface
@@ -79,7 +80,7 @@ export interface OffsetOption extends Executor {
  * @category Query
  * @subcategory Options
  */
-export interface LimitOption extends Executor {
+export interface LimitOption extends Executor, Paginatable {
   /**
    * @summary Limits the results to the provided number
    *
@@ -98,7 +99,7 @@ export interface LimitOption extends Executor {
  * @category Query
  * @subcategory Options
  */
-export interface OrderByOption extends Executor {
+export interface OrderByOption extends Executor, Paginatable {
   /**
    * @summary Orders the results by the provided attribute and according to the provided direction
    *
@@ -249,7 +250,7 @@ export interface SelectOption<M extends Model> extends FromOption<M> {
    * @param {SelectSelector} selector
    * @method
    */
-  count(selector: SelectSelector): CountOption<M>;
+  count(selector?: SelectSelector): CountOption<M>;
 }
 
 /**

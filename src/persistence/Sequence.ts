@@ -6,8 +6,8 @@
  * @category Sequences
  */
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
-import { sequenceNameForModel } from "../identity";
-import { SequenceOptions } from "../interfaces";
+import { sequenceNameForModel } from "../identity/utils";
+import { SequenceOptions } from "../interfaces/SequenceOptions";
 
 export abstract class Sequence {
   protected constructor(protected readonly options: SequenceOptions) {}

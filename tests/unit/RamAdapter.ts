@@ -1,4 +1,11 @@
-import { Adapter, ClauseFactory, Statement, Condition } from "../../src";
+import {
+  Adapter,
+  ClauseFactory,
+  Statement,
+  Condition,
+  Paginator,
+  User,
+} from "../../src";
 import { Lock } from "@decaf-ts/transactional-decorators";
 import { Sequence, SequenceOptions } from "../../src";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
@@ -29,6 +36,12 @@ export class RamAdapter extends Adapter<Record<string, any>, string> {
 
   async index(...models: Record<string, any>[]): Promise<any> {
     return Promise.resolve(undefined);
+  }
+
+  async user() {
+    return new User({
+      id: "admin",
+    });
   }
 
   prepare<V extends Model>(
@@ -116,8 +129,25 @@ export class RamAdapter extends Adapter<Record<string, any>, string> {
     return natived;
   }
 
-  async raw<Z>(rawInput: string): Promise<Z> {
+  async raw<Z>(rawInput: string, process: boolean): Promise<Z> {
     return Promise.resolve(undefined) as Z;
+  }
+
+  async paginate<Z>(rawInput: string): Promise<Paginator<Z, string>> {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
+    return new (class extends Paginator<Z, string> {
+      constructor(size: number) {
+        super(undefined as unknown as Statement<any>, size, rawInput);
+      }
+
+      protected prepare(rawStatement: string): string {
+        throw new Error("Method not implemented.");
+      }
+      page(page: number): Promise<Z[]> {
+        throw new Error("Method not implemented.");
+      }
+    })(10);
   }
 
   async getSequence<V>(

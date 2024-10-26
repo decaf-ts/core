@@ -24,6 +24,7 @@ import { ClauseFactory } from "../query/ClauseFactory";
 import { Condition } from "../query/Condition";
 import { Repository } from "../repository/Repository";
 import { Sequence } from "./Sequence";
+import { User } from "../model/User";
 
 /**
  * @summary Abstract Decaf-ts Persistence Adapter Class
@@ -84,6 +85,8 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
   async timestamp(): Promise<Date> {
     return new Date();
   }
+
+  abstract user(): Promise<User>;
 
   async context<M extends Model>(
     operation:
@@ -222,7 +225,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     return Promise.all(id.map((i) => this.delete(tableName, i, ...args)));
   }
 
-  abstract raw<R>(rawInput: Q, ...args: any[]): Promise<R>;
+  abstract raw<R>(rawInput: Q, process: boolean, ...args: any[]): Promise<R>;
 
   /**
    * @summary Registers an {@link Observer}

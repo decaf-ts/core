@@ -55,7 +55,7 @@ export class Query<Q, M extends Model> {
    * @summary Creates a Count Clause
    * @param {SelectSelector} selector
    */
-  count(selector: SelectSelector): CountOption<M> {
+  count(selector?: SelectSelector): CountOption<M> {
     return this.select().count(selector);
   }
 

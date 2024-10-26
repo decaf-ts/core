@@ -7,7 +7,6 @@ import {
 import { Repository } from "../repository/Repository";
 import { RelationsMetadata } from "./types";
 import {
-  findModelId,
   findPrimaryKey,
   InternalError,
   NotFoundError,

@@ -5,6 +5,7 @@ import {
   onDelete,
   onUpdate,
   afterAny,
+  Context,
 } from "@decaf-ts/db-decorators";
 import { apply, metadata } from "@decaf-ts/reflection";
 import { PersistenceKeys } from "../persistence/constants";
@@ -31,6 +32,7 @@ import {
   oneToOneOnUpdate,
   populate as pop,
 } from "./construction";
+import { User } from "./User";
 
 export function table(tableName: string) {
   return metadata(Adapter.key(PersistenceKeys.TABLE), tableName);
@@ -66,7 +68,7 @@ export async function uniqueOnCreateUpdate<
   M extends Model,
   R extends Repository<M>,
   Y = any,
->(this: R, data: Y, key: string, model: M): Promise<void> {
+>(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
   if (!(model as any)[key]) return;
   const existing = await this.select()
     .where(Condition.attribute(key).eq((model as any)[key]))
@@ -90,6 +92,29 @@ export function unique() {
   return apply(
     onCreateUpdate(uniqueOnCreateUpdate),
     propMetadata(Repository.key(PersistenceKeys.UNIQUE), {})
+  );
+}
+
+export async function createdByOnCreateUpdate<
+  M extends Model,
+  R extends Repository<M>,
+  Y = any,
+>(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
+  const user: User = await this.adapter.user();
+  (model as any)[key] = user.id;
+}
+
+export function createdBy() {
+  return apply(
+    onCreate(createdByOnCreateUpdate),
+    propMetadata(Repository.key(PersistenceKeys.CREATED_BY), {})
+  );
+}
+
+export function updatedBy() {
+  return apply(
+    onCreateUpdate(createdByOnCreateUpdate),
+    propMetadata(Repository.key(PersistenceKeys.CREATED_BY), {})
   );
 }
 

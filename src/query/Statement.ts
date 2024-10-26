@@ -14,6 +14,7 @@ import { Clause } from "./Clause";
 import { clauseSequence } from "../validators";
 import { Adapter } from "../persistence";
 import { findPrimaryKey, InternalError } from "@decaf-ts/db-decorators";
+import { Paginator } from "./Paginator";
 
 /**
  * @summary Statement Class
@@ -97,8 +98,13 @@ export abstract class Statement<Q>
     }
   }
 
+  /**
+   * @inheritDoc
+   */
+  abstract paginate<Y>(size: number): Promise<Paginator<Y, Q>>;
+
   async raw<R>(rawInput: Q, ...args: any[]): Promise<R> {
-    const results = await this.adapter.raw<R>(rawInput, ...args);
+    const results = await this.adapter.raw<R>(rawInput, true, ...args);
     if (!this.fullRecord) return results;
     if (!this.target)
       throw new InternalError(
@@ -165,6 +171,12 @@ export abstract class Statement<Q>
         sf("Output class already defined to {0}", this.target!.name)
       );
     this.target = clazz;
+  }
+
+  getTarget() {
+    if (!this.target)
+      throw new InternalError("No target defined for statement");
+    return this.target;
   }
 
   setFullRecord() {

@@ -9,6 +9,8 @@ import { QueryBuilder } from "./options";
 import { QueryError } from "./errors";
 import { Priority } from "./constants";
 import { Statement } from "./Statement";
+import { Paginatable } from "../interfaces/Paginatable";
+import { Paginator } from "./Paginator";
 
 /**
  */
@@ -32,7 +34,7 @@ import { Statement } from "./Statement";
  */
 export abstract class Clause<Q>
   extends Model
-  implements Executor, QueryBuilder<Q>
+  implements Executor, Paginatable, QueryBuilder<Q>
 {
   @required()
   readonly priority!: Priority;
@@ -47,7 +49,7 @@ export abstract class Clause<Q>
     this.statement = clause?.statement;
     if (!this.statement || !this.priority)
       throw new QueryError(
-        "Missing statement or priority. Should be impossible",
+        "Missing statement or priority. Should be impossible"
       );
     this.statement.addClause(this);
   }
@@ -76,6 +78,13 @@ export abstract class Clause<Q>
    */
   async execute<R>(): Promise<R> {
     return this.statement.execute();
+  }
+  /**
+   * @inheritDoc
+   * @abstract
+   */
+  async paginate<R>(size: number): Promise<Paginator<R, Q>> {
+    return this.statement.paginate(size);
   }
 
   toString() {

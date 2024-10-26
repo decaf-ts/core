@@ -14,20 +14,18 @@ import { Observer } from "../interfaces/Observer";
 import { Adapter } from "../persistence/Adapter";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { PersistenceKeys } from "../persistence/constants";
-import {
-  Condition,
-  OrderBySelector,
-  Query,
-  SelectSelector,
-  WhereOption,
-} from "../query";
+import { Query } from "../query/Query";
 import { OrderDirection } from "./constants";
-import { SequenceOptions } from "../interfaces";
+import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { Queriable } from "../interfaces/Queriable";
 import { getAllPropertyDecorators } from "@decaf-ts/reflection";
 import { IndexMetadata } from "./types";
 import { Sequence } from "../persistence/Sequence";
 import { Context } from "@decaf-ts/db-decorators";
+import { Condition } from "../query/Condition";
+import { WhereOption } from "../query/options";
+import { OrderBySelector, SelectSelector } from "../query/selectors";
+import { getTableName } from "../identity/utils";
 
 export class Repository<M extends Model, Q = any>
   extends Rep<M>
@@ -435,17 +433,7 @@ export class Repository<M extends Model, Q = any>
   }
 
   static table<M extends Model>(model: M | Constructor<M>) {
-    const metadata = Reflect.getMetadata(
-      Adapter.key(PersistenceKeys.TABLE),
-      model instanceof Model ? model.constructor : model
-    );
-    if (metadata) {
-      return metadata;
-    }
-    if (model instanceof Model) {
-      return model.constructor.name;
-    }
-    return model.name;
+    return getTableName(model);
   }
 
   static column<M extends Model>(model: M, attribute: string) {

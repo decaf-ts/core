@@ -7,7 +7,6 @@ import {
   OperationKeys,
 } from "@decaf-ts/db-decorators";
 import { Observer } from "../interfaces/Observer";
-import { ObserverError } from "../repository/errors";
 import {
   Constructor,
   Model,

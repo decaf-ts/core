@@ -108,7 +108,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
   } {
     const result = Object.entries(model).reduce(
       (accum: Record<string, any>, [key, val]) => {
-        if (key === pk) return accum;
+        // if (key === pk) return accum;
         const mappedProp = Repository.column(model, key);
         if (this.isReserved(mappedProp))
           throw new InternalError(`Property name ${mappedProp} is reserved`);

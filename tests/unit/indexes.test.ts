@@ -33,7 +33,7 @@ describe("Indexes", () => {
       expect.objectContaining({
         id: {
           index: {
-            compositions: undefined,
+            compositions: ["asc", "desc"],
             directions: undefined,
           },
         },

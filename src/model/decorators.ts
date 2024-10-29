@@ -52,7 +52,7 @@ export function column(columnName: string) {
  *
  * @function index
  */
-export function index(compositions?: string[], directions?: OrderDirection[]) {
+export function index(directions?: OrderDirection[], compositions?: string[]) {
   return propMetadata(
     Repository.key(
       `${PersistenceKeys.INDEX}${compositions && compositions.length ? `.${compositions.join(".")}` : ""}`

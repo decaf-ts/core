@@ -78,7 +78,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   abstract initialize(...args: any[]): Promise<void>;
 
-  abstract index<M extends Model>(...models: M[]): Promise<any>;
+  abstract index<M extends Model>(...models: Constructor<M>[]): Promise<any>;
 
   abstract Sequence(options: SequenceOptions): Promise<Sequence>;
 
@@ -256,12 +256,14 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
    * @param {any[]} [args] optional arguments to be passed to the {@link Observer#refresh} method
    */
   async updateObservers(...args: any[]): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      Promise.all(this._observers.map((o: Observer) => o.refresh(...args)))
-        .then(() => {
-          resolve();
-        })
-        .catch((e: any) => reject(new ObserverError(e)));
+    const results = await Promise.allSettled(
+      this._observers.map((o) => o.refresh(...args))
+    );
+    results.forEach((result, i) => {
+      if (result.status === "rejected")
+        console.warn(
+          `Failed to update observable ${this._observers[i]}: ${result.reason}`
+        );
     });
   }
 

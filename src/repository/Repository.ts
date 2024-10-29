@@ -8,7 +8,6 @@ import {
   ValidationError,
   wrapMethodWithContext,
 } from "@decaf-ts/db-decorators";
-import { ObserverError } from "./errors";
 import { Observable } from "../interfaces/Observable";
 import { Observer } from "../interfaces/Observer";
 import { Adapter } from "../persistence/Adapter";
@@ -26,6 +25,7 @@ import { Condition } from "../query/Condition";
 import { WhereOption } from "../query/options";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
 import { getTableName } from "../identity/utils";
+import { uses } from "../persistence";
 
 export class Repository<M extends Model, Q = any>
   extends Rep<M>
@@ -57,7 +57,18 @@ export class Repository<M extends Model, Q = any>
   constructor(adapter?: Adapter<any, Q>, clazz?: Constructor<M>) {
     super(clazz);
     if (adapter) this._adapter = adapter;
-    if (clazz) Repository.register(clazz, this);
+    if (clazz) {
+      Repository.register(clazz, this);
+      if (adapter) {
+        const flavour = Reflect.getMetadata(
+          Adapter.key(PersistenceKeys.ADAPTER),
+          clazz
+        );
+        if (flavour && flavour !== adapter.flavour)
+          throw new InternalError("Incompatible flavours");
+        uses(adapter.flavour)(clazz);
+      }
+    }
     [this.createAll, this.readAll, this.updateAll, this.deleteAll].forEach(
       (m) => {
         const name = m.name;
@@ -302,12 +313,14 @@ export class Repository<M extends Model, Q = any>
    * @param {any[]} [args] optional arguments to be passed to the {@link Observer#refresh} method
    */
   async updateObservers(...args: any[]): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      Promise.all(this.observers.map((o: Observer) => o.refresh(...args)))
-        .then(() => {
-          resolve();
-        })
-        .catch((e: any) => reject(new ObserverError(e)));
+    const results = await Promise.allSettled(
+      this.observers.map((o) => o.refresh(...args))
+    );
+    results.forEach((result, i) => {
+      if (result.status === "rejected")
+        console.warn(
+          `Failed to update observable ${this.observers[i]}: ${result.reason}`
+        );
     });
   }
 

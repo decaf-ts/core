@@ -1,4 +1,5 @@
 import {
+  Context,
   DBKeys,
   enforceDBDecorators,
   findPrimaryKey,
@@ -20,7 +21,6 @@ import { Queriable } from "../interfaces/Queriable";
 import { getAllPropertyDecorators } from "@decaf-ts/reflection";
 import { IndexMetadata } from "./types";
 import { Sequence } from "../persistence/Sequence";
-import { Context } from "@decaf-ts/db-decorators";
 import { Condition } from "../query/Condition";
 import { WhereOption } from "../query/options";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
@@ -163,6 +163,13 @@ export class Repository<M extends Model, Q = any>
     return this.adapter.revert(m, this.class, this.pk, id);
   }
 
+  async readAll(keys: string[] | number[], ...args: any[]): Promise<M[]> {
+    const records = await this.adapter.readAll(this.tableName, keys, ...args);
+    return records.map((r, i) =>
+      this.adapter.revert(r, this.class, this.pk, keys[i])
+    );
+  }
+
   async update(model: M, ...args: any[]): Promise<M> {
     // eslint-disable-next-line prefer-const
     let { record, id } = this.adapter.prepare(model, this.pk);
@@ -206,6 +213,19 @@ export class Repository<M extends Model, Q = any>
         Repository.setMetadata(model, Repository.getMetadata(oldModel));
     }
     return [model, ...contextArgs.args];
+  }
+
+  async updateAll(models: M[], ...args: any[]): Promise<M[]> {
+    const records = models.map((m) => this.adapter.prepare(m, this.pk));
+    const updated = await this.adapter.updateAll(
+      this.tableName,
+      records.map((r) => r.id),
+      records.map((r) => r.record),
+      ...args
+    );
+    return updated.map((u, i) =>
+      this.adapter.revert(u, this.class, this.pk, records[i].id)
+    );
   }
 
   protected async updateAllPrefix(models: M[], ...args: any[]): Promise<any[]> {
@@ -254,12 +274,25 @@ export class Repository<M extends Model, Q = any>
       }, undefined);
     if (errors) throw new ValidationError(errors);
 
+    models.forEach((m, i) => {
+      if (Repository.getMetadata(oldModels[i])) {
+        if (!Repository.getMetadata(m))
+          Repository.setMetadata(m, Repository.getMetadata(oldModels[i]));
+      }
+    });
     return [models, ...contextArgs.args];
   }
 
   async delete(id: string | number | bigint, ...args: any[]): Promise<M> {
     const m = await this.adapter.delete(this.tableName, id, ...args);
     return this.adapter.revert(m, this.class, this.pk, id);
+  }
+
+  async deleteAll(keys: string[] | number[], ...args: any[]): Promise<M[]> {
+    const results = await this.adapter.deleteAll(this.tableName, keys, ...args);
+    return results.map((r, i) =>
+      this.adapter.revert(r, this.class, this.pk, keys[i])
+    );
   }
 
   select(selector?: SelectSelector): WhereOption {

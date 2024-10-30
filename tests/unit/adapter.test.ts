@@ -91,7 +91,24 @@ describe("Adapter", () => {
 
     @repository(Managed2Model)
     @uses("ram")
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     class Managed2ModelRepository extends Repository<Managed2Model> {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      create(model: Managed2Model, ...args: any[]): Promise<Managed2Model> {
+        throw new Error("Method not implemented.");
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      read(key: string | number, ...args: any[]): Promise<Managed2Model> {
+        throw new Error("Method not implemented.");
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      update(model: Managed2Model, ...args: any[]): Promise<Managed2Model> {
+        throw new Error("Method not implemented.");
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      delete(key: string | number, ...args: any[]): Promise<Managed2Model> {
+        throw new Error("Method not implemented.");
+      }
       constructor(clazz: Constructor<Managed2Model>) {
         super(clazz);
       }

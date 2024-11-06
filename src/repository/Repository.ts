@@ -358,7 +358,8 @@ export class Repository<M extends Model, Q = any>
   }
 
   static forModel<M extends Model, R extends Repository<M, any>>(
-    model: Constructor<M>
+    model: Constructor<M>,
+    defaultFlavour?: string
   ): R {
     let repo: Repository<M> | Constructor<Repository<M>>;
     try {
@@ -372,7 +373,8 @@ export class Repository<M extends Model, Q = any>
 
     const flavour: string | undefined =
       Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model) ||
-      Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), repo);
+      Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), repo) ||
+      defaultFlavour;
     const adapter: Adapter<any, any> | undefined = flavour
       ? Adapter.get(flavour)
       : undefined;

@@ -77,7 +77,7 @@ describe("Adapter", () => {
     //   expect(managedModels).toBeDefined();
     // });
 
-    it("Recognized a registered model", () => {
+    it("Recognizes adapter registrations at the model level", () => {
       const managedModels = Adapter.models("ram");
       expect(managedModels).toBeDefined();
     });
@@ -114,7 +114,7 @@ describe("Adapter", () => {
       }
     }
 
-    it("Recognized a registered model", () => {
+    it("Recognizes adapter registrations at the repo level", () => {
       const managedModels = Adapter.models("ram");
       expect(managedModels).toBeDefined();
     });

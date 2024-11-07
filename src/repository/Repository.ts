@@ -27,7 +27,11 @@ import { OrderBySelector, SelectSelector } from "../query/selectors";
 import { getTableName } from "../identity/utils";
 import { uses } from "../persistence";
 
-export class Repository<M extends Model, Q = any>
+export class Repository<
+    M extends Model,
+    Q = any,
+    A extends Adapter<any, Q> = Adapter<any, Q>,
+  >
   extends Rep<M>
   implements Observable, Queriable
 {
@@ -38,10 +42,10 @@ export class Repository<M extends Model, Q = any>
 
   private observers: Observer[] = [];
 
-  private readonly _adapter!: Adapter<any, Q>;
+  private readonly _adapter!: A;
   private _tableName!: string;
 
-  get adapter() {
+  get adapter(): A {
     if (!this._adapter)
       throw new InternalError(
         `No adapter found for this repository. did you use the @uses decorator or pass it in the constructor?`
@@ -54,7 +58,7 @@ export class Repository<M extends Model, Q = any>
     return this._tableName;
   }
 
-  constructor(adapter?: Adapter<any, Q>, clazz?: Constructor<M>) {
+  constructor(adapter?: A, clazz?: Constructor<M>) {
     super(clazz);
     if (adapter) this._adapter = adapter;
     if (clazz) {

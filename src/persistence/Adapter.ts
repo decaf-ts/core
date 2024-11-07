@@ -87,7 +87,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   abstract user(): Promise<User>;
 
-  async context<M extends Model>(
+  async context<M extends Model, C extends Context<M> = Context<M>>(
     operation:
       | OperationKeys.CREATE
       | OperationKeys.READ
@@ -95,7 +95,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
       | OperationKeys.DELETE,
     model: Constructor<M>
   ) {
-    return Context.from(operation, model);
+    return Context.from<M, C>(operation, model);
   }
 
   prepare<M extends Model>(

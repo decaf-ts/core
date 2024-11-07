@@ -88,13 +88,13 @@ export class Repository<
     );
   }
 
-  async context(
+  async context<C extends Context<M> = Context<M>>(
     operation:
       | OperationKeys.CREATE
       | OperationKeys.READ
       | OperationKeys.UPDATE
       | OperationKeys.DELETE
-  ): Promise<Context<M>> {
+  ): Promise<C> {
     return this.adapter.context(operation, this.class);
   }
 

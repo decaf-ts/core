@@ -44,7 +44,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
   private static _current: Adapter<any, any>;
   private static _cache: Record<string, Adapter<any, any>> = {};
 
-  private readonly _observers: Observer[] = [];
+  protected readonly _observers: Observer[] = [];
   private readonly _native: Y;
 
   get native() {

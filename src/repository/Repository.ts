@@ -4,6 +4,7 @@ import {
   enforceDBDecorators,
   findPrimaryKey,
   InternalError,
+  IRepository,
   OperationKeys,
   Repository as Rep,
   ValidationError,
@@ -26,6 +27,7 @@ import { WhereOption } from "../query/options";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
 import { getTableName } from "../identity/utils";
 import { uses } from "../persistence";
+import { Contextual } from "@decaf-ts/db-decorators";
 
 export class Repository<
     M extends Model,
@@ -33,11 +35,11 @@ export class Repository<
     A extends Adapter<any, Q> = Adapter<any, Q>,
   >
   extends Rep<M>
-  implements Observable, Queriable
+  implements Observable, Queriable, IRepository<M>, Contextual<M>
 {
   private static _cache: Record<
     string,
-    Constructor<Repository<Model, any>> | Repository<Model, any>
+    Constructor<Repository<Model>> | Repository<Model>
   > = {};
 
   private observers: Observer[] = [];

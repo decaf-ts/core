@@ -34,7 +34,7 @@ export class Condition extends Model {
   private constructor(
     attr1: string | Condition,
     operator: Operator | GroupOperator,
-    comparison: any,
+    comparison: any
   ) {
     super();
     this.attr1 = attr1;
@@ -144,7 +144,7 @@ export class Condition extends Model {
   private static group(
     condition1: Condition,
     operator: GroupOperator,
-    condition2: Condition,
+    condition2: Condition
   ): Condition {
     return new Condition(condition1, operator, condition2);
   }
@@ -236,10 +236,7 @@ export class Condition extends Model {
      * @param {any} val
      */
     regexp(val: any) {
-      return this.setOp(
-        Operator.REGEXP,
-        typeof val === "string" ? new RegExp(val) : val,
-      );
+      return this.setOp(Operator.REGEXP, new RegExp(val).source);
     }
 
     /**
@@ -263,7 +260,7 @@ export class Condition extends Model {
         return new Condition(
           this.attr1 as string | Condition,
           this.operator as Operator,
-          this.comparison as any,
+          this.comparison as any
         );
       } catch (e: any) {
         throw new QueryError(e);

@@ -8,11 +8,6 @@ export abstract class BaseModel extends Model {
   @timestamp()
   updatedOn!: Date;
 
-  @createdBy()
-  createdBy!: string;
-  @updatedBy()
-  updatedBy!: string;
-
   protected constructor(arg?: ModelArg<BaseModel>) {
     super(arg);
   }

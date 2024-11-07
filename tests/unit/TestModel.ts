@@ -6,12 +6,12 @@ import {
   required,
 } from "@decaf-ts/decorator-validation";
 import { pk } from "../../src";
-import { BaseModel } from "../../src";
-import { column, table, unique } from "../../src/model/decorators";
+import { column, table } from "../../src/model/decorators";
+import { IdentifiedBaseModel } from "../../src/model/IdentifiedBaseModel";
 
 @table("tst_user")
 @model()
-export class TestModel extends BaseModel {
+export class TestModel extends IdentifiedBaseModel {
   @pk()
   id!: string;
 

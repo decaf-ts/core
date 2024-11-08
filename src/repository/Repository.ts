@@ -29,19 +29,19 @@ import { getTableName } from "../identity/utils";
 import { uses } from "../persistence";
 import { Contextual } from "@decaf-ts/db-decorators";
 
-export type AnyRepository<
+export type Repo<
   M extends Model,
   Q = unknown,
-  A extends Adapter<unknown, Q> = Adapter<unknown, Q>,
+  A extends Adapter<any, Q> = Adapter<any, Q>,
 > = Repository<M, Q, A>;
 
-export class Repository<M extends Model, Q, A extends Adapter<unknown, Q>>
+export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
   extends Rep<M>
   implements Observable, Queriable, IRepository<M>, Contextual<M>
 {
   protected static _cache: Record<
     string,
-    Constructor<AnyRepository<Model>> | AnyRepository<Model>
+    Constructor<Repo<Model>> | Repo<Model>
   > = {};
 
   protected observers: Observer[] = [];
@@ -365,10 +365,10 @@ export class Repository<M extends Model, Q, A extends Adapter<unknown, Q>>
     });
   }
 
-  static forModel<
-    M extends Model,
-    R extends AnyRepository<M> = AnyRepository<M>,
-  >(model: Constructor<M>, defaultFlavour?: string): R {
+  static forModel<M extends Model, R extends Repo<M> = Repo<M>>(
+    model: Constructor<M>,
+    defaultFlavour?: string
+  ): R {
     let repo: R | Constructor<R>;
     try {
       repo = this.get(model) as Constructor<R> | R;
@@ -397,12 +397,10 @@ export class Repository<M extends Model, Q, A extends Adapter<unknown, Q>>
 
   private static get<M extends Model>(
     model: Constructor<M>
-  ): Constructor<AnyRepository<M>> | AnyRepository<M> {
+  ): Constructor<Repo<M>> | Repo<M> {
     const name = this.table(model);
     if (name in this._cache)
-      return this._cache[name] as
-        | Constructor<AnyRepository<M>>
-        | AnyRepository<M>;
+      return this._cache[name] as Constructor<Repo<M>> | Repo<M>;
     throw new InternalError(
       `Could not find repository registered under ${name}`
     );
@@ -410,7 +408,7 @@ export class Repository<M extends Model, Q, A extends Adapter<unknown, Q>>
 
   static register<M extends Model>(
     model: Constructor<M>,
-    repo: Constructor<AnyRepository<M>> | AnyRepository<M>
+    repo: Constructor<Repo<M>> | Repo<M>
   ) {
     const name = this.table(model);
     if (name in this._cache)

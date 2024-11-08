@@ -20,7 +20,7 @@ import {
   type,
 } from "@decaf-ts/decorator-validation";
 import { Adapter } from "../persistence/Adapter";
-import { AnyRepository, Repository } from "../repository/Repository";
+import { Repo, Repository } from "../repository/Repository";
 import { Condition } from "../query/Condition";
 import { RelationsMetadata } from "./types";
 import {
@@ -66,7 +66,7 @@ export function index(directions?: OrderDirection[], compositions?: string[]) {
 
 export async function uniqueOnCreateUpdate<
   M extends Model,
-  R extends AnyRepository<M>,
+  R extends Repo<M>,
   Y = any,
 >(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
   if (!(model as any)[key]) return;
@@ -97,7 +97,7 @@ export function unique() {
 
 export async function createdByOnCreateUpdate<
   M extends Model,
-  R extends AnyRepository<M>,
+  R extends Repo<M>,
   Y = any,
 >(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
   const user: User = await this.adapter.user();

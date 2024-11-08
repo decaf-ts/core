@@ -30,10 +30,12 @@ export class RamAdapter extends Adapter<Record<string, any>, string> {
     super({}, flavour);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   initialize(args: any): Promise<void> {
     return Promise.resolve(undefined);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async index(...models: Record<string, any>[]): Promise<any> {
     return Promise.resolve(undefined);
   }
@@ -65,8 +67,7 @@ export class RamAdapter extends Adapter<Record<string, any>, string> {
   async create(
     tableName: string,
     id: string | number,
-    model: Record<string, any>,
-    args: any
+    model: Record<string, any>
   ): Promise<Record<string, any>> {
     await this.lock.acquire();
     if (!this.native[tableName]) this.native[tableName] = {};
@@ -81,8 +82,7 @@ export class RamAdapter extends Adapter<Record<string, any>, string> {
 
   async read(
     tableName: string,
-    id: string | number,
-    args: any
+    id: string | number
   ): Promise<Record<string, any>> {
     if (!(tableName in this.native))
       throw new NotFoundError(`Table ${tableName} not found`);
@@ -96,8 +96,7 @@ export class RamAdapter extends Adapter<Record<string, any>, string> {
   async update(
     tableName: string,
     id: string | number,
-    model: Record<string, any>,
-    args: any
+    model: Record<string, any>
   ): Promise<Record<string, any>> {
     await this.lock.acquire();
     if (!(tableName in this.native))
@@ -113,8 +112,7 @@ export class RamAdapter extends Adapter<Record<string, any>, string> {
 
   async delete(
     tableName: string,
-    id: string | number,
-    args: any
+    id: string | number
   ): Promise<Record<string, any>> {
     await this.lock.acquire();
     if (!(tableName in this.native))
@@ -129,21 +127,22 @@ export class RamAdapter extends Adapter<Record<string, any>, string> {
     return natived;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async raw<Z>(rawInput: string, process: boolean): Promise<Z> {
     return Promise.resolve(undefined) as Z;
   }
 
   async paginate<Z>(rawInput: string): Promise<Paginator<Z, string>> {
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const self = this;
     return new (class extends Paginator<Z, string> {
       constructor(size: number) {
         super(undefined as unknown as Statement<any>, size, rawInput);
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       protected prepare(rawStatement: string): string {
         throw new Error("Method not implemented.");
       }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       page(page: number): Promise<Z[]> {
         throw new Error("Method not implemented.");
       }
@@ -151,8 +150,11 @@ export class RamAdapter extends Adapter<Record<string, any>, string> {
   }
 
   async getSequence<V>(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     model: V,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     sequence: Constructor<Sequence>,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     options: SequenceOptions | undefined
   ): Promise<Sequence> {
     return undefined as unknown as Sequence;
@@ -170,10 +172,12 @@ export class RamAdapter extends Adapter<Record<string, any>, string> {
     throw new InternalError(`Not implemented`);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Sequence(options: SequenceOptions): Promise<Sequence> {
     throw new InternalError(`Not implemented`);
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   parseCondition(condition: Condition): string {
     throw new InternalError(`Not implemented`);
   }

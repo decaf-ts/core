@@ -365,7 +365,7 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
     });
   }
 
-  static forModel<M extends Model, R extends Repo<M> = Repo<M>>(
+  static forModel<M extends Model, R extends Repo<M>>(
     model: Constructor<M>,
     defaultFlavour?: string
   ): R {

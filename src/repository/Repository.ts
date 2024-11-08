@@ -31,7 +31,7 @@ import { Contextual } from "@decaf-ts/db-decorators";
 
 export type Repo<
   M extends Model,
-  Q = unknown,
+  Q = any,
   A extends Adapter<any, Q> = Adapter<any, Q>,
 > = Repository<M, Q, A>;
 

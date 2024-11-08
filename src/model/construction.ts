@@ -4,7 +4,7 @@ import {
   Validation,
   ValidationKeys,
 } from "@decaf-ts/decorator-validation";
-import { Repository } from "../repository/Repository";
+import { AnyRepository, Repository } from "../repository/Repository";
 import { RelationsMetadata } from "./types";
 import {
   findPrimaryKey,
@@ -18,13 +18,13 @@ import { Context } from "@decaf-ts/db-decorators/lib/repository/Context";
 export async function createOrUpdate<M extends Model>(
   model: M,
   context: Context<M>,
-  repository?: Repository<M>
+  repository?: AnyRepository<M>
 ): Promise<M> {
   if (!repository) {
     const constructor = Model.get(model.constructor.name);
     if (!constructor)
       throw new InternalError(`Could not find model ${model.constructor.name}`);
-    repository = Repository.forModel(constructor) as Repository<M>;
+    repository = Repository.forModel(constructor) as AnyRepository<M>;
   }
   if (typeof (model as Record<string, any>)[repository.pk] === "undefined")
     return repository.create(model, context);
@@ -40,7 +40,7 @@ export async function createOrUpdate<M extends Model>(
 
 export async function oneToOneOnCreate<
   M extends Model,
-  R extends Repository<M>,
+  R extends AnyRepository<M>,
   Y extends RelationsMetadata,
 >(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
   const propertyValue: any = (model as Record<string, any>)[key];
@@ -57,7 +57,7 @@ export async function oneToOneOnCreate<
   const constructor = Model.get(data.class);
   if (!constructor)
     throw new InternalError(`Could not find model ${data.class}`);
-  const repo: Repository<any> = Repository.forModel(constructor);
+  const repo: AnyRepository<any> = Repository.forModel(constructor);
   const created = await repo.create(propertyValue);
   const pk = findPrimaryKey(created).id;
   await cacheModelForPopulate(context, model, key, created[pk], created);
@@ -66,7 +66,7 @@ export async function oneToOneOnCreate<
 
 export async function oneToOneOnUpdate<
   M extends Model,
-  R extends Repository<M>,
+  R extends AnyRepository<M>,
   Y extends RelationsMetadata,
 >(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
   const propertyValue: any = (model as Record<string, any>)[key];
@@ -98,13 +98,13 @@ export async function oneToOneOnUpdate<
 
 export async function oneToOneOnDelete<
   M extends Model,
-  R extends Repository<M>,
+  R extends AnyRepository<M>,
   Y extends RelationsMetadata,
 >(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
   const propertyValue: any = (model as Record<string, any>)[key];
   if (!propertyValue) return;
   if (data.cascade.update !== Cascade.CASCADE) return;
-  const innerRepo: Repository<M> = repositoryFromTypeMetadata(model, key);
+  const innerRepo: AnyRepository<M> = repositoryFromTypeMetadata(model, key);
   let deleted: M;
   if (!(propertyValue instanceof Model))
     deleted = await innerRepo.delete(
@@ -127,7 +127,7 @@ export async function oneToOneOnDelete<
 
 export async function oneToManyOnCreate<
   M extends Model,
-  R extends Repository<M>,
+  R extends AnyRepository<M>,
   Y extends RelationsMetadata,
 >(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
   const propertyValues: any = (model as Record<string, any>)[key];
@@ -163,7 +163,7 @@ export async function oneToManyOnCreate<
 
 export async function oneToManyOnUpdate<
   M extends Model,
-  R extends Repository<M>,
+  R extends AnyRepository<M>,
   Y extends RelationsMetadata,
 >(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
   const { cascade } = data;
@@ -173,7 +173,7 @@ export async function oneToManyOnUpdate<
 
 export async function oneToManyOnDelete<
   M extends Model,
-  R extends Repository<M>,
+  R extends AnyRepository<M>,
   Y extends RelationsMetadata,
 >(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
   if (data.cascade.delete !== Cascade.CASCADE) return;
@@ -228,7 +228,7 @@ export async function cacheModelForPopulate<M extends Model>(
 
 export async function populate<
   M extends Model,
-  R extends Repository<M>,
+  R extends AnyRepository<M>,
   Y extends RelationsMetadata,
 >(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
   if (!data.populate) return;
@@ -284,7 +284,7 @@ const commomTypes = [
 export function repositoryFromTypeMetadata<M extends Model>(
   model: any,
   propertyKey: string
-): Repository<M> {
+): AnyRepository<M> {
   const types = Reflect.getMetadata(
     Validation.key(
       Array.isArray(model[propertyKey])

@@ -10,7 +10,7 @@ import {
   readonly,
 } from "@decaf-ts/db-decorators";
 import { apply } from "@decaf-ts/reflection";
-import { Repository } from "../repository/Repository";
+import { AnyRepository, Repository } from "../repository/Repository";
 import { index } from "../model/decorators";
 import { sequenceNameForModel } from "./utils";
 import { Sequence } from "../persistence/Sequence";
@@ -35,7 +35,7 @@ import { OrderDirection } from "../repository";
  * @param key
  * @param model
  */
-export async function pkOnCreate<M extends Model, V extends Repository<M, any>>(
+export async function pkOnCreate<M extends Model, V extends AnyRepository<M>>(
   this: V,
   context: Context<M>,
   data: SequenceOptions,

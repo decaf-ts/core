@@ -5,7 +5,6 @@ import {
   onDelete,
   onUpdate,
   afterAny,
-  Context,
 } from "@decaf-ts/db-decorators";
 import { apply, metadata } from "@decaf-ts/reflection";
 import { PersistenceKeys } from "../persistence/constants";
@@ -33,6 +32,7 @@ import {
   populate as pop,
 } from "./construction";
 import { User } from "./User";
+import { Context } from "../repository/Context";
 
 export function table(tableName: string) {
   return metadata(Adapter.key(PersistenceKeys.TABLE), tableName);
@@ -100,7 +100,7 @@ export async function createdByOnCreateUpdate<
   R extends Repo<M>,
   Y = any,
 >(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
-  const user: User = await this.adapter.user();
+  const user: User = context.user;
   (model as any)[key] = user.id;
 }
 

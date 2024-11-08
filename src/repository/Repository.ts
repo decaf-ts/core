@@ -1,5 +1,4 @@
 import {
-  Context,
   DBKeys,
   enforceDBDecorators,
   findPrimaryKey,
@@ -26,8 +25,8 @@ import { Condition } from "../query/Condition";
 import { WhereOption } from "../query/options";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
 import { getTableName } from "../identity/utils";
-import { uses } from "../persistence";
-import { Contextual } from "@decaf-ts/db-decorators";
+import { uses } from "../persistence/decorators";
+import { Context } from "./Context";
 
 export type Repo<
   M extends Model,
@@ -37,19 +36,19 @@ export type Repo<
 
 export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
   extends Rep<M>
-  implements Observable, Queriable, IRepository<M>, Contextual<M>
+  implements Observable, Queriable, IRepository<M>
 {
-  protected static _cache: Record<
+  private static _cache: Record<
     string,
     Constructor<Repo<Model>> | Repo<Model>
   > = {};
 
   protected observers: Observer[] = [];
 
-  protected readonly _adapter!: A;
-  protected _tableName!: string;
+  private readonly _adapter!: A;
+  private _tableName!: string;
 
-  get adapter(): A {
+  protected get adapter(): A {
     if (!this._adapter)
       throw new InternalError(
         `No adapter found for this repository. did you use the @uses decorator or pass it in the constructor?`
@@ -90,14 +89,29 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
     );
   }
 
-  async context<C extends Context<M>>(
-    operation:
-      | OperationKeys.CREATE
-      | OperationKeys.READ
-      | OperationKeys.UPDATE
-      | OperationKeys.DELETE
-  ): Promise<C> {
-    return this.adapter.context(operation, this.class);
+  protected override async createPrefix(
+    model: M,
+    ...args: any[]
+  ): Promise<[M, ...any[]]> {
+    const contextArgs = await Context.args(
+      OperationKeys.CREATE,
+      this.class,
+      args,
+      this.adapter
+    );
+    model = new this.class(model);
+    await enforceDBDecorators(
+      this,
+      contextArgs.context,
+      model,
+      OperationKeys.CREATE,
+      OperationKeys.ON
+    );
+
+    const errors = model.hasErrors();
+    if (errors) throw new ValidationError(errors.toString());
+
+    return [model, ...contextArgs.args];
   }
 
   async create(model: M, ...args: any[]): Promise<M> {
@@ -125,10 +139,10 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
 
   protected async createAllPrefix(models: M[], ...args: any[]) {
     const contextArgs = await Context.args(
-      this,
       OperationKeys.CREATE,
       this.class,
-      args
+      args,
+      this.adapter
     );
     if (!models.length) return [models, ...contextArgs.args];
     const opts = Repository.getSequenceOptions(models[0]);
@@ -166,9 +180,51 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
     return [models, ...contextArgs.args];
   }
 
+  protected async readPrefix(key: string, ...args: any[]) {
+    const contextArgs = await Context.args(
+      OperationKeys.READ,
+      this.class,
+      args,
+      this.adapter
+    );
+    const model: M = new this.class();
+    (model as Record<string, any>)[this.pk] = key;
+    await enforceDBDecorators(
+      this,
+      contextArgs.context,
+      model,
+      OperationKeys.READ,
+      OperationKeys.ON
+    );
+    return [key, ...contextArgs.args];
+  }
+
   async read(id: string | number | bigint, ...args: any[]): Promise<M> {
     const m = await this.adapter.read(this.tableName, id, ...args);
     return this.adapter.revert(m, this.class, this.pk, id);
+  }
+
+  protected async readAllPrefix(keys: string[] | number[], ...args: any[]) {
+    const contextArgs = await Context.args(
+      OperationKeys.READ,
+      this.class,
+      args,
+      this.adapter
+    );
+    await Promise.all(
+      keys.map(async (k) => {
+        const m = new this.class();
+        (m as Record<string, any>)[this.pk] = k;
+        return enforceDBDecorators(
+          this,
+          contextArgs.context,
+          m,
+          OperationKeys.READ,
+          OperationKeys.ON
+        );
+      })
+    );
+    return [keys, ...contextArgs.args];
   }
 
   async readAll(keys: string[] | number[], ...args: any[]): Promise<M[]> {
@@ -190,10 +246,10 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
     ...args: any[]
   ): Promise<[M, ...args: any[]]> {
     const contextArgs = await Context.args(
-      this,
       OperationKeys.UPDATE,
       this.class,
-      args
+      args,
+      this.adapter
     );
     const pk = (model as Record<string, any>)[this.pk];
     if (!pk)
@@ -238,10 +294,10 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
 
   protected async updateAllPrefix(models: M[], ...args: any[]): Promise<any[]> {
     const contextArgs = await Context.args(
-      this,
       OperationKeys.UPDATE,
       this.class,
-      args
+      args,
+      this.adapter
     );
     const ids = models.map((m) => {
       const id = (m as Record<string, any>)[this.pk];
@@ -291,9 +347,49 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
     return [models, ...contextArgs.args];
   }
 
+  protected async deletePrefix(key: any, ...args: any[]) {
+    const contextArgs = await Context.args(
+      OperationKeys.DELETE,
+      this.class,
+      args,
+      this.adapter
+    );
+    const model = await this.read(key, ...contextArgs.args);
+    await enforceDBDecorators(
+      this,
+      contextArgs.context,
+      model,
+      OperationKeys.DELETE,
+      OperationKeys.ON
+    );
+    return [key, ...contextArgs.args];
+  }
+
   async delete(id: string | number | bigint, ...args: any[]): Promise<M> {
     const m = await this.adapter.delete(this.tableName, id, ...args);
     return this.adapter.revert(m, this.class, this.pk, id);
+  }
+
+  protected async deleteAllPrefix(keys: string[] | number[], ...args: any[]) {
+    const contextArgs = await Context.args(
+      OperationKeys.DELETE,
+      this.class,
+      args,
+      this.adapter
+    );
+    const models = await this.readAll(keys, ...contextArgs.args);
+    await Promise.all(
+      models.map(async (m) => {
+        return enforceDBDecorators(
+          this,
+          contextArgs.context,
+          m,
+          OperationKeys.DELETE,
+          OperationKeys.ON
+        );
+      })
+    );
+    return [keys, ...contextArgs.args];
   }
 
   async deleteAll(keys: string[] | number[], ...args: any[]): Promise<M[]> {
@@ -319,10 +415,6 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
     if (limit) query.limit(limit);
     if (skip) query.offset(skip);
     return query.execute<V>();
-  }
-
-  async timestamp() {
-    return this.adapter.timestamp();
   }
 
   /**

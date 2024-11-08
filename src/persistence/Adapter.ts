@@ -1,9 +1,9 @@
 import {
   BaseError,
-  Context,
   DBKeys,
   InternalError,
   NotFoundError,
+  Context,
   OperationKeys,
 } from "@decaf-ts/db-decorators";
 import { Observer } from "../interfaces/Observer";
@@ -24,6 +24,7 @@ import { Condition } from "../query/Condition";
 import { Repository } from "../repository/Repository";
 import { Sequence } from "./Sequence";
 import { User } from "../model/User";
+import { Context as Ctx } from "../repository/Context";
 
 /**
  * @summary Abstract Decaf-ts Persistence Adapter Class
@@ -83,22 +84,17 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   abstract Sequence(options: SequenceOptions): Promise<Sequence>;
 
-  async timestamp(): Promise<Date> {
-    return new Date();
-  }
+  protected abstract user(): Promise<User>;
 
-  abstract user(): Promise<User>;
-
-  async context<M extends Model, C extends Context<M>>(
+  abstract context<M extends Model, C extends Context<M>>(
     operation:
       | OperationKeys.CREATE
       | OperationKeys.READ
       | OperationKeys.UPDATE
       | OperationKeys.DELETE,
-    model: Constructor<M>
-  ): Promise<C> {
-    return Context.from<M, C>(operation, model);
-  }
+    model: Constructor<M>,
+    ...args: any[]
+  ): Promise<C>;
 
   prepare<M extends Model>(
     model: M,

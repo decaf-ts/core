@@ -1,6 +1,6 @@
 {
   "name": "@decaf-ts/core",
-  "version": "0.3.19",
+  "version": "0.3.20",
   "description": "template for ts projects",
   "type": "module",
   "exports": {

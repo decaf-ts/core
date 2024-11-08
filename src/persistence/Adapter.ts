@@ -81,8 +81,6 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   abstract initialize(...args: any[]): Promise<void>;
 
-  abstract index<M extends Model>(...models: Constructor<M>[]): Promise<any>;
-
   abstract Sequence(options: SequenceOptions): Promise<Sequence>;
 
   async timestamp(): Promise<Date> {

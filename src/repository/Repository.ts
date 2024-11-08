@@ -32,7 +32,7 @@ import { Contextual } from "@decaf-ts/db-decorators";
 export type AnyRepository<
   M extends Model,
   Q = unknown,
-  A extends Adapter<unknown, Q> = Adapter<unknown, any>,
+  A extends Adapter<unknown, Q> = Adapter<unknown, Q>,
 > = Repository<M, Q, A>;
 
 export class Repository<M extends Model, Q, A extends Adapter<unknown, Q>>
@@ -90,7 +90,7 @@ export class Repository<M extends Model, Q, A extends Adapter<unknown, Q>>
     );
   }
 
-  async context<C extends Context<M> = Context<M>>(
+  async context<C extends Context<M>>(
     operation:
       | OperationKeys.CREATE
       | OperationKeys.READ

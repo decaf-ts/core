@@ -55,8 +55,12 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     native: Y,
     readonly flavour: string
   ) {
+    if (this.flavour in Adapter._cache)
+      throw new InternalError(
+        `Persistence adapter flavour ${this.flavour} already registered`
+      );
     this._native = native;
-    Adapter._cache[flavour] = this;
+    Adapter._cache[this.flavour] = this;
   }
 
   Query<M extends Model>(): Query<Q, M> {
@@ -87,14 +91,14 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   abstract user(): Promise<User>;
 
-  async context<M extends Model, C extends Context<M> = Context<M>>(
+  async context<M extends Model, C extends Context<M>>(
     operation:
       | OperationKeys.CREATE
       | OperationKeys.READ
       | OperationKeys.UPDATE
       | OperationKeys.DELETE,
     model: Constructor<M>
-  ) {
+  ): Promise<C> {
     return Context.from<M, C>(operation, model);
   }
 

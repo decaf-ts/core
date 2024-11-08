@@ -363,7 +363,7 @@ export class Repository<
     });
   }
 
-  static forModel<M extends Model, R extends Repository<M, any>>(
+  static forModel<M extends Model, R extends Repository<M>>(
     model: Constructor<M>,
     defaultFlavour?: string
   ): R {

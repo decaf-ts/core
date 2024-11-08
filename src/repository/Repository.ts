@@ -31,8 +31,8 @@ import { Contextual } from "@decaf-ts/db-decorators";
 
 export class Repository<
     M extends Model,
-    Q = any,
-    A extends Adapter<any, Q> = Adapter<any, Q>,
+    Q = unknown,
+    A extends Adapter<unknown, Q> = Adapter<unknown, Q>,
   >
   extends Rep<M>
   implements Observable, Queriable, IRepository<M>, Contextual<M>

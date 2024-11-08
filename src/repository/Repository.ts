@@ -37,15 +37,15 @@ export class Repository<
   extends Rep<M>
   implements Observable, Queriable, IRepository<M>, Contextual<M>
 {
-  private static _cache: Record<
+  protected static _cache: Record<
     string,
     Constructor<Repository<Model>> | Repository<Model>
   > = {};
 
-  private observers: Observer[] = [];
+  protected observers: Observer[] = [];
 
-  private readonly _adapter!: A;
-  private _tableName!: string;
+  protected readonly _adapter!: A;
+  protected _tableName!: string;
 
   get adapter(): A {
     if (!this._adapter)

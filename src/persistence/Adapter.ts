@@ -24,7 +24,6 @@ import { Condition } from "../query/Condition";
 import { Repository } from "../repository/Repository";
 import { Sequence } from "./Sequence";
 import { User } from "../model/User";
-import { Context as Ctx } from "../repository/Context";
 
 /**
  * @summary Abstract Decaf-ts Persistence Adapter Class

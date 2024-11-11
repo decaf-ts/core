@@ -24,6 +24,7 @@ import { Condition } from "../query/Condition";
 import { Repository } from "../repository/Repository";
 import { Sequence } from "./Sequence";
 import { User } from "../model/User";
+import { Context as Ctx } from "../repository/Context";
 
 /**
  * @summary Abstract Decaf-ts Persistence Adapter Class
@@ -85,15 +86,32 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   protected abstract user(): Promise<User>;
 
-  abstract context<M extends Model, C extends Context<M>>(
+  async context<M extends Model, C extends Context<M>>(
     operation:
       | OperationKeys.CREATE
       | OperationKeys.READ
       | OperationKeys.UPDATE
       | OperationKeys.DELETE,
-    model: Constructor<M>,
-    ...args: any[]
-  ): Promise<C>;
+    model: Constructor<M>
+  ): Promise<C> {
+    const user = await this.user();
+
+    const c: C = new (class extends Ctx<M> {
+      constructor(
+        operation: OperationKeys,
+        model?: Constructor<M>,
+        parent?: Ctx<any, any>
+      ) {
+        super(operation, model, parent);
+      }
+
+      get user(): User {
+        return user;
+      }
+    })(operation, model) as unknown as C;
+
+    return c;
+  }
 
   prepare<M extends Model>(
     model: M,

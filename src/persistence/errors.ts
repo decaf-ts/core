@@ -5,3 +5,9 @@ export class ConnectionError extends BaseError {
     super(ConnectionError.name, msg);
   }
 }
+
+export class UnsupportedError extends BaseError {
+  constructor(msg: string | Error) {
+    super(UnsupportedError.name, msg);
+  }
+}

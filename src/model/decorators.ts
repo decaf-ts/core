@@ -33,6 +33,7 @@ import {
 } from "./construction";
 import { User } from "./User";
 import { Context } from "../repository/Context";
+import { UnsupportedError } from "../persistence/errors";
 
 export function table(tableName: string) {
   return metadata(Adapter.key(PersistenceKeys.TABLE), tableName);
@@ -100,7 +101,11 @@ export async function createdByOnCreateUpdate<
   R extends Repo<M>,
   Y = any,
 >(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
-  const user: User = context.user;
+  const user: User | undefined = context.user;
+  if (!user)
+    throw new UnsupportedError(
+      "This adapter does not support user identification"
+    );
   (model as any)[key] = user.id;
 }
 

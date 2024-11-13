@@ -22,5 +22,5 @@ export abstract class Context<
     return this._timestamp;
   }
 
-  abstract get user(): U;
+  abstract get user(): U | undefined;
 }

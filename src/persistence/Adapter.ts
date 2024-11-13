@@ -25,6 +25,7 @@ import { Repository } from "../repository/Repository";
 import { Sequence } from "./Sequence";
 import { User } from "../model/User";
 import { Context as Ctx } from "../repository/Context";
+import { UnsupportedError } from "./errors";
 
 /**
  * @summary Abstract Decaf-ts Persistence Adapter Class
@@ -50,6 +51,10 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   get native() {
     return this._native;
+  }
+
+  repository<M extends Model>(): Constructor<Repository<M, Q, Adapter<Y, Q>>> {
+    return Repository;
   }
 
   protected constructor(
@@ -84,7 +89,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   abstract Sequence(options: SequenceOptions): Promise<Sequence>;
 
-  protected abstract user(): Promise<User>;
+  protected abstract user(): Promise<User | undefined>;
 
   async context<M extends Model, C extends Context<M>>(
     operation:
@@ -94,7 +99,12 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
       | OperationKeys.DELETE,
     model: Constructor<M>
   ): Promise<C> {
-    const user = await this.user();
+    let user: User | undefined;
+    try {
+      user = await this.user();
+    } catch (e: any) {
+      if (!(e instanceof UnsupportedError)) throw e;
+    }
 
     const c: C = new (class extends Ctx<M> {
       constructor(
@@ -105,7 +115,11 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
         super(operation, model, parent);
       }
 
-      get user(): User {
+      get user(): User | undefined {
+        if (!user)
+          throw new UnsupportedError(
+            "Adapter does not support user identification"
+          );
         return user;
       }
     })(operation, model) as unknown as C;

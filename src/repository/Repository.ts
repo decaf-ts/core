@@ -461,19 +461,20 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
     model: Constructor<M>,
     defaultFlavour?: string
   ): R {
-    let repo: R | Constructor<R>;
+    let repo: R | Constructor<R> | undefined;
     try {
       repo = this.get(model) as Constructor<R> | R;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: any) {
-      repo = Repository as unknown as Constructor<R>;
+      repo = undefined;
     }
 
     if (repo instanceof Repository) return repo as R;
 
     const flavour: string | undefined =
       Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model) ||
-      Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), repo) ||
+      (repo &&
+        Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), repo)) ||
       defaultFlavour;
     const adapter: Adapter<any, any> | undefined = flavour
       ? Adapter.get(flavour)
@@ -484,6 +485,7 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
         `No registered persistence adapter found flavour ${flavour}`
       );
 
+    repo = repo || (adapter.repository() as Constructor<R>);
     return new repo(adapter, model) as R;
   }
 

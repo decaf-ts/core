@@ -18,7 +18,7 @@ import { Query } from "../query/Query";
 import { OrderDirection } from "./constants";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { Queriable } from "../interfaces/Queriable";
-import { getAllPropertyDecorators } from "@decaf-ts/reflection";
+import { Reflection } from "@decaf-ts/reflection";
 import { IndexMetadata } from "./types";
 import { Sequence } from "../persistence/Sequence";
 import { Condition } from "../query/Condition";
@@ -546,7 +546,7 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
   }
 
   static indexes<M extends Model>(model: M | Constructor<M>) {
-    const indexDecorators = getAllPropertyDecorators(
+    const indexDecorators = Reflection.getAllPropertyDecorators(
       model instanceof Model ? model : new model(),
       DBKeys.REFLECT
     );

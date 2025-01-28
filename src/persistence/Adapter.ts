@@ -305,7 +305,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
   }
 
   static setCurrent(flavour: string) {
-    const adapter = this.get(flavour);
+    const adapter = Adapter.get(flavour);
     if (!adapter)
       throw new NotFoundError(`No persistence flavour ${flavour} registered`);
     this._current = adapter;

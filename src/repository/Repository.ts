@@ -492,7 +492,7 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
   private static get<M extends Model>(
     model: Constructor<M>
   ): Constructor<Repo<M>> | Repo<M> {
-    const name = this.table(model);
+    const name = Repository.table(model);
     if (name in this._cache)
       return this._cache[name] as Constructor<Repo<M>> | Repo<M>;
     throw new InternalError(
@@ -504,7 +504,7 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
     model: Constructor<M>,
     repo: Constructor<Repo<M>> | Repo<M>
   ) {
-    const name = this.table(model);
+    const name = Repository.table(model);
     if (name in this._cache)
       throw new InternalError(`${name} already registered as a repository`);
     this._cache[name] = repo;

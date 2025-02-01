@@ -107,5 +107,10 @@
     "@decaf-ts/injectable-decorators": "latest",
     "@decaf-ts/reflection": "latest",
     "reflect-metadata": "^0.2.1"
+  },
+  "overrides": {
+    "gulp-run-command": {
+      "cross-spawn": "^7.0.6"
+    }
   }
 }

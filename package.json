@@ -64,7 +64,6 @@
   },
   "homepage": "https://github.com/decaf-ts/ts-workspace#readme",
   "devDependencies": {
-    "@decaf-ts/transactional-decorators": "latest",
     "@eslint/js": "^9.13.0",
     "@types/jest": "^29.5.13",
     "@typescript-eslint/eslint-plugin": "^8.10.0",
@@ -102,6 +101,7 @@
     "webpack-stream": "^7.0.0"
   },
   "peerDependencies": {
+    "@decaf-ts/transactional-decorators": "latest",
     "@decaf-ts/db-decorators": "latest",
     "@decaf-ts/decorator-validation": "latest",
     "@decaf-ts/injectable-decorators": "latest",

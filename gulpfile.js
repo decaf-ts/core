@@ -115,9 +115,12 @@ function exportDefault(isDev, mode) {
           name,
           "src",
           this.file.path
-            .split(name)[1]
+            .split(`${name}/lib`)[1]
             .split("/")
-            .slice(1, this.file.path.split(name)[1].split("/").length - 1)
+            .slice(
+              1,
+              this.file.path.split(`${name}/lib`)[1].split("/").length - 1
+            )
             .join("/"),
           fileName
         );

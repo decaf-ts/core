@@ -143,13 +143,13 @@ function exportDefault(isDev, mode) {
               })
             )
           )
-          .pipe(gulpIf(isDev, sourcemaps.write()))
           .pipe(
             gulpIf(
               mode === "commonjs",
               replace(/(require\(["'])(\..*?)(["']\)[;,])/g, fixCjsImports)
             )
           )
+          .pipe(gulpIf(isDev, sourcemaps.write()))
           .pipe(dest(destPath)),
       ]);
     }

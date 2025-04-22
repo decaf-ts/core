@@ -14,7 +14,7 @@ import { Repo, Repository } from "../repository/Repository";
 import { index } from "../model/decorators";
 import { sequenceNameForModel } from "./utils";
 import { Sequence } from "../persistence/Sequence";
-import { Context } from "@decaf-ts/db-decorators/lib/repository/Context";
+import { Context } from "@decaf-ts/db-decorators";
 import { OrderDirection } from "../repository";
 
 /**

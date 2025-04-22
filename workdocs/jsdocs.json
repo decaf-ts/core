@@ -32,14 +32,18 @@
       "useLongnameInNav": false
     },
     "better-docs": {
-      "name": "core",
-      "title": "decaf-ts core module",
+      "name": "decaf's Core Module",
+      "title": "decaf's Core Module",
       "hideGenerator": true,
       "useLongnameInNav": false,
       "navLinks": [
         {
+          "label": "Test Results",
+          "href": "workdocs/reports/html/test-report.html"
+        },
+        {
           "label": "Test Coverage",
-          "href": "workdocs/coverage"
+          "href": "workdocs/reports/coverage"
         },
         {
           "label": "Github Repository",

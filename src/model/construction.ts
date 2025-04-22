@@ -13,7 +13,7 @@ import {
 } from "@decaf-ts/db-decorators";
 import { PersistenceKeys } from "../persistence/constants";
 import { Cascade } from "../repository/constants";
-import { Context } from "@decaf-ts/db-decorators/lib/repository/Context";
+import { Context } from "@decaf-ts/db-decorators";
 
 export async function createOrUpdate<M extends Model>(
   model: M,

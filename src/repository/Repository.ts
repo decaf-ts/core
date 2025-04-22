@@ -118,7 +118,7 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
     // eslint-disable-next-line prefer-const
     let { record, id } = this.adapter.prepare(model, this.pk);
     record = await this.adapter.create(this.tableName, id, record, ...args);
-    return this.adapter.revert(record, this.class, this.pk, id);
+    return this.adapter.revert<M>(record, this.class, this.pk, id);
   }
 
   async createAll(models: M[], ...args: any[]): Promise<M[]> {
@@ -201,7 +201,7 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
 
   async read(id: string | number | bigint, ...args: any[]): Promise<M> {
     const m = await this.adapter.read(this.tableName, id, ...args);
-    return this.adapter.revert(m, this.class, this.pk, id);
+    return this.adapter.revert<M>(m, this.class, this.pk, id);
   }
 
   protected async readAllPrefix(keys: string[] | number[], ...args: any[]) {
@@ -238,7 +238,7 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
     // eslint-disable-next-line prefer-const
     let { record, id } = this.adapter.prepare(model, this.pk);
     record = await this.adapter.update(this.tableName, id, record, ...args);
-    return this.adapter.revert(record, this.class, this.pk, id);
+    return this.adapter.revert<M>(record, this.class, this.pk, id);
   }
 
   protected async updatePrefix(
@@ -367,7 +367,7 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
 
   async delete(id: string | number | bigint, ...args: any[]): Promise<M> {
     const m = await this.adapter.delete(this.tableName, id, ...args);
-    return this.adapter.revert(m, this.class, this.pk, id);
+    return this.adapter.revert<M>(m, this.class, this.pk, id);
   }
 
   protected async deleteAllPrefix(keys: string[] | number[], ...args: any[]) {

@@ -3,6 +3,7 @@ import {
   sf,
   validator,
   Validator,
+  ValidatorOptions,
 } from "@decaf-ts/decorator-validation";
 import { isEqual } from "@decaf-ts/reflection";
 import { Clause } from "../query/Clause";
@@ -45,7 +46,7 @@ export class ClauseSequenceValidator extends Validator {
   /**
    * @summary Verifies the model for errors
    * @param {string} value
-   * @param {string} [message]
+   * @param {ValidatorOptions} [options]
    *
    * @return Errors
    *
@@ -53,7 +54,7 @@ export class ClauseSequenceValidator extends Validator {
    *
    * @see Validator
    */
-  public hasErrors(value: any, message?: string): string | undefined {
+  public hasErrors(value: any, options?: ValidatorOptions): string | undefined {
     try {
       if (
         !value ||
@@ -62,7 +63,10 @@ export class ClauseSequenceValidator extends Validator {
         !value.every((e) => e instanceof Clause)
       )
         return this.getMessage(
-          sf(message || this.message, "No or invalid Clauses found")
+          sf(
+            (options || {}).message || this.message,
+            "No or invalid Clauses found"
+          )
         );
 
       const clauses: Clause<any>[] = value as Clause<any>[];
@@ -90,7 +94,7 @@ export class ClauseSequenceValidator extends Validator {
 
       if (clauseErrors)
         return this.getMessage(
-          sf(message || this.message, clauseErrors.toString())
+          sf((options || {}).message || this.message, clauseErrors.toString())
         );
 
       const verifyPriority = () => {
@@ -109,12 +113,17 @@ export class ClauseSequenceValidator extends Validator {
       const priorityCheck = verifyPriority();
       if (priorityCheck !== true)
         return this.getMessage(
-          sf(message || this.message, "Invalid prioritization")
+          sf((options || {}).message || this.message, "Invalid prioritization")
         );
 
-      const sequenceCheck = this.validateSequence(clauses, message);
+      const sequenceCheck = this.validateSequence(
+        clauses,
+        (options || {}).message
+      );
       if (sequenceCheck)
-        return this.getMessage(sf(message || this.message, "Invalid sequence"));
+        return this.getMessage(
+          sf((options || {}).message || this.message, "Invalid sequence")
+        );
     } catch (e: any) {
       throw new QueryError(
         sf("Failed to verify clause sequence {0}: {1}", value, e)

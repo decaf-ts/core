@@ -1,4 +1,3 @@
-import { VERSION } from "../../src";
 import { Dirent } from "fs";
 
 describe("Distribution Tests", () => {

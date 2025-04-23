@@ -1,5 +1,5 @@
+import type { Constructor } from "@decaf-ts/decorator-validation";
 import {
-  Constructor,
   minlength,
   Model,
   ModelErrorDefinition,

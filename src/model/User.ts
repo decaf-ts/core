@@ -1,4 +1,5 @@
-import { list, model, Model, ModelArg } from "@decaf-ts/decorator-validation";
+import { list, model, Model } from "@decaf-ts/decorator-validation";
+import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { Roles } from "../persistence/constants";
 import { pk } from "../identity/decorators";
 

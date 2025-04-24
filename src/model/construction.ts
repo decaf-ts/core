@@ -295,7 +295,7 @@ export function repositoryFromTypeMetadata<M extends Model>(
     propertyKey
   );
   const customTypes: any = Array.isArray(model[propertyKey])
-    ? types.class
+    ? types.clazz
     : types.customTypes;
   if (!types || !customTypes)
     throw new InternalError(

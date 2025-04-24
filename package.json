@@ -1,7 +1,7 @@
 {
   "name": "@decaf-ts/core",
   "version": "0.4.0",
-  "description": "template for ts projects",
+  "description": "Core persistence module for the decaf framework",
   "type": "module",
   "exports": {
     "require": "./lib/index.cjs",
@@ -21,7 +21,7 @@
     "test": "jest --runInBand --coverage --detectOpenHandles",
     "test:unit": "jest --testPathPattern=\"/tests/unit\" --passWithNoTests --detectOpenHandles",
     "test:integration": "jest --testPathPattern=\"/tests/(integration)\" --passWithNoTests --detectOpenHandles",
-    "test:all": "jest --testPathPattern=\"/tests\" --passWithNoTests --detectOpenHandles",
+    "test:all": "jest --testPathPattern=\"/tests\" --passWithNoTests",
     "test:circular": "dpdm -T --no-warning --no-tree ./src/index.ts",
     "coverage": "rimraf ./workdocs/reports/data/*.json && npm run test:all -- --coverage --config=./workdocs/reports/jest.coverage.config.ts",
     "lint": "eslint .",

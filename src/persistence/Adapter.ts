@@ -32,7 +32,7 @@ import { UnsupportedError } from "./errors";
  * @description Offers the base implementation for all Adapter Classes
  * and manages them various registered {@link Adapter}s
  *
- * @typedef Y the underlying persistence object type
+ * @typedef Y the underlying persistence object type or the required config to set it up
  * @typedef Q The query object the adapter uses
  *
  * @param {Y} native the underlying persistence object

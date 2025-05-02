@@ -12,6 +12,7 @@ import { CascadeMetadata, IndexMetadata } from "../repository/types";
 import { DefaultCascade, OrderDirection } from "../repository/constants";
 import {
   Constructor,
+  Decoration,
   list,
   Model,
   prop,
@@ -36,11 +37,13 @@ import { Context } from "../repository/Context";
 import { UnsupportedError } from "../persistence/errors";
 
 export function table(tableName: string) {
-  return metadata(Adapter.key(PersistenceKeys.TABLE), tableName);
+  const key = Adapter.key(PersistenceKeys.TABLE);
+  return Decoration.for(key).define(metadata(key, tableName)).apply();
 }
 
 export function column(columnName: string) {
-  return propMetadata(Adapter.key(PersistenceKeys.COLUMN), columnName);
+  const key = Adapter.key(PersistenceKeys.COLUMN);
+  return Decoration.for(key).define(propMetadata(key, columnName)).apply();
 }
 
 /**
@@ -54,15 +57,17 @@ export function column(columnName: string) {
  * @function index
  */
 export function index(directions?: OrderDirection[], compositions?: string[]) {
-  return propMetadata(
-    Repository.key(
-      `${PersistenceKeys.INDEX}${compositions && compositions.length ? `.${compositions.join(".")}` : ""}`
-    ),
-    {
-      directions: directions,
-      compositions: compositions,
-    } as IndexMetadata
+  const key = Repository.key(
+    `${PersistenceKeys.INDEX}${compositions && compositions.length ? `.${compositions.join(".")}` : ""}`
   );
+  return Decoration.for(key)
+    .define(
+      propMetadata(key, {
+        directions: directions,
+        compositions: compositions,
+      } as IndexMetadata)
+    )
+    .apply();
 }
 
 export async function uniqueOnCreateUpdate<
@@ -90,10 +95,10 @@ export async function uniqueOnCreateUpdate<
  * @memberOf module:wallet-db.Decorators
  */
 export function unique() {
-  return apply(
-    onCreateUpdate(uniqueOnCreateUpdate),
-    propMetadata(Repository.key(PersistenceKeys.UNIQUE), {})
-  );
+  const key = Repository.key(PersistenceKeys.UNIQUE);
+  return Decoration.for(key)
+    .define(onCreateUpdate(uniqueOnCreateUpdate), propMetadata(key, {}))
+    .apply();
 }
 
 export async function createdByOnCreateUpdate<
@@ -110,17 +115,17 @@ export async function createdByOnCreateUpdate<
 }
 
 export function createdBy() {
-  return apply(
-    onCreate(createdByOnCreateUpdate),
-    propMetadata(Repository.key(PersistenceKeys.CREATED_BY), {})
-  );
+  const key = Repository.key(PersistenceKeys.CREATED_BY);
+  return Decoration.for(key)
+    .define(onCreate(createdByOnCreateUpdate), propMetadata(key, {}))
+    .apply();
 }
 
 export function updatedBy() {
-  return apply(
-    onCreateUpdate(createdByOnCreateUpdate),
-    propMetadata(Repository.key(PersistenceKeys.CREATED_BY), {})
-  );
+  const key = Repository.key(PersistenceKeys.UPDATED_BY);
+  return Decoration.for(key)
+    .define(onCreateUpdate(createdByOnCreateUpdate), propMetadata(key, {}))
+    .apply();
 }
 
 /**
@@ -148,15 +153,18 @@ export function oneToOne<M extends Model>(
     cascade: cascadeOptions,
     populate: populate,
   };
-  return apply(
-    prop(PersistenceKeys.RELATIONS),
-    type([clazz.name, String.name, Number.name, BigInt.name]),
-    onCreate(oneToOneOnCreate, metadata),
-    onUpdate(oneToOneOnUpdate, metadata),
-    onDelete(oneToOneOnDelete, metadata),
-    afterAny(pop, metadata),
-    propMetadata(Repository.key(PersistenceKeys.ONE_TO_ONE), metadata)
-  );
+  const key = Repository.key(PersistenceKeys.ONE_TO_ONE);
+  return Decoration.for(key)
+    .define(
+      prop(PersistenceKeys.RELATIONS),
+      type([clazz.name, String.name, Number.name, BigInt.name]),
+      onCreate(oneToOneOnCreate, metadata),
+      onUpdate(oneToOneOnUpdate, metadata),
+      onDelete(oneToOneOnDelete, metadata),
+      afterAny(pop, metadata),
+      propMetadata(key, metadata)
+    )
+    .apply();
 }
 
 /**
@@ -183,16 +191,19 @@ export function oneToMany<M extends Model>(
     cascade: cascadeOptions,
     populate: populate,
   };
-  return apply(
-    prop(PersistenceKeys.RELATIONS),
-    // @ts-expect-error purposeful override
-    list([clazz, String, Number, BigInt]),
-    onCreate(oneToManyOnCreate, metadata),
-    onUpdate(oneToManyOnUpdate, metadata),
-    onDelete(oneToManyOnDelete, metadata),
-    afterAny(pop, metadata),
-    propMetadata(Repository.key(PersistenceKeys.ONE_TO_MANY), metadata)
-  );
+  const key = Repository.key(PersistenceKeys.ONE_TO_MANY);
+  return Decoration.for(key)
+    .define(
+      prop(PersistenceKeys.RELATIONS),
+      // @ts-expect-error purposeful override
+      list([clazz, String, Number, BigInt]),
+      onCreate(oneToManyOnCreate, metadata),
+      onUpdate(oneToManyOnUpdate, metadata),
+      onDelete(oneToManyOnDelete, metadata),
+      afterAny(pop, metadata),
+      propMetadata(key, metadata)
+    )
+    .apply();
 }
 
 /**
@@ -219,13 +230,16 @@ export function manyToOne(
     cascade: cascadeOptions,
     populate: populate,
   };
-  return apply(
-    prop(PersistenceKeys.RELATIONS),
-    type([clazz.name, String.name, Number.name, BigInt.name]),
-    // onCreate(oneToManyOnCreate, metadata),
-    // onUpdate(oneToManyOnUpdate, metadata),
-    // onDelete(oneToManyOnDelete, metadata),
-    // afterAll(populate, metadata),
-    propMetadata(Repository.key(PersistenceKeys.MANY_TO_ONE), metadata)
-  );
+  const key = Repository.key(PersistenceKeys.MANY_TO_ONE);
+  return Decoration.for(key)
+    .define(
+      prop(PersistenceKeys.RELATIONS),
+      type([clazz.name, String.name, Number.name, BigInt.name]),
+      // onCreate(oneToManyOnCreate, metadata),
+      // onUpdate(oneToManyOnUpdate, metadata),
+      // onDelete(oneToManyOnDelete, metadata),
+      // afterAll(populate, metadata),
+      propMetadata(Repository.key(PersistenceKeys.MANY_TO_ONE), metadata)
+    )
+    .apply();
 }

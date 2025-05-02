@@ -255,6 +255,13 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   abstract raw<R>(rawInput: Q, process: boolean, ...args: any[]): Promise<R>;
 
+  async destroy() {
+    if (!(this.flavour in Adapter._cache))
+      throw new InternalError(
+        `Persistence adapter flavour ${this.flavour} not registered`
+      );
+    delete Adapter._cache[this.flavour];
+  }
   /**
    * @summary Registers an {@link Observer}
    * @param {Observer} observer

@@ -26,6 +26,7 @@ import { Sequence } from "./Sequence";
 import { User } from "../model/User";
 import { Context as Ctx } from "../repository/Context";
 import { UnsupportedError } from "./errors";
+import { ErrorParser } from "../interfaces/ErrorParser";
 
 /**
  * @summary Abstract Decaf-ts Persistence Adapter Class
@@ -42,7 +43,9 @@ import { UnsupportedError } from "./errors";
  * @implements RawExecutor
  * @implements Observable
  */
-export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
+export abstract class Adapter<Y, Q>
+  implements RawExecutor<Q>, Observable, ErrorParser
+{
   private static _current: Adapter<any, any>;
   private static _cache: Record<string, Adapter<any, any>> = {};
 
@@ -83,7 +86,7 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     return !attr;
   }
 
-  protected abstract parseError(err: Error): BaseError;
+  abstract parseError(err: Error): BaseError;
 
   abstract initialize(...args: any[]): Promise<void>;
 
@@ -300,6 +303,17 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
           `Failed to update observable ${this._observers[i]}: ${result.reason}`
         );
     });
+  }
+
+  toString() {
+    return `${this.flavour} persistence Adapter`;
+  }
+
+  static flavourOf<M extends Model>(model: Constructor<M>): string {
+    return (
+      Reflect.getMetadata(this.key(PersistenceKeys.ADAPTER), model) ||
+      this.current.flavour
+    );
   }
 
   static get current() {

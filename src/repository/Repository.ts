@@ -457,6 +457,10 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
     });
   }
 
+  toString() {
+    return `${Adapter.flavourOf(this.class)} ${this.class.name} Repository`;
+  }
+
   static forModel<M extends Model, R extends Repo<M>>(
     model: Constructor<M>,
     defaultFlavour?: string

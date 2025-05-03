@@ -6,7 +6,7 @@ import {
   onUpdate,
   afterAny,
 } from "@decaf-ts/db-decorators";
-import { apply, metadata } from "@decaf-ts/reflection";
+import { metadata } from "@decaf-ts/reflection";
 import { PersistenceKeys } from "../persistence/constants";
 import { CascadeMetadata, IndexMetadata } from "../repository/types";
 import { DefaultCascade, OrderDirection } from "../repository/constants";

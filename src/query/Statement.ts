@@ -39,7 +39,7 @@ export abstract class Statement<Q>
   protected clauses?: Clause<any>[] = undefined;
   @required()
   @type(["object"])
-  protected adapter: Adapter<any, Q>;
+  protected adapter: Adapter<any, Q, any, any>;
   @required()
   protected target?: Constructor<any> = undefined;
 
@@ -48,7 +48,7 @@ export abstract class Statement<Q>
   @required()
   protected type?: string = undefined;
 
-  protected constructor(db: Adapter<any, Q>) {
+  protected constructor(db: Adapter<any, Q, any, any>) {
     super();
     this.adapter = db;
   }
@@ -157,7 +157,7 @@ export abstract class Statement<Q>
     this.clauses.push(clause);
   }
 
-  getAdapter(): Adapter<any, Q> {
+  getAdapter(): Adapter<any, Q, any, any> {
     return this.adapter;
   }
 

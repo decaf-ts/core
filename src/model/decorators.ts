@@ -5,6 +5,7 @@ import {
   onDelete,
   onUpdate,
   afterAny,
+  RepositoryFlags,
 } from "@decaf-ts/db-decorators";
 import { metadata } from "@decaf-ts/reflection";
 import { PersistenceKeys } from "../persistence/constants";
@@ -72,16 +73,24 @@ export function index(directions?: OrderDirection[], compositions?: string[]) {
 
 export async function uniqueOnCreateUpdate<
   M extends Model,
-  R extends Repo<M>,
-  Y = any,
->(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
+  R extends Repo<M, C, F>,
+  V extends object,
+  F extends RepositoryFlags,
+  C extends Context<F>,
+>(
+  this: R,
+  context: Context<F>,
+  data: V,
+  key: keyof M,
+  model: M
+): Promise<void> {
   if (!(model as any)[key]) return;
   const existing = await this.select()
-    .where(Condition.attribute(key).eq((model as any)[key]))
+    .where(Condition.attribute(key as string).eq(model[key]))
     .execute<M[]>();
   if (existing.length)
     throw new ConflictError(
-      `model already exists with property ${key} equal to ${JSON.stringify((model as any)[key], undefined, 2)}`
+      `model already exists with property ${key.toString()} equal to ${JSON.stringify(model[key], undefined, 2)}`
     );
 }
 
@@ -92,7 +101,6 @@ export async function uniqueOnCreateUpdate<
  *
  * @function unique
  *
- * @memberOf module:wallet-db.Decorators
  */
 export function unique() {
   const key = Repository.key(PersistenceKeys.UNIQUE);
@@ -103,9 +111,17 @@ export function unique() {
 
 export async function createdByOnCreateUpdate<
   M extends Model,
-  R extends Repo<M>,
-  Y = any,
->(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
+  R extends Repo<M, C, F>,
+  V extends RelationsMetadata,
+  F extends RepositoryFlags,
+  C extends Context<F>,
+>(
+  this: R,
+  context: Context<F>,
+  data: V,
+  key: keyof M,
+  model: M
+): Promise<void> {
   const user: User | undefined = context.user;
   if (!user)
     throw new UnsupportedError(

@@ -13,6 +13,7 @@ import {
   InternalError,
   onCreate,
   readonly,
+  RepositoryFlags,
 } from "@decaf-ts/db-decorators";
 import { Repo, Repository } from "../repository/Repository";
 import { index } from "../model/decorators";
@@ -39,14 +40,20 @@ import { OrderDirection } from "../repository";
  * @param key
  * @param model
  */
-export async function pkOnCreate<M extends Model, V extends Repo<M>>(
-  this: V,
-  context: Context<M>,
-  data: SequenceOptions,
-  key: string,
+export async function pkOnCreate<
+  M extends Model,
+  R extends Repo<M, C, F>,
+  V extends SequenceOptions,
+  F extends RepositoryFlags,
+  C extends Context<F>,
+>(
+  this: R,
+  context: Context<F>,
+  data: V,
+  key: keyof M,
   model: M
 ): Promise<void> {
-  if (!data.type || (model as Record<string, any>)[key]) {
+  if (!data.type || model[key]) {
     return;
   }
 
@@ -73,7 +80,7 @@ export async function pkOnCreate<M extends Model, V extends Repo<M>>(
   }
 
   const next = await sequence.next();
-  setPrimaryKeyValue(model, key, next);
+  setPrimaryKeyValue(model, key as string, next);
 }
 
 export function pk(

@@ -15,34 +15,45 @@ import {
   InternalError,
   NotFoundError,
   OperationKeys,
+  RepositoryFlags,
 } from "@decaf-ts/db-decorators";
 import { Context } from "@decaf-ts/db-decorators";
 import { Context as Ctx } from "../../src";
 
-export class RamAdapter extends Adapter<Record<string, any>, string> {
+export class RamAdapter extends Adapter<
+  Record<string, any>,
+  string,
+  Ctx<RepositoryFlags>,
+  RepositoryFlags
+> {
   constructor(flavour: string = "ram") {
     super({}, flavour);
   }
 
-  async context<M extends Model, C extends Context<M>>(
+  async context<
+    M extends Model,
+    C extends Context<F>,
+    F extends RepositoryFlags,
+  >(
     operation: any,
     model: Constructor<M>,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<C> {
-    return new (class extends Ctx<M> {
-      constructor(
-        operation: OperationKeys,
-        model?: Constructor<M>,
-        parent?: Ctx<any, any>
-      ) {
-        super(operation, model, parent);
+    return new (class extends Ctx<F> {
+      constructor(obj: F) {
+        super(obj);
       }
 
       get user(): User {
         return new User({ id: "test" });
       }
-    })(operation, model) as unknown as C;
+    })({
+      affectedTables: [model.name],
+      writeOperation: operation !== OperationKeys.READ,
+      timestamp: new Date(),
+      operation: operation,
+    } as F) as unknown as C;
   }
   private indexes: Record<
     string,
@@ -183,7 +194,7 @@ export class RamAdapter extends Adapter<Record<string, any>, string> {
     return undefined as unknown as Sequence;
   }
 
-  protected parseError<V extends BaseError>(err: Error): V {
+  parseError<V extends BaseError>(err: Error): V {
     return new InternalError(err) as V;
   }
 

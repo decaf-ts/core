@@ -95,5 +95,5 @@ export abstract class ClauseFactory<Y, Q> {
    */
   abstract where(statement: Statement<Q>, condition: Condition): WhereClause<Q>;
 
-  protected constructor(protected adapter: Adapter<Y, Q>) {}
+  protected constructor(protected adapter: Adapter<Y, Q, any, any>) {}
 }

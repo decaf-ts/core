@@ -6,6 +6,7 @@ import {
   IRepository,
   OperationKeys,
   Repository as Rep,
+  RepositoryFlags,
   ValidationError,
   wrapMethodWithContext,
 } from "@decaf-ts/db-decorators";
@@ -31,12 +32,20 @@ import { Context } from "./Context";
 export type Repo<
   M extends Model,
   Q = any,
-  A extends Adapter<any, Q> = Adapter<any, Q>,
-> = Repository<M, Q, A>;
+  F extends RepositoryFlags = RepositoryFlags,
+  C extends Context<F> = Context<F>,
+  A extends Adapter<any, Q, C, F> = Adapter<any, Q, C, F>,
+> = Repository<M, C, F, Q, A>;
 
-export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
-  extends Rep<M>
-  implements Observable, Queriable, IRepository<M>
+export class Repository<
+    M extends Model,
+    C extends Context<F>,
+    F extends RepositoryFlags,
+    Q,
+    A extends Adapter<any, Q, C, F>,
+  >
+  extends Rep<M, C, F>
+  implements Observable, Queriable, IRepository<M, C, F>
 {
   private static _cache: Record<
     string,
@@ -480,7 +489,7 @@ export class Repository<M extends Model, Q, A extends Adapter<any, Q>>
       (repo &&
         Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), repo)) ||
       defaultFlavour;
-    const adapter: Adapter<any, any> | undefined = flavour
+    const adapter: Adapter<any, any, any, any> | undefined = flavour
       ? Adapter.get(flavour)
       : undefined;
 

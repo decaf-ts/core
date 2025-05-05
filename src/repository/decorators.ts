@@ -1,13 +1,15 @@
 import { inject, injectable } from "@decaf-ts/injectable-decorators";
-import { DBKeys, IRepository } from "@decaf-ts/db-decorators";
+import { DBKeys, IRepository, RepositoryFlags } from "@decaf-ts/db-decorators";
 import { metadata } from "@decaf-ts/reflection";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { Repository } from "./Repository";
+import { Context } from "./Context";
 
-export function repository<T extends Model>(
-  model: Constructor<T>,
-  nameOverride?: string
-): any {
+export function repository<
+  M extends Model,
+  F extends RepositoryFlags = RepositoryFlags,
+  C extends Context<F> = Context<F>,
+>(model: Constructor<M>, nameOverride?: string): any {
   return ((original: any, propertyKey?: any) => {
     if (propertyKey) {
       return inject(nameOverride || model.name)(original, propertyKey);
@@ -21,7 +23,7 @@ export function repository<T extends Model>(
     return injectable(
       nameOverride || original.name,
       true,
-      (instance: IRepository<T>) => {
+      (instance: IRepository<M, C, F>) => {
         Object.defineProperty(instance, DBKeys.CLASS, {
           enumerable: false,
           configurable: false,

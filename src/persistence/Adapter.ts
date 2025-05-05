@@ -1,10 +1,11 @@
 import {
   BaseError,
+  Context,
   DBKeys,
   InternalError,
   NotFoundError,
-  Context,
   OperationKeys,
+  RepositoryFlags,
 } from "@decaf-ts/db-decorators";
 import { Observer } from "../interfaces/Observer";
 import {
@@ -43,11 +44,11 @@ import { ErrorParser } from "../interfaces/ErrorParser";
  * @implements RawExecutor
  * @implements Observable
  */
-export abstract class Adapter<Y, Q>
+export abstract class Adapter<Y, Q, C extends Ctx<F>, F extends RepositoryFlags>
   implements RawExecutor<Q>, Observable, ErrorParser
 {
-  private static _current: Adapter<any, any>;
-  private static _cache: Record<string, Adapter<any, any>> = {};
+  private static _current: Adapter<any, any, any, any>;
+  private static _cache: Record<string, Adapter<any, any, any, any>> = {};
 
   protected readonly _observers: Observer[] = [];
   private readonly _native: Y;
@@ -56,7 +57,9 @@ export abstract class Adapter<Y, Q>
     return this._native;
   }
 
-  repository<M extends Model>(): Constructor<Repository<M, Q, Adapter<Y, Q>>> {
+  repository<M extends Model>(): Constructor<
+    Repository<M, C, F, Q, Adapter<Y, Q, C, F>>
+  > {
     return Repository;
   }
 
@@ -94,7 +97,11 @@ export abstract class Adapter<Y, Q>
 
   protected abstract user(): Promise<User | undefined>;
 
-  async context<M extends Model, C extends Context<M>>(
+  async context<
+    M extends Model,
+    C extends Context<F>,
+    F extends RepositoryFlags,
+  >(
     operation:
       | OperationKeys.CREATE
       | OperationKeys.READ
@@ -109,13 +116,9 @@ export abstract class Adapter<Y, Q>
       if (!(e instanceof UnsupportedError)) throw e;
     }
 
-    const c: C = new (class extends Ctx<M> {
-      constructor(
-        operation: OperationKeys,
-        model?: Constructor<M>,
-        parent?: Ctx<any, any>
-      ) {
-        super(operation, model, parent);
+    const c: C = new (class extends Ctx<F> {
+      constructor(obj: F) {
+        super(obj);
       }
 
       get user(): User | undefined {
@@ -125,7 +128,12 @@ export abstract class Adapter<Y, Q>
           );
         return user;
       }
-    })(operation, model) as unknown as C;
+    })({
+      affectedTables: Repository.table(model),
+      writeOperation: operation !== OperationKeys.READ,
+      timestamp: new Date(),
+      operation: operation,
+    } as F) as unknown as C;
 
     return c;
   }
@@ -320,7 +328,9 @@ export abstract class Adapter<Y, Q>
     return this._current;
   }
 
-  static get<Y, Q>(flavour: any): Adapter<Y, Q> | undefined {
+  static get<Y, Q, C extends Ctx<F>, F extends RepositoryFlags>(
+    flavour: any
+  ): Adapter<Y, Q, C, F> | undefined {
     if (flavour in this._cache) return this._cache[flavour];
     throw new InternalError(`No Adapter registered under ${flavour}.`);
   }

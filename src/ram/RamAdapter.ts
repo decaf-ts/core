@@ -75,7 +75,7 @@ export class RamAdapter extends Adapter<
   private sequences: Record<string, string | number> = {};
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  initialize(args: any): Promise<void> {
+  async initialize(...args: any[]): Promise<void> {
     return Promise.resolve(undefined);
   }
 

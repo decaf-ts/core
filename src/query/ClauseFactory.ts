@@ -20,7 +20,7 @@ import {
 import { Statement } from "./Statement";
 import { Model } from "@decaf-ts/decorator-validation";
 
-export abstract class ClauseFactory<Y, Q> {
+export abstract class ClauseFactory<Y, Q, A extends Adapter<Y, Q, any, any>> {
   /**
    * @summary Factory method for {@link FromClause}
    * @param {Statement} statement
@@ -95,5 +95,5 @@ export abstract class ClauseFactory<Y, Q> {
    */
   abstract where(statement: Statement<Q>, condition: Condition): WhereClause<Q>;
 
-  protected constructor(protected adapter: Adapter<Y, Q, any, any>) {}
+  protected constructor(protected adapter: A) {}
 }

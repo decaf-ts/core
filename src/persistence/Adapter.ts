@@ -36,6 +36,8 @@ import { ErrorParser } from "../interfaces/ErrorParser";
  *
  * @typedef Y the underlying persistence object type or the required config to set it up
  * @typedef Q The query object the adapter uses
+ * @typedef C The adapter specific context
+ * @typedef F The repository Flags used by the adapter
  *
  * @param {Y} native the underlying persistence object
  * @param {string} flavour the under witch the persistence adapter should be stored
@@ -44,7 +46,7 @@ import { ErrorParser } from "../interfaces/ErrorParser";
  * @implements RawExecutor
  * @implements Observable
  */
-export abstract class Adapter<Y, Q, C extends Ctx<F>, F extends RepositoryFlags>
+export abstract class Adapter<Y, Q, F extends RepositoryFlags, C extends Ctx<F>>
   implements RawExecutor<Q>, Observable, ErrorParser
 {
   private static _current: Adapter<any, any, any, any>;
@@ -58,7 +60,7 @@ export abstract class Adapter<Y, Q, C extends Ctx<F>, F extends RepositoryFlags>
   }
 
   repository<M extends Model>(): Constructor<
-    Repository<M, C, F, Q, Adapter<Y, Q, C, F>>
+    Repository<M, Q, Adapter<Y, Q, F, C>, F, C>
   > {
     return Repository;
   }
@@ -83,7 +85,7 @@ export abstract class Adapter<Y, Q, C extends Ctx<F>, F extends RepositoryFlags>
 
   abstract get Statement(): Statement<Q>;
 
-  abstract get Clauses(): ClauseFactory<Y, Q>;
+  abstract get Clauses(): ClauseFactory<Y, Q, Adapter<any, Q, F, C>>;
 
   protected isReserved(attr: string) {
     return !attr;
@@ -140,7 +142,7 @@ export abstract class Adapter<Y, Q, C extends Ctx<F>, F extends RepositoryFlags>
 
   prepare<M extends Model>(
     model: M,
-    pk: string | number
+    pk: keyof M
   ): {
     record: Record<string, any>;
     id: string;
@@ -165,18 +167,18 @@ export abstract class Adapter<Y, Q, C extends Ctx<F>, F extends RepositoryFlags>
       });
     return {
       record: result,
-      id: (model as Record<string, any>)[pk],
+      id: model[pk] as string,
     };
   }
 
   revert<M extends Model>(
     obj: Record<string, any>,
     clazz: string | Constructor<M>,
-    pk: string,
+    pk: keyof M,
     id: string | number | bigint
   ): M {
     const ob: Record<string, any> = {};
-    ob[pk] = id;
+    ob[pk as string] = id;
     const m = (
       typeof clazz === "string" ? Model.build(ob, clazz) : new clazz(ob)
     ) as M;
@@ -330,7 +332,7 @@ export abstract class Adapter<Y, Q, C extends Ctx<F>, F extends RepositoryFlags>
 
   static get<Y, Q, C extends Ctx<F>, F extends RepositoryFlags>(
     flavour: any
-  ): Adapter<Y, Q, C, F> | undefined {
+  ): Adapter<Y, Q, F, C> | undefined {
     if (flavour in this._cache) return this._cache[flavour];
     throw new InternalError(`No Adapter registered under ${flavour}.`);
   }

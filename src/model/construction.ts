@@ -1,6 +1,7 @@
 import {
   Constructor,
   Model,
+  ModelConstructor,
   Validation,
   ValidationKeys,
 } from "@decaf-ts/decorator-validation";
@@ -25,9 +26,11 @@ export async function createOrUpdate<
     const constructor = Model.get(model.constructor.name);
     if (!constructor)
       throw new InternalError(`Could not find model ${model.constructor.name}`);
-    repository = Repository.forModel(constructor) as Repo<M>;
+    repository = Repository.forModel<M>(
+      constructor as unknown as ModelConstructor<M>
+    );
   }
-  if (typeof (model as Record<string, any>)[repository.pk] === "undefined")
+  if (typeof model[repository.pk] === "undefined")
     return repository.create(model, context);
   else {
     try {
@@ -41,7 +44,7 @@ export async function createOrUpdate<
 
 export async function oneToOneOnCreate<
   M extends Model,
-  R extends IRepository<M, C, F>,
+  R extends IRepository<M, F, C>,
   V extends RelationsMetadata,
   F extends RepositoryFlags,
   C extends Context<F>,
@@ -75,7 +78,7 @@ export async function oneToOneOnCreate<
 
 export async function oneToOneOnUpdate<
   M extends Model,
-  R extends IRepository<M, C, F>,
+  R extends IRepository<M, F, C>,
   V extends RelationsMetadata,
   F extends RepositoryFlags,
   C extends Context<F>,
@@ -104,15 +107,15 @@ export async function oneToOneOnUpdate<
     context,
     model,
     key,
-    (updated as Record<string, any>)[pk],
+    updated[pk] as string,
     updated
   );
-  (model as any)[key] = (updated as Record<string, any>)[pk];
+  model[key] = updated[pk];
 }
 
 export async function oneToOneOnDelete<
   M extends Model,
-  R extends IRepository<M, C, F>,
+  R extends IRepository<M, F, C>,
   V extends RelationsMetadata,
   F extends RepositoryFlags,
   C extends Context<F>,
@@ -139,14 +142,14 @@ export async function oneToOneOnDelete<
     context,
     model,
     key,
-    (deleted as Record<string, any>)[innerRepo.pk],
+    deleted[innerRepo.pk] as string,
     deleted
   );
 }
 
 export async function oneToManyOnCreate<
   M extends Model,
-  R extends IRepository<M, C, F>,
+  R extends IRepository<M, F, C>,
   V extends RelationsMetadata,
   F extends RepositoryFlags,
   C extends Context<F>,
@@ -190,7 +193,7 @@ export async function oneToManyOnCreate<
 
 export async function oneToManyOnUpdate<
   M extends Model,
-  R extends IRepository<M, C, F>,
+  R extends IRepository<M, F, C>,
   V extends RelationsMetadata,
   F extends RepositoryFlags,
   C extends Context<F>,
@@ -203,12 +206,17 @@ export async function oneToManyOnUpdate<
 ): Promise<void> {
   const { cascade } = data;
   if (cascade.update !== Cascade.CASCADE) return;
-  return oneToManyOnCreate.call(this, context, data, key as any, model);
+  return oneToManyOnUpdate.apply(this as any, [
+    context,
+    data,
+    key as keyof Model,
+    model,
+  ]);
 }
 
 export async function oneToManyOnDelete<
   M extends Model,
-  R extends IRepository<M, C, F>,
+  R extends IRepository<M, F, C>,
   V extends RelationsMetadata,
   F extends RepositoryFlags,
   C extends Context<F>,
@@ -235,7 +243,7 @@ export async function oneToManyOnDelete<
 
   const uniqueValues = new Set([
     ...(isInstantiated
-      ? values.map((v: Record<string, any>) => v[repo.pk])
+      ? values.map((v: Record<string, any>) => v[repo.pk as string])
       : values),
   ]);
 
@@ -274,7 +282,7 @@ export async function cacheModelForPopulate<
 
 export async function populate<
   M extends Model,
-  R extends IRepository<M, C, F>,
+  R extends IRepository<M, F, C>,
   V extends RelationsMetadata,
   F extends RepositoryFlags,
   C extends Context<F>,

@@ -39,12 +39,14 @@ import { UnsupportedError } from "../persistence/errors";
 
 export function table(tableName: string) {
   const key = Adapter.key(PersistenceKeys.TABLE);
-  return Decoration.for(key).define(metadata(key, tableName)).apply();
+  return metadata(key, tableName);
+  // return Decoration.for(key).define(metadata(key, tableName)).apply();
 }
 
 export function column(columnName: string) {
   const key = Adapter.key(PersistenceKeys.COLUMN);
-  return Decoration.for(key).define(propMetadata(key, columnName)).apply();
+  return propMetadata(key, columnName);
+  //  return Decoration.for(key).define(propMetadata(key, columnName)).apply();
 }
 
 /**

@@ -1,13 +1,17 @@
+import { Lock } from "@decaf-ts/transactional-decorators";
 import {
   Adapter,
   ClauseFactory,
-  Statement,
   Condition,
+  GroupOperator,
+  Operator,
   Paginator,
+  QueryError,
+  Repository,
+  Sequence,
+  SequenceOptions,
   User,
-} from "../../src";
-import { Lock } from "@decaf-ts/transactional-decorators";
-import { Sequence, SequenceOptions } from "../../src";
+} from "../index";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import {
   BaseError,
@@ -18,14 +22,20 @@ import {
   RepositoryFlags,
 } from "@decaf-ts/db-decorators";
 import { Context } from "@decaf-ts/db-decorators";
-import { Context as Ctx } from "../../src";
+import { Context as Ctx } from "../index";
+import { RamQuery, RamStorage } from "./types";
+import { RamStatement } from "./RamStatement";
+import { RamClauseFactory } from "./RamClauseFactory";
+import { RamSequence } from "./RamSequence";
 
 export class RamAdapter extends Adapter<
-  Record<string, any>,
-  string,
-  Ctx<RepositoryFlags>,
-  RepositoryFlags
+  RamStorage,
+  RamQuery<any>,
+  RepositoryFlags,
+  Ctx<RepositoryFlags>
 > {
+  protected factory?: RamClauseFactory;
+
   constructor(flavour: string = "ram") {
     super({}, flavour);
   }
@@ -82,17 +92,17 @@ export class RamAdapter extends Adapter<
 
   prepare<V extends Model>(
     model: V,
-    pk: string | number
+    pk: keyof V
   ): { record: Record<string, any>; id: string } {
     const prepared = super.prepare(model, pk);
-    delete prepared.record[pk];
+    delete prepared.record[pk as string];
     return prepared;
   }
 
   revert<V extends Model>(
     obj: Record<string, any>,
     clazz: string | Constructor<V>,
-    pk: string,
+    pk: keyof V,
     id: string | number
   ): V {
     return super.revert(obj, clazz, pk, id);
@@ -162,14 +172,38 @@ export class RamAdapter extends Adapter<
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async raw<Z>(rawInput: string, process: boolean): Promise<Z> {
-    return Promise.resolve(undefined) as Z;
+  async raw<Z>(rawInput: RamQuery<any>, process: boolean): Promise<Z> {
+    const { where, sort, limit, skip } = rawInput;
+    let { select, from } = rawInput;
+    if (typeof from === "string") from = Model.get(from) as Constructor<Model>;
+    const collection = Repository.table(from);
+    if (!(collection in this.native))
+      throw new NotFoundError(`Table ${collection} not found`);
+
+    let result: any[] = this.native[collection].values();
+
+    if (skip) result = result.slice(skip);
+    if (limit) result = result.slice(0, limit);
+
+    result = result.filter(where);
+    if (sort) result = result.sort(sort);
+    if (select) {
+      select = Array.isArray(select) ? select : [select];
+      result = result.map((r) =>
+        Object.entries(r).reduce((acc: Record<string, any>, [key, val]) => {
+          if ((select as string[]).includes(key)) acc[key] = val;
+          return acc;
+        }, {})
+      );
+    }
+
+    return result as unknown as Z;
   }
 
   async paginate<Z>(rawInput: string): Promise<Paginator<Z, string>> {
     return new (class extends Paginator<Z, string> {
       constructor(size: number) {
-        super(undefined as unknown as Statement<any>, size, rawInput);
+        super(undefined as unknown as any, size, rawInput);
       }
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -195,24 +229,82 @@ export class RamAdapter extends Adapter<
   }
 
   parseError<V extends BaseError>(err: Error): V {
+    if (err instanceof BaseError) return err as V;
     return new InternalError(err) as V;
   }
 
-  get Clauses(): ClauseFactory<Record<string, any>, string> {
-    throw new InternalError(`Not implemented`);
+  get Clauses(): ClauseFactory<RamStorage, RamQuery<any>, RamAdapter> {
+    if (!this.factory) this.factory = new RamClauseFactory(this);
+    return this.factory;
   }
 
-  get Statement(): Statement<string> {
-    throw new InternalError(`Not implemented`);
+  get Statement(): RamStatement<any> {
+    return new RamStatement(this);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  Sequence(options: SequenceOptions): Promise<Sequence> {
-    throw new InternalError(`Not implemented`);
+  async Sequence(options: SequenceOptions): Promise<RamSequence> {
+    return new RamSequence(options, this);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  parseCondition(condition: Condition): string {
-    throw new InternalError(`Not implemented`);
+  parseCondition(condition: Condition): RamQuery<any> {
+    return {
+      where: (m: Model) => {
+        const { attr1, operator, comparison } = condition as unknown as {
+          attr1: string | Condition;
+          operator: Operator | GroupOperator;
+          comparison: any;
+        };
+
+        if (
+          [GroupOperator.AND, GroupOperator.OR, Operator.NOT].indexOf(
+            operator as GroupOperator
+          ) === -1
+        ) {
+          switch (operator) {
+            case Operator.BIGGER:
+              return m[attr1 as keyof Model] > comparison;
+            case Operator.BIGGER_EQ:
+              return m[attr1 as keyof Model] >= comparison;
+            case Operator.DIFFERENT:
+              return m[attr1 as keyof Model] !== comparison;
+            case Operator.EQUAL:
+              return m[attr1 as keyof Model] === comparison;
+            case Operator.REGEXP:
+              if (typeof m[attr1 as keyof Model] !== "string")
+                throw new QueryError(
+                  `Invalid regexp comparison on a non string attribute: ${m[attr1 as keyof Model]}`
+                );
+              return !!(m[attr1 as keyof Model] as unknown as string).match(
+                new RegExp(comparison, "g")
+              );
+            case Operator.SMALLER:
+              return m[attr1 as keyof Model] < comparison;
+            case Operator.SMALLER_EQ:
+              return m[attr1 as keyof Model] <= comparison;
+            default:
+              throw new InternalError(
+                `Invalid operator for standard comparisons: ${operator}`
+              );
+          }
+        } else if (operator === Operator.NOT) {
+          throw new InternalError("Not implemented");
+        } else {
+          const op1: RamQuery<any> = this.parseCondition(attr1 as Condition);
+          const op2: RamQuery<any> = this.parseCondition(
+            comparison as Condition
+          );
+          switch (operator) {
+            case GroupOperator.AND:
+              return op1.where(m) && op2.where(m);
+            case GroupOperator.OR:
+              return op1.where(m) || op2.where(m);
+            default:
+              throw new InternalError(
+                `Invalid operator for And/Or comparisons: ${operator}`
+              );
+          }
+        }
+      },
+    } as RamQuery<any>;
   }
 }

@@ -1,5 +1,5 @@
 import { TestModel } from "./TestModel";
-import { RamAdapter } from "./RamAdapter";
+import { RamAdapter } from "../../src/ram/RamAdapter";
 import { Repository } from "../../src/repository/Repository";
 import { model, Model, ModelArg } from "@decaf-ts/decorator-validation";
 import { NotFoundError, RepositoryFlags } from "@decaf-ts/db-decorators";
@@ -83,12 +83,14 @@ describe("Repository", () => {
       @uses("ram")
       class DedicatedTestModelRepo extends Repository<
         DedicatedTestModel,
-        Context<RepositoryFlags>,
-        RepositoryFlags,
         any,
-        Adapter<any, any, any, any>
+        Adapter<any, any, RepositoryFlags, Context<RepositoryFlags>>,
+        RepositoryFlags,
+        Context<RepositoryFlags>
       > {
-        constructor(adapter: Adapter<any, any, any, any>) {
+        constructor(
+          adapter: Adapter<any, any, RepositoryFlags, Context<RepositoryFlags>>
+        ) {
           super(adapter);
         }
       }

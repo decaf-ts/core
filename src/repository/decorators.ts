@@ -23,7 +23,7 @@ export function repository<
     return injectable(
       nameOverride || original.name,
       true,
-      (instance: IRepository<M, C, F>) => {
+      (instance: IRepository<M, F, C>) => {
         Object.defineProperty(instance, DBKeys.CLASS, {
           enumerable: false,
           configurable: false,

@@ -13,7 +13,11 @@ import {
 import { Observable } from "../interfaces/Observable";
 import { Observer } from "../interfaces/Observer";
 import { Adapter } from "../persistence/Adapter";
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import {
+  Constructor,
+  Model,
+  ModelConstructor,
+} from "@decaf-ts/decorator-validation";
 import { PersistenceKeys } from "../persistence/constants";
 import { Query } from "../query/Query";
 import { OrderDirection } from "./constants";
@@ -34,18 +38,18 @@ export type Repo<
   Q = any,
   F extends RepositoryFlags = RepositoryFlags,
   C extends Context<F> = Context<F>,
-  A extends Adapter<any, Q, C, F> = Adapter<any, Q, C, F>,
-> = Repository<M, C, F, Q, A>;
+  A extends Adapter<any, Q, F, C> = Adapter<any, Q, F, C>,
+> = Repository<M, Q, A, F, C>;
 
 export class Repository<
     M extends Model,
-    C extends Context<F>,
-    F extends RepositoryFlags,
     Q,
-    A extends Adapter<any, Q, C, F>,
+    A extends Adapter<any, Q, F, C>,
+    F extends RepositoryFlags = RepositoryFlags,
+    C extends Context<F> = Context<F>,
   >
-  extends Rep<M, C, F>
-  implements Observable, Queriable, IRepository<M, C, F>
+  extends Rep<M, F, C>
+  implements Observable, Queriable, IRepository<M, F, C>
 {
   private static _cache: Record<
     string,
@@ -162,9 +166,9 @@ export class Repository<
     }
 
     models = await Promise.all(
-      models.map(async (m, i) => {
+      models.map(async (m: M, i) => {
         m = new this.class(m);
-        (m as Record<string, any>)[this.pk] = ids[i];
+        m[this.pk] = ids[i] as M[keyof M];
         await enforceDBDecorators(
           this,
           contextArgs.context,
@@ -197,7 +201,7 @@ export class Repository<
       this.adapter
     );
     const model: M = new this.class();
-    (model as Record<string, any>)[this.pk] = key;
+    model[this.pk] = key as M[keyof M];
     await enforceDBDecorators(
       this,
       contextArgs.context,
@@ -223,7 +227,7 @@ export class Repository<
     await Promise.all(
       keys.map(async (k) => {
         const m = new this.class();
-        (m as Record<string, any>)[this.pk] = k;
+        m[this.pk] = k as M[keyof M];
         return enforceDBDecorators(
           this,
           contextArgs.context,
@@ -260,12 +264,12 @@ export class Repository<
       args,
       this.adapter
     );
-    const pk = (model as Record<string, any>)[this.pk];
+    const pk = model[this.pk];
     if (!pk)
       throw new InternalError(
-        `No value for the Id is defined under the property ${this.pk}`
+        `No value for the Id is defined under the property ${this.pk as string}`
       );
-    const oldModel = await this.read(pk, ...contextArgs.args);
+    const oldModel = await this.read(pk as string, ...contextArgs.args);
     model = this.merge(oldModel, model);
     await enforceDBDecorators(
       this,
@@ -309,11 +313,11 @@ export class Repository<
       this.adapter
     );
     const ids = models.map((m) => {
-      const id = (m as Record<string, any>)[this.pk];
+      const id = m[this.pk];
       if (!id) throw new InternalError("missing id on update operation");
       return id;
     });
-    const oldModels = await this.readAll(ids, ...contextArgs.args);
+    const oldModels = await this.readAll(ids as string[], ...contextArgs.args);
     models = models.map((m, i) => {
       m = this.merge(oldModels[i], m);
       if (Repository.getMetadata(oldModels[i])) {
@@ -470,8 +474,8 @@ export class Repository<
     return `${Adapter.flavourOf(this.class)} ${this.class.name} Repository`;
   }
 
-  static forModel<M extends Model, R extends Repo<M>>(
-    model: Constructor<M>,
+  static forModel<M extends Model, R extends Repo<M> = Repo<M>>(
+    model: Constructor<M> | ModelConstructor<M>,
     defaultFlavour?: string
   ): R {
     let repo: R | Constructor<R> | undefined;
@@ -507,7 +511,7 @@ export class Repository<
   ): Constructor<Repo<M>> | Repo<M> {
     const name = Repository.table(model);
     if (name in this._cache)
-      return this._cache[name] as Constructor<Repo<M>> | Repo<M>;
+      return this._cache[name] as unknown as Constructor<Repo<M>> | Repo<M>;
     throw new InternalError(
       `Could not find repository registered under ${name}`
     );
@@ -520,7 +524,7 @@ export class Repository<
     const name = Repository.table(model);
     if (name in this._cache)
       throw new InternalError(`${name} already registered as a repository`);
-    this._cache[name] = repo;
+    this._cache[name] = repo as any;
   }
 
   static setMetadata<M extends Model>(model: M, metadata: any) {
@@ -550,7 +554,11 @@ export class Repository<
 
   static getSequenceOptions<M extends Model>(model: M) {
     const pk = findPrimaryKey(model).id;
-    const metadata = Reflect.getMetadata(Repository.key(DBKeys.ID), model, pk);
+    const metadata = Reflect.getMetadata(
+      Repository.key(DBKeys.ID),
+      model,
+      pk as string
+    );
     if (!metadata)
       throw new InternalError(
         "No sequence options defined for model. did you use the @pk decorator?"

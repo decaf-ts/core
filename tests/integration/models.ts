@@ -3,11 +3,11 @@ import {
   min,
   minlength,
   model,
-  ModelArg,
   pattern,
   prop,
   required,
 } from "@decaf-ts/decorator-validation";
+import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { BaseModel, Cascade, index, oneToMany, oneToOne, pk } from "../../src";
 
 @model()

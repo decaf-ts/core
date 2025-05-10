@@ -81,7 +81,7 @@ export class Repository<
       Repository.register(clazz, this);
       if (adapter) {
         const flavour = Reflect.getMetadata(
-          Adapter.key(PersistenceKeys.ADAPTER),
+          Repository.key(PersistenceKeys.ADAPTER),
           clazz
         );
         if (flavour && flavour !== adapter.flavour)
@@ -489,9 +489,9 @@ export class Repository<
     if (repo instanceof Repository) return repo as R;
 
     const flavour: string | undefined =
-      Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model) ||
+      Reflect.getMetadata(Repository.key(PersistenceKeys.ADAPTER), model) ||
       (repo &&
-        Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), repo)) ||
+        Reflect.getMetadata(Repository.key(PersistenceKeys.ADAPTER), repo)) ||
       defaultFlavour;
     const adapter: Adapter<any, any, any, any> | undefined = flavour
       ? Adapter.get(flavour)

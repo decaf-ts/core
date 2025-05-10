@@ -1,8 +1,8 @@
 import { Model } from "@decaf-ts/decorator-validation";
-import { TestModel } from "../TestModel";
+import { TestModel } from "../unit/TestModel";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { repository, Repository } from "../../src/repository";
-import { RamRepository } from "../../src/ram/types";
+import type { RamRepository } from "../../src/ram/types";
 import { uses } from "../../src";
 
 Model.setBuilder(Model.fromModel);

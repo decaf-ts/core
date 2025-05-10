@@ -2,12 +2,8 @@ import { RamAdapter } from "../../src/ram/RamAdapter";
 import { Adapter, repository, uses } from "../../src";
 import { TestModel } from "./TestModel";
 import { findPrimaryKey, Repository } from "@decaf-ts/db-decorators";
-import {
-  Constructor,
-  Model,
-  ModelArg,
-  model,
-} from "@decaf-ts/decorator-validation";
+import { Model, model } from "@decaf-ts/decorator-validation";
+import type { Constructor, ModelArg } from "@decaf-ts/decorator-validation";
 
 Model.setBuilder(Model.fromModel);
 

@@ -171,16 +171,20 @@ export class RamAdapter extends Adapter<
     return natived;
   }
 
+  protected tableFor<M extends Model>(from: string | Constructor<M>) {
+    if (typeof from === "string") from = Model.get(from) as Constructor<M>;
+    const table = Repository.table(from);
+    if (!(table in this.native)) this.native[table] = {};
+    return this.native[table];
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async raw<Z>(rawInput: RamQuery<any>, process: boolean): Promise<Z> {
-    const { where, sort, limit, skip } = rawInput;
-    let { select, from } = rawInput;
-    if (typeof from === "string") from = Model.get(from) as Constructor<Model>;
-    const collection = Repository.table(from);
-    if (!(collection in this.native))
-      throw new NotFoundError(`Table ${collection} not found`);
+    const { where, sort, limit, skip, from } = rawInput;
+    let { select } = rawInput;
+    const collection = this.tableFor(from);
 
-    let result: any[] = this.native[collection].values();
+    let result: any[] = Object.values(collection);
 
     if (skip) result = result.slice(skip);
     if (limit) result = result.slice(0, limit);
@@ -217,17 +221,6 @@ export class RamAdapter extends Adapter<
     })(10);
   }
 
-  async getSequence<V>(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    model: V,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    sequence: Constructor<Sequence>,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    options: SequenceOptions | undefined
-  ): Promise<Sequence> {
-    return undefined as unknown as Sequence;
-  }
-
   parseError<V extends BaseError>(err: Error): V {
     if (err instanceof BaseError) return err as V;
     return new InternalError(err) as V;
@@ -242,7 +235,7 @@ export class RamAdapter extends Adapter<
     return new RamStatement(this);
   }
 
-  async Sequence(options: SequenceOptions): Promise<RamSequence> {
+  async Sequence(options: SequenceOptions): Promise<Sequence> {
     return new RamSequence(options, this);
   }
 

@@ -3,10 +3,10 @@ import {
   minlength,
   Model,
   model,
-  ModelArg,
   required,
   type,
 } from "@decaf-ts/decorator-validation";
+import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { InternalError, readonly } from "@decaf-ts/db-decorators";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import {

@@ -3,7 +3,7 @@ import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { BaseModel, index, table } from "../../model";
 import { pk } from "../../identity";
 
-@table("??sequence")
+@table("__RamSequence")
 @model()
 export class Sequence extends BaseModel {
   /**

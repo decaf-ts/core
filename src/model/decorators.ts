@@ -46,7 +46,7 @@ export function table(tableName: string) {
 export function column(columnName: string) {
   const key = Adapter.key(PersistenceKeys.COLUMN);
   return propMetadata(key, columnName);
-  //  return Decoration.for(key).define(propMetadata(key, columnName)).apply();
+  // return Decoration.for(key).define(propMetadata(key, columnName)).apply();
 }
 
 /**
@@ -86,7 +86,7 @@ export async function uniqueOnCreateUpdate<
   key: keyof M,
   model: M
 ): Promise<void> {
-  if (!(model as any)[key]) return;
+  if (!model[key]) return;
   const existing = await this.select()
     .where(Condition.attribute(key as string).eq(model[key]))
     .execute<M[]>();
@@ -129,7 +129,7 @@ export async function createdByOnCreateUpdate<
     throw new UnsupportedError(
       "This adapter does not support user identification"
     );
-  (model as any)[key] = user.id;
+  model[key] = user.id as M[keyof M];
 }
 
 export function createdBy() {

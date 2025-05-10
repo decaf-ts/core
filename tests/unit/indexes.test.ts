@@ -1,9 +1,5 @@
-import {
-  Model,
-  model,
-  ModelArg,
-  required,
-} from "@decaf-ts/decorator-validation";
+import { Model, model, required } from "@decaf-ts/decorator-validation";
+import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { index, pk, Repository, uses } from "../../src";
 
 Model.setBuilder(Model.fromModel);

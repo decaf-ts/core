@@ -2,13 +2,13 @@ import {
   minlength,
   Model,
   model,
-  ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
+import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { NotFoundError } from "@decaf-ts/db-decorators";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { BaseModel, pk, uses, Repository, PersistenceKeys } from "../../src";
-import { RamRepository } from "../../src/ram/types";
+import type { RamRepository } from "../../src/ram/types";
 
 Model.setBuilder(Model.fromModel);
 

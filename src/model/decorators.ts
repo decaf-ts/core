@@ -5,6 +5,8 @@ import {
   onDelete,
   onUpdate,
   afterAny,
+  RepositoryFlags,
+  Context,
 } from "@decaf-ts/db-decorators";
 import { apply, metadata } from "@decaf-ts/reflection";
 import { PersistenceKeys } from "../persistence/constants";
@@ -32,7 +34,6 @@ import {
   populate as pop,
 } from "./construction";
 import { User } from "./User";
-import { Context } from "../repository/Context";
 import { UnsupportedError } from "../persistence/errors";
 
 export function table(tableName: string) {
@@ -67,16 +68,24 @@ export function index(directions?: OrderDirection[], compositions?: string[]) {
 
 export async function uniqueOnCreateUpdate<
   M extends Model,
-  R extends Repo<M>,
-  Y = any,
->(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
+  R extends Repo<M, C, F>,
+  V extends object,
+  F extends RepositoryFlags,
+  C extends Context<F>,
+>(
+  this: R,
+  context: Context<F>,
+  data: V,
+  key: keyof M,
+  model: M
+): Promise<void> {
   if (!(model as any)[key]) return;
   const existing = await this.select()
-    .where(Condition.attribute(key).eq((model as any)[key]))
+    .where(Condition.attribute(key as string).eq((model as any)[key]))
     .execute<M[]>();
   if (existing.length)
     throw new ConflictError(
-      `model already exists with property ${key} equal to ${JSON.stringify((model as any)[key], undefined, 2)}`
+      `model already exists with property ${key as string} equal to ${JSON.stringify((model as any)[key], undefined, 2)}`
     );
 }
 
@@ -98,10 +107,18 @@ export function unique() {
 
 export async function createdByOnCreateUpdate<
   M extends Model,
-  R extends Repo<M>,
-  Y = any,
->(this: R, context: Context<M>, data: Y, key: string, model: M): Promise<void> {
-  const user: User | undefined = context.user;
+  R extends Repo<M, C, F>,
+  V extends RelationsMetadata,
+  F extends RepositoryFlags,
+  C extends Context<F>,
+>(
+  this: R,
+  context: Context<F>,
+  data: V,
+  key: keyof M,
+  model: M
+): Promise<void> {
+  const user: User | undefined = (context as any).user;
   if (!user)
     throw new UnsupportedError(
       "This adapter does not support user identification"

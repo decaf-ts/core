@@ -1,4 +1,3 @@
-import { RamAdapter } from "./RamAdapter";
 import { Adapter, repository, uses } from "../../src";
 import { TestModel } from "./TestModel";
 import { findPrimaryKey, Repository } from "@decaf-ts/db-decorators";
@@ -8,11 +7,12 @@ import {
   ModelArg,
   model,
 } from "@decaf-ts/decorator-validation";
+import { RamAdapter } from "../../src/ram/RamAdapter";
 
 Model.setBuilder(Model.fromModel);
 
 describe("Adapter", () => {
-  let adapter: Adapter<Record<string, any>, any>;
+  let adapter: Adapter<Record<string, any>, any, any, any>;
 
   beforeAll(() => {
     adapter = new RamAdapter();

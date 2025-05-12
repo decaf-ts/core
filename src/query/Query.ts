@@ -21,7 +21,7 @@ import { Model } from "@decaf-ts/decorator-validation";
  * @category Query
  */
 export class Query<Q, M extends Model> {
-  constructor(private adapter: Adapter<any, Q>) {}
+  constructor(private adapter: Adapter<any, Q, any, any>) {}
 
   /**
    * @summary Creates a Select Clause

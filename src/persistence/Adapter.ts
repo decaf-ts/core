@@ -5,6 +5,8 @@ import {
   NotFoundError,
   Context,
   OperationKeys,
+  RepositoryFlags,
+  Contextual,
 } from "@decaf-ts/db-decorators";
 import { Observer } from "../interfaces/Observer";
 import {
@@ -24,8 +26,7 @@ import { Condition } from "../query/Condition";
 import { Repository } from "../repository/Repository";
 import { Sequence } from "./Sequence";
 import { User } from "../model/User";
-import { Context as Ctx } from "../repository/Context";
-import { UnsupportedError } from "./errors";
+import { ErrorParser } from "../interfaces";
 
 /**
  * @summary Abstract Decaf-ts Persistence Adapter Class
@@ -42,9 +43,16 @@ import { UnsupportedError } from "./errors";
  * @implements RawExecutor
  * @implements Observable
  */
-export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
-  private static _current: Adapter<any, any>;
-  private static _cache: Record<string, Adapter<any, any>> = {};
+export abstract class Adapter<
+    Y,
+    Q,
+    F extends RepositoryFlags,
+    C extends Context<F>,
+  >
+  implements RawExecutor<Q>, Observable, Contextual<F>, ErrorParser
+{
+  private static _current: Adapter<any, any, any, any>;
+  private static _cache: Record<string, Adapter<any, any, any, any>> = {};
 
   protected readonly _observers: Observer[] = [];
   private readonly _native: Y;
@@ -53,7 +61,9 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     return this._native;
   }
 
-  repository<M extends Model>(): Constructor<Repository<M, Q, Adapter<Y, Q>>> {
+  repository<M extends Model>(): Constructor<
+    Repository<M, Q, Adapter<Y, Q, F, C>, F, C>
+  > {
     return Repository;
   }
 
@@ -77,13 +87,13 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   abstract get Statement(): Statement<Q>;
 
-  abstract get Clauses(): ClauseFactory<Y, Q>;
+  abstract get Clauses(): ClauseFactory<Y, Q, typeof this>;
 
   protected isReserved(attr: string) {
     return !attr;
   }
 
-  protected abstract parseError(err: Error): BaseError;
+  abstract parseError(err: Error): BaseError;
 
   abstract initialize(...args: any[]): Promise<void>;
 
@@ -91,7 +101,11 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
 
   protected abstract user(): Promise<User | undefined>;
 
-  async context<M extends Model, C extends Context<M>>(
+  async context<
+    M extends Model,
+    C extends Context<F>,
+    F extends RepositoryFlags,
+  >(
     operation:
       | OperationKeys.CREATE
       | OperationKeys.READ
@@ -99,37 +113,30 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
       | OperationKeys.DELETE,
     model: Constructor<M>
   ): Promise<C> {
-    let user: User | undefined;
-    try {
-      user = await this.user();
-    } catch (e: any) {
-      if (!(e instanceof UnsupportedError)) throw e;
-    }
+    // let user: User | undefined;
+    // try {
+    //   user = await this.user();
+    // } catch (e: any) {
+    //   if (!(e instanceof UnsupportedError)) throw e;
+    // }
 
-    const c: C = new (class extends Ctx<M> {
-      constructor(
-        operation: OperationKeys,
-        model?: Constructor<M>,
-        parent?: Ctx<any, any>
-      ) {
-        super(operation, model, parent);
+    const c: C = new (class extends Context<F> {
+      constructor(obj: F) {
+        super(obj);
       }
-
-      get user(): User | undefined {
-        if (!user)
-          throw new UnsupportedError(
-            "Adapter does not support user identification"
-          );
-        return user;
-      }
-    })(operation, model) as unknown as C;
+    })({
+      affectedTables: Repository.table(model),
+      writeOperation: operation !== OperationKeys.READ,
+      timestamp: new Date(),
+      operation: operation,
+    } as F) as unknown as C;
 
     return c;
   }
 
   prepare<M extends Model>(
     model: M,
-    pk: string | number
+    pk: keyof M
   ): {
     record: Record<string, any>;
     id: string;
@@ -154,18 +161,18 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
       });
     return {
       record: result,
-      id: (model as Record<string, any>)[pk],
+      id: model[pk] as string,
     };
   }
 
   revert<M extends Model>(
     obj: Record<string, any>,
     clazz: string | Constructor<M>,
-    pk: string,
+    pk: keyof M,
     id: string | number | bigint
   ): M {
     const ob: Record<string, any> = {};
-    ob[pk] = id;
+    ob[pk as string] = id;
     const m = (
       typeof clazz === "string" ? Model.build(ob, clazz) : new clazz(ob)
     ) as M;
@@ -295,11 +302,24 @@ export abstract class Adapter<Y, Q> implements RawExecutor<Q>, Observable {
     });
   }
 
+  toString() {
+    return `${this.flavour} persistence Adapter`;
+  }
+
+  static flavourOf<M extends Model>(model: Constructor<M>): string {
+    return (
+      Reflect.getMetadata(this.key(PersistenceKeys.ADAPTER), model) ||
+      this.current.flavour
+    );
+  }
+
   static get current() {
     return this._current;
   }
 
-  static get<Y, Q>(flavour: any): Adapter<Y, Q> | undefined {
+  static get<Y, Q, C extends Context<F>, F extends RepositoryFlags>(
+    flavour: any
+  ): Adapter<Y, Q, F, C> | undefined {
     if (flavour in this._cache) return this._cache[flavour];
     throw new InternalError(`No Adapter registered under ${flavour}.`);
   }

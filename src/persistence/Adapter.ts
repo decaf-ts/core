@@ -115,8 +115,6 @@ export abstract class Adapter<
 
   abstract Sequence(options: SequenceOptions): Promise<Sequence>;
 
-  protected abstract user(): Promise<User | undefined>;
-
   async context<
     M extends Model,
     C extends Context<F>,

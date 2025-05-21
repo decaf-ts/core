@@ -61,19 +61,6 @@ export async function createdByOnRamCreateUpdate<
   model[key] = uuid as M[keyof M];
 }
 
-const createdByKey = Repository.key(PersistenceKeys.CREATED_BY);
-const updatedByKey = Repository.key(PersistenceKeys.UPDATED_BY);
-
-Decoration.flavouredAs("ram")
-  .for(createdByKey)
-  .define(onCreate(createdByOnRamCreateUpdate), propMetadata(createdByKey, {}))
-  .apply();
-
-Decoration.flavouredAs("ram")
-  .for(updatedByKey)
-  .define(onCreate(createdByOnRamCreateUpdate), propMetadata(updatedByKey, {}))
-  .apply();
-
 export class RamAdapter extends Adapter<
   RamStorage,
   RamQuery<any>,
@@ -84,6 +71,22 @@ export class RamAdapter extends Adapter<
 
   constructor(flavour: string = "ram") {
     super({}, flavour);
+    const createdByKey = Repository.key(PersistenceKeys.CREATED_BY);
+    const updatedByKey = Repository.key(PersistenceKeys.UPDATED_BY);
+    Decoration.flavouredAs(flavour)
+      .for(createdByKey)
+      .define(
+        onCreate(createdByOnRamCreateUpdate),
+        propMetadata(createdByKey, {})
+      )
+      .apply();
+    Decoration.flavouredAs(flavour)
+      .for(updatedByKey)
+      .define(
+        onCreate(createdByOnRamCreateUpdate),
+        propMetadata(updatedByKey, {})
+      )
+      .apply();
   }
 
   async context<M extends Model, C extends RamContext, F extends RamFlags>(

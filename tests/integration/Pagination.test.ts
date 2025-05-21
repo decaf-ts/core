@@ -1,5 +1,5 @@
 import { Model } from "@decaf-ts/decorator-validation";
-import { ConflictError, InternalError } from "@decaf-ts/db-decorators";
+import { InternalError } from "@decaf-ts/db-decorators";
 import { TestCountryModel } from "./models";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { RamRepository } from "../../src/ram/types";

@@ -11,7 +11,7 @@ import {
   type,
 } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
-import { InternalError, readonly } from "@decaf-ts/db-decorators";
+import { readonly } from "@decaf-ts/db-decorators";
 import {
   BaseModel,
   index,

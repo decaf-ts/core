@@ -1,12 +1,9 @@
-import { sf } from "@decaf-ts/decorator-validation";
 import { Sequence as Seq } from "./model/RamSequence";
 import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 import { Sequence } from "../persistence";
 import { SequenceOptions } from "../interfaces";
 import { RamAdapter } from "./RamAdapter";
 import { Repo, Repository } from "../repository";
-import { Lock } from "@decaf-ts/transactional-decorators";
-import { updatedBy } from "../model";
 
 export function parseSequenceValue(
   type: "Number" | "BigInt" | undefined,
@@ -64,20 +61,12 @@ export class RamSequence extends Sequence {
           return this.parse(startWith);
         } catch (e: any) {
           throw new InternalError(
-            sf(
-              "Failed to parse initial value for sequence {0}: {1}",
-              startWith.toString(),
-              e
-            )
+            `Failed to parse initial value for sequence ${startWith}: ${e}`
           );
         }
       }
       throw new InternalError(
-        sf(
-          "Failed to retrieve current value for sequence {0}: {1}",
-          name as string,
-          e
-        )
+        `Failed to retrieve current value for sequence ${name}: ${e}`
       );
     }
   }

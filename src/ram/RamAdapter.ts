@@ -1,21 +1,23 @@
-import { Lock } from "@decaf-ts/transactional-decorators";
+import { Context } from "@decaf-ts/db-decorators";
+import { RamFlags, RamQuery, RamStorage } from "./types";
+import { RamStatement } from "./RamStatement";
+import { RamClauseFactory } from "./RamClauseFactory";
+import * as crypto from "node:crypto";
+import { RamContext } from "./RamContext";
+import { Repo, Repository } from "../repository/Repository";
+import { RelationsMetadata } from "../model/types";
+import { UnsupportedError } from "../persistence/errors";
+import { Adapter, PersistenceKeys, Sequence } from "../persistence";
+import { Paginator } from "../query/Paginator";
 import {
-  Adapter,
   ClauseFactory,
   Condition,
   GroupOperator,
   Operator,
-  Paginator,
-  PersistenceKeys,
   QueryError,
-  RelationsMetadata,
-  Repo,
-  Repository,
-  Sequence,
-  SequenceOptions,
-  UnsupportedError,
-  User,
-} from "../index";
+} from "../query";
+import { SequenceOptions } from "../interfaces";
+import { Lock } from "@decaf-ts/transactional-decorators";
 import {
   Constructor,
   Decoration,
@@ -32,13 +34,7 @@ import {
   onCreate,
   OperationKeys,
 } from "@decaf-ts/db-decorators";
-import { Context } from "@decaf-ts/db-decorators";
-import { RamFlags, RamQuery, RamStorage } from "./types";
-import { RamStatement } from "./RamStatement";
-import { RamClauseFactory } from "./RamClauseFactory";
 import { RamSequence } from "./RamSequence";
-import * as crypto from "node:crypto";
-import { RamContext } from "./RamContext";
 
 export async function createdByOnRamCreateUpdate<
   M extends Model,
@@ -61,6 +57,17 @@ export async function createdByOnRamCreateUpdate<
   model[key] = uuid as M[keyof M];
 }
 
+const createdByKey = Repository.key(PersistenceKeys.CREATED_BY);
+const updatedByKey = Repository.key(PersistenceKeys.UPDATED_BY);
+Decoration.flavouredAs("ram")
+  .for(createdByKey)
+  .define(onCreate(createdByOnRamCreateUpdate), propMetadata(createdByKey, {}))
+  .apply();
+Decoration.flavouredAs("ram")
+  .for(updatedByKey)
+  .define(onCreate(createdByOnRamCreateUpdate), propMetadata(updatedByKey, {}))
+  .apply();
+
 export class RamAdapter extends Adapter<
   RamStorage,
   RamQuery<any>,
@@ -71,22 +78,6 @@ export class RamAdapter extends Adapter<
 
   constructor(flavour: string = "ram") {
     super({}, flavour);
-    const createdByKey = Repository.key(PersistenceKeys.CREATED_BY);
-    const updatedByKey = Repository.key(PersistenceKeys.UPDATED_BY);
-    Decoration.flavouredAs(flavour)
-      .for(createdByKey)
-      .define(
-        onCreate(createdByOnRamCreateUpdate),
-        propMetadata(createdByKey, {})
-      )
-      .apply();
-    Decoration.flavouredAs(flavour)
-      .for(updatedByKey)
-      .define(
-        onCreate(createdByOnRamCreateUpdate),
-        propMetadata(updatedByKey, {})
-      )
-      .apply();
   }
 
   async context<M extends Model, C extends RamContext, F extends RamFlags>(
@@ -123,12 +114,6 @@ export class RamAdapter extends Adapter<
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async index(...models: Record<string, any>[]): Promise<any> {
     return Promise.resolve(undefined);
-  }
-
-  async user() {
-    return new User({
-      id: "admin",
-    });
   }
 
   prepare<M extends Model>(

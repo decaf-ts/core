@@ -34,7 +34,6 @@ import {
   oneToOneOnUpdate,
   populate as pop,
 } from "./construction";
-import { User } from "./User";
 import { UnsupportedError } from "../persistence/errors";
 
 export function table(tableName: string) {
@@ -114,17 +113,18 @@ export async function createdByOnCreateUpdate<
   C extends Context<F>,
 >(
   this: R,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   context: Context<F>,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   data: V,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   key: keyof M,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   model: M
 ): Promise<void> {
-  const user: User | undefined = (context as any).user;
-  if (!user)
-    throw new UnsupportedError(
-      "This adapter does not support user identification"
-    );
-  model[key] = user.id as M[keyof M];
+  throw new UnsupportedError(
+    "This adapter does not support user identification"
+  );
 }
 
 export function createdBy() {

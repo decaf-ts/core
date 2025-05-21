@@ -1,8 +1,5 @@
 import { RamQuery } from "./types";
-import { findPrimaryKey } from "@decaf-ts/db-decorators";
-import { Paginator, PagingError, Statement } from "../query";
-import { SequenceOptions } from "../interfaces";
-import { parseSequenceValue } from "./RamSequence";
+import { Paginator, Statement } from "../query";
 
 export class RamPaginator<V> extends Paginator<V, RamQuery<any>> {
   constructor(

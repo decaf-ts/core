@@ -21,7 +21,6 @@ import { sequenceNameForModel } from "./utils";
 import { Sequence } from "../persistence/Sequence";
 import { Context } from "@decaf-ts/db-decorators";
 import { OrderDirection } from "../repository";
-import { apply } from "@decaf-ts/reflection";
 
 /**
  * @summary Primary Key Decorator

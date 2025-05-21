@@ -4,8 +4,14 @@
   "description": "Core persistence module for the decaf framework",
   "type": "module",
   "exports": {
-    "require": "./lib/index.cjs",
-    "import": "./lib/esm/index.js"
+    ".": {
+      "require": "./lib/index.cjs",
+      "import": "./lib/esm/index.js"
+    },
+    "./ram": {
+      "require": "./lib/ram/index.cjs",
+      "import": "./lib/esm/ram/index.js"
+    }
   },
   "types": "lib/index.d.ts",
   "scripts": {

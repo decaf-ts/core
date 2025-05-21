@@ -206,7 +206,7 @@ export async function oneToManyOnUpdate<
 ): Promise<void> {
   const { cascade } = data;
   if (cascade.update !== Cascade.CASCADE) return;
-  return oneToManyOnUpdate.apply(this as any, [
+  return oneToManyOnCreate.apply(this as any, [
     context,
     data,
     key as keyof Model,

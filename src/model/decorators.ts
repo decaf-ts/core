@@ -166,15 +166,18 @@ export function oneToOne<M extends Model>(
     cascade: cascadeOptions,
     populate: populate,
   };
-  return apply(
-    prop(PersistenceKeys.RELATIONS),
-    type([clazz.name, String.name, Number.name, BigInt.name]),
-    onCreate(oneToOneOnCreate, metadata),
-    onUpdate(oneToOneOnUpdate, metadata),
-    onDelete(oneToOneOnDelete, metadata),
-    afterAny(pop, metadata),
-    propMetadata(Repository.key(PersistenceKeys.ONE_TO_ONE), metadata)
-  );
+  const key = Repository.key(PersistenceKeys.ONE_TO_ONE);
+  return Decoration.for(key)
+    .define(
+      prop(PersistenceKeys.RELATIONS),
+      type([clazz.name, String.name, Number.name, BigInt.name]),
+      onCreate(oneToOneOnCreate, metadata),
+      onUpdate(oneToOneOnUpdate, metadata),
+      onDelete(oneToOneOnDelete, metadata),
+      afterAny(pop, metadata),
+      propMetadata(key, metadata)
+    )
+    .apply();
 }
 
 /**
@@ -201,16 +204,19 @@ export function oneToMany<M extends Model>(
     cascade: cascadeOptions,
     populate: populate,
   };
-  return apply(
-    prop(PersistenceKeys.RELATIONS),
-    // @ts-expect-error purposeful override
-    list([clazz, String, Number, BigInt]),
-    onCreate(oneToManyOnCreate, metadata),
-    onUpdate(oneToManyOnUpdate, metadata),
-    onDelete(oneToManyOnDelete, metadata),
-    afterAny(pop, metadata),
-    propMetadata(Repository.key(PersistenceKeys.ONE_TO_MANY), metadata)
-  );
+  const key = Repository.key(PersistenceKeys.ONE_TO_MANY);
+  return Decoration.for(key)
+    .define(
+      prop(PersistenceKeys.RELATIONS),
+      // @ts-expect-error purposeful override
+      list([clazz, String, Number, BigInt]),
+      onCreate(oneToManyOnCreate, metadata),
+      onUpdate(oneToManyOnUpdate, metadata),
+      onDelete(oneToManyOnDelete, metadata),
+      afterAny(pop, metadata),
+      propMetadata(key, metadata)
+    )
+    .apply();
 }
 
 /**
@@ -237,13 +243,16 @@ export function manyToOne(
     cascade: cascadeOptions,
     populate: populate,
   };
-  return apply(
-    prop(PersistenceKeys.RELATIONS),
-    type([clazz.name, String.name, Number.name, BigInt.name]),
-    // onCreate(oneToManyOnCreate, metadata),
-    // onUpdate(oneToManyOnUpdate, metadata),
-    // onDelete(oneToManyOnDelete, metadata),
-    // afterAll(populate, metadata),
-    propMetadata(Repository.key(PersistenceKeys.MANY_TO_ONE), metadata)
-  );
+  const key = Repository.key(PersistenceKeys.MANY_TO_ONE);
+  return Decoration.for(key)
+    .define(
+      prop(PersistenceKeys.RELATIONS),
+      type([clazz.name, String.name, Number.name, BigInt.name]),
+      // onCreate(oneToManyOnCreate, metadata),
+      // onUpdate(oneToManyOnUpdate, metadata),
+      // onDelete(oneToManyOnDelete, metadata),
+      // afterAll(populate, metadata),
+      propMetadata(key, metadata)
+    )
+    .apply();
 }

@@ -1,4 +1,9 @@
-import { Model, propMetadata, required } from "@decaf-ts/decorator-validation";
+import {
+  Decoration,
+  Model,
+  propMetadata,
+  required,
+} from "@decaf-ts/decorator-validation";
 import {
   DefaultSequenceOptions,
   SequenceOptions,
@@ -86,12 +91,15 @@ export function pk(
   > = DefaultSequenceOptions
 ) {
   opts = Object.assign({}, DefaultSequenceOptions, opts) as SequenceOptions;
-  return apply(
-    index([OrderDirection.ASC, OrderDirection.DSC]),
-    required(),
-    readonly(),
-    // type([String.name, Number.name, BigInt.name]),
-    propMetadata(Repository.key(DBKeys.ID), opts as SequenceOptions),
-    onCreate(pkOnCreate, opts as SequenceOptions)
-  );
+  const key = Repository.key(DBKeys.ID);
+  return Decoration.for(key)
+    .define(
+      index([OrderDirection.ASC, OrderDirection.DSC]),
+      required(),
+      readonly(),
+      // type([String.name, Number.name, BigInt.name]),
+      propMetadata(key, opts as SequenceOptions),
+      onCreate(pkOnCreate, opts as SequenceOptions)
+    )
+    .apply();
 }

@@ -5,6 +5,8 @@ import { Sequence } from "../persistence";
 import { SequenceOptions } from "../interfaces";
 import { RamAdapter } from "./RamAdapter";
 import { Repo, Repository } from "../repository";
+import { Lock } from "@decaf-ts/transactional-decorators";
+import { updatedBy } from "../model";
 
 export function parseSequenceValue(
   type: "Number" | "BigInt" | undefined,

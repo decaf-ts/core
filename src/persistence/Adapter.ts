@@ -32,10 +32,15 @@ import { User } from "../model/User";
 import { ErrorParser } from "../interfaces";
 
 Decoration.setFlavourResolver((obj: object) => {
-  return (
-    Adapter.flavourOf(Model.isModel(obj) ? obj.constructor : (obj as any)) ||
-    DefaultFlavour
-  );
+  try {
+    return (
+      Adapter.flavourOf(Model.isModel(obj) ? obj.constructor : (obj as any)) ||
+      DefaultFlavour
+    );
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (e: unknown) {
+    return DefaultFlavour;
+  }
 });
 
 /**
@@ -319,11 +324,11 @@ export abstract class Adapter<
   }
 
   static get current() {
-    if (!this._current)
+    if (!Adapter._current)
       throw new InternalError(
         `No persistence flavour set. Please initialize your adapter`
       );
-    return this._current;
+    return Adapter._current;
   }
 
   static get<Y, Q, C extends Context<F>, F extends RepositoryFlags>(

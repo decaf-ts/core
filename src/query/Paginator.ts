@@ -51,10 +51,11 @@ export abstract class Paginator<V, Q> {
       throw new PagingError(
         "page number cannot be under 1 and must be an integer"
       );
-    if (page > this._totalPages)
+    if (typeof this._totalPages !== "undefined" && page > this._totalPages)
       throw new PagingError(
-        "page number cannot be under 1 and must be an integer"
+        `Requested more pages than available. Total pages: ${this._totalPages}`
       );
+    return page;
   }
 
   abstract page(page?: number, ...args: any[]): Promise<V[]>;

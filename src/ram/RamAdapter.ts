@@ -6,32 +6,79 @@ import {
   GroupOperator,
   Operator,
   Paginator,
+  PersistenceKeys,
   QueryError,
+  RelationsMetadata,
+  Repo,
   Repository,
   Sequence,
   SequenceOptions,
+  UnsupportedError,
   User,
 } from "../index";
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import {
+  Constructor,
+  Decoration,
+  Model,
+  propMetadata,
+} from "@decaf-ts/decorator-validation";
 import {
   BaseError,
   ConflictError,
+  DefaultRepositoryFlags,
+  findPrimaryKey,
   InternalError,
   NotFoundError,
+  onCreate,
   OperationKeys,
-  RepositoryFlags,
 } from "@decaf-ts/db-decorators";
 import { Context } from "@decaf-ts/db-decorators";
-import { RamQuery, RamStorage } from "./types";
+import { RamFlags, RamQuery, RamStorage } from "./types";
 import { RamStatement } from "./RamStatement";
 import { RamClauseFactory } from "./RamClauseFactory";
 import { RamSequence } from "./RamSequence";
+import * as crypto from "node:crypto";
+import { RamContext } from "./RamContext";
+
+export async function createdByOnRamCreateUpdate<
+  M extends Model,
+  R extends Repo<M, C, F>,
+  V extends RelationsMetadata,
+  F extends RamFlags,
+  C extends Context<F>,
+>(
+  this: R,
+  context: Context<F>,
+  data: V,
+  key: keyof M,
+  model: M
+): Promise<void> {
+  const uuid: string = context.get("UUID");
+  if (!uuid)
+    throw new UnsupportedError(
+      "This adapter does not support user identification"
+    );
+  model[key] = uuid as M[keyof M];
+}
+
+const createdByKey = Repository.key(PersistenceKeys.CREATED_BY);
+const updatedByKey = Repository.key(PersistenceKeys.UPDATED_BY);
+
+Decoration.flavouredAs("ram")
+  .for(createdByKey)
+  .define(onCreate(createdByOnRamCreateUpdate), propMetadata(createdByKey, {}))
+  .apply();
+
+Decoration.flavouredAs("ram")
+  .for(updatedByKey)
+  .define(onCreate(createdByOnRamCreateUpdate), propMetadata(updatedByKey, {}))
+  .apply();
 
 export class RamAdapter extends Adapter<
   RamStorage,
   RamQuery<any>,
-  RepositoryFlags,
-  Context<RepositoryFlags>
+  RamFlags,
+  Context<RamFlags>
 > {
   protected factory?: RamClauseFactory;
 
@@ -39,30 +86,21 @@ export class RamAdapter extends Adapter<
     super({}, flavour);
   }
 
-  async context<
-    M extends Model,
-    C extends Context<F>,
-    F extends RepositoryFlags,
-  >(
+  async context<M extends Model, C extends RamContext, F extends RamFlags>(
     operation: any,
     model: Constructor<M>,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<C> {
-    return new (class extends Context<F> {
-      constructor(obj: F) {
-        super(obj);
-      }
-
-      get user(): User {
-        return new User({ id: "test" });
-      }
-    })({
-      affectedTables: [model.name],
-      writeOperation: operation !== OperationKeys.READ,
-      timestamp: new Date(),
-      operation: operation,
-    } as F) as unknown as C;
+    return new RamContext(
+      Object.assign({}, DefaultRepositoryFlags, {
+        affectedTables: [model.name],
+        writeOperation: operation !== OperationKeys.READ,
+        timestamp: new Date(),
+        operation: operation,
+        UUID: crypto.randomUUID(),
+      }) as F
+    ) as C;
   }
   private indexes: Record<
     string,
@@ -89,22 +127,23 @@ export class RamAdapter extends Adapter<
     });
   }
 
-  prepare<V extends Model>(
-    model: V,
-    pk: keyof V
+  prepare<M extends Model>(
+    model: M,
+    pk: keyof M
   ): { record: Record<string, any>; id: string } {
     const prepared = super.prepare(model, pk);
     delete prepared.record[pk as string];
     return prepared;
   }
 
-  revert<V extends Model>(
+  revert<M extends Model>(
     obj: Record<string, any>,
-    clazz: string | Constructor<V>,
-    pk: keyof V,
+    clazz: string | Constructor<M>,
+    pk: keyof M,
     id: string | number
-  ): V {
-    return super.revert(obj, clazz, pk, id);
+  ): M {
+    const res = super.revert(obj, clazz, pk, id);
+    return res;
   }
 
   async create(
@@ -183,13 +222,40 @@ export class RamAdapter extends Adapter<
     let { select } = rawInput;
     const collection = this.tableFor(from);
 
-    let result: any[] = Object.values(collection);
+    const clazz = typeof from === "string" ? Model.get(from) : from;
+    const { id, props } = findPrimaryKey(new clazz());
+
+    function parseId(id: any) {
+      let result = id;
+      switch (props.type) {
+        case "Number":
+          result = parseInt(result);
+          if (isNaN(result)) throw new Error(`Invalid id ${id}`);
+          break;
+        case "BigInt":
+          result = BigInt(parseInt(result));
+          break;
+        case "String":
+          break;
+        default:
+          throw new InternalError(
+            `Invalid id type ${props.type}. should be impossible`
+          );
+      }
+      return result;
+    }
+
+    let result: any[] = Object.entries(collection).map(([pk, r]) =>
+      this.revert(r, clazz, id as any, parseId(pk))
+    );
+
+    result = where ? result.filter(where) : result;
+
+    if (sort) result = result.sort(sort);
 
     if (skip) result = result.slice(skip);
     if (limit) result = result.slice(0, limit);
 
-    result = result.filter(where);
-    if (sort) result = result.sort(sort);
     if (select) {
       select = Array.isArray(select) ? select : [select];
       result = result.map((r) =>

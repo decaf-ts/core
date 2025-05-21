@@ -130,6 +130,10 @@ export class Repository<
     return this.adapter.revert<M>(record, this.class, this.pk, id);
   }
 
+  async createSuffix(model: M, context: C): Promise<M> {
+    return super.createSuffix(model, context);
+  }
+
   async createAll(models: M[], ...args: any[]): Promise<M[]> {
     if (!models.length) return models;
     const prepared = models.map((m) => this.adapter.prepare(m, this.pk));

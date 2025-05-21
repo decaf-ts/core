@@ -18,6 +18,7 @@ export class RamOrderByClause extends OrderByClause<RamQuery<any>> {
 
       switch (type) {
         case "string":
+        case "String":
           return (
             (direction === "asc" ? 1 : -1) *
             (el1[key as keyof Model] as unknown as string).localeCompare(
@@ -25,12 +26,14 @@ export class RamOrderByClause extends OrderByClause<RamQuery<any>> {
             )
           );
         case "number":
+        case "Number":
           return (
             (direction === "asc" ? 1 : -1) *
             ((el1[key as keyof Model] as unknown as number) -
               (el2[key as keyof Model] as unknown as number))
           );
         case "object":
+        case "Object":
           if (
             el1[key as keyof Model] instanceof Date &&
             el2[key as keyof Model] instanceof Date

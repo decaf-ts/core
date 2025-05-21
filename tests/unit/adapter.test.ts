@@ -1,21 +1,21 @@
-import { Adapter, repository, uses } from "../../src";
-import { TestModel } from "./TestModel";
-import { findPrimaryKey, Repository } from "@decaf-ts/db-decorators";
-import {
-  Constructor,
-  Model,
-  ModelArg,
-  model,
-} from "@decaf-ts/decorator-validation";
 import { RamAdapter } from "../../src/ram/RamAdapter";
+
+const adapter = new RamAdapter();
+import { Adapter, repository, uses, Repository } from "../../src";
+import { TestModel } from "./TestModel";
+import { findPrimaryKey, NotFoundError } from "@decaf-ts/db-decorators";
+import { Model, model } from "@decaf-ts/decorator-validation";
+import type { Constructor } from "@decaf-ts/decorator-validation";
+import type { ModelArg } from "@decaf-ts/decorator-validation";
+import { RamRepository } from "../../src/ram/types";
 
 Model.setBuilder(Model.fromModel);
 
 describe("Adapter", () => {
-  let adapter: Adapter<Record<string, any>, any, any, any>;
+  let repo: RamRepository<TestModel>;
 
-  beforeAll(() => {
-    adapter = new RamAdapter();
+  beforeAll(async () => {
+    repo = new Repository(adapter, TestModel);
   });
 
   it("instantiates", () => {
@@ -24,7 +24,7 @@ describe("Adapter", () => {
   });
 
   it("defines current", () => {
-    expect(Adapter.current).toBeUndefined();
+    expect(Adapter.current).toBeDefined();
     Adapter.setCurrent("ram");
     expect(Adapter.current).toBeDefined();
     expect(Adapter.current).toEqual(Adapter.get("ram"));
@@ -117,6 +117,50 @@ describe("Adapter", () => {
     it("Recognizes adapter registrations at the repo level", () => {
       const managedModels = Adapter.models("ram");
       expect(managedModels).toBeDefined();
+    });
+
+    let created: TestModel, updated: TestModel;
+
+    it("creates", async () => {
+      const model = new TestModel({
+        id: Date.now(),
+        name: "test_name",
+        nif: "123456789",
+      });
+
+      created = await repo.create(model);
+
+      expect(created).toBeDefined();
+    });
+
+    it("reads", async () => {
+      const read = await repo.read(created.id);
+
+      expect(read).toBeDefined();
+      expect(read.equals(created)).toEqual(true); // same model
+      expect(read === created).toEqual(false); // different instances
+    });
+
+    it("updates", async () => {
+      const toUpdate = new TestModel(
+        Object.assign({}, created, {
+          name: "new_test_name",
+        })
+      );
+
+      updated = await repo.update(toUpdate);
+
+      expect(updated).toBeDefined();
+      expect(updated.equals(created)).toEqual(false);
+      expect(updated.equals(created, "updatedOn", "name")).toEqual(true); // minus the expected changes
+    });
+
+    it("deletes", async () => {
+      const deleted = await repo.delete(created.id);
+      expect(deleted).toBeDefined();
+      expect(deleted.equals(updated)).toEqual(true);
+
+      await expect(repo.read(created.id)).rejects.toThrowError(NotFoundError);
     });
   });
 });

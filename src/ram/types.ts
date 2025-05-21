@@ -14,10 +14,14 @@ export type RamQuery<M extends Model> = {
   skip?: number;
 };
 
+export interface RamFlags extends RepositoryFlags {
+  UUID: string;
+}
+
 export type RamRepository<M extends Model> = Repository<
   M,
   RamQuery<M>,
   RamAdapter,
-  RepositoryFlags,
-  Context<RepositoryFlags>
+  RamFlags,
+  Context<RamFlags>
 >;

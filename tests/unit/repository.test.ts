@@ -1,15 +1,19 @@
-import { TestModel } from "./TestModel";
+import { RamAdapter } from "../../src/ram/RamAdapter";
+
+const ramAdapter = new RamAdapter();
+
 import { Repository } from "../../src/repository/Repository";
-import { model, Model, ModelArg } from "@decaf-ts/decorator-validation";
+import { model, Model } from "@decaf-ts/decorator-validation";
+import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { NotFoundError } from "@decaf-ts/db-decorators";
 import { Adapter, BaseModel, repository, uses } from "../../src";
-import { RamAdapter } from "../../src/ram/RamAdapter";
+import { TestModel } from "./TestModel";
 
 Model.setBuilder(Model.fromModel);
 
 describe("Repository", () => {
   let created: TestModel;
-  const ramAdapter = new RamAdapter();
+
   const repo = new Repository(ramAdapter, TestModel);
 
   it("creates", async () => {
@@ -25,7 +29,7 @@ describe("Repository", () => {
   });
 
   it("reads", async () => {
-    const read = await repo.read(created.id as string);
+    const read = await repo.read(created.id);
 
     expect(read).toBeDefined();
     expect(read.equals(created)).toEqual(true); // same model

@@ -14,6 +14,7 @@ import { CascadeMetadata, IndexMetadata } from "../repository/types";
 import { DefaultCascade, OrderDirection } from "../repository/constants";
 import {
   Constructor,
+  Decoration,
   list,
   Model,
   prop,
@@ -123,21 +124,21 @@ export async function createdByOnCreateUpdate<
     throw new UnsupportedError(
       "This adapter does not support user identification"
     );
-  (model as any)[key] = user.id;
+  model[key] = user.id as M[keyof M];
 }
 
 export function createdBy() {
-  return apply(
-    onCreate(createdByOnCreateUpdate),
-    propMetadata(Repository.key(PersistenceKeys.CREATED_BY), {})
-  );
+  const key = Repository.key(PersistenceKeys.CREATED_BY);
+  return Decoration.for(key)
+    .define(onCreate(createdByOnCreateUpdate), propMetadata(key, {}))
+    .apply();
 }
 
 export function updatedBy() {
-  return apply(
-    onCreateUpdate(createdByOnCreateUpdate),
-    propMetadata(Repository.key(PersistenceKeys.CREATED_BY), {})
-  );
+  const key = Repository.key(PersistenceKeys.UPDATED_BY);
+  return Decoration.for(key)
+    .define(onCreateUpdate(createdByOnCreateUpdate), propMetadata(key, {}))
+    .apply();
 }
 
 /**

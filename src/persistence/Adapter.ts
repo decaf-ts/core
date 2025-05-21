@@ -7,10 +7,13 @@ import {
   OperationKeys,
   RepositoryFlags,
   Contextual,
+  DefaultRepositoryFlags,
 } from "@decaf-ts/db-decorators";
 import { Observer } from "../interfaces/Observer";
 import {
   Constructor,
+  Decoration,
+  DefaultFlavour,
   Model,
   ModelConstructor,
   ModelRegistry,
@@ -27,6 +30,13 @@ import { Repository } from "../repository/Repository";
 import { Sequence } from "./Sequence";
 import { User } from "../model/User";
 import { ErrorParser } from "../interfaces";
+
+Decoration.setFlavourResolver((obj: object) => {
+  return (
+    Adapter.flavourOf(Model.isModel(obj) ? obj.constructor : (obj as any)) ||
+    DefaultFlavour
+  );
+});
 
 /**
  * @summary Abstract Decaf-ts Persistence Adapter Class
@@ -77,6 +87,7 @@ export abstract class Adapter<
       );
     this._native = native;
     Adapter._cache[this.flavour] = this;
+    if (!Adapter._current) Adapter._current = this;
   }
 
   Query<M extends Model>(): Query<Q, M> {
@@ -113,25 +124,19 @@ export abstract class Adapter<
       | OperationKeys.DELETE,
     model: Constructor<M>
   ): Promise<C> {
-    // let user: User | undefined;
-    // try {
-    //   user = await this.user();
-    // } catch (e: any) {
-    //   if (!(e instanceof UnsupportedError)) throw e;
-    // }
-
-    const c: C = new (class extends Context<F> {
+    const AdapterContext = class extends Context<F> {
       constructor(obj: F) {
         super(obj);
       }
-    })({
-      affectedTables: Repository.table(model),
-      writeOperation: operation !== OperationKeys.READ,
-      timestamp: new Date(),
-      operation: operation,
-    } as F) as unknown as C;
-
-    return c;
+    };
+    return new AdapterContext(
+      Object.assign({}, DefaultRepositoryFlags, {
+        affectedTables: Repository.table(model),
+        writeOperation: operation !== OperationKeys.READ,
+        timestamp: new Date(),
+        operation: operation,
+      }) as F
+    ) as C;
   }
 
   prepare<M extends Model>(
@@ -314,6 +319,10 @@ export abstract class Adapter<
   }
 
   static get current() {
+    if (!this._current)
+      throw new InternalError(
+        `No persistence flavour set. Please initialize your adapter`
+      );
     return this._current;
   }
 

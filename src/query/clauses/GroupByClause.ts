@@ -1,4 +1,4 @@
-import { ModelArg } from "@decaf-ts/decorator-validation";
+import { Model, ModelArg } from "@decaf-ts/decorator-validation";
 import { GroupBySelector } from "../selectors";
 import { Priority } from "../constants";
 import { SelectorBasedClause } from "./SelectorBasedClause";
@@ -14,11 +14,11 @@ import { SelectorBasedClause } from "./SelectorBasedClause";
  * @category Query
  * @subcategory Clauses
  */
-export abstract class GroupByClause<Q> extends SelectorBasedClause<
+export abstract class GroupByClause<
   Q,
-  GroupBySelector
-> {
-  protected constructor(clause?: ModelArg<GroupByClause<Q>>) {
+  M extends Model,
+> extends SelectorBasedClause<Q, GroupBySelector<M>> {
+  protected constructor(clause?: ModelArg<GroupByClause<Q, M>>) {
     super(Object.assign({}, clause, { priority: Priority.GROUP_BY }));
   }
   /**

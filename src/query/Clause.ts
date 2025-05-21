@@ -41,7 +41,7 @@ export abstract class Clause<Q>
 
   @required()
   @type("object")
-  readonly statement!: Statement<Q>;
+  readonly statement!: Statement<Q, any>;
 
   protected constructor(clause?: ModelArg<Clause<Q>>) {
     super();
@@ -59,7 +59,7 @@ export abstract class Clause<Q>
   }
 
   protected get Clauses() {
-    return this.statement.getAdapter().Clauses;
+    return this.adapter.Clauses;
   }
 
   /**
@@ -90,21 +90,4 @@ export abstract class Clause<Q>
   toString() {
     return this.constructor.name;
   }
-
-  // /**
-  //  * @summary Factory method for {@link FromClause}
-  //  * @param {{priority: number, statement: Statement, getPriority: Function, build: Function, process: Function}} clause
-  //  */
-  // static isClause(clause: Partial<Clause<any>>) {
-  //   return clause instanceof Clause;
-  //   return (
-  //     clause.constructor &&
-  //     clause.constructor.name &&
-  //     clause.priority &&
-  //     clause.statement &&
-  //     clause.getPriority &&
-  //     clause.build &&
-  //     clause.execute
-  //   );
-  // }
 }

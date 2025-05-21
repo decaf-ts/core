@@ -1,7 +1,8 @@
 import { PagingError } from "./errors";
 import { Statement } from "./Statement";
+import { Model } from "@decaf-ts/decorator-validation";
 
-export abstract class Paginator<V, Q> {
+export abstract class Paginator<R, Q> {
   protected _currentPage!: number;
   protected _totalPages!: number;
   protected _recordCount!: number;
@@ -31,7 +32,7 @@ export abstract class Paginator<V, Q> {
   }
 
   protected constructor(
-    protected stat: Statement<Q>,
+    protected stat: Statement<Q, any>,
     readonly size: number,
     protected readonly _rawStatement: Q
   ) {}
@@ -58,5 +59,5 @@ export abstract class Paginator<V, Q> {
     return page;
   }
 
-  abstract page(page?: number, ...args: any[]): Promise<V[]>;
+  abstract page(page?: number, ...args: any[]): Promise<R[]>;
 }

@@ -45,7 +45,7 @@ export class Repository<
     C extends Context<F> = Context<F>,
   >
   extends Rep<M, F, C>
-  implements Observable, Queriable, IRepository<M, F, C>
+  implements Observable, Queriable<M>, IRepository<M, F, C>
 {
   private static _cache: Record<
     string,
@@ -444,18 +444,18 @@ export class Repository<
     );
   }
 
-  select(selector?: SelectSelector): WhereOption {
+  select(selector?: SelectSelector<M>): WhereOption<M> {
     return new Query<Q, M>(this.adapter).select(selector).from(this.class);
   }
 
   async query<V>(
-    condition: Condition,
-    orderBy: string,
+    condition: Condition<M>,
+    orderBy: keyof M,
     order: OrderDirection = OrderDirection.ASC,
     limit?: number,
     skip?: number
   ): Promise<V> {
-    const sort: OrderBySelector = [orderBy as string, order as OrderDirection];
+    const sort: OrderBySelector<M> = [orderBy, order as OrderDirection];
     const query = this.select().where(condition).orderBy(sort);
     if (limit) query.limit(limit);
     if (skip) query.offset(skip);

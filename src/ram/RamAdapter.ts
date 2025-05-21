@@ -57,17 +57,6 @@ export async function createdByOnRamCreateUpdate<
   model[key] = uuid as M[keyof M];
 }
 
-const createdByKey = Repository.key(PersistenceKeys.CREATED_BY);
-const updatedByKey = Repository.key(PersistenceKeys.UPDATED_BY);
-Decoration.flavouredAs("ram")
-  .for(createdByKey)
-  .define(onCreate(createdByOnRamCreateUpdate), propMetadata(createdByKey, {}))
-  .apply();
-Decoration.flavouredAs("ram")
-  .for(updatedByKey)
-  .define(onCreate(createdByOnRamCreateUpdate), propMetadata(updatedByKey, {}))
-  .apply();
-
 export class RamAdapter extends Adapter<
   RamStorage,
   RamQuery<any>,
@@ -78,6 +67,22 @@ export class RamAdapter extends Adapter<
 
   constructor(flavour: string = "ram") {
     super({}, flavour);
+    const createdByKey = Repository.key(PersistenceKeys.CREATED_BY);
+    const updatedByKey = Repository.key(PersistenceKeys.UPDATED_BY);
+    Decoration.flavouredAs(flavour)
+      .for(createdByKey)
+      .define(
+        onCreate(createdByOnRamCreateUpdate),
+        propMetadata(createdByKey, {})
+      )
+      .apply();
+    Decoration.flavouredAs(flavour)
+      .for(updatedByKey)
+      .define(
+        onCreate(createdByOnRamCreateUpdate),
+        propMetadata(updatedByKey, {})
+      )
+      .apply();
   }
 
   async context<M extends Model, C extends RamContext, F extends RamFlags>(
@@ -293,11 +298,11 @@ export class RamAdapter extends Adapter<
     return new RamSequence(options, this);
   }
 
-  parseCondition(condition: Condition): RamQuery<any> {
+  parseCondition<M extends Model>(condition: Condition<M>): RamQuery<M> {
     return {
       where: (m: Model) => {
         const { attr1, operator, comparison } = condition as unknown as {
-          attr1: string | Condition;
+          attr1: string | Condition<M>;
           operator: Operator | GroupOperator;
           comparison: any;
         };
@@ -336,9 +341,9 @@ export class RamAdapter extends Adapter<
         } else if (operator === Operator.NOT) {
           throw new InternalError("Not implemented");
         } else {
-          const op1: RamQuery<any> = this.parseCondition(attr1 as Condition);
+          const op1: RamQuery<any> = this.parseCondition(attr1 as Condition<M>);
           const op2: RamQuery<any> = this.parseCondition(
-            comparison as Condition
+            comparison as Condition<M>
           );
           switch (operator) {
             case GroupOperator.AND:

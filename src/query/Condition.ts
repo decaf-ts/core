@@ -23,16 +23,16 @@ import { QueryError } from "./errors";
  * @subcategory Conditions
  */
 
-export class Condition extends Model {
+export class Condition<M extends Model> extends Model {
   @required()
-  protected attr1?: string | Condition = undefined;
+  protected attr1?: string | Condition<M> = undefined;
   @required()
   protected operator?: Operator | GroupOperator = undefined;
   @required()
   protected comparison?: any = undefined;
 
   private constructor(
-    attr1: string | Condition,
+    attr1: string | Condition<M>,
     operator: Operator | GroupOperator,
     comparison: any
   ) {
@@ -46,7 +46,7 @@ export class Condition extends Model {
    * @summary Joins 2 {@link Condition}s on an {@link Operator#AND} operation
    * @param {Condition} condition
    */
-  and(condition: Condition): Condition {
+  and(condition: Condition<M>): Condition<M> {
     return Condition.and(this, condition);
   }
 
@@ -54,7 +54,7 @@ export class Condition extends Model {
    * @summary Joins 2 {@link Condition}s on an {@link Operator#OR} operation
    * @param {Condition} condition
    */
-  or(condition: Condition): Condition {
+  or(condition: Condition<M>): Condition<M> {
     return Condition.or(this, condition);
   }
 
@@ -62,7 +62,7 @@ export class Condition extends Model {
    * @summary excludes a valut from the result
    * @param val
    */
-  not(val: any): Condition {
+  not(val: any): Condition<M> {
     return new Condition(this, Operator.NOT, val);
   }
 
@@ -122,7 +122,10 @@ export class Condition extends Model {
    * @param {Condition} condition1
    * @param {Condition} condition2
    */
-  static and(condition1: Condition, condition2: Condition): Condition {
+  static and<M extends Model>(
+    condition1: Condition<M>,
+    condition2: Condition<M>
+  ): Condition<M> {
     return Condition.group(condition1, GroupOperator.AND, condition2);
   }
 
@@ -131,7 +134,10 @@ export class Condition extends Model {
    * @param {Condition} condition1
    * @param {Condition} condition2
    */
-  static or(condition1: Condition, condition2: Condition): Condition {
+  static or<M extends Model>(
+    condition1: Condition<M>,
+    condition2: Condition<M>
+  ): Condition<M> {
     return Condition.group(condition1, GroupOperator.OR, condition2);
   }
 
@@ -141,16 +147,16 @@ export class Condition extends Model {
    * @param {GroupOperator} operator
    * @param {Condition} condition2
    */
-  private static group(
-    condition1: Condition,
+  private static group<M extends Model>(
+    condition1: Condition<M>,
     operator: GroupOperator,
-    condition2: Condition
-  ): Condition {
+    condition2: Condition<M>
+  ): Condition<M> {
     return new Condition(condition1, operator, condition2);
   }
 
-  static attribute(attr: string) {
-    return new Condition.Builder().attribute(attr);
+  static attribute<M extends Model>(attr: keyof M) {
+    return new Condition.Builder<M>().attribute(attr);
   }
 
   /**
@@ -164,17 +170,17 @@ export class Condition extends Model {
    * @category Query
    * @subcategory Conditions
    */
-  private static Builder = class ConditionBuilder
-    implements ConditionBuilderOption, AttributeOption
+  private static Builder = class ConditionBuilder<M extends Model>
+    implements ConditionBuilderOption<M>, AttributeOption<M>
   {
-    attr1?: string | Condition = undefined;
+    attr1?: keyof M | Condition<M> = undefined;
     operator?: Operator | GroupOperator = undefined;
     comparison?: any = undefined;
 
     /**
      * @inheritDoc
      */
-    attribute(attr: string): AttributeOption {
+    attribute(attr: keyof M): AttributeOption<M> {
       this.attr1 = attr;
       return this;
     }
@@ -255,10 +261,10 @@ export class Condition extends Model {
      * @throws {QueryError} if it fails to build the {@link Condition}
      * @private
      */
-    private build(): Condition {
+    private build(): Condition<M> {
       try {
         return new Condition(
-          this.attr1 as string | Condition,
+          this.attr1 as string | Condition<M>,
           this.operator as Operator,
           this.comparison as any
         );
@@ -268,7 +274,7 @@ export class Condition extends Model {
     }
   };
 
-  static get builder(): ConditionBuilderOption {
-    return new Condition.Builder();
+  static builder<M extends Model>(): ConditionBuilderOption<M> {
+    return new Condition.Builder<M>();
   }
 }

@@ -4,15 +4,15 @@ import { RamQuery } from "../types";
 import { ValuesClause } from "../../query";
 
 export class RamValuesClause<M extends Model> extends ValuesClause<
-  RamQuery<any>,
+  RamQuery<M>,
   M
 > {
-  constructor(clause: ModelArg<ValuesClause<RamQuery<any>, M>>) {
+  constructor(clause: ModelArg<ValuesClause<RamQuery<M>, M>>) {
     super(clause);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  build(previous: RamQuery<any>): RamQuery<any> {
+  build(previous: RamQuery<M>): RamQuery<M> {
     throw new InternalError("Not implemented");
   }
 }

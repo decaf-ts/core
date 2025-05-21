@@ -1,6 +1,7 @@
 import { Clause } from "../Clause";
 import { Condition } from "../Condition";
 import {
+  Model,
   ModelArg,
   ModelErrorDefinition,
   required,
@@ -27,15 +28,15 @@ import { Executor } from "../../interfaces";
  * @category Query
  * @subcategory Clauses
  */
-export abstract class WhereClause<Q>
+export abstract class WhereClause<Q, M extends Model>
   extends Clause<Q>
-  implements OrderAndGroupOption
+  implements OrderAndGroupOption<M>
 {
   @required()
   @type("Condition")
-  condition?: Condition = undefined;
+  condition?: Condition<M> = undefined;
 
-  protected constructor(clause?: ModelArg<WhereClause<Q>>) {
+  protected constructor(clause?: ModelArg<WhereClause<Q, M>>) {
     super(Object.assign({}, clause, { priority: Priority.WHERE }));
     this.condition = clause?.condition;
   }
@@ -46,13 +47,13 @@ export abstract class WhereClause<Q>
   /**
    * @inheritDoc
    */
-  orderBy(...selector: OrderBySelector[]): LimitOption & OffsetOption {
+  orderBy(...selector: OrderBySelector<M>[]): LimitOption & OffsetOption {
     return this.Clauses.orderBy(this.statement, selector);
   }
   /**
    * @inheritDoc
    */
-  groupBy(selector: GroupBySelector): Executor {
+  groupBy(selector: GroupBySelector<M>): Executor {
     return this.Clauses.groupBy(this.statement, selector);
   }
   /**

@@ -8,7 +8,7 @@ import {
 } from "../selectors";
 import { LimitOption, OffsetOption } from "../options";
 import { Executor } from "../../interfaces";
-import { ModelArg } from "@decaf-ts/decorator-validation";
+import { Model, ModelArg } from "@decaf-ts/decorator-validation";
 /**
  * @summary The ORDER BY clause
  *
@@ -22,11 +22,11 @@ import { ModelArg } from "@decaf-ts/decorator-validation";
  * @category Query
  * @subcategory Clauses
  */
-export abstract class OrderByClause<Q>
-  extends SelectorBasedClause<Q, OrderBySelector[]>
+export abstract class OrderByClause<Q, M extends Model>
+  extends SelectorBasedClause<Q, OrderBySelector<M>[]>
   implements LimitOption, OffsetOption
 {
-  protected constructor(clause?: ModelArg<OrderByClause<Q>>) {
+  protected constructor(clause?: ModelArg<OrderByClause<Q, M>>) {
     super(Object.assign({}, clause, { priority: Priority.ORDER_BY }));
   }
   /**
@@ -36,7 +36,7 @@ export abstract class OrderByClause<Q>
   /**
    * @inheritDoc
    */
-  groupBy(selector: GroupBySelector): Executor {
+  groupBy(selector: GroupBySelector<M>): Executor {
     return this.Clauses.groupBy(this.statement, selector);
   }
   /**

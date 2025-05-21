@@ -29,19 +29,19 @@ import { Paginator } from "./Paginator";
  *
  * @category Query
  */
-export abstract class Statement<Q>
+export abstract class Statement<Q, M extends Model>
   extends Model
   implements Executor, RawExecutor<Q>
 {
   @required()
   @minlength(MandatoryPriorities.length)
   @clauseSequence()
-  protected clauses?: Clause<any>[] = undefined;
+  protected clauses?: Clause<Q>[] = undefined;
   @required()
   @type(["object"])
   protected adapter: Adapter<any, Q, any, any>;
   @required()
-  protected target?: Constructor<any> = undefined;
+  protected target?: Constructor<M> = undefined;
 
   protected fullRecord: boolean = false;
 
@@ -113,7 +113,7 @@ export abstract class Statement<Q>
 
     const pkAttr = findPrimaryKey(new this.target() as any).id;
 
-    const processor = function recordProcessor(this: Statement<Q>, r: any) {
+    const processor = function recordProcessor(this: Statement<Q, M>, r: any) {
       const id = r[pkAttr];
       return this.adapter.revert(
         r,

@@ -3,16 +3,19 @@ import { OrderByClause, OrderBySelector, QueryError } from "../../query";
 import { Model, ModelArg } from "@decaf-ts/decorator-validation";
 import { Reflection } from "@decaf-ts/reflection";
 
-export class RamOrderByClause extends OrderByClause<RamQuery<any>> {
-  constructor(clause: ModelArg<OrderByClause<RamQuery<any>>>) {
+export class RamOrderByClause<M extends Model> extends OrderByClause<
+  RamQuery<M>,
+  M
+> {
+  constructor(clause: ModelArg<OrderByClause<RamQuery<M>, M>>) {
     super(clause);
   }
 
-  build(query: RamQuery<any>): RamQuery<any> {
+  build(query: RamQuery<M>): RamQuery<M> {
     query.sort = (el1: Model, el2: Model) => {
-      const selectors = this.selector as OrderBySelector[];
+      const selectors = this.selector as OrderBySelector<M>[];
       const [key, direction] = selectors[0];
-      const type = Reflection.getTypeFromDecorator(el1, key);
+      const type = Reflection.getTypeFromDecorator(el1, key as string);
       if (!type)
         throw new QueryError(`type not compatible with sorting: ${type}`);
 

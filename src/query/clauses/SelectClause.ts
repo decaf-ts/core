@@ -24,7 +24,7 @@ import { SelectSelector } from "../selectors";
  * @subcategory Clauses
  */
 export abstract class SelectClause<Q, M extends Model>
-  extends SelectorBasedClause<Q, SelectSelector>
+  extends SelectorBasedClause<Q, SelectSelector<M>>
   implements SelectOption<M>
 {
   private isDistinct: boolean = false;
@@ -34,7 +34,7 @@ export abstract class SelectClause<Q, M extends Model>
 
   protected constructor(clause?: ModelArg<SelectClause<Q, M>>) {
     super(Object.assign({}, clause, { priority: Priority.SELECT }));
-    if (this.selector === Const.FULL_RECORD) this.statement.setFullRecord();
+    if (!this.selector) this.statement.setFullRecord();
     this.statement.setMode(StatementType.QUERY);
   }
   /**
@@ -44,7 +44,7 @@ export abstract class SelectClause<Q, M extends Model>
   /**
    * @inheritDoc
    */
-  distinct(selector: SelectSelector): DistinctOption<M> {
+  distinct(selector: SelectSelector<M>): DistinctOption<M> {
     this.isDistinct = true;
     this.selector = selector;
     return this;
@@ -52,28 +52,28 @@ export abstract class SelectClause<Q, M extends Model>
   /**
    * @inheritDoc
    */
-  count(selector: SelectSelector): CountOption<M> {
+  count(selector: SelectSelector<M>): CountOption<M> {
     this.selector = selector;
     return this;
   }
   /**
    * @inheritDoc
    */
-  min(selector: SelectSelector): MinOption<M> {
+  min(selector: SelectSelector<M>): MinOption<M> {
     this.selector = selector;
     return this;
   }
   /**
    * @inheritDoc
    */
-  max(selector: SelectSelector): MaxOption<M> {
+  max(selector: SelectSelector<M>): MaxOption<M> {
     this.selector = selector;
     return this;
   }
   /**
    * @inheritDoc
    */
-  from(tableName: Constructor<M>): WhereOption {
+  from(tableName: Constructor<M>): WhereOption<M> {
     return this.Clauses.from(this.statement, tableName);
   }
 }

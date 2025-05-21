@@ -42,14 +42,14 @@ export interface QueryBuilder<Q> extends Executor {
  * @category Query
  * @subcategory Options
  */
-export interface GroupByOption extends Executor {
+export interface GroupByOption<M extends Model> extends Executor {
   /**
    * @summary Groups records by an attribute
    *
    * @param {GroupBySelector} selector
    * @method
    */
-  groupBy(selector: GroupBySelector): Executor;
+  groupBy(selector: GroupBySelector<M>): Executor;
 }
 /**
  * @summary Offset Option interface
@@ -99,14 +99,14 @@ export interface LimitOption extends Executor, Paginatable {
  * @category Query
  * @subcategory Options
  */
-export interface OrderByOption extends Executor, Paginatable {
+export interface OrderByOption<M extends Model> extends Executor, Paginatable {
   /**
    * @summary Orders the results by the provided attribute and according to the provided direction
    *
    * @param {OrderBySelector} selector
    * @method
    */
-  orderBy(...selector: OrderBySelector[]): LimitOption & OffsetOption;
+  orderBy(...selector: OrderBySelector<M>[]): LimitOption & OffsetOption;
 }
 /**
  * @summary Groups several order and grouping options
@@ -120,9 +120,9 @@ export interface OrderByOption extends Executor, Paginatable {
  * @category Query
  * @subcategory Options
  */
-export interface OrderAndGroupOption
-  extends OrderByOption,
-    GroupByOption,
+export interface OrderAndGroupOption<M extends Model>
+  extends OrderByOption<M>,
+    GroupByOption<M>,
     LimitOption,
     OffsetOption {}
 /**
@@ -135,14 +135,14 @@ export interface OrderAndGroupOption
  * @category Query
  * @subcategory Options
  */
-export interface WhereOption extends OrderAndGroupOption {
+export interface WhereOption<M extends Model> extends OrderAndGroupOption<M> {
   /**
    * @summary filter the records by a condition
    *
    * @param {Condition} condition
    * @method
    */
-  where(condition: Condition): OrderAndGroupOption;
+  where(condition: Condition<M>): OrderAndGroupOption<M>;
 }
 
 /**
@@ -161,7 +161,7 @@ export interface FromOption<M extends Model> {
    * @param {Constructor} tableName
    * @method
    */
-  from(tableName: Constructor<M> | string): WhereOption;
+  from(tableName: Constructor<M> | string): WhereOption<M>;
 }
 
 /**
@@ -229,28 +229,28 @@ export interface SelectOption<M extends Model> extends FromOption<M> {
    * @param {SelectSelector} selector
    * @method
    */
-  distinct(selector: SelectSelector): DistinctOption<M>;
+  distinct(selector: SelectSelector<M>): DistinctOption<M>;
   /**
    * @summary the maximum value
    *
    * @param {SelectSelector} selector
    * @method
    */
-  max(selector: SelectSelector): MaxOption<M>;
+  max(selector: SelectSelector<M>): MaxOption<M>;
   /**
    * @summary selects the minimum value
    *
    * @param {SelectSelector} selector
    * @method
    */
-  min(selector: SelectSelector): MinOption<M>;
+  min(selector: SelectSelector<M>): MinOption<M>;
   /**
    * @summary counts the records
    *
    * @param {SelectSelector} selector
    * @method
    */
-  count(selector?: SelectSelector): CountOption<M>;
+  count(selector?: SelectSelector<M>): CountOption<M>;
 }
 
 /**
@@ -266,7 +266,7 @@ export interface IntoOption<M extends Model> {
   /**
    * @summary sets the models to insert
    *
-   * @param {T[]} models
+   * @param {M[]} models
    * @method
    */
   values(...models: M[]): Executor;
@@ -276,7 +276,7 @@ export interface IntoOption<M extends Model> {
    * @param {Condition} condition
    * @method
    */
-  where(condition: Condition): Executor;
+  where(condition: Condition<M>): Executor;
 }
 /**
  * @summary Valuest Option Interface
@@ -317,61 +317,61 @@ export interface InsertOption<M extends Model> {
  * @category Query
  * @subcategory Conditions
  */
-export interface AttributeOption {
+export interface AttributeOption<M extends Model> {
   /**
    * @summary Test equality
    *
    * @param {any} val the value to test
    * @method
    */
-  eq(val: any): Condition;
+  eq(val: any): Condition<M>;
   /**
    * @summary Test difference
    *
    * @param {any} val the value to test
    * @method
    */
-  dif(val: any): Condition;
+  dif(val: any): Condition<M>;
   /**
    * @summary Test greater than
    *
    * @param {any} val the value to test
    * @method
    */
-  gt(val: any): Condition;
+  gt(val: any): Condition<M>;
   /**
    * @summary Test lower than
    *
    * @param {any} val the value to test
    * @method
    */
-  lt(val: any): Condition;
+  lt(val: any): Condition<M>;
   /**
    * @summary Test greater or equal to
    *
    * @param {any} val the value to test
    * @method
    */
-  gte(val: any): Condition;
+  gte(val: any): Condition<M>;
   /**
    * @summary Test lower or equal to
    *
    * @param {any} val the value to test
    * @method
    */
-  lte(val: any): Condition;
+  lte(val: any): Condition<M>;
   /**
    * @summary Test value in a range of values
    * @param {any[]} val
    */
-  in(val: any[]): Condition;
+  in(val: any[]): Condition<M>;
   /**
    * @summary Test matches {@link RegExp}
    *
    * @param {any} val the value to test
    * @method
    */
-  regexp(val: string | RegExp): Condition;
+  regexp(val: string | RegExp): Condition<M>;
 }
 /**
  * @summary The starting point for creating Conditions
@@ -382,6 +382,6 @@ export interface AttributeOption {
  * @category Query
  * @subcategory Conditions
  */
-export interface ConditionBuilderOption {
-  attribute(attr: string): AttributeOption;
+export interface ConditionBuilderOption<M extends Model> {
+  attribute(attr: keyof M): AttributeOption<M>;
 }

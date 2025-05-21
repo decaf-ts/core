@@ -27,7 +27,7 @@ export abstract class ClauseFactory<Y, Q, A extends Adapter<Y, Q, any, any>> {
    * @param {FromSelector} selector
    */
   abstract from<M extends Model>(
-    statement: Statement<Q>,
+    statement: Statement<Q, M>,
     selector: FromSelector<M>
   ): FromClause<Q, M>;
   /**
@@ -35,10 +35,10 @@ export abstract class ClauseFactory<Y, Q, A extends Adapter<Y, Q, any, any>> {
    * @param {Statement} statement
    * @param {GroupBySelector} selector
    */
-  abstract groupBy(
-    statement: Statement<Q>,
-    selector: GroupBySelector
-  ): GroupByClause<Q>;
+  abstract groupBy<M extends Model>(
+    statement: Statement<Q, M>,
+    selector: GroupBySelector<M>
+  ): GroupByClause<Q, M>;
   /**
    * @summary Factory method for {@link InsertClause}
    * @param {Statement} statement
@@ -49,8 +49,8 @@ export abstract class ClauseFactory<Y, Q, A extends Adapter<Y, Q, any, any>> {
    * @param {Statement} statement
    * @param {LimitSelector} selector
    */
-  abstract limit(
-    statement: Statement<Q>,
+  abstract limit<M extends Model>(
+    statement: Statement<Q, M>,
     selector: LimitSelector
   ): LimitClause<Q>;
   /**
@@ -58,8 +58,8 @@ export abstract class ClauseFactory<Y, Q, A extends Adapter<Y, Q, any, any>> {
    * @param {Statement} statement
    * @param {OffsetSelector} selector
    */
-  abstract offset(
-    statement: Statement<Q>,
+  abstract offset<M extends Model>(
+    statement: Statement<Q, M>,
     selector: OffsetSelector
   ): OffsetClause<Q>;
   /**
@@ -67,17 +67,17 @@ export abstract class ClauseFactory<Y, Q, A extends Adapter<Y, Q, any, any>> {
    * @param {Statement} statement
    * @param {OrderBySelector} selector
    */
-  abstract orderBy(
-    statement: Statement<Q>,
-    selector: OrderBySelector[]
-  ): OrderByClause<Q>;
+  abstract orderBy<M extends Model>(
+    statement: Statement<Q, M>,
+    selector: OrderBySelector<M>[]
+  ): OrderByClause<Q, M>;
   /**
    * @summary Factory method for {@link SelectClause}
    * @param {Statement} statement
    * @param {SelectSelector} [selector]
    */
   abstract select<M extends Model>(
-    selector?: SelectSelector
+    selector?: SelectSelector<M>
   ): SelectClause<Q, M>;
   /**
    * @summary Factory method for {@link ValuesClause}
@@ -85,7 +85,7 @@ export abstract class ClauseFactory<Y, Q, A extends Adapter<Y, Q, any, any>> {
    * @param {M[]} values
    */
   abstract values<M extends Model>(
-    statement: Statement<Q>,
+    statement: Statement<Q, M>,
     values: M[]
   ): ValuesClause<Q, M>;
   /**
@@ -93,7 +93,10 @@ export abstract class ClauseFactory<Y, Q, A extends Adapter<Y, Q, any, any>> {
    * @param {Statement} statement
    * @param {Condition} condition
    */
-  abstract where(statement: Statement<Q>, condition: Condition): WhereClause<Q>;
+  abstract where<M extends Model>(
+    statement: Statement<Q, M>,
+    condition: Condition<M>
+  ): WhereClause<Q, M>;
 
   protected constructor(protected adapter: A) {}
 }

@@ -81,7 +81,7 @@ export async function uniqueOnCreateUpdate<
 ): Promise<void> {
   if (!(model as any)[key]) return;
   const existing = await this.select()
-    .where(Condition.attribute(key as string).eq((model as any)[key]))
+    .where(Condition.attribute(key).eq(model[key]))
     .execute<M[]>();
   if (existing.length)
     throw new ConflictError(

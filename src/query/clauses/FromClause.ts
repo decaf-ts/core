@@ -37,7 +37,7 @@ import {
  */
 export abstract class FromClause<Q, M extends Model>
   extends SelectorBasedClause<Q, FromSelector<M>>
-  implements WhereOption
+  implements WhereOption<M>
 {
   protected constructor(clause?: ModelArg<FromClause<Q, M>>) {
     super(Object.assign({}, clause, { priority: Priority.FROM }));
@@ -58,19 +58,19 @@ export abstract class FromClause<Q, M extends Model>
   /**
    * @inheritDoc
    */
-  where(condition: Condition): OrderAndGroupOption {
+  where(condition: Condition<M>): OrderAndGroupOption<M> {
     return this.Clauses.where(this.statement, condition);
   }
   /**
    * @inheritDoc
    */
-  orderBy(...selector: OrderBySelector[]): LimitOption & OffsetOption {
+  orderBy(...selector: OrderBySelector<M>[]): LimitOption & OffsetOption {
     return this.Clauses.orderBy(this.statement, selector);
   }
   /**
    * @inheritDoc
    */
-  groupBy(selector: GroupBySelector): Executor {
+  groupBy(selector: GroupBySelector<M>): Executor {
     return this.Clauses.groupBy(this.statement, selector);
   }
   /**

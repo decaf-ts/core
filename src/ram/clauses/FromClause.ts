@@ -1,17 +1,14 @@
-import { ModelArg, Model } from "@decaf-ts/decorator-validation";
+import { ModelArg, Model, Constructor } from "@decaf-ts/decorator-validation";
 import { RamQuery } from "../types";
 import { FromClause } from "../../query";
 
-export class RamFromClause<M extends Model> extends FromClause<
-  RamQuery<any>,
-  M
-> {
-  constructor(clause: ModelArg<FromClause<RamQuery<any>, M>>) {
+export class RamFromClause<M extends Model> extends FromClause<RamQuery<M>, M> {
+  constructor(clause: ModelArg<FromClause<RamQuery<M>, M>>) {
     super(clause);
   }
 
-  build(previous: RamQuery<any>): RamQuery<any> {
-    previous.from = this.selector;
+  build(previous: RamQuery<M>): RamQuery<M> {
+    previous.from = this.selector as Constructor<M> | string;
     return previous;
   }
 }

@@ -54,7 +54,7 @@ export abstract class InsertClause<Q, M extends Model>
   /**
    * @inheritDoc
    */
-  where(condition: Condition): OrderAndGroupOption {
+  where(condition: Condition<M>): OrderAndGroupOption<M> {
     return this.Clauses.where(this.statement, condition);
   }
 }

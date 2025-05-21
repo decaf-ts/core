@@ -3,7 +3,7 @@ import { Paginator, Statement } from "../query";
 
 export class RamPaginator<V> extends Paginator<V, RamQuery<any>> {
   constructor(
-    statement: Statement<RamQuery<any>>,
+    statement: Statement<RamQuery<any>, any>,
     size: number,
     rawStatement: RamQuery<any>
   ) {

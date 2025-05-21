@@ -27,35 +27,35 @@ export class Query<Q, M extends Model> {
    * @summary Creates a Select Clause
    * @param {SelectSelector} [selector]
    */
-  select(selector: SelectSelector = Const.FULL_RECORD): SelectOption<M> {
+  select(selector?: SelectSelector<M>): SelectOption<M> {
     return this.adapter.Clauses.select<M>(selector);
   }
   /**
    * @summary Creates a Min Clause
    * @param {SelectSelector} selector
    */
-  min(selector: SelectSelector): MinOption<M> {
+  min(selector: SelectSelector<M>): MinOption<M> {
     return this.select().min(selector);
   }
   /**
    * @summary Creates a Max Clause
    * @param {SelectSelector} selector
    */
-  max(selector: SelectSelector): MaxOption<M> {
+  max(selector: SelectSelector<M>): MaxOption<M> {
     return this.select().max(selector);
   }
   /**
    * @summary Creates a Distinct Clause
    * @param {SelectSelector} selector
    */
-  distinct(selector: SelectSelector): DistinctOption<M> {
+  distinct(selector: SelectSelector<M>): DistinctOption<M> {
     return this.select().distinct(selector);
   }
   /**
    * @summary Creates a Count Clause
    * @param {SelectSelector} selector
    */
-  count(selector?: SelectSelector): CountOption<M> {
+  count(selector?: SelectSelector<M>): CountOption<M> {
     return this.select().count(selector);
   }
 

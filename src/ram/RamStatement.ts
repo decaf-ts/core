@@ -5,7 +5,7 @@ import { Adapter } from "../persistence";
 import { RamPaginator } from "./RamPaginator";
 import { InternalError } from "@decaf-ts/db-decorators";
 
-export class RamStatement<M extends Model> extends Statement<RamQuery<M>> {
+export class RamStatement<M extends Model> extends Statement<RamQuery<M>, M> {
   constructor(db: Adapter<any, RamQuery<M>, any, any>) {
     super(db);
   }

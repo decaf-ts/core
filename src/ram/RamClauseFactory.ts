@@ -46,17 +46,17 @@ export class RamClauseFactory extends ClauseFactory<
     return new RamFromClause({ statement: statement, selector: selector });
   }
 
-  groupBy(
-    statement: RamStatement<any>,
-    selector: GroupBySelector
-  ): GroupByClause<RamQuery<any>> {
-    return new (class extends GroupByClause<RamQuery<any>> {
-      constructor(clause: ModelArg<GroupByClause<RamQuery<any>>>) {
+  groupBy<M extends Model>(
+    statement: RamStatement<M>,
+    selector: GroupBySelector<M>
+  ): GroupByClause<RamQuery<M>, M> {
+    return new (class extends GroupByClause<RamQuery<M>, M> {
+      constructor(clause: ModelArg<GroupByClause<RamQuery<M>, M>>) {
         super(clause);
       }
 
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      build(query: RamQuery<any>): RamQuery<any> {
+      build(query: RamQuery<M>): RamQuery<M> {
         throw new InternalError("Not implemented");
       }
     })({
@@ -65,22 +65,22 @@ export class RamClauseFactory extends ClauseFactory<
     });
   }
 
-  insert<M extends Model>(): InsertClause<RamQuery<any>, M> {
+  insert<M extends Model>(): InsertClause<RamQuery<M>, M> {
     return new RamInsertClause({
       statement: new RamStatement(this.adapter),
     });
   }
 
-  limit(
-    statement: RamStatement<any>,
+  limit<M extends Model>(
+    statement: RamStatement<M>,
     selector: LimitSelector
-  ): LimitClause<RamQuery<any>> {
-    return new (class extends LimitClause<RamQuery<any>> {
-      constructor(clause: ModelArg<LimitClause<RamQuery<any>>>) {
+  ): LimitClause<RamQuery<M>> {
+    return new (class extends LimitClause<RamQuery<M>> {
+      constructor(clause: ModelArg<LimitClause<RamQuery<M>>>) {
         super(clause);
       }
 
-      build(query: RamQuery<any>): RamQuery<any> {
+      build(query: RamQuery<M>): RamQuery<M> {
         query.limit = this.selector as number;
         return query;
       }
@@ -90,16 +90,16 @@ export class RamClauseFactory extends ClauseFactory<
     });
   }
 
-  offset(
-    statement: RamStatement<any>,
+  offset<M extends Model>(
+    statement: RamStatement<M>,
     selector: OffsetSelector
-  ): OffsetClause<RamQuery<any>> {
-    return new (class extends OffsetClause<RamQuery<any>> {
-      constructor(clause: ModelArg<OffsetClause<RamQuery<any>>>) {
+  ): OffsetClause<RamQuery<M>> {
+    return new (class extends OffsetClause<RamQuery<M>> {
+      constructor(clause: ModelArg<OffsetClause<RamQuery<M>>>) {
         super(clause);
       }
 
-      build(query: RamQuery<any>): RamQuery<any> {
+      build(query: RamQuery<M>): RamQuery<M> {
         const skip: number = parseInt(this.selector as unknown as string);
         if (isNaN(skip)) throw new QueryError("Failed to parse offset");
         query.skip = skip;
@@ -111,10 +111,10 @@ export class RamClauseFactory extends ClauseFactory<
     });
   }
 
-  orderBy(
-    statement: RamStatement<any>,
-    selector: OrderBySelector[]
-  ): OrderByClause<RamQuery<any>> {
+  orderBy<M extends Model>(
+    statement: RamStatement<M>,
+    selector: OrderBySelector<M>[]
+  ): OrderByClause<RamQuery<M>, M> {
     return new RamOrderByClause({
       statement: statement,
       selector: selector,
@@ -122,8 +122,8 @@ export class RamClauseFactory extends ClauseFactory<
   }
 
   select<M extends Model>(
-    selector: SelectSelector | undefined
-  ): SelectClause<RamQuery<any>, M> {
+    selector: SelectSelector<M> | undefined
+  ): SelectClause<RamQuery<M>, M> {
     return new RamSelectClause({
       statement: new RamStatement(this.adapter),
       selector: selector,
@@ -131,19 +131,19 @@ export class RamClauseFactory extends ClauseFactory<
   }
 
   values<M extends Model>(
-    statement: RamStatement<any>,
+    statement: RamStatement<M>,
     values: M[]
-  ): ValuesClause<RamQuery<any>, M> {
+  ): ValuesClause<RamQuery<M>, M> {
     return new RamValuesClause<M>({
       statement: statement,
       values: values,
     });
   }
 
-  where(
-    statement: RamStatement<any>,
-    condition: Condition
-  ): WhereClause<RamQuery<any>> {
+  where<M extends Model>(
+    statement: RamStatement<M>,
+    condition: Condition<M>
+  ): WhereClause<RamQuery<M>, M> {
     return new RamWhereClause({
       statement: statement,
       condition: condition,

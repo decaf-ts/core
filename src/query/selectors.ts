@@ -12,13 +12,13 @@ export type FromSelector<M extends Model> = Constructor<M> | string;
  *
  * @category Clauses
  */
-export type GroupBySelector = string;
+export type GroupBySelector<M extends Model> = keyof M;
 /**
  * @typedef OrderBySelector
  *
  * @category Clauses
  */
-export type OrderBySelector = [string, OrderDirection];
+export type OrderBySelector<M extends Model> = [keyof M, OrderDirection];
 /**
  * @typedef LimitSelector
  *
@@ -38,4 +38,4 @@ export type OffsetSelector = number;
  *
  * @category Clauses
  */
-export type SelectSelector = string | string[];
+export type SelectSelector<M extends Model> = (keyof M)[];

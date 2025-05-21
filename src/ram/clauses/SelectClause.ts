@@ -1,24 +1,36 @@
-import { ModelArg, Model } from "@decaf-ts/decorator-validation";
+import {
+  ModelArg,
+  Model,
+  ModelErrorDefinition,
+} from "@decaf-ts/decorator-validation";
 import { RamQuery } from "../types";
-import { Const, SelectClause } from "../../query";
+import { SelectClause } from "../../query";
 
 export class RamSelectClause<M extends Model> extends SelectClause<
-  RamQuery<any>,
+  RamQuery<M>,
   M
 > {
-  constructor(clause: ModelArg<SelectClause<RamQuery<any>, M>>) {
+  constructor(clause: ModelArg<SelectClause<RamQuery<M>, M>>) {
     super(clause);
   }
 
-  build(query: RamQuery<any>): RamQuery<any> {
-    if (!this.selector || this.selector === Const.FULL_RECORD) {
+  hasErrors(
+    previousVersion?: any,
+    ...exclusions: string[]
+  ): ModelErrorDefinition | undefined {
+    if (!this.selector) return super.hasErrors("selector", ...exclusions);
+    return super.hasErrors(previousVersion, ...exclusions);
+  }
+
+  build(query: RamQuery<M>): RamQuery<M> {
+    if (!this.selector) {
       query.select = undefined;
       return query;
     }
 
-    const selector =
-      typeof this.selector === "string" ? [this.selector] : this.selector;
-    query.select = selector as (keyof M)[];
+    query.select = Array.isArray(this.selector)
+      ? this.selector
+      : [this.selector];
     return query;
   }
 }

@@ -127,6 +127,7 @@ export abstract class Adapter<
       | OperationKeys.READ
       | OperationKeys.UPDATE
       | OperationKeys.DELETE,
+    overrides: Partial<F>,
     model: Constructor<M>
   ): Promise<C> {
     const AdapterContext = class extends Context<F> {
@@ -135,7 +136,7 @@ export abstract class Adapter<
       }
     };
     return new AdapterContext(
-      Object.assign({}, DefaultRepositoryFlags, {
+      Object.assign({}, DefaultRepositoryFlags, overrides, {
         affectedTables: Repository.table(model),
         writeOperation: operation !== OperationKeys.READ,
         timestamp: new Date(),

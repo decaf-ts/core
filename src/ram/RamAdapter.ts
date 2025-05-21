@@ -88,12 +88,13 @@ export class RamAdapter extends Adapter<
 
   async context<M extends Model, C extends RamContext, F extends RamFlags>(
     operation: any,
+    overrides: Partial<RamFlags>,
     model: Constructor<M>,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<C> {
     return new RamContext(
-      Object.assign({}, DefaultRepositoryFlags, {
+      Object.assign({}, DefaultRepositoryFlags, overrides, {
         affectedTables: [model.name],
         writeOperation: operation !== OperationKeys.READ,
         timestamp: new Date(),

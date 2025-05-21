@@ -56,6 +56,7 @@ export class Repository<
 
   private readonly _adapter!: A;
   private _tableName!: string;
+  private _overrides?: Partial<F>;
 
   protected get adapter(): A {
     if (!this._adapter)
@@ -98,6 +99,16 @@ export class Repository<
     );
   }
 
+  override(flags: Partial<F>) {
+    return new Proxy(this, {
+      get: (target: typeof this, p: string | symbol, receiver: any) => {
+        const result = Reflect.get(target, p, receiver);
+        if (p !== "_overrides") return result;
+        return Object.assign({}, result, flags);
+      },
+    });
+  }
+
   protected override async createPrefix(
     model: M,
     ...args: any[]
@@ -106,7 +117,8 @@ export class Repository<
       OperationKeys.CREATE,
       this.class,
       args,
-      this.adapter
+      this.adapter,
+      this._overrides || {}
     );
     model = new this.class(model);
     await enforceDBDecorators(
@@ -117,7 +129,9 @@ export class Repository<
       OperationKeys.ON
     );
 
-    const errors = model.hasErrors();
+    const errors = model.hasErrors(
+      ...(contextArgs.context.get("ignoredValidationProperties") || [])
+    );
     if (errors) throw new ValidationError(errors.toString());
 
     return [model, ...contextArgs.args];
@@ -155,7 +169,8 @@ export class Repository<
       OperationKeys.CREATE,
       this.class,
       args,
-      this.adapter
+      this.adapter,
+      this._overrides || {}
     );
     if (!models.length) return [models, ...contextArgs.args];
     const opts = Repository.getSequenceOptions(models[0]);
@@ -180,7 +195,11 @@ export class Repository<
       })
     );
     const errors = models
-      .map((m) => m.hasErrors())
+      .map((m) =>
+        m.hasErrors(
+          ...(contextArgs.context.get("ignoredValidationProperties") || [])
+        )
+      )
       .reduce((accum: string | undefined, e, i) => {
         if (e)
           accum =
@@ -198,7 +217,8 @@ export class Repository<
       OperationKeys.READ,
       this.class,
       args,
-      this.adapter
+      this.adapter,
+      this._overrides || {}
     );
     const model: M = new this.class();
     model[this.pk] = key as M[keyof M];
@@ -222,7 +242,8 @@ export class Repository<
       OperationKeys.READ,
       this.class,
       args,
-      this.adapter
+      this.adapter,
+      this._overrides || {}
     );
     await Promise.all(
       keys.map(async (k) => {
@@ -262,7 +283,8 @@ export class Repository<
       OperationKeys.UPDATE,
       this.class,
       args,
-      this.adapter
+      this.adapter,
+      this._overrides || {}
     );
     const pk = model[this.pk] as string;
     if (!pk)
@@ -282,7 +304,8 @@ export class Repository<
 
     const errors = model.hasErrors(
       oldModel,
-      ...Repository.relations(this.class)
+      ...Repository.relations(this.class),
+      ...(contextArgs.context.get("ignoredValidationProperties") || [])
     );
     if (errors) throw new ValidationError(errors.toString());
     if (Repository.getMetadata(oldModel)) {
@@ -310,7 +333,8 @@ export class Repository<
       OperationKeys.UPDATE,
       this.class,
       args,
-      this.adapter
+      this.adapter,
+      this._overrides || {}
     );
     const ids = models.map((m) => {
       const id = m[this.pk] as string;
@@ -340,7 +364,13 @@ export class Repository<
     );
 
     const errors = models
-      .map((m, i) => m.hasErrors(oldModels[i], m))
+      .map((m, i) =>
+        m.hasErrors(
+          oldModels[i],
+          m,
+          ...(contextArgs.context.get("ignoredValidationProperties") || [])
+        )
+      )
       .reduce((accum: string | undefined, e, i) => {
         if (e)
           accum =
@@ -365,7 +395,8 @@ export class Repository<
       OperationKeys.DELETE,
       this.class,
       args,
-      this.adapter
+      this.adapter,
+      this._overrides || {}
     );
     const model = await this.read(key, ...contextArgs.args);
     await enforceDBDecorators(
@@ -388,7 +419,8 @@ export class Repository<
       OperationKeys.DELETE,
       this.class,
       args,
-      this.adapter
+      this.adapter,
+      this._overrides || {}
     );
     const models = await this.readAll(keys, ...contextArgs.args);
     await Promise.all(

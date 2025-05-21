@@ -122,11 +122,16 @@ export class RamSequence extends Sequence {
         throw new InternalError("Should never happen");
     }
     let seq: Seq;
+    const repo = this.repo.override({
+      ignoredValidationProperties: ["updatedOn"],
+    });
     try {
-      seq = await this.repo.update(new Seq({ id: name, current: next }));
+      seq = await repo.update(new Seq({ id: name, current: next }));
     } catch (e: any) {
-      if (!(e instanceof NotFoundError)) throw e;
-      seq = await this.repo.create(new Seq({ id: name, current: next }));
+      if (!(e instanceof NotFoundError)) {
+        throw e;
+      }
+      seq = await repo.create(new Seq({ id: name, current: next }));
     }
 
     return seq.current as string | number | bigint;

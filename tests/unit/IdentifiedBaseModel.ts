@@ -1,6 +1,6 @@
 import { ModelArg } from "@decaf-ts/decorator-validation";
-import { createdBy, updatedBy } from "./decorators";
-import { BaseModel } from "./BaseModel";
+import { createdBy, updatedBy } from "../../src/model/decorators";
+import { BaseModel } from "../../src/model/BaseModel";
 
 export abstract class IdentifiedBaseModel extends BaseModel {
   @createdBy()

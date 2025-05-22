@@ -1,21 +1,10 @@
 import { Context } from "@decaf-ts/db-decorators";
-import { RamFlags, RamQuery, RamStorage } from "./types";
-import { RamStatement } from "./RamStatement";
-import { RamClauseFactory } from "./RamClauseFactory";
+import { RamFlags, RawRamQuery, RamStorage, RamRepository } from "./types";
+import { RamQuery } from "./RamQuery";
 import * as crypto from "node:crypto";
 import { RamContext } from "./RamContext";
-import { Repo, Repository } from "../repository/Repository";
-import { RelationsMetadata } from "../model/types";
-import { UnsupportedError } from "../persistence/errors";
+import { Repository } from "../repository/Repository";
 import { Adapter, PersistenceKeys, Sequence } from "../persistence";
-import { Paginator } from "../query/Paginator";
-import {
-  ClauseFactory,
-  Condition,
-  GroupOperator,
-  Operator,
-  QueryError,
-} from "../query";
 import { SequenceOptions } from "../interfaces";
 import { Lock } from "@decaf-ts/transactional-decorators";
 import {
@@ -35,36 +24,14 @@ import {
   OperationKeys,
 } from "@decaf-ts/db-decorators";
 import { RamSequence } from "./RamSequence";
+import { createdByOnRamCreateUpdate } from "./handlers";
 
-export async function createdByOnRamCreateUpdate<
-  M extends Model,
-  R extends Repo<M, C, F>,
-  V extends RelationsMetadata,
-  F extends RamFlags,
-  C extends Context<F>,
->(
-  this: R,
-  context: Context<F>,
-  data: V,
-  key: keyof M,
-  model: M
-): Promise<void> {
-  const uuid: string = context.get("UUID");
-  if (!uuid)
-    throw new UnsupportedError(
-      "This adapter does not support user identification"
-    );
-  model[key] = uuid as M[keyof M];
-}
-
-export class RamAdapter<M extends Model = any> extends Adapter<
+export class RamAdapter extends Adapter<
   RamStorage,
-  RamQuery<M>,
+  RawRamQuery<any>,
   RamFlags,
   Context<RamFlags>
 > {
-  protected factory?: RamClauseFactory;
-
   constructor(flavour: string = "ram") {
     super({}, flavour);
     const createdByKey = Repository.key(PersistenceKeys.CREATED_BY);
@@ -83,6 +50,10 @@ export class RamAdapter<M extends Model = any> extends Adapter<
         propMetadata(updatedByKey, {})
       )
       .apply();
+  }
+
+  repository<M extends Model>(): Constructor<RamRepository<M>> {
+    return super.repository<M>() as Constructor<RamRepository<M>>;
   }
 
   async context<M extends Model, C extends RamContext, F extends RamFlags>(
@@ -108,8 +79,6 @@ export class RamAdapter<M extends Model = any> extends Adapter<
   > = {};
 
   private lock = new Lock();
-
-  private sequences: Record<string, string | number> = {};
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async initialize(...args: any[]): Promise<void> {
@@ -210,14 +179,11 @@ export class RamAdapter<M extends Model = any> extends Adapter<
     return this.native[table];
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async raw<R>(rawInput: RamQuery<any>, process: boolean): Promise<R> {
+  async raw<R>(rawInput: RawRamQuery<any>): Promise<R> {
     const { where, sort, limit, skip, from } = rawInput;
     let { select } = rawInput;
     const collection = this.tableFor(from);
-
-    const clazz = typeof from === "string" ? Model.get(from) : from;
-    const { id, props } = findPrimaryKey(new clazz());
+    const { id, props } = findPrimaryKey(new from());
 
     function parseId(id: any) {
       let result = id;
@@ -240,7 +206,7 @@ export class RamAdapter<M extends Model = any> extends Adapter<
     }
 
     let result: any[] = Object.entries(collection).map(([pk, r]) =>
-      this.revert(r, clazz, id as any, parseId(pk))
+      this.revert(r, from, id as any, parseId(pk))
     );
 
     result = where ? result.filter(where) : result;
@@ -263,100 +229,16 @@ export class RamAdapter<M extends Model = any> extends Adapter<
     return result as unknown as R;
   }
 
-  async paginate<Z>(rawInput: string): Promise<Paginator<Z, string>> {
-    return new (class extends Paginator<Z, string> {
-      constructor(size: number) {
-        super(undefined as unknown as any, size, rawInput);
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      protected prepare(rawStatement: string): string {
-        throw new Error("Method not implemented.");
-      }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      page(page: number): Promise<Z[]> {
-        throw new Error("Method not implemented.");
-      }
-    })(10);
-  }
-
   parseError<V extends BaseError>(err: Error): V {
     if (err instanceof BaseError) return err as V;
     return new InternalError(err) as V;
   }
 
-  get Clauses(): ClauseFactory<RamStorage, typeof this> {
-    if (!this.factory) this.factory = new RamClauseFactory(this);
-    return this.factory as any;
-  }
-
-  get Statement(): RamStatement<any, any> {
-    return new RamStatement(this);
+  Query<M extends Model>(): RamQuery<M, any> {
+    return new RamQuery<M, any>(this as any);
   }
 
   async Sequence(options: SequenceOptions): Promise<Sequence> {
     return new RamSequence(options, this);
-  }
-
-  parseCondition<M extends Model>(condition: Condition<M>): RamQuery<any> {
-    return {
-      where: (m: Model) => {
-        const { attr1, operator, comparison } = condition as unknown as {
-          attr1: string | Condition<M>;
-          operator: Operator | GroupOperator;
-          comparison: any;
-        };
-
-        if (
-          [GroupOperator.AND, GroupOperator.OR, Operator.NOT].indexOf(
-            operator as GroupOperator
-          ) === -1
-        ) {
-          switch (operator) {
-            case Operator.BIGGER:
-              return m[attr1 as keyof Model] > comparison;
-            case Operator.BIGGER_EQ:
-              return m[attr1 as keyof Model] >= comparison;
-            case Operator.DIFFERENT:
-              return m[attr1 as keyof Model] !== comparison;
-            case Operator.EQUAL:
-              return m[attr1 as keyof Model] === comparison;
-            case Operator.REGEXP:
-              if (typeof m[attr1 as keyof Model] !== "string")
-                throw new QueryError(
-                  `Invalid regexp comparison on a non string attribute: ${m[attr1 as keyof Model]}`
-                );
-              return !!(m[attr1 as keyof Model] as unknown as string).match(
-                new RegExp(comparison, "g")
-              );
-            case Operator.SMALLER:
-              return m[attr1 as keyof Model] < comparison;
-            case Operator.SMALLER_EQ:
-              return m[attr1 as keyof Model] <= comparison;
-            default:
-              throw new InternalError(
-                `Invalid operator for standard comparisons: ${operator}`
-              );
-          }
-        } else if (operator === Operator.NOT) {
-          throw new InternalError("Not implemented");
-        } else {
-          const op1: RamQuery<any> = this.parseCondition(attr1 as Condition<M>);
-          const op2: RamQuery<any> = this.parseCondition(
-            comparison as Condition<M>
-          );
-          switch (operator) {
-            case GroupOperator.AND:
-              return op1.where(m) && op2.where(m);
-            case GroupOperator.OR:
-              return op1.where(m) || op2.where(m);
-            default:
-              throw new InternalError(
-                `Invalid operator for And/Or comparisons: ${operator}`
-              );
-          }
-        }
-      },
-    } as RamQuery<any>;
   }
 }

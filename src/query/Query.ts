@@ -1,77 +1,168 @@
-import {
+import { type Constructor, Model } from "@decaf-ts/decorator-validation";
+import type { Executor, RawExecutor } from "../interfaces";
+import type {
+  FromSelector,
+  GroupBySelector,
+  OrderBySelector,
+  SelectSelector,
+} from "./selectors";
+import { Condition } from "./Condition";
+import { findPrimaryKey, InternalError } from "@decaf-ts/db-decorators";
+import { final } from "../utils/decorators";
+import type {
   CountOption,
   DistinctOption,
-  InsertOption,
+  LimitOption,
   MaxOption,
   MinOption,
+  OffsetOption,
+  OrderAndGroupOption,
+  SelectOption,
+  WhereOption,
 } from "./options";
-import { SelectSelector } from "./selectors";
+import { Paginatable } from "../interfaces/Paginatable";
+import { Paginator } from "./Paginator";
 import { Adapter } from "../persistence";
-import { Model } from "@decaf-ts/decorator-validation";
-import { SelectClause } from "./clauses";
+import { QueryError } from "./errors";
 
-/**
- * @summary Helper Class to build queries
- *
- * @param {Database} db
- *
- * @class Query
- *
- * @category Query
- */
-export class Query<Q, M extends Model> {
-  constructor(private adapter: Adapter<any, Q, any, any>) {}
+export abstract class Query<Q, M extends Model, R>
+  implements Executor<R>, RawExecutor<Q>, Paginatable<R, Q>
+{
+  protected readonly selectSelector?: SelectSelector<M>[];
+  protected distinctSelector?: SelectSelector<M>;
+  protected maxSelector?: SelectSelector<M>;
+  protected minSelector?: SelectSelector<M>;
+  protected countSelector?: SelectSelector<M>;
+  protected fromSelector!: Constructor<M>;
+  protected whereCondition?: Condition<M>;
+  protected orderBySelector?: OrderBySelector<M>;
+  protected groupBySelector?: GroupBySelector<M>;
+  protected limitSelector?: number;
+  protected offsetSelector?: number;
 
-  /**
-   * @summary Creates a Select Clause
-   * @param {SelectSelector} [selector]
-   */
+  protected constructor(protected adapter: Adapter<any, Q, any, any>) {}
+
   select<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const S extends readonly SelectSelector<M>[],
-  >(): SelectClause<any, M, M[]>;
+  >(): SelectOption<M, M[]>;
   select<const S extends readonly SelectSelector<M>[]>(
     selector: readonly [...S]
-  ): SelectClause<any, M, Pick<M, S[number]>[]>;
+  ): SelectOption<M, Pick<M, S[number]>[]>;
+
+  @final()
   select<const S extends readonly SelectSelector<M>[]>(
     selector?: readonly [...S]
-  ): SelectClause<any, M, M[]> | SelectClause<any, M, Pick<M, S[number]>[]> {
-    return this.adapter.Clauses.select<M, S>(selector);
+  ): SelectOption<M, M[]> | SelectOption<M, Pick<M, S[number]>[]> {
+    Object.defineProperty(this, "selectSelector", {
+      value: selector,
+      writable: false,
+    });
+    return this as SelectOption<M, M[]> | SelectOption<M, Pick<M, S[number]>[]>;
   }
-  /**
-   * @summary Creates a Min Clause
-   * @param {SelectSelector} selector
-   */
-  min<const S extends SelectSelector<M>>(selector: S): MinOption<M, M[S]> {
-    return this.select().min(selector) as MinOption<M, M[S]>;
-  }
-  /**
-   * @summary Creates a Max Clause
-   * @param {SelectSelector} selector
-   */
-  max<const S extends SelectSelector<M>>(selector: S): MaxOption<M, M[S]> {
-    return this.select().max(selector);
-  }
-  /**
-   * @summary Creates a Distinct Clause
-   * @param {SelectSelector} selector
-   */
+
+  @final()
   distinct<const S extends SelectSelector<M>>(
     selector: S
   ): DistinctOption<M, M[S][]> {
-    return this.select().distinct(selector);
+    this.distinctSelector = selector;
+    return this as DistinctOption<M, M[S][]>;
   }
-  /**
-   * @summary Creates a Count Clause
-   * @param {SelectSelector} selector
-   */
+
+  @final()
+  max<const S extends SelectSelector<M>>(selector: S): MaxOption<M, M[S]> {
+    this.maxSelector = selector;
+    return this as MaxOption<M, M[S]>;
+  }
+
+  @final()
+  min<const S extends SelectSelector<M>>(selector: S): MinOption<M, M[S]> {
+    this.minSelector = selector;
+    return this as MinOption<M, M[S]>;
+  }
+
+  @final()
   count<const S extends SelectSelector<M>>(
     selector?: S
   ): CountOption<M, number> {
-    return this.select().count(selector) as CountOption<M, number>;
+    this.countSelector = selector;
+    return this as CountOption<M, number>;
   }
 
-  insert(): InsertOption<M> {
-    return this.adapter.Clauses.insert<M>();
+  @final()
+  public from(selector: FromSelector<M>): WhereOption<M, R> {
+    this.fromSelector = (
+      typeof selector === "string" ? Model.get(selector) : selector
+    ) as Constructor<M>;
+    if (!this.fromSelector)
+      throw new QueryError(`Could not find selector model: ${selector}`);
+    return this;
   }
+
+  @final()
+  public where(condition: Condition<M>): OrderAndGroupOption<M, R> {
+    this.whereCondition = condition;
+    return this;
+  }
+
+  @final()
+  public orderBy(
+    selector: OrderBySelector<M>
+  ): LimitOption<R> & OffsetOption<R> {
+    this.orderBySelector = selector;
+    return this;
+  }
+
+  @final()
+  public groupBy(selector: GroupBySelector<M>): LimitOption<R> {
+    this.groupBySelector = selector;
+    return this;
+  }
+
+  @final()
+  public limit(value: number): OffsetOption<R> {
+    this.limitSelector = value;
+    return this;
+  }
+
+  @final()
+  public offset(value: number): Executor<R> {
+    this.offsetSelector = value;
+    return this;
+  }
+
+  @final()
+  async execute(): Promise<R> {
+    try {
+      const query: Q = this.build();
+      return (await this.raw(query)) as R;
+    } catch (e: unknown) {
+      throw new InternalError(e as Error);
+    }
+  }
+
+  async raw<R>(rawInput: Q): Promise<R> {
+    const results = await this.adapter.raw<R>(rawInput);
+    if (!this.selectSelector) return results;
+    const pkAttr = findPrimaryKey(
+      new (this.fromSelector as Constructor<M>)()
+    ).id;
+
+    const processor = function recordProcessor(this: Query<Q, M, R>, r: any) {
+      const id = r[pkAttr];
+      return this.adapter.revert(
+        r,
+        this.fromSelector as Constructor<any>,
+        pkAttr,
+        id
+      ) as any;
+    }.bind(this as any);
+
+    if (Array.isArray(results)) return results.map(processor) as R;
+    return processor(results) as R;
+  }
+
+  protected abstract build(): Q;
+  protected abstract parseCondition(condition: Condition<M>): Q;
+  abstract paginate(size: number): Promise<Paginator<R, Q>>;
 }

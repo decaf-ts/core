@@ -22,13 +22,11 @@ import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { RawExecutor } from "../interfaces/RawExecutor";
 import { Observable } from "../interfaces/Observable";
 import { PersistenceKeys } from "./constants";
-import { Query } from "../query/Query";
-import { Statement } from "../query/Statement";
-import { ClauseFactory } from "../query/ClauseFactory";
-import { Condition } from "../query/Condition";
 import { Repository } from "../repository/Repository";
 import { Sequence } from "./Sequence";
 import { ErrorParser } from "../interfaces";
+import { Query } from "../query/Query";
+import { final } from "../utils/decorators";
 
 Decoration.setFlavourResolver((obj: object) => {
   try {
@@ -94,15 +92,7 @@ export abstract class Adapter<
     if (!Adapter._current) Adapter._current = this;
   }
 
-  Query<M extends Model>(): Query<Q, M> {
-    return new Query(this);
-  }
-
-  abstract parseCondition<M extends Model>(condition: Condition<M>): Q;
-
-  abstract get Statement(): Statement<Q, any, any>;
-
-  abstract get Clauses(): ClauseFactory<Y, typeof this>;
+  abstract Query<M extends Model>(): Query<Q, M, any>;
 
   protected isReserved(attr: string) {
     return !attr;
@@ -127,12 +117,7 @@ export abstract class Adapter<
     overrides: Partial<F>,
     model: Constructor<M>
   ): Promise<C> {
-    const AdapterContext = class extends Context<F> {
-      constructor(obj: F) {
-        super(obj);
-      }
-    };
-    return new AdapterContext(
+    return new Context(
       Object.assign({}, DefaultRepositoryFlags, overrides, {
         affectedTables: Repository.table(model),
         writeOperation: operation !== OperationKeys.READ,
@@ -151,7 +136,6 @@ export abstract class Adapter<
   } {
     const result = Object.entries(model).reduce(
       (accum: Record<string, any>, [key, val]) => {
-        // if (key === pk) return accum;
         const mappedProp = Repository.column(model, key);
         if (this.isReserved(mappedProp))
           throw new InternalError(`Property name ${mappedProp} is reserved`);
@@ -268,7 +252,7 @@ export abstract class Adapter<
     return Promise.all(id.map((i) => this.delete(tableName, i, ...args)));
   }
 
-  abstract raw<R>(rawInput: Q, process: boolean, ...args: any[]): Promise<R>;
+  abstract raw<R>(rawInput: Q): Promise<R>;
 
   /**
    * @summary Registers an {@link Observer}

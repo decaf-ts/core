@@ -10,7 +10,6 @@ import { RelationsMetadata } from "./types";
 import {
   findPrimaryKey,
   InternalError,
-  IRepository,
   NotFoundError,
   RepositoryFlags,
 } from "@decaf-ts/db-decorators";
@@ -21,7 +20,11 @@ import { Context } from "@decaf-ts/db-decorators";
 export async function createOrUpdate<
   M extends Model,
   F extends RepositoryFlags,
->(model: M, context: Context<F>, repository?: Repo<M>): Promise<M> {
+>(
+  model: M,
+  context: Context<F>,
+  repository?: Repo<M, F, Context<F>>
+): Promise<M> {
   if (!repository) {
     const constructor = Model.get(model.constructor.name);
     if (!constructor)
@@ -44,7 +47,7 @@ export async function createOrUpdate<
 
 export async function oneToOneOnCreate<
   M extends Model,
-  R extends IRepository<M, F, C>,
+  R extends Repo<M, F, C>,
   V extends RelationsMetadata,
   F extends RepositoryFlags,
   C extends Context<F>,
@@ -78,7 +81,7 @@ export async function oneToOneOnCreate<
 
 export async function oneToOneOnUpdate<
   M extends Model,
-  R extends IRepository<M, F, C>,
+  R extends Repo<M, F, C>,
   V extends RelationsMetadata,
   F extends RepositoryFlags,
   C extends Context<F>,
@@ -115,7 +118,7 @@ export async function oneToOneOnUpdate<
 
 export async function oneToOneOnDelete<
   M extends Model,
-  R extends IRepository<M, F, C>,
+  R extends Repo<M, F, C>,
   V extends RelationsMetadata,
   F extends RepositoryFlags,
   C extends Context<F>,
@@ -149,7 +152,7 @@ export async function oneToOneOnDelete<
 
 export async function oneToManyOnCreate<
   M extends Model,
-  R extends IRepository<M, F, C>,
+  R extends Repo<M, F, C>,
   V extends RelationsMetadata,
   F extends RepositoryFlags,
   C extends Context<F>,
@@ -193,7 +196,7 @@ export async function oneToManyOnCreate<
 
 export async function oneToManyOnUpdate<
   M extends Model,
-  R extends IRepository<M, F, C>,
+  R extends Repo<M, F, C>,
   V extends RelationsMetadata,
   F extends RepositoryFlags,
   C extends Context<F>,
@@ -216,7 +219,7 @@ export async function oneToManyOnUpdate<
 
 export async function oneToManyOnDelete<
   M extends Model,
-  R extends IRepository<M, F, C>,
+  R extends Repo<M, F, C>,
   V extends RelationsMetadata,
   F extends RepositoryFlags,
   C extends Context<F>,
@@ -282,7 +285,7 @@ export async function cacheModelForPopulate<
 
 export async function populate<
   M extends Model,
-  R extends IRepository<M, F, C>,
+  R extends Repo<M, F, C>,
   V extends RelationsMetadata,
   F extends RepositoryFlags,
   C extends Context<F>,

@@ -7,7 +7,7 @@ import {
 import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { pk } from "../../src";
 import { column, table } from "../../src/model/decorators";
-import { IdentifiedBaseModel } from "../../src/model/IdentifiedBaseModel";
+import { IdentifiedBaseModel } from "./IdentifiedBaseModel";
 
 @table("tst_user")
 @model()

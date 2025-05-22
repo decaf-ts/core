@@ -42,7 +42,7 @@ import { OrderDirection } from "../repository";
  */
 export async function pkOnCreate<
   M extends Model,
-  R extends Repo<M, C, F>,
+  R extends Repo<M, F, C>,
   V extends SequenceOptions,
   F extends RepositoryFlags,
   C extends Context<F>,

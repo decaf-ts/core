@@ -55,11 +55,11 @@ describe(`Complex Database`, function () {
     testDummyCountryModelRepository = new Repository(adapter, TestDummyCountry);
     testDummyPhoneModelRepository = new Repository(adapter, TestDummyPhone);
     noPopulateOnceModelRepository = new Repository(
-      adapter,
+      adapter as any,
       NoPopulateOnceModel
     );
     noPopulateManyModelRepository = new Repository(
-      adapter,
+      adapter as any,
       NoPopulateManyModel
     );
 

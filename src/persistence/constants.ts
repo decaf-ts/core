@@ -17,9 +17,3 @@ export enum PersistenceKeys {
   MANY_TO_ONE = "relations.many-to-one",
   POPULATE = "populate",
 }
-
-export enum Roles {
-  ADMIN = "admin",
-  WRITER = "writer",
-  READER = "reader",
-}

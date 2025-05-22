@@ -3,7 +3,6 @@ import {
   Model,
   ModelErrorDefinition,
   required,
-  sf,
 } from "@decaf-ts/decorator-validation";
 import { GroupOperator, Operator } from "./constants";
 import { QueryError } from "./errors";
@@ -73,6 +72,8 @@ export class Condition<M extends Model> extends Model {
     const errors = super.hasErrors(...exceptions);
     if (errors) return errors;
 
+    const invalidOpMessage = `Invalid operator ${this.operator}}`;
+
     if (typeof this.attr1 === "string") {
       if (this.comparison instanceof Condition)
         return {
@@ -83,7 +84,7 @@ export class Condition<M extends Model> extends Model {
       if (Object.values(Operator).indexOf(this.operator as Operator) === -1)
         return {
           operator: {
-            condition: sf("Invalid operator {0}", this.operator as string),
+            condition: invalidOpMessage,
           },
         } as ModelErrorDefinition;
     }
@@ -95,7 +96,7 @@ export class Condition<M extends Model> extends Model {
       )
         return {
           comparison: {
-            condition: sf("Invalid operator {0}", this.operator as string),
+            condition: invalidOpMessage,
           },
         } as ModelErrorDefinition;
       if (
@@ -105,7 +106,7 @@ export class Condition<M extends Model> extends Model {
       )
         return {
           operator: {
-            condition: sf("Invalid operator {0}", this.operator as string),
+            condition: invalidOpMessage,
           },
         } as ModelErrorDefinition;
       // if (this.operator !== Operator.NOT && typeof this.attr1.attr1 !== "string")

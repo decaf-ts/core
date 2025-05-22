@@ -16,7 +16,6 @@ import { Observer } from "../interfaces/Observer";
 import { Adapter } from "../persistence/Adapter";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { PersistenceKeys } from "../persistence/constants";
-import { Query } from "../query/Query";
 import { OrderDirection } from "./constants";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { Queriable } from "../interfaces/Queriable";
@@ -31,10 +30,10 @@ import { uses } from "../persistence/decorators";
 
 export type Repo<
   M extends Model,
+  F extends RepositoryFlags = any,
+  C extends Context<F> = any,
   Q = any,
-  F extends RepositoryFlags = RepositoryFlags,
-  C extends Context<F> = Context<F>,
-  A extends Adapter<any, Q, F, C> = Adapter<any, Q, F, C>,
+  A extends Adapter<any, Q, F, C> = any,
 > = Repository<M, Q, A, F, C>;
 
 export class Repository<
@@ -453,7 +452,8 @@ export class Repository<
   select<const S extends readonly SelectSelector<M>[]>(
     selector?: readonly [...S]
   ): WhereOption<M, M[]> | WhereOption<M, Pick<M, S[number]>[]> {
-    return new Query<Q, M>(this.adapter)
+    return this.adapter
+      .Query<M>()
       .select(selector as readonly [...S])
       .from(this.class);
   }

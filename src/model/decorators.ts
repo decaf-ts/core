@@ -68,7 +68,7 @@ export function index(directions?: OrderDirection[], compositions?: string[]) {
 
 export async function uniqueOnCreateUpdate<
   M extends Model,
-  R extends Repo<M, C, F>,
+  R extends Repo<M, F, C>,
   V extends object,
   F extends RepositoryFlags,
   C extends Context<F>,
@@ -107,7 +107,7 @@ export function unique() {
 
 export async function createdByOnCreateUpdate<
   M extends Model,
-  R extends Repo<M, C, F>,
+  R extends Repo<M, F, C>,
   V extends RelationsMetadata,
   F extends RepositoryFlags,
   C extends Context<F>,
@@ -232,8 +232,8 @@ export function oneToMany<M extends Model>(
  * @see oneToMany
  * @see oneToOne
  */
-export function manyToOne(
-  clazz: Constructor<any>,
+export function manyToOne<M extends Model>(
+  clazz: Constructor<M>,
   cascadeOptions: CascadeMetadata = DefaultCascade,
   populate = true
 ) {

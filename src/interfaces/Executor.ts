@@ -17,7 +17,3 @@ export interface Executor<R> {
    */
   execute(...args: any[]): Promise<R>;
 }
-
-export interface ClauseExecutor<R> {
-  execute(): Promise<R>;
-}

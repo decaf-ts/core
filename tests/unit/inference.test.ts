@@ -32,8 +32,10 @@ describe("Query type inference", () => {
   it("infers properly", async () => {
     const keys = ["id"] as const;
 
-    const partialResult = repo.select(keys);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const partialResult = await repo.select(keys).execute();
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const completeResult = await repo.select().execute();
   });
 });

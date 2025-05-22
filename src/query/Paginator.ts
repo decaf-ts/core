@@ -1,7 +1,7 @@
 import { PagingError } from "./errors";
-import { Statement } from "./Statement";
+import { Adapter } from "../persistence";
 
-export abstract class Paginator<R, Q> {
+export abstract class Paginator<R, Q = any> {
   protected _currentPage!: number;
   protected _totalPages!: number;
   protected _recordCount!: number;
@@ -21,19 +21,15 @@ export abstract class Paginator<R, Q> {
     return this._recordCount;
   }
 
-  get statement() {
-    if (!this._statement) this._statement = this.prepare(this._rawStatement);
+  protected get statement() {
+    if (!this._statement) this._statement = this.prepare(this.query);
     return this._statement;
   }
 
-  protected get adapter() {
-    return this.stat.getAdapter();
-  }
-
   protected constructor(
-    protected stat: Statement<Q, any, R>,
-    readonly size: number,
-    protected readonly _rawStatement: Q
+    protected readonly adapter: Adapter<any, Q, any, any>,
+    protected readonly query: Q,
+    readonly size: number
   ) {}
 
   protected abstract prepare(rawStatement: Q): Q;
@@ -49,14 +45,14 @@ export abstract class Paginator<R, Q> {
   protected validatePage(page: number) {
     if (page < 1 || !Number.isInteger(page))
       throw new PagingError(
-        "page number cannot be under 1 and must be an integer"
+        "Page number cannot be under 1 and must be an integer"
       );
     if (typeof this._totalPages !== "undefined" && page > this._totalPages)
       throw new PagingError(
-        `Requested more pages than available. Total pages: ${this._totalPages}`
+        `Only ${this._totalPages} are available. Cannot go to page ${page}`
       );
     return page;
   }
 
-  abstract page(page?: number, ...args: any[]): Promise<R[]>;
+  abstract page(page?: number): Promise<R[]>;
 }

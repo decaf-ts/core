@@ -5,24 +5,6 @@ import { SequenceOptions } from "../interfaces";
 import { RamAdapter } from "./RamAdapter";
 import { Repo, Repository } from "../repository";
 
-export function parseSequenceValue(
-  type: "Number" | "BigInt" | undefined,
-  value: string | number | bigint
-): string | number | bigint {
-  switch (type) {
-    case "Number":
-      return typeof value === "string"
-        ? parseInt(value)
-        : typeof value === "number"
-          ? value
-          : BigInt(value);
-    case "BigInt":
-      return BigInt(value);
-    default:
-      throw new InternalError("Should never happen");
-  }
-}
-
 /**
  * @summary Abstract implementation of a Sequence
  * @description provides the basic functionality for {@link Sequence}s
@@ -78,7 +60,7 @@ export class RamSequence extends Sequence {
    * @param value
    */
   private parse(value: string | number | bigint): string | number | bigint {
-    return parseSequenceValue(this.options.type, value);
+    return Sequence.parseValue(this.options.type, value);
   }
 
   /**

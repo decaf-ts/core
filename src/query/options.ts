@@ -6,7 +6,7 @@ import {
   OrderBySelector,
   SelectSelector,
 } from "./selectors";
-import { ClauseExecutor } from "../interfaces";
+import { Executor } from "../interfaces";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { Condition } from "./Condition";
 import { Paginatable } from "../interfaces/Paginatable";
@@ -22,7 +22,7 @@ import { Paginatable } from "../interfaces/Paginatable";
  * @subcategory Options
  *
  */
-export interface QueryBuilder<Q, R> extends ClauseExecutor<R> {
+export interface QueryBuilder<Q, R> extends Executor<R> {
   /**
    * Method to build and validate the prepared statement before the execution;
    *
@@ -42,14 +42,14 @@ export interface QueryBuilder<Q, R> extends ClauseExecutor<R> {
  * @category Query
  * @subcategory Options
  */
-export interface GroupByOption<M extends Model, R> extends ClauseExecutor<R> {
+export interface GroupByOption<M extends Model, R> extends Executor<R> {
   /**
    * @summary Groups records by an attribute
    *
    * @param {GroupBySelector} selector
    * @method
    */
-  groupBy(selector: GroupBySelector<M>): ClauseExecutor<R>;
+  groupBy(selector: GroupBySelector<M>): Executor<R>;
 }
 /**
  * @summary Offset Option interface
@@ -61,14 +61,14 @@ export interface GroupByOption<M extends Model, R> extends ClauseExecutor<R> {
  * @category Query
  * @subcategory Options
  */
-export interface OffsetOption<R> extends ClauseExecutor<R> {
+export interface OffsetOption<R> extends Executor<R> {
   /**
    * @summary Offsets the results by the provided selector
    *
    * @param {OffsetSelector} selector
    * @method
    */
-  offset(selector: OffsetSelector): ClauseExecutor<R>;
+  offset(selector: OffsetSelector): Executor<R>;
 }
 /**
  * @summary Limit Option interface
@@ -80,7 +80,7 @@ export interface OffsetOption<R> extends ClauseExecutor<R> {
  * @category Query
  * @subcategory Options
  */
-export interface LimitOption<R> extends ClauseExecutor<R>, Paginatable<R> {
+export interface LimitOption<R> extends Executor<R>, Paginatable<R, any> {
   /**
    * @summary Limits the results to the provided number
    *
@@ -100,8 +100,8 @@ export interface LimitOption<R> extends ClauseExecutor<R>, Paginatable<R> {
  * @subcategory Options
  */
 export interface OrderByOption<M extends Model, R>
-  extends ClauseExecutor<R>,
-    Paginatable<R> {
+  extends Executor<R>,
+    Paginatable<R, any> {
   /**
    * @summary Orders the results by the provided attribute and according to the provided direction
    *
@@ -124,6 +124,7 @@ export interface OrderByOption<M extends Model, R>
  */
 export interface OrderAndGroupOption<M extends Model, R>
   extends OrderByOption<M, R>,
+    Executor<R>,
     GroupByOption<M, R>,
     LimitOption<R>,
     OffsetOption<R> {}
@@ -276,14 +277,14 @@ export interface IntoOption<M extends Model, R> {
    * @param {M[]} models
    * @method
    */
-  values(...models: M[]): ClauseExecutor<R>;
+  values(...models: M[]): Executor<R>;
   /**
    * @summary filter records to insert
    *
    * @param {Condition} condition
    * @method
    */
-  where(condition: Condition<M>): ClauseExecutor<R>;
+  where(condition: Condition<M>): Executor<R>;
 }
 /**
  * @summary Valuest Option Interface
@@ -295,7 +296,7 @@ export interface IntoOption<M extends Model, R> {
  * @category Query
  * @subcategory Options
  */
-export interface ValuesOption<M extends Model> extends ClauseExecutor<M> {}
+export interface ValuesOption<M extends Model> extends Executor<M> {}
 /**
  * @summary Insert Option Interface
  * @description Exposes the remaining options after an INSERT

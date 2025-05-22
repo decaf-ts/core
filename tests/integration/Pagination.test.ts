@@ -36,10 +36,7 @@ describe(`Pagination`, function () {
   let selected: TestCountryModel[];
   it.skip("Fails to sort in an unindexed property", async () => {
     await expect(
-      repo
-        .select()
-        .orderBy(["id", OrderDirection.ASC])
-        .execute<TestCountryModel[]>()
+      repo.select().orderBy(["id", OrderDirection.ASC]).execute()
     ).rejects.toThrow(InternalError);
   });
 
@@ -51,7 +48,7 @@ describe(`Pagination`, function () {
     selected = await repo
       .select()
       .orderBy(["id", OrderDirection.ASC])
-      .execute<TestCountryModel[]>();
+      .execute();
     expect(selected).toBeDefined();
     expect(selected.length).toEqual(created.length);
     for (let i = 0; i < selected.length; i++) {
@@ -61,10 +58,10 @@ describe(`Pagination`, function () {
   });
 
   it("paginates", async () => {
-    const paginator: Paginator<TestCountryModel, any> = await repo
+    const paginator: Paginator<TestCountryModel[]> = await repo
       .select()
       .orderBy(["id", OrderDirection.DSC])
-      .paginate<TestCountryModel>(10);
+      .paginate(10);
 
     expect(paginator).toBeDefined();
 
@@ -102,8 +99,5 @@ describe(`Pagination`, function () {
     expect(page4.map((el: any) => el["id"])).toEqual(
       expect.arrayContaining(ids.map((e) => e - 30))
     );
-    //
-    // expect(() => paginator.count).toThrow();
-    // expect(() => paginator.total).toThrow();
   });
 });

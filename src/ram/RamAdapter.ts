@@ -285,7 +285,7 @@ export class RamAdapter extends Adapter<
     return new InternalError(err) as V;
   }
 
-  get Clauses(): ClauseFactory<RamStorage, RamQuery<any>, typeof this> {
+  get Clauses(): ClauseFactory<RamStorage, typeof this> {
     if (!this.factory) this.factory = new RamClauseFactory(this);
     return this.factory as any;
   }

@@ -31,11 +31,7 @@ import { RamValuesClause } from "./clauses/ValuesClause";
 import { RamWhereClause } from "./clauses/WhereClause";
 import { RamFromClause } from "./clauses/FromClause";
 
-export class RamClauseFactor extends ClauseFactory<
-  RamStorage,
-  RamQuery<any>,
-  RamAdapter
-> {
+export class RamClauseFactory extends ClauseFactory<RamStorage, RamAdapter> {
   constructor(adapter: RamAdapter) {
     super(adapter);
   }

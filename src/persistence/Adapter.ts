@@ -102,7 +102,7 @@ export abstract class Adapter<
 
   abstract get Statement(): Statement<Q, any, any>;
 
-  abstract get Clauses(): ClauseFactory<Y, Q, typeof this>;
+  abstract get Clauses(): ClauseFactory<Y, typeof this>;
 
   protected isReserved(attr: string) {
     return !attr;

@@ -21,57 +21,57 @@ import { Statement } from "./Statement";
 import { Model } from "@decaf-ts/decorator-validation";
 import { QueryResult } from "./types";
 
-export abstract class ClauseFactory<Y, Q, A extends Adapter<Y, Q, any, any>> {
+export abstract class ClauseFactory<Y, A extends Adapter<Y, any, any, any>> {
   /**
    * @summary Factory method for {@link FromClause}
    * @param {Statement} statement
    * @param {FromSelector} selector
    */
   abstract from<M extends Model, R>(
-    statement: Statement<Q, M, R>,
+    statement: Statement<any, M, R>,
     selector: FromSelector<M>
-  ): FromClause<Q, M, R>;
+  ): FromClause<any, M, R>;
   /**
    * @summary Factory method for {@link GroupByClause}
    * @param {Statement} statement
    * @param {GroupBySelector} selector
    */
   abstract groupBy<M extends Model, R>(
-    statement: Statement<Q, M, R>,
+    statement: Statement<any, M, R>,
     selector: GroupBySelector<M>
-  ): GroupByClause<Q, M, R>;
+  ): GroupByClause<any, M, R>;
   /**
    * @summary Factory method for {@link InsertClause}
    * @param {Statement} statement
    */
-  abstract insert<M extends Model>(): InsertClause<Q, M>;
+  abstract insert<M extends Model>(): InsertClause<any, M>;
   /**
    * @summary Factory method for {@link LimitClause}
    * @param {Statement} statement
    * @param {LimitSelector} selector
    */
   abstract limit<M extends Model, R>(
-    statement: Statement<Q, M, R>,
+    statement: Statement<any, M, R>,
     selector: LimitSelector
-  ): LimitClause<Q, M, R>;
+  ): LimitClause<any, M, R>;
   /**
    * @summary Factory method for {@link OffsetClause}
    * @param {Statement} statement
    * @param {OffsetSelector} selector
    */
   abstract offset<M extends Model, R>(
-    statement: Statement<Q, M, R>,
+    statement: Statement<any, M, R>,
     selector: OffsetSelector
-  ): OffsetClause<Q, M, R>;
+  ): OffsetClause<any, M, R>;
   /**
    * @summary Factory method for {@link OrderByClause}
    * @param {Statement} statement
    * @param {OrderBySelector} selector
    */
   abstract orderBy<M extends Model, R>(
-    statement: Statement<Q, M, R>,
+    statement: Statement<any, M, R>,
     selector: OrderBySelector<M>[]
-  ): OrderByClause<Q, M, R>;
+  ): OrderByClause<any, M, R>;
   /**
    * @summary Factory method for {@link SelectClause}
    * @param {Statement} statement
@@ -79,25 +79,25 @@ export abstract class ClauseFactory<Y, Q, A extends Adapter<Y, Q, any, any>> {
    */
   abstract select<M extends Model, S extends SelectSelector<M>[]>(
     selector?: S
-  ): SelectClause<Q, M, QueryResult<M, S>>;
+  ): SelectClause<any, M, QueryResult<M, S>>;
   /**
    * @summary Factory method for {@link ValuesClause}
    * @param {Statement} statement
    * @param {M[]} values
    */
   abstract values<M extends Model, R>(
-    statement: Statement<Q, M, R>,
+    statement: Statement<any, M, R>,
     values: M[]
-  ): ValuesClause<Q, M>;
+  ): ValuesClause<any, M>;
   /**
    * @summary Factory method for {@link WhereClause}
    * @param {Statement} statement
    * @param {Condition} condition
    */
   abstract where<M extends Model, R>(
-    statement: Statement<Q, M, R>,
+    statement: Statement<any, M, R>,
     condition: Condition<M>
-  ): WhereClause<Q, M, R>;
+  ): WhereClause<any, M, R>;
 
   protected constructor(protected adapter: A) {}
 }

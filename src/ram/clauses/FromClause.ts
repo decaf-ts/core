@@ -2,8 +2,12 @@ import { ModelArg, Model, Constructor } from "@decaf-ts/decorator-validation";
 import { RamQuery } from "../types";
 import { FromClause } from "../../query";
 
-export class RamFromClause<M extends Model> extends FromClause<RamQuery<M>, M> {
-  constructor(clause: ModelArg<FromClause<RamQuery<M>, M>>) {
+export class RamFromClause<M extends Model, R> extends FromClause<
+  RamQuery<M>,
+  M,
+  R
+> {
+  constructor(clause: ModelArg<FromClause<RamQuery<M>, M, R>>) {
     super(clause);
   }
 

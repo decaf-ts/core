@@ -6,11 +6,12 @@ import {
 import { RamQuery } from "../types";
 import { SelectClause } from "../../query";
 
-export class RamSelectClause<M extends Model> extends SelectClause<
+export class RamSelectClause<M extends Model, R> extends SelectClause<
   RamQuery<M>,
-  M
+  M,
+  R
 > {
-  constructor(clause: ModelArg<SelectClause<RamQuery<M>, M>>) {
+  constructor(clause: ModelArg<SelectClause<RamQuery<M>, M, R>>) {
     super(clause);
   }
 
@@ -19,7 +20,7 @@ export class RamSelectClause<M extends Model> extends SelectClause<
     ...exclusions: string[]
   ): ModelErrorDefinition | undefined {
     if (!this.selector) return super.hasErrors("selector", ...exclusions);
-    return super.hasErrors(previousVersion, ...exclusions);
+    return super.hasErrors(...exclusions);
   }
 
   build(query: RamQuery<M>): RamQuery<M> {

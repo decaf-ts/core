@@ -28,6 +28,7 @@ import { WhereOption } from "../query/options";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
 import { getTableName } from "../identity/utils";
 import { uses } from "../persistence/decorators";
+import { QueryResult } from "../query";
 
 export type Repo<
   M extends Model,
@@ -444,22 +445,24 @@ export class Repository<
     );
   }
 
-  select(selector?: SelectSelector<M>): WhereOption<M> {
+  select<S extends SelectSelector<M>[]>(
+    selector?: SelectSelector<M>[]
+  ): WhereOption<M, QueryResult<M, S>> {
     return new Query<Q, M>(this.adapter).select(selector).from(this.class);
   }
 
-  async query<V>(
+  async query(
     condition: Condition<M>,
     orderBy: keyof M,
     order: OrderDirection = OrderDirection.ASC,
     limit?: number,
     skip?: number
-  ): Promise<V> {
+  ): Promise<M[]> {
     const sort: OrderBySelector<M> = [orderBy, order as OrderDirection];
     const query = this.select().where(condition).orderBy(sort);
     if (limit) query.limit(limit);
     if (skip) query.offset(skip);
-    return query.execute<V>();
+    return query.execute();
   }
 
   /**

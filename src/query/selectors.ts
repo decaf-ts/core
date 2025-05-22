@@ -32,10 +32,9 @@ export type LimitSelector = number;
  */
 export type OffsetSelector = number;
 
-// export type SelectFunction<T = any> = (obj: T) => T | any;
 /**
  * @typedef SelectSelector
  *
  * @category Clauses
  */
-export type SelectSelector<M extends Model> = (keyof M)[];
+export type SelectSelector<M extends Model> = keyof M;

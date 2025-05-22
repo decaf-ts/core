@@ -2,11 +2,12 @@ import { Model, ModelArg } from "@decaf-ts/decorator-validation";
 import { RamQuery } from "../types";
 import { Condition, WhereClause } from "../../query";
 
-export class RamWhereClause<M extends Model> extends WhereClause<
+export class RamWhereClause<M extends Model, R> extends WhereClause<
   RamQuery<M>,
-  M
+  M,
+  R
 > {
-  constructor(clause: ModelArg<WhereClause<RamQuery<M>, M>>) {
+  constructor(clause: ModelArg<WhereClause<RamQuery<M>, M, R>>) {
     super(clause);
   }
 

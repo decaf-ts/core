@@ -100,7 +100,7 @@ export abstract class Adapter<
 
   abstract parseCondition<M extends Model>(condition: Condition<M>): Q;
 
-  abstract get Statement(): Statement<Q, any>;
+  abstract get Statement(): Statement<Q, any, any>;
 
   abstract get Clauses(): ClauseFactory<Y, Q, typeof this>;
 

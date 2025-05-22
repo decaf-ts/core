@@ -1,16 +1,20 @@
 import { RamQuery } from "./types";
 import { Paginator, Statement } from "../query";
+import { Model } from "@decaf-ts/decorator-validation";
 
-export class RamPaginator<V> extends Paginator<V, RamQuery<any>> {
+export class RamPaginator<V, M extends Model> extends Paginator<
+  V,
+  RamQuery<M>
+> {
   constructor(
-    statement: Statement<RamQuery<any>, any>,
+    statement: Statement<RamQuery<M>, any, any>,
     size: number,
-    rawStatement: RamQuery<any>
+    rawStatement: RamQuery<M>
   ) {
     super(statement, size, rawStatement);
   }
 
-  protected prepare(rawStatement: RamQuery<any>): RamQuery<any> {
+  protected prepare(rawStatement: RamQuery<M>): RamQuery<M> {
     const query: RamQuery<any> = Object.assign({}, rawStatement);
     query.limit = this.size;
     return query;

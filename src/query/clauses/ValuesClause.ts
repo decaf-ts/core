@@ -1,6 +1,11 @@
 import { Clause } from "../Clause";
 import { Priority } from "../constants";
-import { ModelArg, required, type } from "@decaf-ts/decorator-validation";
+import {
+  Model,
+  ModelArg,
+  required,
+  type,
+} from "@decaf-ts/decorator-validation";
 
 /**
  * @summary The VALUES clause
@@ -13,7 +18,11 @@ import { ModelArg, required, type } from "@decaf-ts/decorator-validation";
  * @category Query
  * @subcategory Clauses
  */
-export abstract class ValuesClause<Q, M> extends Clause<Q> {
+export abstract class ValuesClause<Q, M extends Model> extends Clause<
+  Q,
+  M,
+  void
+> {
   @required()
   @type(Array.name)
   models?: M[] = undefined;

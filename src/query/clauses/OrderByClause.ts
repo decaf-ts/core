@@ -7,7 +7,7 @@ import {
   OrderBySelector,
 } from "../selectors";
 import { LimitOption, OffsetOption } from "../options";
-import { Executor } from "../../interfaces";
+import { ClauseExecutor } from "../../interfaces";
 import { Model, ModelArg } from "@decaf-ts/decorator-validation";
 /**
  * @summary The ORDER BY clause
@@ -22,11 +22,11 @@ import { Model, ModelArg } from "@decaf-ts/decorator-validation";
  * @category Query
  * @subcategory Clauses
  */
-export abstract class OrderByClause<Q, M extends Model>
-  extends SelectorBasedClause<Q, OrderBySelector<M>[]>
-  implements LimitOption, OffsetOption
+export abstract class OrderByClause<Q, M extends Model, R>
+  extends SelectorBasedClause<Q, OrderBySelector<M>[], M, R>
+  implements LimitOption<R>, OffsetOption<R>
 {
-  protected constructor(clause?: ModelArg<OrderByClause<Q, M>>) {
+  protected constructor(clause?: ModelArg<OrderByClause<Q, M, R>>) {
     super(Object.assign({}, clause, { priority: Priority.ORDER_BY }));
   }
   /**
@@ -36,19 +36,19 @@ export abstract class OrderByClause<Q, M extends Model>
   /**
    * @inheritDoc
    */
-  groupBy(selector: GroupBySelector<M>): Executor {
+  groupBy(selector: GroupBySelector<M>): ClauseExecutor<R> {
     return this.Clauses.groupBy(this.statement, selector);
   }
   /**
    * @inheritDoc
    */
-  limit(selector: LimitSelector): OffsetOption {
+  limit(selector: LimitSelector): OffsetOption<R> {
     return this.Clauses.limit(this.statement, selector);
   }
   /**
    * @inheritDoc
    */
-  offset(selector: OffsetSelector): Executor {
+  offset(selector: OffsetSelector): ClauseExecutor<R> {
     return this.Clauses.offset(this.statement, selector);
   }
 }

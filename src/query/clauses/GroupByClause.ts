@@ -17,8 +17,9 @@ import { SelectorBasedClause } from "./SelectorBasedClause";
 export abstract class GroupByClause<
   Q,
   M extends Model,
-> extends SelectorBasedClause<Q, GroupBySelector<M>> {
-  protected constructor(clause?: ModelArg<GroupByClause<Q, M>>) {
+  R,
+> extends SelectorBasedClause<Q, GroupBySelector<M>, M, R> {
+  protected constructor(clause?: ModelArg<GroupByClause<Q, M, R>>) {
     super(Object.assign({}, clause, { priority: Priority.GROUP_BY }));
   }
   /**

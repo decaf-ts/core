@@ -7,9 +7,10 @@ import {
   SelectOption,
   WhereOption,
 } from "../options";
-import { Const, Priority, StatementType } from "../constants";
+import { Priority, StatementType } from "../constants";
 import { Constructor, ModelArg, Model } from "@decaf-ts/decorator-validation";
 import { SelectSelector } from "../selectors";
+import { DistinctQueryResult, ReducedResult } from "../types";
 
 /**
  * @summary The SELECT clause
@@ -23,18 +24,18 @@ import { SelectSelector } from "../selectors";
  * @category Query
  * @subcategory Clauses
  */
-export abstract class SelectClause<Q, M extends Model>
-  extends SelectorBasedClause<Q, SelectSelector<M>>
-  implements SelectOption<M>
+export abstract class SelectClause<Q, M extends Model, R>
+  extends SelectorBasedClause<Q, SelectSelector<M>[], M, R>
+  implements SelectOption<M, R>
 {
   private isDistinct: boolean = false;
   private isCount = false;
   private isMax = false;
   private isMin = false;
 
-  protected constructor(clause?: ModelArg<SelectClause<Q, M>>) {
+  protected constructor(clause?: ModelArg<SelectClause<Q, M, R>>) {
     super(Object.assign({}, clause, { priority: Priority.SELECT }));
-    if (!this.selector) this.statement.setFullRecord();
+    if (this.selector) this.statement.setSelectors(this.selector);
     this.statement.setMode(StatementType.QUERY);
   }
   /**
@@ -44,36 +45,42 @@ export abstract class SelectClause<Q, M extends Model>
   /**
    * @inheritDoc
    */
-  distinct(selector: SelectSelector<M>): DistinctOption<M> {
+  distinct<R extends SelectSelector<M>>(
+    selector: R
+  ): DistinctOption<M, DistinctQueryResult<M, R>> {
     this.isDistinct = true;
-    this.selector = selector;
-    return this;
+    this.selector = [selector];
+    return this as DistinctOption<M, DistinctQueryResult<M, R>>;
   }
   /**
    * @inheritDoc
    */
-  count(selector: SelectSelector<M>): CountOption<M> {
-    this.selector = selector;
-    return this;
+  count(selector: SelectSelector<M>): CountOption<M, number> {
+    this.selector = [selector];
+    return this as CountOption<M, number>;
   }
   /**
    * @inheritDoc
    */
-  min(selector: SelectSelector<M>): MinOption<M> {
-    this.selector = selector;
-    return this;
+  min<R extends SelectSelector<M>>(
+    selector: R
+  ): MinOption<M, ReducedResult<M, R>> {
+    this.selector = [selector];
+    return this as MinOption<M, ReducedResult<M, R>>;
   }
   /**
    * @inheritDoc
    */
-  max(selector: SelectSelector<M>): MaxOption<M> {
-    this.selector = selector;
-    return this;
+  max<R extends SelectSelector<M>>(
+    selector: R
+  ): MaxOption<M, ReducedResult<M, R>> {
+    this.selector = [selector];
+    return this as MaxOption<M, ReducedResult<M, R>>;
   }
   /**
    * @inheritDoc
    */
-  from(tableName: Constructor<M>): WhereOption<M> {
+  from(tableName: Constructor<M>): WhereOption<M, R> {
     return this.Clauses.from(this.statement, tableName);
   }
 }

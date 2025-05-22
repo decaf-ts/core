@@ -29,21 +29,21 @@ import { Paginator } from "./Paginator";
  *
  * @category Query
  */
-export abstract class Statement<Q, M extends Model>
+export abstract class Statement<Q, M extends Model, R>
   extends Model
-  implements Executor, RawExecutor<Q>
+  implements Executor<R>, RawExecutor<Q>
 {
   @required()
   @minlength(MandatoryPriorities.length)
   @clauseSequence()
-  protected clauses?: Clause<Q>[] = undefined;
+  protected clauses?: Clause<Q, M, R>[] = undefined;
   @required()
   @type(["object"])
   protected adapter: Adapter<any, Q, any, any>;
   @required()
   protected target?: Constructor<M> = undefined;
 
-  protected fullRecord: boolean = false;
+  selectors?: (keyof M)[];
 
   @required()
   protected type?: string = undefined;
@@ -61,15 +61,12 @@ export abstract class Statement<Q, M extends Model>
     });
 
     const errors = this.hasErrors();
-    if (errors)
-      throw new QueryError(
-        sf("Poorly built statement: {0}", errors.toString())
-      );
+    if (errors) throw new QueryError(`Poorly built statement: ${errors}`);
 
     let query: Q;
     try {
       const iterator = function (
-        clauses: Clause<any>[],
+        clauses: Clause<Q, M, R>[],
         previous: any = {}
       ): Q {
         const c = clauses.shift();
@@ -78,7 +75,7 @@ export abstract class Statement<Q, M extends Model>
         return iterator(clauses, results as any);
       };
 
-      query = iterator(new Array(...(this.clauses as Clause<Q>[]))) as Q;
+      query = iterator(new Array(...(this.clauses as Clause<Q, M, R>[]))) as Q;
     } catch (e: any) {
       throw new QueryError(e);
     }
@@ -89,10 +86,10 @@ export abstract class Statement<Q, M extends Model>
   /**
    * @inheritDoc
    */
-  async execute<Y>(): Promise<Y> {
+  async execute(): Promise<R> {
     try {
       const query: Q = this.build();
-      return this.raw(query);
+      return (await this.raw(query)) as R;
     } catch (e: any) {
       throw new InternalError(e);
     }
@@ -101,11 +98,11 @@ export abstract class Statement<Q, M extends Model>
   /**
    * @inheritDoc
    */
-  abstract paginate<Y>(size: number): Promise<Paginator<Y, Q>>;
+  abstract paginate(size: number): Promise<Paginator<R, Q>>;
 
   async raw<R>(rawInput: Q, ...args: any[]): Promise<R> {
     const results = await this.adapter.raw<R>(rawInput, true, ...args);
-    if (!this.fullRecord) return results;
+    if (!this.selectors) return results;
     if (!this.target)
       throw new InternalError(
         "No target defined in statement. should never happen"
@@ -113,7 +110,10 @@ export abstract class Statement<Q, M extends Model>
 
     const pkAttr = findPrimaryKey(new this.target() as any).id;
 
-    const processor = function recordProcessor(this: Statement<Q, M>, r: any) {
+    const processor = function recordProcessor(
+      this: Statement<Q, M, R>,
+      r: any
+    ) {
       const id = r[pkAttr];
       return this.adapter.revert(
         r,
@@ -121,7 +121,7 @@ export abstract class Statement<Q, M extends Model>
         pkAttr,
         id
       ) as any;
-    }.bind(this);
+    }.bind(this as any);
 
     if (Array.isArray(results)) return results.map(processor) as R;
     return processor(results) as R;
@@ -144,7 +144,7 @@ export abstract class Statement<Q, M extends Model>
    * @summary Adds a clause to the Statement
    * @param {Clause} clause
    */
-  addClause(clause: Clause<Q>) {
+  addClause(clause: Clause<Q, M, R>) {
     if (!this.clauses) this.clauses = [];
 
     const priority = clause.getPriority();
@@ -179,8 +179,8 @@ export abstract class Statement<Q, M extends Model>
     return this.target;
   }
 
-  setFullRecord() {
-    this.fullRecord = true;
+  setSelectors(selectors: (keyof M)[]) {
+    this.selectors = selectors;
   }
 
   setMode(type: StatementType) {

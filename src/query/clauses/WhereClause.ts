@@ -15,7 +15,7 @@ import {
   OffsetSelector,
   OrderBySelector,
 } from "../selectors";
-import { Executor } from "../../interfaces";
+import { ClauseExecutor } from "../../interfaces";
 /**
  * @summary The WHERE clause
  *
@@ -28,15 +28,15 @@ import { Executor } from "../../interfaces";
  * @category Query
  * @subcategory Clauses
  */
-export abstract class WhereClause<Q, M extends Model>
-  extends Clause<Q>
-  implements OrderAndGroupOption<M>
+export abstract class WhereClause<Q, M extends Model, R>
+  extends Clause<Q, M, R>
+  implements OrderAndGroupOption<M, R>
 {
   @required()
   @type("Condition")
   condition?: Condition<M> = undefined;
 
-  protected constructor(clause?: ModelArg<WhereClause<Q, M>>) {
+  protected constructor(clause?: ModelArg<WhereClause<Q, M, R>>) {
     super(Object.assign({}, clause, { priority: Priority.WHERE }));
     this.condition = clause?.condition;
   }
@@ -47,25 +47,25 @@ export abstract class WhereClause<Q, M extends Model>
   /**
    * @inheritDoc
    */
-  orderBy(...selector: OrderBySelector<M>[]): LimitOption & OffsetOption {
+  orderBy(...selector: OrderBySelector<M>[]): LimitOption<R> & OffsetOption<R> {
     return this.Clauses.orderBy(this.statement, selector);
   }
   /**
    * @inheritDoc
    */
-  groupBy(selector: GroupBySelector<M>): Executor {
+  groupBy(selector: GroupBySelector<M>): ClauseExecutor<R> {
     return this.Clauses.groupBy(this.statement, selector);
   }
   /**
    * @inheritDoc
    */
-  limit(selector: LimitSelector): OffsetOption {
+  limit(selector: LimitSelector): OffsetOption<R> {
     return this.Clauses.limit(this.statement, selector);
   }
   /**
    * @inheritDoc
    */
-  offset(selector: OffsetSelector): Executor {
+  offset(selector: OffsetSelector): ClauseExecutor<R> {
     return this.Clauses.offset(this.statement, selector);
   }
 

@@ -1,5 +1,5 @@
 import { Clause } from "../Clause";
-import { ModelArg, required } from "@decaf-ts/decorator-validation";
+import { Model, ModelArg, required } from "@decaf-ts/decorator-validation";
 
 /**
  * @summary The base Selector based clause
@@ -13,7 +13,12 @@ import { ModelArg, required } from "@decaf-ts/decorator-validation";
  * @category Query
  * @subcategory Clauses
  */
-export abstract class SelectorBasedClause<Q, S> extends Clause<Q> {
+export abstract class SelectorBasedClause<
+  Q,
+  S,
+  M extends Model,
+  R,
+> extends Clause<Q, M, R> {
   /**
    * @summary Stores the selector
    *
@@ -23,7 +28,7 @@ export abstract class SelectorBasedClause<Q, S> extends Clause<Q> {
   @required()
   protected selector?: S = undefined;
 
-  protected constructor(clause?: ModelArg<SelectorBasedClause<Q, S>>) {
+  protected constructor(clause?: ModelArg<SelectorBasedClause<Q, S, M, R>>) {
     super(clause);
     this.selector = (clause as { selector: S }).selector;
   }

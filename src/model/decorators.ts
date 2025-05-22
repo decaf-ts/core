@@ -82,7 +82,7 @@ export async function uniqueOnCreateUpdate<
   if (!(model as any)[key]) return;
   const existing = await this.select()
     .where(Condition.attribute(key).eq(model[key]))
-    .execute<M[]>();
+    .execute();
   if (existing.length)
     throw new ConflictError(
       `model already exists with property ${key as string} equal to ${JSON.stringify((model as any)[key], undefined, 2)}`

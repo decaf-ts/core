@@ -31,7 +31,7 @@ export class ClauseSequenceValidator extends Validator {
   }
 
   private validateSequence(
-    clauses: Clause<any>[],
+    clauses: Clause<any, any, any>[],
     message?: string
   ): string | undefined {
     return MandatoryPriorities.every(
@@ -69,10 +69,10 @@ export class ClauseSequenceValidator extends Validator {
           )
         );
 
-      const clauses: Clause<any>[] = value as Clause<any>[];
+      const clauses: Clause<any, any, any>[] = value as Clause<any, any, any>[];
 
       const clauseErrors = clauses.reduce(
-        (accum: string | undefined, c: Clause<any>) => {
+        (accum: string | undefined, c: Clause<any, any, any>) => {
           const errs = c.hasErrors();
           if (errs)
             if (accum)

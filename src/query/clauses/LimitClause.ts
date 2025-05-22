@@ -1,9 +1,9 @@
 import { SelectorBasedClause } from "./SelectorBasedClause";
 import { OffsetOption } from "../options";
-import { Executor } from "../../interfaces";
+import { ClauseExecutor } from "../../interfaces";
 import { LimitSelector, OffsetSelector } from "../selectors";
 import { Priority } from "../constants";
-import { ModelArg } from "@decaf-ts/decorator-validation";
+import { Model, ModelArg } from "@decaf-ts/decorator-validation";
 
 /**
  * @summary Limit Clause
@@ -18,11 +18,11 @@ import { ModelArg } from "@decaf-ts/decorator-validation";
  * @category Query
  * @subcategory Clauses
  */
-export abstract class LimitClause<Q>
-  extends SelectorBasedClause<Q, LimitSelector>
-  implements OffsetOption
+export abstract class LimitClause<Q, M extends Model, R>
+  extends SelectorBasedClause<Q, LimitSelector, M, R>
+  implements OffsetOption<R>
 {
-  protected constructor(clause?: ModelArg<LimitClause<Q>>) {
+  protected constructor(clause?: ModelArg<LimitClause<Q, M, R>>) {
     super(Object.assign({}, clause, { priority: Priority.GROUP_BY }));
   }
   /**
@@ -32,7 +32,7 @@ export abstract class LimitClause<Q>
   /**
    * @inheritDoc
    */
-  offset(selector: OffsetSelector): Executor {
+  offset(selector: OffsetSelector): ClauseExecutor<R> {
     return this.Clauses.offset(this.statement, selector);
   }
 }

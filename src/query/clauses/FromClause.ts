@@ -13,7 +13,7 @@ import {
   WhereOption,
 } from "../options";
 import { SelectorBasedClause } from "./SelectorBasedClause";
-import { Executor } from "../../interfaces";
+import { ClauseExecutor } from "../../interfaces";
 import { QueryError } from "../errors";
 import { Condition } from "../Condition";
 import {
@@ -35,11 +35,11 @@ import {
  * @category Query
  * @subcategory Clauses
  */
-export abstract class FromClause<Q, M extends Model>
-  extends SelectorBasedClause<Q, FromSelector<M>>
-  implements WhereOption<M>
+export abstract class FromClause<Q, M extends Model, R>
+  extends SelectorBasedClause<Q, FromSelector<M>, M, R>
+  implements WhereOption<M, R>
 {
-  protected constructor(clause?: ModelArg<FromClause<Q, M>>) {
+  protected constructor(clause?: ModelArg<FromClause<Q, M, R>>) {
     super(Object.assign({}, clause, { priority: Priority.FROM }));
     this.selector =
       typeof this.selector === "string"
@@ -58,31 +58,31 @@ export abstract class FromClause<Q, M extends Model>
   /**
    * @inheritDoc
    */
-  where(condition: Condition<M>): OrderAndGroupOption<M> {
+  where(condition: Condition<M>): OrderAndGroupOption<M, R> {
     return this.Clauses.where(this.statement, condition);
   }
   /**
    * @inheritDoc
    */
-  orderBy(...selector: OrderBySelector<M>[]): LimitOption & OffsetOption {
+  orderBy(...selector: OrderBySelector<M>[]): LimitOption<R> & OffsetOption<R> {
     return this.Clauses.orderBy(this.statement, selector);
   }
   /**
    * @inheritDoc
    */
-  groupBy(selector: GroupBySelector<M>): Executor {
+  groupBy(selector: GroupBySelector<M>): ClauseExecutor<R> {
     return this.Clauses.groupBy(this.statement, selector);
   }
   /**
    * @inheritDoc
    */
-  limit(selector: LimitSelector): OffsetOption {
+  limit(selector: LimitSelector): OffsetOption<R> {
     return this.Clauses.limit(this.statement, selector);
   }
   /**
    * @inheritDoc
    */
-  offset(selector: OffsetSelector): Executor {
+  offset(selector: OffsetSelector): ClauseExecutor<R> {
     return this.Clauses.offset(this.statement, selector);
   }
 }

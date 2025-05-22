@@ -1,15 +1,17 @@
-import { Condition, SelectSelector, WhereOption } from "../query";
+import { Condition, QueryResult, SelectSelector, WhereOption } from "../query";
 import { OrderDirection } from "../repository";
 import { Model } from "@decaf-ts/decorator-validation";
 
 export interface Queriable<M extends Model> {
-  select(selector?: SelectSelector<M>): WhereOption<M>;
+  select<S extends SelectSelector<M>[]>(
+    selector?: SelectSelector<M>[]
+  ): WhereOption<M, QueryResult<M, S>>;
 
-  query<V>(
+  query(
     condition: Condition<M>,
     orderBy: keyof M,
     order: OrderDirection,
     limit?: number,
     skip?: number
-  ): Promise<V>;
+  ): Promise<M[]>;
 }

@@ -11,6 +11,7 @@ import { Priority } from "./constants";
 import { Statement } from "./Statement";
 import { Paginatable } from "../interfaces/Paginatable";
 import { Paginator } from "./Paginator";
+import { final } from "../utils/decorators";
 
 /**
  */
@@ -32,18 +33,18 @@ import { Paginator } from "./Paginator";
  * @category Query
  * @subcategory Clauses
  */
-export abstract class Clause<Q>
+export abstract class Clause<Q, M extends Model, R>
   extends Model
-  implements Executor, Paginatable, QueryBuilder<Q>
+  implements Executor<R>, Paginatable<R>, QueryBuilder<Q, R>
 {
   @required()
   readonly priority!: Priority;
 
   @required()
   @type("object")
-  readonly statement!: Statement<Q, any>;
+  readonly statement!: Statement<Q, M, R>;
 
-  protected constructor(clause?: ModelArg<Clause<Q>>) {
+  protected constructor(clause?: ModelArg<Clause<Q, M, R>>) {
     super();
     this.priority = clause?.priority;
     this.statement = clause?.statement;
@@ -76,14 +77,16 @@ export abstract class Clause<Q>
    * @inheritDoc
    * @abstract
    */
-  async execute<R>(): Promise<R> {
+  @final()
+  async execute(): Promise<R> {
     return this.statement.execute();
   }
   /**
    * @inheritDoc
    * @abstract
    */
-  async paginate<R>(size: number): Promise<Paginator<R, Q>> {
+  @final()
+  async paginate(size: number): Promise<Paginator<R, Q>> {
     return this.statement.paginate(size);
   }
 

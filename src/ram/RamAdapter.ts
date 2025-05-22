@@ -290,7 +290,7 @@ export class RamAdapter extends Adapter<
     return this.factory as any;
   }
 
-  get Statement(): RamStatement<any> {
+  get Statement(): RamStatement<any, any> {
     return new RamStatement(this);
   }
 

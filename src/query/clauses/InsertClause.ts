@@ -8,7 +8,7 @@ import {
   ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
-import { Executor } from "../../interfaces";
+import { ClauseExecutor } from "../../interfaces";
 
 /**
  * @summary The INSERT/INTO clause
@@ -23,8 +23,8 @@ import { Executor } from "../../interfaces";
  * @subcategory Clauses
  */
 export abstract class InsertClause<Q, M extends Model>
-  extends Clause<Q>
-  implements InsertOption<M>, IntoOption<M>
+  extends Clause<Q, M, void>
+  implements InsertOption<M, void>, IntoOption<M, void>
 {
   @required()
   protected table?: string = undefined;
@@ -40,7 +40,7 @@ export abstract class InsertClause<Q, M extends Model>
   /**
    * @inheritDoc
    */
-  into(table: Constructor<M>): IntoOption<M> {
+  into(table: Constructor<M>): IntoOption<M, void> {
     this.table = table.name; // TODO get mapped name
     this.statement.setTarget(table);
     return this;
@@ -48,13 +48,13 @@ export abstract class InsertClause<Q, M extends Model>
   /**
    * @inheritDoc
    */
-  values(...models: M[]): Executor {
+  values(...models: M[]): ClauseExecutor<void> {
     return this.Clauses.values(this.statement, models);
   }
   /**
    * @inheritDoc
    */
-  where(condition: Condition<M>): OrderAndGroupOption<M> {
+  where(condition: Condition<M>): OrderAndGroupOption<M, void> {
     return this.Clauses.where(this.statement, condition);
   }
 }

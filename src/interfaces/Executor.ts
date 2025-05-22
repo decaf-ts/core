@@ -1,3 +1,6 @@
+import { Model } from "@decaf-ts/decorator-validation";
+import { Statement } from "../query/Statement";
+
 /**
  * @summary processes query objects
  *
@@ -7,7 +10,7 @@
  *
  * @category Query
  */
-export interface Executor {
+export interface Executor<R> {
   /**
    * @summary Processes itself
    *
@@ -15,5 +18,22 @@ export interface Executor {
    *
    * @method
    */
-  execute<V>(...args: any): Promise<V>;
+  execute(...args: any): Promise<R>;
+}
+
+export type InferType<M extends Model, T> = T extends { selectors: infer I }
+  ? I extends undefined
+    ? M[]
+    : I extends keyof M
+      ? M[I]
+      : never
+  : never;
+
+export interface StatementExecutor<M extends Model> {
+  selectors?: (keyof M)[];
+  execute(): Promise<InferType<M, StatementExecutor<M>>>;
+}
+
+export interface ClauseExecutor<R> {
+  execute(): Promise<R>;
 }

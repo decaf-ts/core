@@ -3,11 +3,12 @@ import { OrderByClause, OrderBySelector, QueryError } from "../../query";
 import { Model, ModelArg } from "@decaf-ts/decorator-validation";
 import { Reflection } from "@decaf-ts/reflection";
 
-export class RamOrderByClause<M extends Model> extends OrderByClause<
+export class RamOrderByClause<M extends Model, R> extends OrderByClause<
   RamQuery<M>,
-  M
+  M,
+  R
 > {
-  constructor(clause: ModelArg<OrderByClause<RamQuery<M>, M>>) {
+  constructor(clause: ModelArg<OrderByClause<RamQuery<M>, M, R>>) {
     super(clause);
   }
 

@@ -80,7 +80,7 @@ describe("Queries", () => {
       TestUser,
       RamRepository<TestUser>
     >(TestUser);
-    const selected = await repo.select().execute<TestUser[]>();
+    const selected = await repo.select().execute();
     expect(
       created.every((c) => c.equals(selected.find((s: any) => (s.id = c.id))))
     );
@@ -91,9 +91,7 @@ describe("Queries", () => {
       TestUser,
       RamRepository<TestUser>
     >(TestUser);
-    const selected = await repo
-      .select(["age", "sex"])
-      .execute<{ age: number; sex: "M" | "F" }[]>();
+    const selected = await repo.select(["age", "sex"]).execute();
     expect(selected).toEqual(
       expect.arrayContaining(
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -112,8 +110,8 @@ describe("Queries", () => {
       TestUser,
       RamRepository<TestUser>
     >(TestUser);
-    const condition = Condition.attribute("age").eq(20);
-    const selected = await repo.select().where(condition).execute<TestUser[]>();
+    const condition = Condition.attribute<TestUser>("age").eq(20);
+    const selected = await repo.select().where(condition).execute();
     expect(selected.length).toEqual(created.filter((c) => c.age === 20).length);
   });
 
@@ -122,11 +120,11 @@ describe("Queries", () => {
       TestUser,
       RamRepository<TestUser>
     >(TestUser);
-    const condition = Condition.attribute("age").eq(20);
+    const condition = Condition.attribute<TestUser>("age").eq(20);
     const selected = await repo
       .select(["age", "sex"])
       .where(condition)
-      .execute<TestUser[]>();
+      .execute();
     expect(selected.length).toEqual(created.filter((c) => c.age === 20).length);
     expect(selected).toEqual(
       expect.arrayContaining(
@@ -146,10 +144,10 @@ describe("Queries", () => {
       TestUser,
       RamRepository<TestUser>
     >(TestUser);
-    const condition = Condition.attribute("age")
+    const condition = Condition.attribute<TestUser>("age")
       .eq(20)
-      .and(Condition.attribute("sex").eq("M"));
-    const selected = await repo.select().where(condition).execute<TestUser[]>();
+      .and(Condition.attribute<TestUser>("sex").eq("M"));
+    const selected = await repo.select().where(condition).execute();
     expect(selected.length).toEqual(
       created.filter((c) => c.age === 20 && c.sex === "M").length
     );
@@ -159,10 +157,10 @@ describe("Queries", () => {
     const repo = Repository.forModel<TestUser, RamRepository<TestUser>>(
       TestUser
     );
-    const condition = Condition.attribute("age")
+    const condition = Condition.attribute<TestUser>("age")
       .eq(20)
-      .or(Condition.attribute("age").eq(19));
-    const selected = await repo.select().where(condition).execute<TestUser[]>();
+      .or(Condition.attribute<TestUser>("age").eq(19));
+    const selected = await repo.select().where(condition).execute();
     expect(selected.length).toEqual(
       created.filter((c) => c.age === 20 || c.age === 19).length
     );
@@ -176,7 +174,7 @@ describe("Queries", () => {
     const results = await repo
       .select()
       .orderBy(["name", OrderDirection.DSC])
-      .execute<TestUser[]>();
+      .execute();
     expect(results.map((r) => r.name.split("_")[2] as string)).toEqual(
       [9, 8, 7, 6, 5, 4, 3, 2, 10, 1].map((r) => "" + r)
     );
@@ -191,7 +189,7 @@ describe("Queries", () => {
     const sorted = await repo
       .select()
       .orderBy(["age", OrderDirection.DSC])
-      .execute<TestUser[]>();
+      .execute();
     expect(sorted).toBeDefined();
     expect(sorted.length).toEqual(created.length);
     for (let i = 0; i < sorted.length; i++) {

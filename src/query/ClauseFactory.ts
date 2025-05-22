@@ -19,7 +19,6 @@ import {
 } from "./selectors";
 import { Statement } from "./Statement";
 import { Model } from "@decaf-ts/decorator-validation";
-import { QueryResult } from "./types";
 
 export abstract class ClauseFactory<Y, A extends Adapter<Y, any, any, any>> {
   /**
@@ -77,9 +76,21 @@ export abstract class ClauseFactory<Y, A extends Adapter<Y, any, any, any>> {
    * @param {Statement} statement
    * @param {SelectSelector} [selector]
    */
-  abstract select<M extends Model, S extends SelectSelector<M>[]>(
-    selector?: S
-  ): SelectClause<any, M, QueryResult<M, S>>;
+  abstract select<
+    M extends Model,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const S extends readonly SelectSelector<M>[],
+  >(): SelectClause<any, M, M[]>;
+  abstract select<
+    M extends Model,
+    const S extends readonly SelectSelector<M>[],
+  >(selector: readonly [...S]): SelectClause<any, M, Pick<M, S[number]>[]>;
+  abstract select<
+    M extends Model,
+    const S extends readonly SelectSelector<M>[],
+  >(
+    selector?: readonly [...S]
+  ): SelectClause<any, M, M[]> | SelectClause<any, M, Pick<M, S[number]>[]>;
   /**
    * @summary Factory method for {@link ValuesClause}
    * @param {Statement} statement

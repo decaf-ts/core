@@ -10,7 +10,6 @@ import {
 import { Priority, StatementType } from "../constants";
 import { Constructor, ModelArg, Model } from "@decaf-ts/decorator-validation";
 import { SelectSelector } from "../selectors";
-import { DistinctQueryResult, ReducedResult } from "../types";
 
 /**
  * @summary The SELECT clause
@@ -35,7 +34,7 @@ export abstract class SelectClause<Q, M extends Model, R>
 
   protected constructor(clause?: ModelArg<SelectClause<Q, M, R>>) {
     super(Object.assign({}, clause, { priority: Priority.SELECT }));
-    if (this.selector) this.statement.setSelectors(this.selector);
+    this.statement.setFullRecord(!!this.selector);
     this.statement.setMode(StatementType.QUERY);
   }
   /**
@@ -45,37 +44,35 @@ export abstract class SelectClause<Q, M extends Model, R>
   /**
    * @inheritDoc
    */
-  distinct<R extends SelectSelector<M>>(
-    selector: R
-  ): DistinctOption<M, DistinctQueryResult<M, R>> {
+  distinct<const S extends SelectSelector<M>>(
+    selector: S
+  ): DistinctOption<M, M[S][]> {
     this.isDistinct = true;
     this.selector = [selector];
-    return this as DistinctOption<M, DistinctQueryResult<M, R>>;
+    return this as DistinctOption<M, M[S][]>;
   }
   /**
    * @inheritDoc
    */
-  count(selector: SelectSelector<M>): CountOption<M, number> {
-    this.selector = [selector];
+  count<const S extends SelectSelector<M>>(
+    selector?: S
+  ): CountOption<M, number> {
+    this.selector = selector ? [selector] : undefined;
     return this as CountOption<M, number>;
   }
   /**
    * @inheritDoc
    */
-  min<R extends SelectSelector<M>>(
-    selector: R
-  ): MinOption<M, ReducedResult<M, R>> {
+  min<const S extends SelectSelector<M>>(selector: S): MinOption<M, M[S]> {
     this.selector = [selector];
-    return this as MinOption<M, ReducedResult<M, R>>;
+    return this as MinOption<M, M[S]>;
   }
   /**
    * @inheritDoc
    */
-  max<R extends SelectSelector<M>>(
-    selector: R
-  ): MaxOption<M, ReducedResult<M, R>> {
+  max<const S extends SelectSelector<M>>(selector: S): MaxOption<M, M[S]> {
     this.selector = [selector];
-    return this as MaxOption<M, ReducedResult<M, R>>;
+    return this as MaxOption<M, M[S]>;
   }
   /**
    * @inheritDoc

@@ -92,7 +92,13 @@ describe("Adapter", () => {
     @repository(Managed2Model)
     @uses("ram")
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    class Managed2ModelRepository extends Repository<Managed2Model> {
+    class Managed2ModelRepository extends Repository<
+      Managed2Model,
+      any,
+      any,
+      any,
+      any
+    > {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       create(model: Managed2Model, ...args: any[]): Promise<Managed2Model> {
         throw new Error("Method not implemented.");

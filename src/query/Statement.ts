@@ -43,7 +43,7 @@ export abstract class Statement<Q, M extends Model, R>
   @required()
   protected target?: Constructor<M> = undefined;
 
-  selectors?: (keyof M)[];
+  protected isFullRecord: boolean = false;
 
   @required()
   protected type?: string = undefined;
@@ -102,7 +102,7 @@ export abstract class Statement<Q, M extends Model, R>
 
   async raw<R>(rawInput: Q, ...args: any[]): Promise<R> {
     const results = await this.adapter.raw<R>(rawInput, true, ...args);
-    if (!this.selectors) return results;
+    if (this.isFullRecord) return results;
     if (!this.target)
       throw new InternalError(
         "No target defined in statement. should never happen"
@@ -179,8 +179,8 @@ export abstract class Statement<Q, M extends Model, R>
     return this.target;
   }
 
-  setSelectors(selectors: (keyof M)[]) {
-    this.selectors = selectors;
+  setFullRecord(fullRecord = true) {
+    this.isFullRecord = fullRecord;
   }
 
   setMode(type: StatementType) {

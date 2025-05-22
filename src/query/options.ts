@@ -10,7 +10,6 @@ import { ClauseExecutor } from "../interfaces";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { Condition } from "./Condition";
 import { Paginatable } from "../interfaces/Paginatable";
-import { DistinctQueryResult, ReducedResult } from "./types";
 
 /**
  * @summary Statement Builder interface
@@ -233,34 +232,32 @@ export interface SelectOption<M extends Model, R> extends FromOption<M, R> {
    * @param {SelectSelector} selector
    * @method
    */
-  distinct<R extends SelectSelector<M>>(
-    selector: R
-  ): DistinctOption<M, DistinctQueryResult<M, R>>;
+  distinct<const S extends SelectSelector<M>>(
+    selector: S
+  ): DistinctOption<M, M[S][]>;
   /**
    * @summary the maximum value
    *
    * @param {SelectSelector} selector
    * @method
    */
-  max<R extends SelectSelector<M>>(
-    selector: R
-  ): MaxOption<M, ReducedResult<M, R>>;
+  max<const S extends SelectSelector<M>>(selector: S): MaxOption<M, M[S]>;
   /**
    * @summary selects the minimum value
    *
    * @param {SelectSelector} selector
    * @method
    */
-  min<R extends SelectSelector<M>>(
-    selector: R
-  ): MinOption<M, ReducedResult<M, R>>;
+  min<const S extends SelectSelector<M>>(selector: S): MinOption<M, M[S]>;
   /**
    * @summary counts the records
    *
    * @param {SelectSelector} selector
    * @method
    */
-  count(selector?: SelectSelector<M>): CountOption<M, number>;
+  count<const S extends SelectSelector<M>>(
+    selector?: S
+  ): CountOption<M, number>;
 }
 
 /**

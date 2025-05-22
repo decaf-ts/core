@@ -28,7 +28,6 @@ import { WhereOption } from "../query/options";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
 import { getTableName } from "../identity/utils";
 import { uses } from "../persistence/decorators";
-import { QueryResult } from "../query";
 
 export type Repo<
   M extends Model,
@@ -444,11 +443,19 @@ export class Repository<
       this.adapter.revert(r, this.class, this.pk, keys[i])
     );
   }
-
-  select<S extends SelectSelector<M>[]>(
-    selector?: SelectSelector<M>[]
-  ): WhereOption<M, QueryResult<M, S>> {
-    return new Query<Q, M>(this.adapter).select(selector).from(this.class);
+  select<
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const S extends readonly SelectSelector<M>[],
+  >(): WhereOption<M, M[]>;
+  select<const S extends readonly SelectSelector<M>[]>(
+    selector: readonly [...S]
+  ): WhereOption<M, Pick<M, S[number]>[]>;
+  select<const S extends readonly SelectSelector<M>[]>(
+    selector?: readonly [...S]
+  ): WhereOption<M, M[]> | WhereOption<M, Pick<M, S[number]>[]> {
+    return new Query<Q, M>(this.adapter)
+      .select(selector as readonly [...S])
+      .from(this.class);
   }
 
   async query(

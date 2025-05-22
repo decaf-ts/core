@@ -13,7 +13,6 @@ import {
   OrderByClause,
   OrderBySelector,
   QueryError,
-  QueryResult,
   SelectClause,
   SelectSelector,
   ValuesClause,
@@ -120,11 +119,18 @@ export class RamClauseFactory extends ClauseFactory<RamStorage, RamAdapter> {
       selector: selector,
     });
   }
-
-  select<M extends Model, S extends SelectSelector<M>[]>(
-    selector?: S
-  ): SelectClause<RamQuery<M>, M, QueryResult<M, S>> {
-    return new RamSelectClause<M, QueryResult<M, S>>({
+  select<
+    M extends Model,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const S extends readonly SelectSelector<M>[],
+  >(): SelectClause<any, M, M[]>;
+  select<M extends Model, const S extends readonly SelectSelector<M>[]>(
+    selector: readonly [...S]
+  ): SelectClause<any, M, Pick<M, S[number]>>;
+  select<M extends Model, const S extends SelectSelector<M>[]>(
+    selector?: readonly [...S]
+  ): SelectClause<any, M, M[]> | SelectClause<any, M, Pick<M, S[number]>> {
+    return new RamSelectClause<M, M[]>({
       statement: new RamStatement(this.adapter),
       selector: selector,
     });

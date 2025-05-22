@@ -26,7 +26,7 @@ export abstract class SelectorBasedClause<
    * @protected
    */
   @required()
-  protected selector?: S = undefined;
+  protected selector?: S;
 
   protected constructor(clause?: ModelArg<SelectorBasedClause<Q, S, M, R>>) {
     super(clause);

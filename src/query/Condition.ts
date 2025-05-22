@@ -185,6 +185,10 @@ export class Condition<M extends Model> extends Model {
       return this;
     }
 
+    attr(attr: keyof M) {
+      return this.attribute(attr);
+    }
+
     /**
      * @summary Creates an Equality Comparison
      * @param {any} val

@@ -9,4 +9,3 @@ export * from "./Paginator";
 export * from "./Query";
 export * from "./selectors";
 export * from "./Statement";
-export * from "./types";

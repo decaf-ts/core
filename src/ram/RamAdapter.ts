@@ -57,9 +57,9 @@ export async function createdByOnRamCreateUpdate<
   model[key] = uuid as M[keyof M];
 }
 
-export class RamAdapter extends Adapter<
+export class RamAdapter<M extends Model = any> extends Adapter<
   RamStorage,
-  RamQuery<any>,
+  RamQuery<M>,
   RamFlags,
   Context<RamFlags>
 > {
@@ -211,7 +211,7 @@ export class RamAdapter extends Adapter<
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async raw<Z>(rawInput: RamQuery<any>, process: boolean): Promise<Z> {
+  async raw<R>(rawInput: RamQuery<any>, process: boolean): Promise<R> {
     const { where, sort, limit, skip, from } = rawInput;
     let { select } = rawInput;
     const collection = this.tableFor(from);
@@ -260,7 +260,7 @@ export class RamAdapter extends Adapter<
       );
     }
 
-    return result as unknown as Z;
+    return result as unknown as R;
   }
 
   async paginate<Z>(rawInput: string): Promise<Paginator<Z, string>> {
@@ -298,7 +298,7 @@ export class RamAdapter extends Adapter<
     return new RamSequence(options, this);
   }
 
-  parseCondition<M extends Model>(condition: Condition<M>): RamQuery<M> {
+  parseCondition<M extends Model>(condition: Condition<M>): RamQuery<any> {
     return {
       where: (m: Model) => {
         const { attr1, operator, comparison } = condition as unknown as {

@@ -9,11 +9,15 @@ import { RawRamQuery } from "./types";
 import { Model } from "@decaf-ts/decorator-validation";
 import { RamPaginator } from "./RamPaginator";
 import { InternalError } from "@decaf-ts/db-decorators";
-import { Query } from "../query/Query";
+import { Statement } from "../query/Statement";
 import { Reflection } from "@decaf-ts/reflection";
 import { RamAdapter } from "./RamAdapter";
 
-export class RamQuery<M extends Model, R> extends Query<RawRamQuery<M>, M, R> {
+export class RamStatement<M extends Model, R> extends Statement<
+  RawRamQuery<M>,
+  M,
+  R
+> {
   constructor(adapter: RamAdapter) {
     super(adapter as any);
   }

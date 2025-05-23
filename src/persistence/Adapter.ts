@@ -25,7 +25,7 @@ import { PersistenceKeys } from "./constants";
 import { Repository } from "../repository/Repository";
 import { Sequence } from "./Sequence";
 import { ErrorParser } from "../interfaces";
-import { Query } from "../query/Query";
+import { Statement } from "../query/Statement";
 
 Decoration.setFlavourResolver((obj: object) => {
   try {
@@ -94,7 +94,7 @@ export abstract class Adapter<
     if (!Adapter._current) Adapter._current = this;
   }
 
-  abstract Query<M extends Model>(): Query<Q, M, any>;
+  abstract Statement<M extends Model>(): Statement<Q, M, any>;
 
   protected isReserved(attr: string) {
     return !attr;

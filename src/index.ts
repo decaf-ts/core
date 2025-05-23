@@ -1,14 +1,17 @@
 import { InjectablesRegistry } from "./repository";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 
+// overrides the previous Injectables registry to enable the @repository decorator
+Injectables.setRegistry(new InjectablesRegistry());
+
 export * from "./identity";
 export * from "./interfaces";
 export * from "./model";
-export * from "./persistence";
 export * from "./query";
 export * from "./repository";
-
-Injectables.setRegistry(new InjectablesRegistry());
+export * from "./utils";
+//left to last on purpose
+export * from "./persistence";
 
 /**
  * @summary stores the current package version

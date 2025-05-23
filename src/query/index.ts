@@ -4,4 +4,4 @@ export * from "./errors";
 export * from "./options";
 export * from "./Paginator";
 export * from "./selectors";
-export * from "./Query";
+export * from "./Statement";

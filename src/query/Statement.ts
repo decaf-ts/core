@@ -25,7 +25,7 @@ import { Paginator } from "./Paginator";
 import { Adapter } from "../persistence";
 import { QueryError } from "./errors";
 
-export abstract class Query<Q, M extends Model, R>
+export abstract class Statement<Q, M extends Model, R>
   implements Executor<R>, RawExecutor<Q>, Paginatable<R, Q>
 {
   protected readonly selectSelector?: SelectSelector<M>[];
@@ -148,7 +148,10 @@ export abstract class Query<Q, M extends Model, R>
       new (this.fromSelector as Constructor<M>)()
     ).id;
 
-    const processor = function recordProcessor(this: Query<Q, M, R>, r: any) {
+    const processor = function recordProcessor(
+      this: Statement<Q, M, R>,
+      r: any
+    ) {
       const id = r[pkAttr];
       return this.adapter.revert(
         r,

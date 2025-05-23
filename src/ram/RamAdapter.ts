@@ -1,6 +1,6 @@
 import { Context } from "@decaf-ts/db-decorators";
 import { RamFlags, RawRamQuery, RamStorage, RamRepository } from "./types";
-import { RamQuery } from "./RamQuery";
+import { RamStatement } from "./RamStatement";
 import * as crypto from "node:crypto";
 import { RamContext } from "./RamContext";
 import { Repository } from "../repository/Repository";
@@ -223,8 +223,8 @@ export class RamAdapter extends Adapter<
     return new InternalError(err) as V;
   }
 
-  Query<M extends Model>(): RamQuery<M, any> {
-    return new RamQuery<M, any>(this as any);
+  Statement<M extends Model>(): RamStatement<M, any> {
+    return new RamStatement<M, any>(this as any);
   }
 
   async Sequence(options: SequenceOptions): Promise<Sequence> {

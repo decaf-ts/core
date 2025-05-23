@@ -8,7 +8,7 @@ export * from "./constants";
 export * from "./handlers";
 export * from "./RamContext";
 export * from "./RamPaginator";
-export * from "./RamQuery";
+export * from "./RamStatement";
 export * from "./RamSequence";
 export * from "./types";
 // left to last on purpose

@@ -468,7 +468,7 @@ export class Repository<
     selector?: readonly [...S]
   ): WhereOption<M, M[]> | WhereOption<M, Pick<M, S[number]>[]> {
     return this.adapter
-      .Query<M>()
+      .Statement<M>()
       .select(selector as readonly [...S])
       .from(this.class);
   }

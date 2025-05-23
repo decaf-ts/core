@@ -96,7 +96,6 @@ export async function uniqueOnCreateUpdate<
  *
  * @function unique
  *
- * @memberOf module:wallet-db.Decorators
  */
 export function unique() {
   return apply(
@@ -144,13 +143,12 @@ export function updatedBy() {
 /**
  * @summary One To One relation Decorators
  *
- * @param {Constructor<any>} clazz the {@link Sequence} to use. Defaults to {@link NoneSequence}
+ * @param {Constructor<any>} clazz the {@link Sequence}
  * @param {CascadeMetadata} [cascadeOptions]
  * @param {boolean} populate If true, replaces the specified key in the document with the corresponding record from the database
  *
- * @function onToOne
+ * @function oneToOne
  *
- * @memberOf module:wallet-db.Decorators
  *
  * @see oneToMany
  * @see manyToOne
@@ -183,12 +181,10 @@ export function oneToOne<M extends Model>(
 /**
  * @summary One To Many relation Decorators
  *
- * @param {Constructor<any>} clazz the {@link Sequence} to use. Defaults to {@link NoneSequence}
+ * @param {Constructor<any>} clazz the {@link Sequence} to use.
  * @param {CascadeMetadata} [cascadeOptions]
  *
  * @function oneToMany
- *
- * @memberOf module:wallet-db.Decorators
  *
  * @see oneToOne
  * @see manyToOne
@@ -226,8 +222,6 @@ export function oneToMany<M extends Model>(
  * @param {CascadeMetadata} [cascadeOptions]
  *
  * @function manyToOne
- *
- * @memberOf module:wallet-db.Decorators
  *
  * @see oneToMany
  * @see oneToOne

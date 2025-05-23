@@ -16,12 +16,7 @@ import { QueryError } from "./errors";
  * @param {string | Condition} comparison
  *
  * @class Condition
- * @implements Executor
- *
- * @category Query
- * @subcategory Conditions
  */
-
 export class Condition<M extends Model> extends Model {
   @required()
   protected attr1?: string | Condition<M> = undefined;

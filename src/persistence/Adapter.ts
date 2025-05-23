@@ -26,7 +26,6 @@ import { Repository } from "../repository/Repository";
 import { Sequence } from "./Sequence";
 import { ErrorParser } from "../interfaces";
 import { Query } from "../query/Query";
-import { final } from "../utils/decorators";
 
 Decoration.setFlavourResolver((obj: object) => {
   try {

@@ -11,24 +11,7 @@ import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { Condition } from "./Condition";
 import { Paginatable } from "../interfaces/Paginatable";
 
-/**
- * @summary Statement Builder interface
- * @description Exposes the final method to build the statement
- *
- * @typedef Q The query object type to build
- * @interface QueryBuilder
- *
- * @category Query
- * @subcategory Options
- *
- */
 export interface QueryBuilder<Q, R> extends Executor<R> {
-  /**
-   * Method to build and validate the prepared statement before the execution;
-   *
-   * @throws {QueryError}  for invalid statements
-   * @method
-   */
   build(previous: Q): Q;
 }
 
@@ -38,17 +21,8 @@ export interface QueryBuilder<Q, R> extends Executor<R> {
  *
  * @interface GroupByOption
  * @extends QueryBuilder
- *
- * @category Query
- * @subcategory Options
  */
 export interface GroupByOption<M extends Model, R> extends Executor<R> {
-  /**
-   * @summary Groups records by an attribute
-   *
-   * @param {GroupBySelector} selector
-   * @method
-   */
   groupBy(selector: GroupBySelector<M>): Executor<R>;
 }
 /**
@@ -57,17 +31,8 @@ export interface GroupByOption<M extends Model, R> extends Executor<R> {
  *
  * @interface GroupByOption
  * @extends QueryBuilder
- *
- * @category Query
- * @subcategory Options
  */
 export interface OffsetOption<R> extends Executor<R> {
-  /**
-   * @summary Offsets the results by the provided selector
-   *
-   * @param {OffsetSelector} selector
-   * @method
-   */
   offset(selector: OffsetSelector): Executor<R>;
 }
 /**
@@ -76,38 +41,20 @@ export interface OffsetOption<R> extends Executor<R> {
  *
  * @interface LimitOption
  * @extends QueryBuilder
- *
- * @category Query
- * @subcategory Options
  */
 export interface LimitOption<R> extends Executor<R>, Paginatable<R, any> {
-  /**
-   * @summary Limits the results to the provided number
-   *
-   * @param {LimitSelector} selector
-   * @method
-   */
   limit(selector: LimitSelector): OffsetOption<R>;
 }
 /**
- * @summary OrderpBy Option interface
+ * @summary OrderBy Option interface
  * @description Exposes the ORDER BY method and remaining options
  *
  * @interface OrderByOption
  * @extends QueryBuilder
- *
- * @category Query
- * @subcategory Options
  */
 export interface OrderByOption<M extends Model, R>
   extends Executor<R>,
     Paginatable<R, any> {
-  /**
-   * @summary Orders the results by the provided attribute and according to the provided direction
-   *
-   * @param {OrderBySelector} selector
-   * @method
-   */
   orderBy(...selector: OrderBySelector<M>[]): LimitOption<R> & OffsetOption<R>;
 }
 /**
@@ -118,9 +65,6 @@ export interface OrderByOption<M extends Model, R>
  * @extends GroupByOption
  * @extends LimitOption
  * @extends OffsetOption
- *
- * @category Query
- * @subcategory Options
  */
 export interface OrderAndGroupOption<M extends Model, R>
   extends OrderByOption<M, R>,
@@ -134,9 +78,6 @@ export interface OrderAndGroupOption<M extends Model, R>
  *
  * @interface WhereOption
  * @extends OrderAndGroupOption
- *
- * @category Query
- * @subcategory Options
  */
 export interface WhereOption<M extends Model, R>
   extends OrderAndGroupOption<M, R> {
@@ -154,9 +95,6 @@ export interface WhereOption<M extends Model, R>
  * @description Exposes the FROM method and remaining options
  *
  * @interface FromOption
- *
- * @category Query
- * @subcategory Options
  */
 export interface FromOption<M extends Model, R> {
   /**
@@ -174,9 +112,6 @@ export interface FromOption<M extends Model, R> {
  *
  * @interface DistinctOption
  * @extends FromOption
- *
- * @category Query
- * @subcategory Options
  */
 export interface DistinctOption<M extends Model, R> extends FromOption<M, R> {}
 
@@ -186,9 +121,6 @@ export interface DistinctOption<M extends Model, R> extends FromOption<M, R> {}
  *
  * @interface MaxOption
  * @extends FromOption
- *
- * @category Query
- * @subcategory Options
  */
 export interface MaxOption<M extends Model, R> extends FromOption<M, R> {}
 
@@ -198,9 +130,6 @@ export interface MaxOption<M extends Model, R> extends FromOption<M, R> {}
  *
  * @interface MinOption
  * @extends FromOption
- *
- * @category Query
- * @subcategory Options
  */
 export interface MinOption<M extends Model, R> extends FromOption<M, R> {}
 
@@ -210,9 +139,6 @@ export interface MinOption<M extends Model, R> extends FromOption<M, R> {}
  *
  * @interface CountOption
  * @extends FromOption
- *
- * @category Query
- * @subcategory Options
  */
 export interface CountOption<M extends Model, R> extends FromOption<M, R> {}
 
@@ -222,40 +148,16 @@ export interface CountOption<M extends Model, R> extends FromOption<M, R> {}
  *
  * @interface SelectOption
  * @extends FromOption
- *
- * @category Query
- * @subcategory Options
  */
 export interface SelectOption<M extends Model, R> extends FromOption<M, R> {
-  /**
-   * @summary selects distinct values
-   *
-   * @param {SelectSelector} selector
-   * @method
-   */
   distinct<const S extends SelectSelector<M>>(
     selector: S
   ): DistinctOption<M, M[S][]>;
-  /**
-   * @summary the maximum value
-   *
-   * @param {SelectSelector} selector
-   * @method
-   */
+
   max<const S extends SelectSelector<M>>(selector: S): MaxOption<M, M[S]>;
-  /**
-   * @summary selects the minimum value
-   *
-   * @param {SelectSelector} selector
-   * @method
-   */
+
   min<const S extends SelectSelector<M>>(selector: S): MinOption<M, M[S]>;
-  /**
-   * @summary counts the records
-   *
-   * @param {SelectSelector} selector
-   * @method
-   */
+
   count<const S extends SelectSelector<M>>(
     selector?: S
   ): CountOption<M, number>;
@@ -266,24 +168,10 @@ export interface SelectOption<M extends Model, R> extends FromOption<M, R> {
  * @description Exposes the remaining options after an INTO
  *
  * @interface IntoOption
- *
- * @category Query
- * @subcategory Options
  */
 export interface IntoOption<M extends Model, R> {
-  /**
-   * @summary sets the models to insert
-   *
-   * @param {M[]} models
-   * @method
-   */
   values(...models: M[]): Executor<R>;
-  /**
-   * @summary filter records to insert
-   *
-   * @param {Condition} condition
-   * @method
-   */
+
   where(condition: Condition<M>): Executor<R>;
 }
 /**
@@ -292,9 +180,6 @@ export interface IntoOption<M extends Model, R> {
  *
  * @interface ValuesOption
  * @extends QueryBuilder
- *
- * @category Query
- * @subcategory Options
  */
 export interface ValuesOption<M extends Model> extends Executor<M> {}
 /**
@@ -302,9 +187,6 @@ export interface ValuesOption<M extends Model> extends Executor<M> {}
  * @description Exposes the remaining options after an INSERT
  *
  * @interface InsertOption
- *
- * @category Query
- * @subcategory Options
  */
 export interface InsertOption<M extends Model, R = void> {
   /**
@@ -321,9 +203,6 @@ export interface InsertOption<M extends Model, R = void> {
  * @description Exposes the available operators for a {@link Condition}
  *
  * @interface AttributeOption
- *
- * @category Query
- * @subcategory Conditions
  */
 export interface AttributeOption<M extends Model> {
   /**
@@ -386,9 +265,6 @@ export interface AttributeOption<M extends Model> {
  * @description Exposes the available operations for a {@link Condition}
  *
  * @interface ConditionBuilderOption
- *
- * @category Query
- * @subcategory Conditions
  */
 export interface ConditionBuilderOption<M extends Model> {
   attribute(attr: keyof M): AttributeOption<M>;

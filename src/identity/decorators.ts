@@ -22,24 +22,6 @@ import { Sequence } from "../persistence/Sequence";
 import { Context } from "@decaf-ts/db-decorators";
 import { OrderDirection } from "../repository";
 
-/**
- * @summary Primary Key Decorator
- * @description Marks the property as the {@link Model}s primary key.
- *  Also marks the property as {@link unique} as {@required} and ensures the index is created properly according to the provided {@link Sequence}
- *
- *
- *
- * @function pk
- *
- * @memberOf module:wallet-db.Decorators
- *
- * @see unique
- * @see required
- * @see on
- * @param data
- * @param key
- * @param model
- */
 export async function pkOnCreate<
   M extends Model,
   R extends Repo<M, F, C>,
@@ -83,6 +65,17 @@ export async function pkOnCreate<
   setPrimaryKeyValue(model, key as string, next);
 }
 
+/**
+ * @summary Primary Key Decorator
+ * @description Marks the property as the {@link Model}s primary key.
+ *  Also marks the property as {@link unique} as {@required} and ensures the index is created properly according to the provided {@link Sequence}
+ *
+ * @function pk
+ *
+ * @see unique
+ * @see required
+ * @see on
+ */
 export function pk(
   opts: Omit<
     SequenceOptions,

@@ -5,17 +5,6 @@ import { SequenceOptions } from "../interfaces";
 import { RamAdapter } from "./RamAdapter";
 import { Repo, Repository } from "../repository";
 
-/**
- * @summary Abstract implementation of a Sequence
- * @description provides the basic functionality for {@link Sequence}s
- *
- * @param {SequenceOptions} options
- *
- * @class CouchDBSequence
- * @implements Sequence
- *
- * @category Sequences
- */
 export class RamSequence extends Sequence {
   protected repo: Repo<Seq>;
 
@@ -24,10 +13,6 @@ export class RamSequence extends Sequence {
     this.repo = Repository.forModel(Seq, adapter.flavour);
   }
 
-  /**
-   * @summary Retrieves the current value for the sequence
-   * @protected
-   */
   async current(): Promise<string | number | bigint> {
     const { name, startWith } = this.options;
     try {
@@ -53,24 +38,10 @@ export class RamSequence extends Sequence {
     }
   }
 
-  /**
-   * @summary Parses the {@link Sequence} value
-   *
-   * @protected
-   * @param value
-   */
   private parse(value: string | number | bigint): string | number | bigint {
     return Sequence.parseValue(this.options.type, value);
   }
 
-  /**
-   * @summary increments the sequence
-   * @description Sequence specific implementation
-   *
-   * @param {string | number | bigint} current
-   * @param count
-   * @protected
-   */
   private async increment(
     current: string | number | bigint,
     count?: number
@@ -108,12 +79,6 @@ export class RamSequence extends Sequence {
     return seq.current as string | number | bigint;
   }
 
-  /**
-   * @summary Generates the next value in th sequence
-   * @description calls {@link Sequence#parse} on the current value
-   * followed by {@link Sequence#increment}
-   *
-   */
   async next(): Promise<number | string | bigint> {
     const current = await this.current();
     return this.increment(current);

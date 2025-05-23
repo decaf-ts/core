@@ -34,7 +34,7 @@ import {
   oneToOneOnUpdate,
   populate as pop,
 } from "./construction";
-import { UnsupportedError } from "../persistence/errors";
+import { AuthorizationError } from "../utils";
 
 export function table(tableName: string) {
   return metadata(Adapter.key(PersistenceKeys.TABLE), tableName);
@@ -121,7 +121,7 @@ export async function createdByOnCreateUpdate<
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   model: M
 ): Promise<void> {
-  throw new UnsupportedError(
+  throw new AuthorizationError(
     "This adapter does not support user identification"
   );
 }

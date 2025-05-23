@@ -157,6 +157,10 @@ export class Condition<M extends Model> extends Model {
     return new Condition.Builder<M>().attribute(attr);
   }
 
+  static attr<M extends Model>(attr: keyof M) {
+    return this.attribute(attr);
+  }
+
   /**
    * @summary Condition Builder Class
    * @description provides a simple API to build {@link Condition}s

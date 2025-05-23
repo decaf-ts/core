@@ -85,10 +85,15 @@ export class RamStatement<M extends Model, R> extends Statement<
     return result;
   }
 
-  async paginate(size: number): Promise<Paginator<R, RawRamQuery<M>>> {
+  async paginate(size: number): Promise<Paginator<M, R, RawRamQuery<M>>> {
     try {
       const query = this.build();
-      return new RamPaginator<R, M>(this.adapter, query, size);
+      return new RamPaginator<M, R>(
+        this.adapter,
+        query,
+        size,
+        this.fromSelector
+      );
     } catch (e: any) {
       throw new InternalError(e);
     }

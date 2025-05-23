@@ -174,28 +174,13 @@ export class RamAdapter extends Adapter<
     const collection = this.tableFor(from);
     const { id, props } = findPrimaryKey(new from());
 
-    function parseId(id: any) {
-      let result = id;
-      switch (props.type) {
-        case "Number":
-          result = parseInt(result);
-          if (isNaN(result)) throw new Error(`Invalid id ${id}`);
-          break;
-        case "BigInt":
-          result = BigInt(parseInt(result));
-          break;
-        case "String":
-          break;
-        default:
-          throw new InternalError(
-            `Invalid id type ${props.type}. should be impossible`
-          );
-      }
-      return result;
-    }
-
     let result: any[] = Object.entries(collection).map(([pk, r]) =>
-      this.revert(r, from, id as any, parseId(pk))
+      this.revert(
+        r,
+        from,
+        id as any,
+        Sequence.parseValue(props.type as any, pk as string) as string
+      )
     );
 
     result = where ? result.filter(where) : result;

@@ -1,18 +1,20 @@
 import { RawRamQuery } from "./types";
 import { Paginator } from "../query";
-import { Model } from "@decaf-ts/decorator-validation";
+import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { Adapter } from "../persistence";
 
-export class RamPaginator<R, M extends Model> extends Paginator<
+export class RamPaginator<M extends Model, R> extends Paginator<
+  M,
   R,
   RawRamQuery<M>
 > {
   constructor(
     adapter: Adapter<any, RawRamQuery<M>, any, any>,
     query: RawRamQuery<M>,
-    size: number
+    size: number,
+    clazz: Constructor<M>
   ) {
-    super(adapter, query, size);
+    super(adapter, query, size, clazz);
   }
 
   protected prepare(rawStatement: RawRamQuery<M>): RawRamQuery<M> {

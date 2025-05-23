@@ -26,7 +26,7 @@ import { Adapter } from "../persistence";
 import { QueryError } from "./errors";
 
 export abstract class Statement<Q, M extends Model, R>
-  implements Executor<R>, RawExecutor<Q>, Paginatable<R, Q>
+  implements Executor<R>, RawExecutor<Q>, Paginatable<M, R, Q>
 {
   protected readonly selectSelector?: SelectSelector<M>[];
   protected distinctSelector?: SelectSelector<M>;
@@ -108,13 +108,13 @@ export abstract class Statement<Q, M extends Model, R>
   @final()
   public orderBy(
     selector: OrderBySelector<M>
-  ): LimitOption<R> & OffsetOption<R> {
+  ): LimitOption<M, R> & OffsetOption<R> {
     this.orderBySelector = selector;
     return this;
   }
 
   @final()
-  public groupBy(selector: GroupBySelector<M>): LimitOption<R> {
+  public groupBy(selector: GroupBySelector<M>): LimitOption<M, R> {
     this.groupBySelector = selector;
     return this;
   }
@@ -167,5 +167,5 @@ export abstract class Statement<Q, M extends Model, R>
 
   protected abstract build(): Q;
   protected abstract parseCondition(condition: Condition<M>): Q;
-  abstract paginate(size: number): Promise<Paginator<R, Q>>;
+  abstract paginate(size: number): Promise<Paginator<M, R, Q>>;
 }

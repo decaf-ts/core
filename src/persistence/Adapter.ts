@@ -254,7 +254,7 @@ export abstract class Adapter<
     return Promise.all(id.map((i) => this.delete(tableName, i, ...args)));
   }
 
-  abstract raw<R>(rawInput: Q): Promise<R>;
+  abstract raw<R>(rawInput: Q, ...args: any[]): Promise<R>;
 
   /**
    * @summary Registers an {@link Observer}

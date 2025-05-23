@@ -42,7 +42,9 @@ export interface OffsetOption<R> extends Executor<R> {
  * @interface LimitOption
  * @extends QueryBuilder
  */
-export interface LimitOption<R> extends Executor<R>, Paginatable<R, any> {
+export interface LimitOption<M extends Model, R>
+  extends Executor<R>,
+    Paginatable<M, R, any> {
   limit(selector: LimitSelector): OffsetOption<R>;
 }
 /**
@@ -54,8 +56,10 @@ export interface LimitOption<R> extends Executor<R>, Paginatable<R, any> {
  */
 export interface OrderByOption<M extends Model, R>
   extends Executor<R>,
-    Paginatable<R, any> {
-  orderBy(...selector: OrderBySelector<M>[]): LimitOption<R> & OffsetOption<R>;
+    Paginatable<M, R, any> {
+  orderBy(
+    ...selector: OrderBySelector<M>[]
+  ): LimitOption<M, R> & OffsetOption<R>;
 }
 /**
  * @summary Groups several order and grouping options
@@ -70,7 +74,7 @@ export interface OrderAndGroupOption<M extends Model, R>
   extends OrderByOption<M, R>,
     Executor<R>,
     GroupByOption<M, R>,
-    LimitOption<R>,
+    LimitOption<M, R>,
     OffsetOption<R> {}
 /**
  * @summary Where Option interface

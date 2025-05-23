@@ -66,10 +66,13 @@ export abstract class Adapter<
   private static _cache: Record<string, Adapter<any, any, any, any>> = {};
 
   protected readonly _observers: Observer[] = [];
-  private readonly _native: Y;
 
   get native() {
     return this._native;
+  }
+
+  get alias() {
+    return this._alias || this.flavour;
   }
 
   repository<M extends Model>(): Constructor<
@@ -79,15 +82,15 @@ export abstract class Adapter<
   }
 
   protected constructor(
-    native: Y,
-    readonly flavour: string
+    private readonly _native: Y,
+    readonly flavour: string,
+    private readonly _alias?: string
   ) {
     if (this.flavour in Adapter._cache)
       throw new InternalError(
-        `Persistence adapter flavour ${this.flavour} already registered`
+        `${this.alias} persistence adapter ${this._alias ? `(${this.flavour}) ` : ""} already registered`
       );
-    this._native = native;
-    Adapter._cache[this.flavour] = this;
+    Adapter._cache[this.alias] = this;
     if (!Adapter._current) Adapter._current = this;
   }
 

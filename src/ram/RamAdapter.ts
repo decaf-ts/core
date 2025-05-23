@@ -25,6 +25,7 @@ import {
 } from "@decaf-ts/db-decorators";
 import { RamSequence } from "./RamSequence";
 import { createdByOnRamCreateUpdate } from "./handlers";
+import { RamFlavour } from "./constants";
 
 export class RamAdapter extends Adapter<
   RamStorage,
@@ -32,31 +33,19 @@ export class RamAdapter extends Adapter<
   RamFlags,
   Context<RamFlags>
 > {
-  constructor(flavour: string = "ram") {
-    super({}, flavour);
-    const createdByKey = Repository.key(PersistenceKeys.CREATED_BY);
-    const updatedByKey = Repository.key(PersistenceKeys.UPDATED_BY);
-    Decoration.flavouredAs(flavour)
-      .for(createdByKey)
-      .define(
-        onCreate(createdByOnRamCreateUpdate),
-        propMetadata(createdByKey, {})
-      )
-      .apply();
-    Decoration.flavouredAs(flavour)
-      .for(updatedByKey)
-      .define(
-        onCreate(createdByOnRamCreateUpdate),
-        propMetadata(updatedByKey, {})
-      )
-      .apply();
+  constructor(alias: string = RamFlavour) {
+    super({}, RamFlavour, alias);
   }
 
-  repository<M extends Model>(): Constructor<RamRepository<M>> {
+  override repository<M extends Model>(): Constructor<RamRepository<M>> {
     return super.repository<M>() as Constructor<RamRepository<M>>;
   }
 
-  async context<M extends Model, C extends RamContext, F extends RamFlags>(
+  override async context<
+    M extends Model,
+    C extends RamContext,
+    F extends RamFlags,
+  >(
     operation: any,
     overrides: Partial<RamFlags>,
     model: Constructor<M>,
@@ -90,7 +79,7 @@ export class RamAdapter extends Adapter<
     return Promise.resolve(undefined);
   }
 
-  prepare<M extends Model>(
+  override prepare<M extends Model>(
     model: M,
     pk: keyof M
   ): { record: Record<string, any>; id: string } {
@@ -99,7 +88,7 @@ export class RamAdapter extends Adapter<
     return prepared;
   }
 
-  revert<M extends Model>(
+  override revert<M extends Model>(
     obj: Record<string, any>,
     clazz: string | Constructor<M>,
     pk: keyof M,
@@ -241,4 +230,25 @@ export class RamAdapter extends Adapter<
   async Sequence(options: SequenceOptions): Promise<Sequence> {
     return new RamSequence(options, this);
   }
+
+  static decoration() {
+    const createdByKey = Repository.key(PersistenceKeys.CREATED_BY);
+    const updatedByKey = Repository.key(PersistenceKeys.UPDATED_BY);
+    Decoration.flavouredAs(RamFlavour)
+      .for(createdByKey)
+      .define(
+        onCreate(createdByOnRamCreateUpdate),
+        propMetadata(createdByKey, {})
+      )
+      .apply();
+    Decoration.flavouredAs(RamFlavour)
+      .for(updatedByKey)
+      .define(
+        onCreate(createdByOnRamCreateUpdate),
+        propMetadata(updatedByKey, {})
+      )
+      .apply();
+  }
 }
+
+RamAdapter.decoration();

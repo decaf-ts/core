@@ -13,7 +13,7 @@ export class InjectablesRegistry extends InjectableRegistryImp {
     super();
   }
 
-  get<T>(name: string): T | undefined {
+  override get<T>(name: string): T | undefined {
     let injectable = super.get(name);
     if (!injectable)
       try {

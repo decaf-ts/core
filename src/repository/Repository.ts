@@ -143,11 +143,11 @@ export class Repository<
     return this.adapter.revert<M>(record, this.class, this.pk, id);
   }
 
-  async createSuffix(model: M, context: C): Promise<M> {
+  override async createSuffix(model: M, context: C): Promise<M> {
     return super.createSuffix(model, context);
   }
 
-  async createAll(models: M[], ...args: any[]): Promise<M[]> {
+  override async createAll(models: M[], ...args: any[]): Promise<M[]> {
     if (!models.length) return models;
     const prepared = models.map((m) => this.adapter.prepare(m, this.pk));
     const ids = prepared.map((p) => p.id);
@@ -163,7 +163,7 @@ export class Repository<
     );
   }
 
-  protected async createAllPrefix(models: M[], ...args: any[]) {
+  protected override async createAllPrefix(models: M[], ...args: any[]) {
     const contextArgs = await Context.args(
       OperationKeys.CREATE,
       this.class,
@@ -211,7 +211,7 @@ export class Repository<
     return [models, ...contextArgs.args];
   }
 
-  protected async readPrefix(key: string, ...args: any[]) {
+  protected override async readPrefix(key: string, ...args: any[]) {
     const contextArgs = await Context.args(
       OperationKeys.READ,
       this.class,
@@ -236,7 +236,10 @@ export class Repository<
     return this.adapter.revert<M>(m, this.class, this.pk, id);
   }
 
-  protected async readAllPrefix(keys: string[] | number[], ...args: any[]) {
+  protected override async readAllPrefix(
+    keys: string[] | number[],
+    ...args: any[]
+  ) {
     const contextArgs = await Context.args(
       OperationKeys.READ,
       this.class,
@@ -260,7 +263,10 @@ export class Repository<
     return [keys, ...contextArgs.args];
   }
 
-  async readAll(keys: string[] | number[], ...args: any[]): Promise<M[]> {
+  override async readAll(
+    keys: string[] | number[],
+    ...args: any[]
+  ): Promise<M[]> {
     const records = await this.adapter.readAll(this.tableName, keys, ...args);
     return records.map((r, i) =>
       this.adapter.revert(r, this.class, this.pk, keys[i])
@@ -274,7 +280,7 @@ export class Repository<
     return this.adapter.revert<M>(record, this.class, this.pk, id);
   }
 
-  protected async updatePrefix(
+  protected override async updatePrefix(
     model: M,
     ...args: any[]
   ): Promise<[M, ...args: any[]]> {
@@ -314,7 +320,7 @@ export class Repository<
     return [model, ...contextArgs.args];
   }
 
-  async updateAll(models: M[], ...args: any[]): Promise<M[]> {
+  override async updateAll(models: M[], ...args: any[]): Promise<M[]> {
     const records = models.map((m) => this.adapter.prepare(m, this.pk));
     const updated = await this.adapter.updateAll(
       this.tableName,
@@ -327,7 +333,10 @@ export class Repository<
     );
   }
 
-  protected async updateAllPrefix(models: M[], ...args: any[]): Promise<any[]> {
+  protected override async updateAllPrefix(
+    models: M[],
+    ...args: any[]
+  ): Promise<any[]> {
     const contextArgs = await Context.args(
       OperationKeys.UPDATE,
       this.class,
@@ -389,7 +398,7 @@ export class Repository<
     return [models, ...contextArgs.args];
   }
 
-  protected async deletePrefix(key: any, ...args: any[]) {
+  protected override async deletePrefix(key: any, ...args: any[]) {
     const contextArgs = await Context.args(
       OperationKeys.DELETE,
       this.class,
@@ -413,7 +422,10 @@ export class Repository<
     return this.adapter.revert<M>(m, this.class, this.pk, id);
   }
 
-  protected async deleteAllPrefix(keys: string[] | number[], ...args: any[]) {
+  protected override async deleteAllPrefix(
+    keys: string[] | number[],
+    ...args: any[]
+  ) {
     const contextArgs = await Context.args(
       OperationKeys.DELETE,
       this.class,
@@ -436,7 +448,10 @@ export class Repository<
     return [keys, ...contextArgs.args];
   }
 
-  async deleteAll(keys: string[] | number[], ...args: any[]): Promise<M[]> {
+  override async deleteAll(
+    keys: string[] | number[],
+    ...args: any[]
+  ): Promise<M[]> {
     const results = await this.adapter.deleteAll(this.tableName, keys, ...args);
     return results.map((r, i) =>
       this.adapter.revert(r, this.class, this.pk, keys[i])

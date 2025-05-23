@@ -1,5 +1,4 @@
-import { RamAdapter } from "../../src/ram/RamAdapter";
-
+import { RamAdapter, RamRepository } from "../../src/ram";
 const adapter = new RamAdapter();
 import { Adapter, repository, uses, Repository } from "../../src";
 import { TestModel } from "./TestModel";
@@ -7,7 +6,6 @@ import { findPrimaryKey, NotFoundError } from "@decaf-ts/db-decorators";
 import { Model, model } from "@decaf-ts/decorator-validation";
 import type { Constructor } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
-import { RamRepository } from "../../src/ram/types";
 
 Model.setBuilder(Model.fromModel);
 

@@ -63,7 +63,9 @@ export class Condition<M extends Model> extends Model {
   /**
    * @inheritDoc
    */
-  hasErrors(...exceptions: string[]): ModelErrorDefinition | undefined {
+  override hasErrors(
+    ...exceptions: string[]
+  ): ModelErrorDefinition | undefined {
     const errors = super.hasErrors(...exceptions);
     if (errors) return errors;
 

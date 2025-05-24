@@ -27,6 +27,7 @@ import { WhereOption } from "../query/options";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
 import { getTableName } from "../identity/utils";
 import { uses } from "../persistence/decorators";
+import { Logger, Logging } from "@decaf-ts/logging";
 
 export type Repo<
   M extends Model,
@@ -56,6 +57,13 @@ export class Repository<
   private readonly _adapter!: A;
   private _tableName!: string;
   private _overrides?: Partial<F>;
+
+  private logger!: Logger;
+
+  get log() {
+    if (!this.logger) this.logger = Logging.for(this as any);
+    return this.logger;
+  }
 
   protected get adapter(): A {
     if (!this._adapter)
@@ -99,6 +107,9 @@ export class Repository<
   }
 
   override(flags: Partial<F>) {
+    this.log
+      .for(this.override)
+      .debug(`Overriding repository flags with ${JSON.stringify(flags)}`);
     return new Proxy(this, {
       get: (target: typeof this, p: string | symbol, receiver: any) => {
         const result = Reflect.get(target, p, receiver);

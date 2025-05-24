@@ -1,4 +1,3 @@
-import { Context } from "@decaf-ts/db-decorators";
 import { RamFlags, RawRamQuery, RamStorage, RamRepository } from "./types";
 import { RamStatement } from "./RamStatement";
 import * as crypto from "node:crypto";
@@ -16,7 +15,6 @@ import {
 import {
   BaseError,
   ConflictError,
-  DefaultRepositoryFlags,
   findPrimaryKey,
   InternalError,
   NotFoundError,
@@ -31,7 +29,7 @@ export class RamAdapter extends Adapter<
   RamStorage,
   RawRamQuery<any>,
   RamFlags,
-  Context<RamFlags>
+  RamContext
 > {
   constructor(alias: string = RamFlavour) {
     super({}, RamFlavour, alias);
@@ -41,27 +39,18 @@ export class RamAdapter extends Adapter<
     return super.repository<M>() as Constructor<RamRepository<M>>;
   }
 
-  override async context<
-    M extends Model,
-    C extends RamContext,
-    F extends RamFlags,
-  >(
-    operation: any,
-    overrides: Partial<RamFlags>,
+  override flags<M extends Model>(
+    operation: OperationKeys,
     model: Constructor<M>,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    ...args: any[]
-  ): Promise<C> {
-    return new RamContext(
-      Object.assign({}, DefaultRepositoryFlags, overrides, {
-        affectedTables: [model.name],
-        writeOperation: operation !== OperationKeys.READ,
-        timestamp: new Date(),
-        operation: operation,
-        UUID: crypto.randomUUID(),
-      }) as F
-    ) as C;
+    flags: Partial<RamFlags>
+  ): RamFlags {
+    return Object.assign(super.flags(operation, model, flags), {
+      UUID: crypto.randomUUID(),
+    }) as RamFlags;
   }
+
+  override Context = RamContext;
+
   private indexes: Record<
     string,
     Record<string | number, Record<string, any>>

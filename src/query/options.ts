@@ -11,16 +11,11 @@ import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { Condition } from "./Condition";
 import { Paginatable } from "../interfaces/Paginatable";
 
-export interface QueryBuilder<Q, R> extends Executor<R> {
-  build(previous: Q): Q;
-}
-
 /**
  * @summary GroupBy Option interface
  * @description Exposes the GROUP BY method and remaining options
  *
  * @interface GroupByOption
- * @extends QueryBuilder
  */
 export interface GroupByOption<M extends Model, R> extends Executor<R> {
   groupBy(selector: GroupBySelector<M>): Executor<R>;
@@ -30,7 +25,6 @@ export interface GroupByOption<M extends Model, R> extends Executor<R> {
  * @description Exposes the OFFSET method and remaining options
  *
  * @interface GroupByOption
- * @extends QueryBuilder
  */
 export interface OffsetOption<R> extends Executor<R> {
   offset(selector: OffsetSelector): Executor<R>;
@@ -40,7 +34,6 @@ export interface OffsetOption<R> extends Executor<R> {
  * @description Exposes the LIMIT method and remaining options
  *
  * @interface LimitOption
- * @extends QueryBuilder
  */
 export interface LimitOption<M extends Model, R>
   extends Executor<R>,
@@ -52,14 +45,24 @@ export interface LimitOption<M extends Model, R>
  * @description Exposes the ORDER BY method and remaining options
  *
  * @interface OrderByOption
- * @extends QueryBuilder
  */
 export interface OrderByOption<M extends Model, R>
   extends Executor<R>,
     Paginatable<M, R, any> {
-  orderBy(
-    ...selector: OrderBySelector<M>[]
-  ): LimitOption<M, R> & OffsetOption<R>;
+  orderBy(selector: OrderBySelector<M>): LimitOption<M, R> & OffsetOption<R>;
+}
+/**
+ * @summary OrderBy Option interface
+ * @description Exposes the ORDER BY method and remaining options
+ *
+ * @interface ThenByOption
+ */
+export interface ThenByOption<M extends Model, R>
+  extends LimitOption<M, R>,
+    OffsetOption<R>,
+    Executor<R>,
+    Paginatable<M, R, any> {
+  thenBy(selector: OrderBySelector<M>): ThenByOption<M, R>;
 }
 /**
  * @summary Groups several order and grouping options
@@ -183,7 +186,6 @@ export interface IntoOption<M extends Model, R> {
  * @description Exposes the remaining options after a VALUES
  *
  * @interface ValuesOption
- * @extends QueryBuilder
  */
 export interface ValuesOption<M extends Model> extends Executor<M> {}
 /**

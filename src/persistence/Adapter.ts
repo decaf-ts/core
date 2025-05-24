@@ -6,12 +6,12 @@ import {
   Context,
   OperationKeys,
   RepositoryFlags,
-  Contextual,
   DefaultRepositoryFlags,
+  Contextual,
 } from "@decaf-ts/db-decorators";
 import { Observer } from "../interfaces/Observer";
 import {
-  Constructor,
+  type Constructor,
   Decoration,
   DefaultFlavour,
   Model,
@@ -26,6 +26,8 @@ import { Repository } from "../repository/Repository";
 import { Sequence } from "./Sequence";
 import { ErrorParser } from "../interfaces";
 import { Statement } from "../query/Statement";
+import { Logger, Logging } from "@decaf-ts/logging";
+import { final } from "../utils";
 
 Decoration.setFlavourResolver((obj: object) => {
   try {
@@ -60,12 +62,19 @@ export abstract class Adapter<
     F extends RepositoryFlags,
     C extends Context<F>,
   >
-  implements RawExecutor<Q>, Observable, Contextual<F>, ErrorParser
+  implements RawExecutor<Q>, Contextual<F, C>, Observable, ErrorParser
 {
   private static _current: Adapter<any, any, any, any>;
   private static _cache: Record<string, Adapter<any, any, any, any>> = {};
 
   protected readonly _observers: Observer[] = [];
+
+  private logger!: Logger;
+
+  protected get log() {
+    if (!this.logger) this.logger = Logging.for(this as any);
+    return this.logger;
+  }
 
   get native() {
     return this._native;
@@ -91,7 +100,13 @@ export abstract class Adapter<
         `${this.alias} persistence adapter ${this._alias ? `(${this.flavour}) ` : ""} already registered`
       );
     Adapter._cache[this.alias] = this;
-    if (!Adapter._current) Adapter._current = this;
+    this.log.info(
+      `Created ${this.alias} persistence adapter ${this._alias ? `(${this.flavour}) ` : ""} persistence adapter`
+    );
+    if (!Adapter._current) {
+      this.log.verbose(`Defined ${this.alias} persistence adapter as current`);
+      Adapter._current = this;
+    }
   }
 
   abstract Statement<M extends Model>(): Statement<Q, M, any>;
@@ -106,11 +121,23 @@ export abstract class Adapter<
 
   abstract Sequence(options: SequenceOptions): Promise<Sequence>;
 
-  async context<
-    M extends Model,
-    C extends Context<F>,
-    F extends RepositoryFlags,
-  >(
+  protected flags<M extends Model>(
+    operation: OperationKeys,
+    model: Constructor<M>,
+    flags: Partial<F>
+  ): F {
+    return Object.assign({}, DefaultRepositoryFlags, flags, {
+      affectedTables: Repository.table(model),
+      writeOperation: operation !== OperationKeys.READ,
+      timestamp: new Date(),
+      operation: operation,
+    }) as F;
+  }
+
+  protected Context: Constructor<C> = Context<F> as any;
+
+  @final()
+  async context<M extends Model>(
     operation:
       | OperationKeys.CREATE
       | OperationKeys.READ
@@ -119,14 +146,14 @@ export abstract class Adapter<
     overrides: Partial<F>,
     model: Constructor<M>
   ): Promise<C> {
-    return new Context(
-      Object.assign({}, DefaultRepositoryFlags, overrides, {
-        affectedTables: Repository.table(model),
-        writeOperation: operation !== OperationKeys.READ,
-        timestamp: new Date(),
-        operation: operation,
-      }) as F
-    ) as C;
+    this.log
+      .for(this.context)
+      .debug(
+        `Creating new context for ${operation} operation on ${model.name} model with flags: ${JSON.stringify(overrides)}`
+      );
+    return new this.Context(
+      this.flags(operation, model, overrides)
+    ) as unknown as C;
   }
 
   prepare<M extends Model>(
@@ -136,6 +163,8 @@ export abstract class Adapter<
     record: Record<string, any>;
     id: string;
   } {
+    const log = this.log.for(this.prepare);
+    log.silly(`Preparing model ${model.constructor.name} before persisting`);
     const result = Object.entries(model).reduce(
       (accum: Record<string, any>, [key, val]) => {
         const mappedProp = Repository.column(model, key);
@@ -146,13 +175,18 @@ export abstract class Adapter<
       },
       {}
     );
-    if ((model as any)[PersistenceKeys.METADATA])
+    if ((model as any)[PersistenceKeys.METADATA]) {
+      log.silly(
+        `Passing along persistence metadata for ${(model as any)[PersistenceKeys.METADATA]}`
+      );
       Object.defineProperty(result, PersistenceKeys.METADATA, {
         enumerable: false,
         writable: false,
         configurable: true,
         value: (model as any)[PersistenceKeys.METADATA],
       });
+    }
+
     return {
       record: result,
       id: model[pk] as string,
@@ -165,24 +199,31 @@ export abstract class Adapter<
     pk: keyof M,
     id: string | number | bigint
   ): M {
+    const log = this.log.for(this.revert);
     const ob: Record<string, any> = {};
     ob[pk as string] = id;
     const m = (
       typeof clazz === "string" ? Model.build(ob, clazz) : new clazz(ob)
     ) as M;
+    log.silly(`Rebuilding model ${m.constructor.name} id ${id}`);
     const metadata = obj[PersistenceKeys.METADATA];
     const result = Object.keys(m).reduce((accum: M, key) => {
       if (key === pk) return accum;
       (accum as Record<string, any>)[key] = obj[Repository.column(accum, key)];
       return accum;
     }, m);
-    if (metadata)
+    if (metadata) {
+      log.silly(
+        `Passing along ${this.flavour} persistence metadata for ${m.constructor.name} id ${id}: ${metadata}`
+      );
       Object.defineProperty(result, PersistenceKeys.METADATA, {
         enumerable: false,
         configurable: false,
         writable: false,
         value: metadata,
       });
+    }
+
     return result;
   }
 
@@ -201,6 +242,9 @@ export abstract class Adapter<
   ): Promise<Record<string, any>[]> {
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
+    const log = this.log.for(this.createAll);
+    log.verbose(`Creating ${id.length} entries ${tableName} table`);
+    log.debug(`pks: ${id}`);
     return Promise.all(
       id.map((i, count) => this.create(tableName, i, model[count], ...args))
     );
@@ -217,6 +261,9 @@ export abstract class Adapter<
     id: (string | number | bigint)[],
     ...args: any[]
   ): Promise<Record<string, any>[]> {
+    const log = this.log.for(this.readAll);
+    log.verbose(`Reading ${id.length} entries ${tableName} table`);
+    log.debug(`pks: ${id}`);
     return Promise.all(id.map((i) => this.read(tableName, i, ...args)));
   }
 
@@ -235,6 +282,9 @@ export abstract class Adapter<
   ): Promise<Record<string, any>[]> {
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
+    const log = this.log.for(this.updateAll);
+    log.verbose(`Updating ${id.length} entries ${tableName} table`);
+    log.debug(`pks: ${id}`);
     return Promise.all(
       id.map((i, count) => this.update(tableName, i, model[count], ...args))
     );
@@ -251,6 +301,9 @@ export abstract class Adapter<
     id: (string | number | bigint)[],
     ...args: any[]
   ): Promise<Record<string, any>[]> {
+    const log = this.log.for(this.createAll);
+    log.verbose(`Deleting ${id.length} entries ${tableName} table`);
+    log.debug(`pks: ${id}`);
     return Promise.all(id.map((i) => this.delete(tableName, i, ...args)));
   }
 
@@ -265,6 +318,9 @@ export abstract class Adapter<
   observe(observer: Observer): void {
     const index = this._observers.indexOf(observer);
     if (index !== -1) throw new InternalError("Observer already registered");
+    this.log
+      .for(this.observe)
+      .verbose(`Registering new observer ${observer.toString()}`);
     this._observers.push(observer);
   }
 
@@ -277,6 +333,9 @@ export abstract class Adapter<
   unObserve(observer: Observer): void {
     const index = this._observers.indexOf(observer);
     if (index === -1) throw new InternalError("Failed to find Observer");
+    this.log
+      .for(this.unObserve)
+      .verbose(`Removing observer ${observer.toString()}`);
     this._observers.splice(index, 1);
   }
 
@@ -285,13 +344,17 @@ export abstract class Adapter<
    * @param {any[]} [args] optional arguments to be passed to the {@link Observer#refresh} method
    */
   async updateObservers(...args: any[]): Promise<void> {
+    const log = this.log.for(this.updateObservers);
+    log.verbose(
+      `Updating ${this._observers.length} observers for adapter ${this.alias}`
+    );
     const results = await Promise.allSettled(
       this._observers.map((o) => o.refresh(...args))
     );
     results.forEach((result, i) => {
       if (result.status === "rejected")
-        console.warn(
-          `Failed to update observable ${this._observers[i]}: ${result.reason}`
+        log.error(
+          `Failed to update observable ${this._observers[i].toString()}: ${result.reason}`
         );
     });
   }

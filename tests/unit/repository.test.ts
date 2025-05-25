@@ -5,8 +5,8 @@ const ramAdapter = new RamAdapter();
 import { Repository } from "../../src/repository/Repository";
 import { model, Model } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
-import { NotFoundError } from "@decaf-ts/db-decorators";
-import { Adapter, BaseModel, repository, uses } from "../../src";
+import { NotFoundError, OperationKeys } from "@decaf-ts/db-decorators";
+import { Adapter, BaseModel, Observer, repository, uses } from "../../src";
 import { TestModel } from "./TestModel";
 
 Model.setBuilder(Model.fromModel);
@@ -15,10 +15,29 @@ describe("Repository", () => {
   let created: TestModel;
 
   const repo = new Repository(ramAdapter, TestModel);
+  let observer: Observer;
+  let mock: any;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.restoreAllMocks();
+    jest.resetAllMocks();
+    mock = jest.fn();
+    observer = new (class implements Observer {
+      refresh(...args: any[]): Promise<void> {
+        return mock(...args);
+      }
+    })();
+    repo.observe(observer);
+  });
+
+  afterEach(() => {
+    repo.unObserve(observer);
+  });
 
   it("creates", async () => {
+    const id = Date.now();
     const model = new TestModel({
-      id: Date.now().toString(),
+      id: id,
       name: "test_name",
       nif: "123456789",
     });
@@ -26,6 +45,11 @@ describe("Repository", () => {
     created = await repo.create(model);
 
     expect(created).toBeDefined();
+    expect(mock).toHaveBeenCalledWith(
+      Repository.table(TestModel),
+      OperationKeys.CREATE,
+      id
+    );
   });
 
   it("reads", async () => {
@@ -48,6 +72,11 @@ describe("Repository", () => {
     expect(updated).toBeDefined();
     expect(updated.equals(created)).toEqual(false);
     expect(updated.equals(created, "updatedOn", "name")).toEqual(true); // minus the expected changes
+    expect(mock).toHaveBeenCalledWith(
+      Repository.table(TestModel),
+      OperationKeys.UPDATE,
+      updated.id
+    );
   });
 
   it("deletes", async () => {
@@ -57,6 +86,11 @@ describe("Repository", () => {
     expect(deleted.id).toEqual(created.id); // same model
     await expect(repo.read(created.id as string)).rejects.toThrowError(
       NotFoundError
+    );
+    expect(mock).toHaveBeenCalledWith(
+      Repository.table(TestModel),
+      OperationKeys.DELETE,
+      deleted.id
     );
   });
 
@@ -77,7 +111,7 @@ describe("Repository", () => {
 
     it("succeeds when using decorators on the repo level", () => {
       @model()
-      class DedicatedTestModel extends TestModel {
+      class DedicatedTestModel extends Model {
         constructor(arg: ModelArg<DedicatedTestModel>) {
           super(arg);
         }

@@ -1,4 +1,5 @@
 import {
+  BulkCrudOperationKeys,
   Context,
   DBKeys,
   enforceDBDecorators,
@@ -12,7 +13,7 @@ import {
   wrapMethodWithContext,
 } from "@decaf-ts/db-decorators";
 import { Observable } from "../interfaces/Observable";
-import { Observer } from "../interfaces/Observer";
+import { type Observer } from "../interfaces/Observer";
 import { Adapter } from "../persistence/Adapter";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { PersistenceKeys } from "../persistence/constants";
@@ -28,6 +29,9 @@ import { OrderBySelector, SelectSelector } from "../query/selectors";
 import { getTableName } from "../identity/utils";
 import { uses } from "../persistence/decorators";
 import { Logger, Logging } from "@decaf-ts/logging";
+import { ObserverHandler } from "../persistence/ObserverHandler";
+import { final } from "../utils";
+import type { EventIds, ObserverFilter } from "../persistence";
 
 export type Repo<
   M extends Model,
@@ -45,7 +49,7 @@ export class Repository<
     C extends Context<F> = Context<F>,
   >
   extends Rep<M, F, C>
-  implements Observable, Queriable<M>, IRepository<M, F, C>
+  implements Observable, Observer, Queriable<M>, IRepository<M, F, C>
 {
   private static _cache: Record<
     string,
@@ -53,6 +57,8 @@ export class Repository<
   > = {};
 
   protected observers: Observer[] = [];
+
+  protected observerHandler?: ObserverHandler;
 
   private readonly _adapter!: A;
   private _tableName!: string;
@@ -76,6 +82,10 @@ export class Repository<
   protected get tableName() {
     if (!this._tableName) this._tableName = Repository.table(this.class);
     return this._tableName;
+  }
+
+  protected override get pkProps(): SequenceOptions {
+    return super.pkProps;
   }
 
   constructor(adapter?: A, clazz?: Constructor<M>) {
@@ -499,15 +509,24 @@ export class Repository<
   }
 
   /**
-   * @summary Registers an {@link Observer}
-   * @param {Observer} observer
    *
    * @see {Observable#observe}
    */
-  observe(observer: Observer): void {
-    const index = this.observers.indexOf(observer);
-    if (index !== -1) throw new InternalError("Observer already registered");
-    this.observers.push(observer);
+  @final()
+  observe(observer: Observer, filter?: ObserverFilter): void {
+    if (!this.observerHandler)
+      Object.defineProperty(this, "observerHandler", {
+        value: new ObserverHandler(),
+        writable: false,
+      });
+    const log = this.log.for(this.observe);
+    const tableName = Repository.table(this.class);
+    this.adapter.observe(this, (table: string) => tableName === table);
+    log.verbose(
+      `now observing ${this.adapter} filtering table === ${tableName}`
+    );
+    this.observerHandler!.observe(observer, filter);
+    log.verbose(`Registered new observer ${observer.toString()}`);
   }
 
   /**
@@ -516,26 +535,58 @@ export class Repository<
    *
    * @see {Observable#unObserve}
    */
+  @final()
   unObserve(observer: Observer): void {
-    const index = this.observers.indexOf(observer);
-    if (index === -1) throw new InternalError("Failed to find Observer");
-    this.observers.splice(index, 1);
+    if (!this.observerHandler)
+      throw new InternalError(
+        "ObserverHandler not initialized. Did you register any observables?"
+      );
+    this.observerHandler.unObserve(observer);
+    this.log
+      .for(this.unObserve)
+      .verbose(`Observer ${observer.toString()} removed`);
+    if (!this.observerHandler.count()) {
+      this.log.verbose(
+        `No more observers registered for ${this.adapter}, unsubscribing`
+      );
+      this.adapter.unObserve(this);
+      this.log.verbose(`No longer observing adapter ${this.adapter.flavour}`);
+    }
   }
 
-  /**
-   * @summary calls all registered {@link Observer}s to update themselves
-   * @param {any[]} [args] optional arguments to be passed to the {@link Observer#refresh} method
-   */
-  async updateObservers(...args: any[]): Promise<void> {
-    const results = await Promise.allSettled(
-      this.observers.map((o) => o.refresh(...args))
+  async updateObservers(
+    table: string,
+    event: OperationKeys | BulkCrudOperationKeys | string,
+    id: EventIds,
+    ...args: any[]
+  ): Promise<void> {
+    if (!this.observerHandler)
+      throw new InternalError(
+        "ObserverHandler not initialized. Did you register any observables?"
+      );
+    this.log
+      .for(this.updateObservers)
+      .verbose(
+        `Updating ${this.observerHandler.count()} observers for ${this}`
+      );
+    await this.observerHandler.updateObservers(
+      this.log,
+      table,
+      event,
+      Array.isArray(id)
+        ? id.map((i) => Sequence.parseValue(this.pkProps.type, i) as string)
+        : (Sequence.parseValue(this.pkProps.type, id) as string),
+      ...args
     );
-    results.forEach((result, i) => {
-      if (result.status === "rejected")
-        console.warn(
-          `Failed to update observable ${this.observers[i]}: ${result.reason}`
-        );
-    });
+  }
+
+  async refresh(
+    table: string,
+    event: OperationKeys | BulkCrudOperationKeys | string,
+    id: EventIds,
+    ...args: any[]
+  ) {
+    return this.updateObservers(table, event, id, ...args);
   }
 
   static forModel<M extends Model, R extends Repo<M>>(

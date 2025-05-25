@@ -108,7 +108,7 @@ describe(`Complex Database`, function () {
         const created = await noPopulateOnceModelRepository.create(address);
         expect(created.country).toEqual(noPopulateOnceCurVal + 1);
 
-        const read = await noPopulateOnceModelRepository.read(`${created.id}`);
+        const read = await noPopulateOnceModelRepository.read(created.id);
         expect(read.country).toEqual(countryCurVal + 1);
 
         created.country = new TestDummyCountry({

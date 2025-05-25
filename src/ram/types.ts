@@ -3,7 +3,7 @@ import { Repository } from "../repository";
 import { Context, RepositoryFlags } from "@decaf-ts/db-decorators";
 import { RamAdapter } from "./RamAdapter";
 
-export type RamStorage = Record<string, Record<string, any>>;
+export type RamStorage = Map<string, Map<string | number, any>>;
 
 export type RawRamQuery<M extends Model> = {
   select: undefined | (keyof M)[];

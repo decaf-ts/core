@@ -58,7 +58,7 @@ describe(`Pagination`, function () {
   });
 
   it("paginates", async () => {
-    const paginator: Paginator<TestCountryModel[]> = await repo
+    const paginator: Paginator<TestCountryModel> = await repo
       .select()
       .orderBy(["id", OrderDirection.DSC])
       .paginate(10);

@@ -8,8 +8,9 @@ import {
   RepositoryFlags,
   DefaultRepositoryFlags,
   Contextual,
+  BulkCrudOperationKeys,
 } from "@decaf-ts/db-decorators";
-import { Observer } from "../interfaces/Observer";
+import { type Observer } from "../interfaces/Observer";
 import {
   type Constructor,
   Decoration,
@@ -28,6 +29,9 @@ import { ErrorParser } from "../interfaces";
 import { Statement } from "../query/Statement";
 import { Logger, Logging } from "@decaf-ts/logging";
 import { final } from "../utils";
+import { Dispatch } from "./Dispatch";
+import { type EventIds, type ObserverFilter } from "./types";
+import { ObserverHandler } from "./ObserverHandler";
 
 Decoration.setFlavourResolver((obj: object) => {
   try {
@@ -62,14 +66,16 @@ export abstract class Adapter<
     F extends RepositoryFlags,
     C extends Context<F>,
   >
-  implements RawExecutor<Q>, Contextual<F, C>, Observable, ErrorParser
+  implements RawExecutor<Q>, Contextual<F, C>, Observable, Observer, ErrorParser
 {
   private static _current: Adapter<any, any, any, any>;
   private static _cache: Record<string, Adapter<any, any, any, any>> = {};
 
-  protected readonly _observers: Observer[] = [];
-
   private logger!: Logger;
+
+  protected dispatch?: Dispatch<Y>;
+
+  protected readonly observerHandler?: ObserverHandler;
 
   protected get log() {
     if (!this.logger) this.logger = Logging.for(this as any);
@@ -110,6 +116,10 @@ export abstract class Adapter<
   }
 
   abstract Statement<M extends Model>(): Statement<Q, M, any>;
+
+  protected Dispatch(): Dispatch<Y> {
+    return new Dispatch();
+  }
 
   protected isReserved(attr: string) {
     return !attr;
@@ -310,18 +320,25 @@ export abstract class Adapter<
   abstract raw<R>(rawInput: Q, ...args: any[]): Promise<R>;
 
   /**
-   * @summary Registers an {@link Observer}
-   * @param {Observer} observer
    *
    * @see {Observable#observe}
    */
-  observe(observer: Observer): void {
-    const index = this._observers.indexOf(observer);
-    if (index !== -1) throw new InternalError("Observer already registered");
+  @final()
+  observe(observer: Observer, filter?: ObserverFilter): void {
+    if (!this.observerHandler)
+      Object.defineProperty(this, "observerHandler", {
+        value: new ObserverHandler(),
+        writable: false,
+      });
+    this.observerHandler!.observe(observer, filter);
     this.log
       .for(this.observe)
       .verbose(`Registering new observer ${observer.toString()}`);
-    this._observers.push(observer);
+    if (!this.dispatch) {
+      this.log.for(this.observe).info(`Creating dispatch for ${this.alias}`);
+      this.dispatch = this.Dispatch();
+      this.dispatch.observe(this);
+    }
   }
 
   /**
@@ -330,33 +347,48 @@ export abstract class Adapter<
    *
    * @see {Observable#unObserve}
    */
+  @final()
   unObserve(observer: Observer): void {
-    const index = this._observers.indexOf(observer);
-    if (index === -1) throw new InternalError("Failed to find Observer");
+    if (!this.observerHandler)
+      throw new InternalError(
+        "ObserverHandler not initialized. Did you register any observables?"
+      );
+    this.observerHandler.unObserve(observer);
     this.log
       .for(this.unObserve)
-      .verbose(`Removing observer ${observer.toString()}`);
-    this._observers.splice(index, 1);
+      .verbose(`Observer ${observer.toString()} removed`);
   }
 
-  /**
-   * @summary calls all registered {@link Observer}s to update themselves
-   * @param {any[]} [args] optional arguments to be passed to the {@link Observer#refresh} method
-   */
-  async updateObservers(...args: any[]): Promise<void> {
+  async updateObservers(
+    table: string,
+    event: OperationKeys | BulkCrudOperationKeys | string,
+    id: EventIds,
+    ...args: any[]
+  ): Promise<void> {
+    if (!this.observerHandler)
+      throw new InternalError(
+        "ObserverHandler not initialized. Did you register any observables?"
+      );
     const log = this.log.for(this.updateObservers);
     log.verbose(
-      `Updating ${this._observers.length} observers for adapter ${this.alias}`
+      `Updating ${this.observerHandler.count()} observers for adapter ${this.alias}`
     );
-    const results = await Promise.allSettled(
-      this._observers.map((o) => o.refresh(...args))
+    await this.observerHandler.updateObservers(
+      this.log,
+      table,
+      event,
+      id,
+      ...args
     );
-    results.forEach((result, i) => {
-      if (result.status === "rejected")
-        log.error(
-          `Failed to update observable ${this._observers[i].toString()}: ${result.reason}`
-        );
-    });
+  }
+
+  async refresh(
+    table: string,
+    event: OperationKeys | BulkCrudOperationKeys | string,
+    id: EventIds,
+    ...args: any[]
+  ) {
+    return this.updateObservers(table, event, id, ...args);
   }
 
   toString() {

@@ -1,6 +1,5 @@
 import { RamFlags, RawRamQuery, RamStorage, RamRepository } from "./types";
 import { RamStatement } from "./RamStatement";
-import * as crypto from "node:crypto";
 import { RamContext } from "./RamContext";
 import { Repository } from "../repository/Repository";
 import { Adapter, PersistenceKeys, Sequence } from "../persistence";
@@ -31,8 +30,8 @@ export class RamAdapter extends Adapter<
   RamFlags,
   RamContext
 > {
-  constructor(alias: string = RamFlavour) {
-    super({}, RamFlavour, alias);
+  constructor(alias?: string) {
+    super(new Map<string, Map<string, any>>(), RamFlavour, alias);
   }
 
   override repository<M extends Model>(): Constructor<RamRepository<M>> {
@@ -93,12 +92,12 @@ export class RamAdapter extends Adapter<
     model: Record<string, any>
   ): Promise<Record<string, any>> {
     await this.lock.acquire();
-    if (!this.native[tableName]) this.native[tableName] = {};
-    if (id in this.native[tableName])
+    if (!this.native.has(tableName)) this.native.set(tableName, new Map());
+    if (this.native.get(tableName) && this.native.get(tableName)?.has(id))
       throw new ConflictError(
         `Record with id ${id} already exists in table ${tableName}`
       );
-    this.native[tableName][id] = model;
+    this.native.get(tableName)?.set(id, model);
     this.lock.release();
     return model;
   }
@@ -107,13 +106,13 @@ export class RamAdapter extends Adapter<
     tableName: string,
     id: string | number
   ): Promise<Record<string, any>> {
-    if (!(tableName in this.native))
+    if (!this.native.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!(id in this.native[tableName]))
+    if (!this.native.get(tableName)?.has(id))
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
-    return this.native[tableName][id];
+    return this.native.get(tableName)?.get(id);
   }
 
   async update(
@@ -122,13 +121,13 @@ export class RamAdapter extends Adapter<
     model: Record<string, any>
   ): Promise<Record<string, any>> {
     await this.lock.acquire();
-    if (!(tableName in this.native))
+    if (!this.native.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!(id in this.native[tableName]))
+    if (!this.native.get(tableName)?.has(id))
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
-    this.native[tableName][id] = model;
+    this.native.get(tableName)?.set(id, model);
     this.lock.release();
     return model;
   }
@@ -138,14 +137,14 @@ export class RamAdapter extends Adapter<
     id: string | number
   ): Promise<Record<string, any>> {
     await this.lock.acquire();
-    if (!(tableName in this.native))
+    if (!this.native.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!(id in this.native[tableName]))
+    if (!this.native.get(tableName)?.has(id))
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
-    const natived = this.native[tableName][id];
-    delete this.native[tableName][id];
+    const natived = this.native.get(tableName)?.get(id);
+    this.native.get(tableName)?.delete(id);
     this.lock.release();
     return natived;
   }
@@ -153,17 +152,19 @@ export class RamAdapter extends Adapter<
   protected tableFor<M extends Model>(from: string | Constructor<M>) {
     if (typeof from === "string") from = Model.get(from) as Constructor<M>;
     const table = Repository.table(from);
-    if (!(table in this.native)) this.native[table] = {};
-    return this.native[table];
+    if (!this.native.has(table)) this.native.set(table, new Map());
+    return this.native.get(table);
   }
 
   async raw<R>(rawInput: RawRamQuery<any>): Promise<R> {
     const { where, sort, limit, skip, from } = rawInput;
     let { select } = rawInput;
     const collection = this.tableFor(from);
+    if (!collection)
+      throw new InternalError(`Table ${from} not found in RamAdapter`);
     const { id, props } = findPrimaryKey(new from());
 
-    let result: any[] = Object.entries(collection).map(([pk, r]) =>
+    let result: any[] = Array.from(collection.entries()).map(([pk, r]) =>
       this.revert(
         r,
         from,

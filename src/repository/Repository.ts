@@ -88,7 +88,7 @@ export class Repository<
     return super.pkProps;
   }
 
-  constructor(adapter?: A, clazz?: Constructor<M>) {
+  constructor(adapter?: A, clazz?: Constructor<M>, ...args: any[]) {
     super(clazz);
     if (adapter) this._adapter = adapter;
     if (clazz) {
@@ -591,7 +591,8 @@ export class Repository<
 
   static forModel<M extends Model, R extends Repo<M>>(
     model: Constructor<M>,
-    defaultFlavour?: string
+    defaultFlavour?: string,
+    ...args: any[]
   ): R {
     let repo: R | Constructor<R> | undefined;
     try {
@@ -618,7 +619,7 @@ export class Repository<
       );
 
     repo = repo || (adapter.repository() as Constructor<R>);
-    return new repo(adapter, model) as R;
+    return new repo(adapter, model, ...args) as R;
   }
 
   private static get<M extends Model>(

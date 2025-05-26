@@ -134,7 +134,9 @@ export abstract class Adapter<
   protected flags<M extends Model>(
     operation: OperationKeys,
     model: Constructor<M>,
-    flags: Partial<F>
+    flags: Partial<F>,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: any[]
   ): F {
     return Object.assign({}, DefaultRepositoryFlags, flags, {
       affectedTables: Repository.table(model),
@@ -154,7 +156,8 @@ export abstract class Adapter<
       | OperationKeys.UPDATE
       | OperationKeys.DELETE,
     overrides: Partial<F>,
-    model: Constructor<M>
+    model: Constructor<M>,
+    ...args: any[]
   ): Promise<C> {
     this.log
       .for(this.context)
@@ -162,7 +165,7 @@ export abstract class Adapter<
         `Creating new context for ${operation} operation on ${model.name} model with flags: ${JSON.stringify(overrides)}`
       );
     return new this.Context(
-      this.flags(operation, model, overrides)
+      this.flags(operation, model, overrides, ...args)
     ) as unknown as C;
   }
 

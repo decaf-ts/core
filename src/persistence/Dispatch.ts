@@ -25,7 +25,7 @@ export class Dispatch<Y> implements Observable {
 
   constructor() {}
 
-  protected initialize(): void {
+  protected async initialize(): Promise<void> {
     if (!this.adapter)
       throw new InternalError(`No adapter observed for dispatch`);
     const adapter = this.adapter as Adapter<Y, any, any, any>;
@@ -92,14 +92,21 @@ export class Dispatch<Y> implements Observable {
     });
   }
 
+  async close() {
+    // to nothing in this distance but may be required for closing connections
+  }
+
   observe(observer: Adapter<Y, any, any, any>): void {
     if (!(observer instanceof Adapter))
       throw new UnsupportedError("Only Adapters can be observed by dispatch");
     this.adapter = observer;
     this.native = observer.native;
     this.models = Adapter.models(this.adapter.alias);
-    this.initialize();
-    this.log.verbose(`Dispatch initialized for ${this.adapter.alias} adapter`);
+    this.initialize().then(() =>
+      this.log.verbose(
+        `Dispatch initialized for ${this.adapter!.alias} adapter`
+      )
+    );
   }
 
   unObserve(observer: Observer): void {

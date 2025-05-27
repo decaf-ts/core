@@ -44,14 +44,14 @@ export abstract class Statement<Q, M extends Model, R>
 
   select<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const S extends readonly SelectSelector<M>[],
+    S extends readonly SelectSelector<M>[],
   >(): SelectOption<M, M[]>;
-  select<const S extends readonly SelectSelector<M>[]>(
+  select<S extends readonly SelectSelector<M>[]>(
     selector: readonly [...S]
   ): SelectOption<M, Pick<M, S[number]>[]>;
 
   @final()
-  select<const S extends readonly SelectSelector<M>[]>(
+  select<S extends readonly SelectSelector<M>[]>(
     selector?: readonly [...S]
   ): SelectOption<M, M[]> | SelectOption<M, Pick<M, S[number]>[]> {
     Object.defineProperty(this, "selectSelector", {
@@ -62,7 +62,7 @@ export abstract class Statement<Q, M extends Model, R>
   }
 
   @final()
-  distinct<const S extends SelectSelector<M>>(
+  distinct<S extends SelectSelector<M>>(
     selector: S
   ): DistinctOption<M, M[S][]> {
     this.distinctSelector = selector;
@@ -70,21 +70,19 @@ export abstract class Statement<Q, M extends Model, R>
   }
 
   @final()
-  max<const S extends SelectSelector<M>>(selector: S): MaxOption<M, M[S]> {
+  max<S extends SelectSelector<M>>(selector: S): MaxOption<M, M[S]> {
     this.maxSelector = selector;
     return this as MaxOption<M, M[S]>;
   }
 
   @final()
-  min<const S extends SelectSelector<M>>(selector: S): MinOption<M, M[S]> {
+  min<S extends SelectSelector<M>>(selector: S): MinOption<M, M[S]> {
     this.minSelector = selector;
     return this as MinOption<M, M[S]>;
   }
 
   @final()
-  count<const S extends SelectSelector<M>>(
-    selector?: S
-  ): CountOption<M, number> {
+  count<S extends SelectSelector<M>>(selector?: S): CountOption<M, number> {
     this.countSelector = selector;
     return this as CountOption<M, number>;
   }

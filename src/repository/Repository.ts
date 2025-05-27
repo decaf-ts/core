@@ -493,12 +493,12 @@ export class Repository<
   }
   select<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const S extends readonly SelectSelector<M>[],
+    S extends readonly SelectSelector<M>[],
   >(): WhereOption<M, M[]>;
-  select<const S extends readonly SelectSelector<M>[]>(
+  select<S extends readonly SelectSelector<M>[]>(
     selector: readonly [...S]
   ): WhereOption<M, Pick<M, S[number]>[]>;
-  select<const S extends readonly SelectSelector<M>[]>(
+  select<S extends readonly SelectSelector<M>[]>(
     selector?: readonly [...S]
   ): WhereOption<M, M[]> | WhereOption<M, Pick<M, S[number]>[]> {
     return this.adapter

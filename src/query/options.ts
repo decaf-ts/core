@@ -157,17 +157,13 @@ export interface CountOption<M extends Model, R> extends FromOption<M, R> {}
  * @extends FromOption
  */
 export interface SelectOption<M extends Model, R> extends FromOption<M, R> {
-  distinct<const S extends SelectSelector<M>>(
-    selector: S
-  ): DistinctOption<M, M[S][]>;
+  distinct<S extends SelectSelector<M>>(selector: S): DistinctOption<M, M[S][]>;
 
-  max<const S extends SelectSelector<M>>(selector: S): MaxOption<M, M[S]>;
+  max<S extends SelectSelector<M>>(selector: S): MaxOption<M, M[S]>;
 
-  min<const S extends SelectSelector<M>>(selector: S): MinOption<M, M[S]>;
+  min<S extends SelectSelector<M>>(selector: S): MinOption<M, M[S]>;
 
-  count<const S extends SelectSelector<M>>(
-    selector?: S
-  ): CountOption<M, number>;
+  count<S extends SelectSelector<M>>(selector?: S): CountOption<M, number>;
 }
 
 /**

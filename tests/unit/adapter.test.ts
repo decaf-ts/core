@@ -42,8 +42,6 @@ describe("Adapter", () => {
     expect(record).toMatchObject({
       tst_name: create.name,
       tst_nif: create.nif,
-      createdOn: undefined,
-      updatedOn: undefined,
     });
     expect(id).toEqual(create.id);
     prepared = record;

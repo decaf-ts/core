@@ -88,6 +88,7 @@ export class Repository<
     return super.pkProps;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor(adapter?: A, clazz?: Constructor<M>, ...args: any[]) {
     super(clazz);
     if (adapter) this._adapter = adapter;
@@ -129,6 +130,10 @@ export class Repository<
     });
   }
 
+  protected ObserverHandler() {
+    return new ObserverHandler();
+  }
+
   protected override async createPrefix(
     model: M,
     ...args: any[]
@@ -159,9 +164,17 @@ export class Repository<
 
   async create(model: M, ...args: any[]): Promise<M> {
     // eslint-disable-next-line prefer-const
-    let { record, id } = this.adapter.prepare(model, this.pk);
+    let { record, id, transient } = this.adapter.prepare(model, this.pk);
     record = await this.adapter.create(this.tableName, id, record, ...args);
-    return this.adapter.revert<M>(record, this.class, this.pk, id);
+    let c: C | undefined = undefined;
+    if (args.length) c = args[args.length - 1] as C;
+    return this.adapter.revert<M>(
+      record,
+      this.class,
+      this.pk,
+      id,
+      c && c.get("rebuildWithTransient") ? transient : undefined
+    );
   }
 
   override async createSuffix(model: M, context: C): Promise<M> {
@@ -296,9 +309,9 @@ export class Repository<
 
   async update(model: M, ...args: any[]): Promise<M> {
     // eslint-disable-next-line prefer-const
-    let { record, id } = this.adapter.prepare(model, this.pk);
+    let { record, id, transient } = this.adapter.prepare(model, this.pk);
     record = await this.adapter.update(this.tableName, id, record, ...args);
-    return this.adapter.revert<M>(record, this.class, this.pk, id);
+    return this.adapter.revert<M>(record, this.class, this.pk, id, transient);
   }
 
   protected override async updatePrefix(
@@ -516,14 +529,14 @@ export class Repository<
   observe(observer: Observer, filter?: ObserverFilter): void {
     if (!this.observerHandler)
       Object.defineProperty(this, "observerHandler", {
-        value: new ObserverHandler(),
+        value: this.ObserverHandler(),
         writable: false,
       });
     const log = this.log.for(this.observe);
     const tableName = Repository.table(this.class);
     this.adapter.observe(this, (table: string) => tableName === table);
     log.verbose(
-      `now observing ${this.adapter} filtering table === ${tableName}`
+      `now observing ${this.adapter} filtering on table === ${tableName}`
     );
     this.observerHandler!.observe(observer, filter);
     log.verbose(`Registered new observer ${observer.toString()}`);

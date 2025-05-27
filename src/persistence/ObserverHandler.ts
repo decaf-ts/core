@@ -30,13 +30,12 @@ export class ObserverHandler implements Observable {
   }
 
   async updateObservers(
-    logger: Logger,
+    log: Logger,
     table: string,
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds,
     ...args: any[]
   ): Promise<void> {
-    const log = logger.for(this.updateObservers);
     const results = await Promise.allSettled(
       this.observers
         .filter((o) => {

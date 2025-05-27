@@ -57,12 +57,24 @@ export class Dispatch<Y> implements Observable {
         );
         return;
       }
+      function bulkToSingle(method: string) {
+        switch (method) {
+          case BulkCrudOperationKeys.CREATE_ALL:
+            return OperationKeys.CREATE;
+          case BulkCrudOperationKeys.UPDATE_ALL:
+            return OperationKeys.UPDATE;
+          case BulkCrudOperationKeys.DELETE_ALL:
+            return OperationKeys.DELETE;
+          default:
+            return method;
+        }
+      }
       // @ts-expect-error because there are read only properties
       adapter[method] = new Proxy(adapter[method], {
         apply: async (target: any, thisArg, argArray: any[]) => {
           const [tableName, ids] = argArray;
           const result = await target.apply(thisArg, argArray);
-          this.updateObservers(tableName, method, ids as EventIds)
+          this.updateObservers(tableName, bulkToSingle(method), ids as EventIds)
             .then(() => {
               this.log.verbose(
                 `Observer refresh dispatched by ${method} for ${tableName}`
@@ -85,7 +97,7 @@ export class Dispatch<Y> implements Observable {
       throw new UnsupportedError("Only Adapters can be observed by dispatch");
     this.adapter = observer;
     this.native = observer.native;
-    this.models = Adapter.models(this.adapter.flavour);
+    this.models = Adapter.models(this.adapter.alias);
     this.initialize();
     this.log.verbose(`Dispatch initialized for ${this.adapter.alias} adapter`);
   }

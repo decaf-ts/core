@@ -9,6 +9,7 @@ import {
   DefaultRepositoryFlags,
   Contextual,
   BulkCrudOperationKeys,
+  modelToTransient,
 } from "@decaf-ts/db-decorators";
 import { type Observer } from "../interfaces/Observer";
 import {
@@ -121,6 +122,10 @@ export abstract class Adapter<
     return new Dispatch();
   }
 
+  protected ObserverHandler() {
+    return new ObserverHandler();
+  }
+
   protected isReserved(attr: string) {
     return !attr;
   }
@@ -175,11 +180,14 @@ export abstract class Adapter<
   ): {
     record: Record<string, any>;
     id: string;
+    transient?: Record<string, any>;
   } {
     const log = this.log.for(this.prepare);
     log.silly(`Preparing model ${model.constructor.name} before persisting`);
-    const result = Object.entries(model).reduce(
+    const split = modelToTransient(model);
+    const result = Object.entries(split.model).reduce(
       (accum: Record<string, any>, [key, val]) => {
+        if (typeof val === "undefined") return accum;
         const mappedProp = Repository.column(model, key);
         if (this.isReserved(mappedProp))
           throw new InternalError(`Property name ${mappedProp} is reserved`);
@@ -203,6 +211,7 @@ export abstract class Adapter<
     return {
       record: result,
       id: model[pk] as string,
+      transient: split.transient,
     };
   }
 
@@ -210,7 +219,8 @@ export abstract class Adapter<
     obj: Record<string, any>,
     clazz: string | Constructor<M>,
     pk: keyof M,
-    id: string | number | bigint
+    id: string | number | bigint,
+    transient?: Record<string, any>
   ): M {
     const log = this.log.for(this.revert);
     const ob: Record<string, any> = {};
@@ -225,6 +235,20 @@ export abstract class Adapter<
       (accum as Record<string, any>)[key] = obj[Repository.column(accum, key)];
       return accum;
     }, m);
+
+    if (transient) {
+      log.verbose(
+        `re-adding transient properties: ${Object.keys(transient).join(", ")}`
+      );
+      Object.entries(transient).forEach(([key, val]) => {
+        if (key in result)
+          throw new InternalError(
+            `Transient property ${key} already exists on model ${m.constructor.name}. should be impossible`
+          );
+        result[key as keyof M] = val;
+      });
+    }
+
     if (metadata) {
       log.silly(
         `Passing along ${this.flavour} persistence metadata for ${m.constructor.name} id ${id}: ${metadata}`
@@ -330,7 +354,7 @@ export abstract class Adapter<
   observe(observer: Observer, filter?: ObserverFilter): void {
     if (!this.observerHandler)
       Object.defineProperty(this, "observerHandler", {
-        value: new ObserverHandler(),
+        value: this.ObserverHandler(),
         writable: false,
       });
     this.observerHandler!.observe(observer, filter);

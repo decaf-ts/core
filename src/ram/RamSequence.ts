@@ -10,7 +10,7 @@ export class RamSequence extends Sequence {
 
   constructor(options: SequenceOptions, adapter: RamAdapter) {
     super(options);
-    this.repo = Repository.forModel(Seq, adapter.flavour);
+    this.repo = Repository.forModel(Seq, adapter.alias);
   }
 
   async current(): Promise<string | number | bigint> {
@@ -100,3 +100,4 @@ export class RamSequence extends Sequence {
     return range;
   }
 }
+

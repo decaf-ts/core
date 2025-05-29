@@ -25,6 +25,57 @@ import { Paginator } from "./Paginator";
 import { Adapter } from "../persistence";
 import { QueryError } from "./errors";
 
+/**
+ * @description Base class for database query statements
+ * @summary Provides a foundation for building and executing database queries
+ * 
+ * This abstract class implements the query builder pattern for constructing
+ * database queries. It supports various query operations like select, from,
+ * where, orderBy, groupBy, limit, and offset. It also provides methods for
+ * executing queries and handling pagination.
+ * 
+ * @template Q - The query type specific to the database adapter
+ * @template M - The model type this statement operates on
+ * @template R - The return type of the query
+ * @param {Adapter<any, Q, any, any>} adapter - The database adapter to use for executing queries
+ * @class Statement
+ * @example
+ * // Create a statement to query users
+ * const statement = new SQLStatement(adapter);
+ * const users = await statement
+ *   .select()
+ *   .from(User)
+ *   .where(Condition.attribute("status").eq("active"))
+ *   .orderBy(["createdAt", "DESC"])
+ *   .limit(10)
+ *   .execute();
+ * 
+ * // Use pagination
+ * const paginator = await statement
+ *   .select()
+ *   .from(User)
+ *   .paginate(20); // 20 users per page
+ * 
+ * @mermaid
+ * sequenceDiagram
+ *   participant Client
+ *   participant Statement
+ *   participant Adapter
+ *   participant Database
+ *   
+ *   Client->>Statement: select()
+ *   Client->>Statement: from(Model)
+ *   Client->>Statement: where(condition)
+ *   Client->>Statement: orderBy([field, direction])
+ *   Client->>Statement: limit(value)
+ *   Client->>Statement: execute()
+ *   Statement->>Statement: build()
+ *   Statement->>Adapter: raw(query)
+ *   Adapter->>Database: execute query
+ *   Database-->>Adapter: return results
+ *   Adapter-->>Statement: return processed results
+ *   Statement-->>Client: return final results
+ */
 export abstract class Statement<Q, M extends Model, R>
   implements Executor<R>, RawExecutor<Q>, Paginatable<M, R, Q>
 {

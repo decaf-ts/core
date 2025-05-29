@@ -280,22 +280,11 @@ export interface AttributeOption<M extends Model> {
   regexp(val: string | RegExp): Condition<M>;
 }
 /**
- * @summary The starting point for creating Conditions
- * @description Exposes the available operations for a {@link Condition}
- *
- * @interface ConditionBuilderOptionLowLevelFatalError [File:D:\TeamCityWorkDir\CO\Stable\UE4\Engine\Source\Runtime\RenderCore\Private\RenderingThread.cpp] [Line: 1415]
- * GameThread timed out waiting for RenderThread after 120.00 secs
- *
- *
- * 0x0000000142ac639a Commandos-Win64-Shipping.exe!UnknownFunction []
- * 0x0000000142adb630 Commandos-Win64-Shipping.exe!UnknownFunction []
- * 0x0000000143e0443e Commandos-Win64-Shipping.exe!UnknownFunction []
- * 0x0000000143e0b0cc Commandos-Win64-Shipping.exe!UnknownFunction []
- * 0x0000000143e0b14a Commandos-Win64-Shipping.exe!UnknownFunction []
- * 0x0000000143e0bf70 Commandos-Win64-Shipping.exe!UnknownFunction []
- * 0x0000000143e14234 Commandos-Win64-Shipping.exe!UnknownFunction []
- * 0x0000000146844742 Commandos-Win64-Shipping.exe!UnknownFunction []
- * 0x00006fffffed4abd kernel32.dll!UnknownFunction []
+ * @description The starting point for creating query conditions
+ * @summary Exposes the available operations for building database query conditions
+ * @template M - The model type this condition builder operates on
+ * @interface ConditionBuilderOption
+ * @memberOf module:core
  */
 export interface ConditionBuilderOption<M extends Model> {
   attribute(attr: keyof M): AttributeOption<M>;

@@ -33,6 +33,17 @@ import { ObserverHandler } from "../persistence/ObserverHandler";
 import { final } from "../utils";
 import type { EventIds, ObserverFilter } from "../persistence";
 
+/**
+ * @description Type alias for Repository class with simplified generic parameters.
+ * @summary Provides a more concise way to reference the Repository class with its generic parameters.
+ * @template M - The model type that extends Model.
+ * @template F - The repository flags type.
+ * @template C - The context type.
+ * @template Q - The query type.
+ * @template A - The adapter type.
+ * @typedef Repo
+ * @memberOf module:core
+ */
 export type Repo<
   M extends Model,
   F extends RepositoryFlags = any,
@@ -41,6 +52,59 @@ export type Repo<
   A extends Adapter<any, Q, F, C> = any,
 > = Repository<M, Q, A, F, C>;
 
+/**
+ * @description Core repository implementation for database operations on models on a table by table way.
+ * @summary Provides CRUD operations, querying capabilities, and observer pattern implementation for model persistence.
+ * @template M - The model type that extends Model.
+ * @template Q - The query type used by the adapter.
+ * @template A - The adapter type for database operations.
+ * @template F - The repository flags type.
+ * @template C - The context type for operations.
+ * @param {A} [adapter] - Optional adapter instance for database operations.
+ * @param {Constructor<M>} [clazz] - Optional constructor for the model class.
+ * @param {...any[]} [args] - Additional arguments for repository initialization.
+ * @class Repository
+ * @example
+ * // Creating a repository for User model
+ * const userRepo = Repository.forModel(User);
+ *
+ * // Using the repository for CRUD operations
+ * const user = await userRepo.create(new User({ name: 'John' }));
+ * const retrievedUser = await userRepo.read(user.id);
+ * user.name = 'Jane';
+ * await userRepo.update(user);
+ * await userRepo.delete(user.id);
+ *
+ * // Querying with conditions
+ * const users = await userRepo
+ *   .select()
+ *   .where({ name: 'Jane' })
+ *   .orderBy('createdAt', OrderDirection.DSC)
+ *   .limit(10)
+ *   .execute();
+ * @mermaid
+ * sequenceDiagram
+ *   participant C as Client Code
+ *   participant R as Repository
+ *   participant A as Adapter
+ *   participant DB as Database
+ *   participant O as Observers
+ *
+ *   C->>+R: create(model)
+ *   R->>R: createPrefix(model)
+ *   R->>+A: prepare(model)
+ *   A-->>-R: prepared data
+ *   R->>+A: create(table, id, record)
+ *   A->>+DB: Insert Operation
+ *   DB-->>-A: Result
+ *   A-->>-R: record
+ *   R->>+A: revert(record)
+ *   A-->>-R: model instance
+ *   R->>R: createSuffix(model)
+ *   R->>+O: updateObservers(table, CREATE, id)
+ *   O-->>-R: Notification complete
+ *   R-->>-C: created model
+ */
 export class Repository<
     M extends Model,
     Q,
@@ -71,7 +135,7 @@ export class Repository<
    * @summary Provides access to the logger for this repository instance.
    * @return {Logger} The logger instance.
    */
-  get log() {
+  get log(): Logger {
     if (!this.logger) this.logger = Logging.for(this as any);
     return this.logger;
   }
@@ -145,7 +209,7 @@ export class Repository<
    * @param {Partial<F>} flags - The flags to override.
    * @return {Repository<M, Q, A, F, C>} A proxy of this repository with overridden flags.
    */
-  override(flags: Partial<F>) {
+  override(flags: Partial<F>): Repository<M, Q, A, F, C> {
     this.log
       .for(this.override)
       .debug(`Overriding repository flags with ${JSON.stringify(flags)}`);
@@ -163,7 +227,7 @@ export class Repository<
    * @summary Factory method for creating an observer handler instance.
    * @return {ObserverHandler} A new observer handler instance.
    */
-  protected ObserverHandler() {
+  protected ObserverHandler(): ObserverHandler {
     return new ObserverHandler();
   }
 
@@ -862,6 +926,14 @@ export class Repository<
     return new repo(adapter, model, ...args) as R;
   }
 
+  /**
+   * @description Retrieves a repository for a model from the cache.
+   * @summary Gets a repository constructor or instance for the specified model from the internal cache.
+   * @template M - The model type that extends Model.
+   * @param {Constructor<M>} model - The model constructor.
+   * @return {Constructor<Repo<M>> | Repo<M>} The repository constructor or instance.
+   * @throws {InternalError} If no repository is registered for the model.
+   */
   private static get<M extends Model>(
     model: Constructor<M>
   ): Constructor<Repo<M>> | Repo<M> {
@@ -873,6 +945,14 @@ export class Repository<
     );
   }
 
+  /**
+   * @description Registers a repository for a model.
+   * @summary Associates a repository constructor or instance with a model in the internal cache.
+   * @template M - The model type that extends Model.
+   * @param {Constructor<M>} model - The model constructor.
+   * @param {Constructor<Repo<M>> | Repo<M>} repo - The repository constructor or instance.
+   * @throws {InternalError} If a repository is already registered for the model.
+   */
   static register<M extends Model>(
     model: Constructor<M>,
     repo: Constructor<Repo<M>> | Repo<M>
@@ -883,6 +963,13 @@ export class Repository<
     this._cache[name] = repo as any;
   }
 
+  /**
+   * @description Sets metadata on a model instance.
+   * @summary Attaches metadata to a model instance using a non-enumerable property.
+   * @template M - The model type that extends Model.
+   * @param {M} model - The model instance.
+   * @param {any} metadata - The metadata to attach to the model.
+   */
   static setMetadata<M extends Model>(model: M, metadata: any) {
     Object.defineProperty(model, PersistenceKeys.METADATA, {
       enumerable: false,
@@ -892,6 +979,13 @@ export class Repository<
     });
   }
 
+  /**
+   * @description Gets metadata from a model instance.
+   * @summary Retrieves previously attached metadata from a model instance.
+   * @template M - The model type that extends Model.
+   * @param {M} model - The model instance.
+   * @return {any} The metadata or undefined if not found.
+   */
   static getMetadata<M extends Model>(model: M) {
     const descriptor = Object.getOwnPropertyDescriptor(
       model,
@@ -900,6 +994,12 @@ export class Repository<
     return descriptor ? descriptor.value : undefined;
   }
 
+  /**
+   * @description Removes metadata from a model instance.
+   * @summary Deletes the metadata property from a model instance.
+   * @template M - The model type that extends Model.
+   * @param {M} model - The model instance.
+   */
   static removeMetadata<M extends Model>(model: M) {
     const descriptor = Object.getOwnPropertyDescriptor(
       model,
@@ -908,6 +1008,14 @@ export class Repository<
     if (descriptor) delete (model as any)[PersistenceKeys.METADATA];
   }
 
+  /**
+   * @description Gets sequence options for a model's primary key.
+   * @summary Retrieves the sequence configuration for a model's primary key from metadata.
+   * @template M - The model type that extends Model.
+   * @param {M} model - The model instance.
+   * @return {SequenceOptions} The sequence options for the model's primary key.
+   * @throws {InternalError} If no sequence options are defined for the model.
+   */
   static getSequenceOptions<M extends Model>(model: M) {
     const pk = findPrimaryKey(model).id;
     const metadata = Reflect.getMetadata(
@@ -922,6 +1030,13 @@ export class Repository<
     return metadata as SequenceOptions;
   }
 
+  /**
+   * @description Gets all indexes defined on a model.
+   * @summary Retrieves all index metadata from a model's property decorators.
+   * @template M - The model type that extends Model.
+   * @param {M | Constructor<M>} model - The model instance or constructor.
+   * @return {Record<string, Record<string, IndexMetadata>>} A nested record of property names to index metadata.
+   */
   static indexes<M extends Model>(model: M | Constructor<M>) {
     const indexDecorators = Reflection.getAllPropertyDecorators(
       model instanceof Model ? model : new model(),
@@ -943,7 +1058,14 @@ export class Repository<
     );
   }
 
-  static relations<M extends Model>(model: M | Constructor<M>) {
+  /**
+   * @description Gets all relation properties defined on a model.
+   * @summary Retrieves the names of all properties marked as relations in the model hierarchy.
+   * @template M - The model type that extends Model.
+   * @param {M | Constructor<M>} model - The model instance or constructor.
+   * @return {string[]} An array of property names that are relations.
+   */
+  static relations<M extends Model>(model: M | Constructor<M>): string[] {
     const result: string[] = [];
     let prototype =
       model instanceof Model
@@ -959,11 +1081,26 @@ export class Repository<
     return result;
   }
 
-  static table<M extends Model>(model: M | Constructor<M>) {
+  /**
+   * @description Gets the table name for a model.
+   * @summary Retrieves the database table name associated with a model.
+   * @template M - The model type that extends Model.
+   * @param {M | Constructor<M>} model - The model instance or constructor.
+   * @return {string} The table name for the model.
+   */
+  static table<M extends Model>(model: M | Constructor<M>): string {
     return getTableName(model);
   }
 
-  static column<M extends Model>(model: M, attribute: string) {
+  /**
+   * @description Gets the column name for a model attribute.
+   * @summary Retrieves the database column name for a model property.
+   * @template M - The model type that extends Model.
+   * @param {M} model - The model instance.
+   * @param {string} attribute - The attribute/property name.
+   * @return {string} The column name for the attribute.
+   */
+  static column<M extends Model>(model: M, attribute: string): string {
     const metadata = Reflect.getMetadata(
       Adapter.key(PersistenceKeys.COLUMN),
       model,

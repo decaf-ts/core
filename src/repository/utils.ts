@@ -19,7 +19,7 @@ import { Repository } from "./Repository";
 export function generateInjectableNameForRepository<T extends Model>(
   model: Constructor<T> | T,
   flavour?: string
-) {
+): string {
   if (!flavour) {
     const key = Adapter.key(PersistenceKeys.ADAPTER);
     flavour = Reflect.getMetadata(

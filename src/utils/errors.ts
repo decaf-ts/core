@@ -24,6 +24,7 @@ export class AuthorizationError extends BaseError {
  * @description Error thrown when a user is forbidden from accessing a resource
  * @summary This error is thrown when an authenticated user attempts to access a resource or perform an action they don't have permission for
  * @param {string|Error} msg - The error message or Error object
+ * @return {void}
  * @class ForbiddenError
  * @category Errors
  * @example
@@ -44,6 +45,7 @@ export class ForbiddenError extends BaseError {
  * @description Error thrown when a connection to a service fails
  * @summary This error is thrown when the application fails to establish a connection to a required service or resource
  * @param {string|Error} msg - The error message or Error object
+ * @return {void}
  * @class ConnectionError
  * @category Errors
  * @example

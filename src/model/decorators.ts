@@ -81,6 +81,23 @@ export function index(directions?: OrderDirection[], compositions?: string[]) {
   );
 }
 
+/**
+ * @description Enforces uniqueness constraint during model creation and update
+ * @summary Internal function used by the unique decorator to check if a property value already exists in the database
+ * @template M - The model type extending Model
+ * @template R - The repository type extending Repo<M, F, C>
+ * @template V - The metadata type
+ * @template F - The repository flags type
+ * @template C - The context type extending Context<F>
+ * @param {R} this - The repository instance
+ * @param {Context<F>} context - The context for the operation
+ * @param {V} data - The metadata for the property
+ * @param {keyof M} key - The property key to check for uniqueness
+ * @param {M} model - The model instance being created or updated
+ * @return {Promise<void>} A promise that resolves when the check is complete or rejects with a ConflictError
+ * @function uniqueOnCreateUpdate
+ * @memberOf module:core
+ */
 export async function uniqueOnCreateUpdate<
   M extends Model,
   R extends Repo<M, F, C>,
@@ -105,12 +122,19 @@ export async function uniqueOnCreateUpdate<
 }
 
 /**
- * @summary Unique Decorator
- * @description Tags a property as unique.
- *  No other elements in that table can have the same property value
- *
+ * @description Tags a property as unique
+ * @summary Decorator that ensures a property value is unique across all instances of a model in the database
+ * @return {Function} A decorator function that can be applied to a class property
  * @function unique
- *
+ * @category Decorators
+ * @example
+ * ```typescript
+ * class User extends BaseModel {
+ *   @unique()
+ *   @required()
+ *   username!: string;
+ * }
+ * ```
  */
 export function unique() {
   return apply(
@@ -119,6 +143,23 @@ export function unique() {
   );
 }
 
+/**
+ * @description Handles user identification for ownership tracking
+ * @summary Internal function used by the createdBy and updatedBy decorators to set ownership information
+ * @template M - The model type extending Model
+ * @template R - The repository type extending Repo<M, F, C>
+ * @template V - The relations metadata type extending RelationsMetadata
+ * @template F - The repository flags type
+ * @template C - The context type extending Context<F>
+ * @param {R} this - The repository instance
+ * @param {Context<F>} context - The context for the operation
+ * @param {V} data - The metadata for the property
+ * @param {keyof M} key - The property key to store the user identifier
+ * @param {M} model - The model instance being created or updated
+ * @return {Promise<void>} A promise that rejects with an AuthorizationError if user identification is not supported
+ * @function createdByOnCreateUpdate
+ * @memberOf module:core
+ */
 export async function createdByOnCreateUpdate<
   M extends Model,
   R extends Repo<M, F, C>,
@@ -141,6 +182,20 @@ export async function createdByOnCreateUpdate<
   );
 }
 
+/**
+ * @description Tracks the creator of a model instance
+ * @summary Decorator that marks a property to store the identifier of the user who created the model instance
+ * @return {Function} A decorator function that can be applied to a class property
+ * @function createdBy
+ * @category Decorators
+ * @example
+ * ```typescript
+ * class Document extends BaseModel {
+ *   @createdBy()
+ *   creator!: string;
+ * }
+ * ```
+ */
 export function createdBy() {
   const key = Repository.key(PersistenceKeys.CREATED_BY);
   return Decoration.for(key)
@@ -148,6 +203,20 @@ export function createdBy() {
     .apply();
 }
 
+/**
+ * @description Tracks the last updater of a model instance
+ * @summary Decorator that marks a property to store the identifier of the user who last updated the model instance
+ * @return {Function} A decorator function that can be applied to a class property
+ * @function updatedBy
+ * @category Decorators
+ * @example
+ * ```typescript
+ * class Document extends BaseModel {
+ *   @updatedBy()
+ *   lastEditor!: string;
+ * }
+ * ```
+ */
 export function updatedBy() {
   const key = Repository.key(PersistenceKeys.UPDATED_BY);
   return Decoration.for(key)
@@ -156,15 +225,27 @@ export function updatedBy() {
 }
 
 /**
- * @summary One To One relation Decorators
- *
- * @param {Constructor<any>} clazz the {@link Sequence}
- * @param {CascadeMetadata} [cascadeOptions]
- * @param {boolean} populate If true, replaces the specified key in the document with the corresponding record from the database
- *
+ * @description Defines a one-to-one relationship between models
+ * @summary Decorator that establishes a one-to-one relationship between the current model and another model
+ * @template M - The related model type extending Model
+ * @param {Constructor<M>} clazz - The constructor of the related model class
+ * @param {CascadeMetadata} [cascadeOptions=DefaultCascade] - Options for cascading operations (create, update, delete)
+ * @param {boolean} [populate=true] - If true, automatically populates the relationship when the model is retrieved
+ * @return {Function} A decorator function that can be applied to a class property
  * @function oneToOne
- *
- *
+ * @category Decorators
+ * @example
+ * ```typescript
+ * class User extends BaseModel {
+ *   @oneToOne(Profile)
+ *   profile!: string | Profile;
+ * }
+ * 
+ * class Profile extends BaseModel {
+ *   @required()
+ *   bio!: string;
+ * }
+ * ```
  * @see oneToMany
  * @see manyToOne
  */
@@ -194,13 +275,30 @@ export function oneToOne<M extends Model>(
 }
 
 /**
- * @summary One To Many relation Decorators
- *
- * @param {Constructor<any>} clazz the {@link Sequence} to use.
- * @param {CascadeMetadata} [cascadeOptions]
- *
+ * @description Defines a one-to-many relationship between models
+ * @summary Decorator that establishes a one-to-many relationship between the current model and multiple instances of another model
+ * @template M - The related model type extending Model
+ * @param {Constructor<M>} clazz - The constructor of the related model class
+ * @param {CascadeMetadata} [cascadeOptions=DefaultCascade] - Options for cascading operations (create, update, delete)
+ * @param {boolean} [populate=true] - If true, automatically populates the relationship when the model is retrieved
+ * @return {Function} A decorator function that can be applied to a class property
  * @function oneToMany
- *
+ * @category Decorators
+ * @example
+ * ```typescript
+ * class Author extends BaseModel {
+ *   @required()
+ *   name!: string;
+ *   
+ *   @oneToMany(Book)
+ *   books!: string[] | Book[];
+ * }
+ * 
+ * class Book extends BaseModel {
+ *   @required()
+ *   title!: string;
+ * }
+ * ```
  * @see oneToOne
  * @see manyToOne
  */
@@ -231,13 +329,30 @@ export function oneToMany<M extends Model>(
 }
 
 /**
- * @summary Many To One relation Decorators
- *
- * @param {Constructor<any>} clazz the {@link Sequence} to use. Defaults to {@link NoneSequence}
- * @param {CascadeMetadata} [cascadeOptions]
- *
+ * @description Defines a many-to-one relationship between models
+ * @summary Decorator that establishes a many-to-one relationship between multiple instances of the current model and another model
+ * @template M - The related model type extending Model
+ * @param {Constructor<M>} clazz - The constructor of the related model class
+ * @param {CascadeMetadata} [cascadeOptions=DefaultCascade] - Options for cascading operations (create, update, delete)
+ * @param {boolean} [populate=true] - If true, automatically populates the relationship when the model is retrieved
+ * @return {Function} A decorator function that can be applied to a class property
  * @function manyToOne
- *
+ * @category Decorators
+ * @example
+ * ```typescript
+ * class Book extends BaseModel {
+ *   @required()
+ *   title!: string;
+ *   
+ *   @manyToOne(Author)
+ *   author!: string | Author;
+ * }
+ * 
+ * class Author extends BaseModel {
+ *   @required()
+ *   name!: string;
+ * }
+ * ```
  * @see oneToMany
  * @see oneToOne
  */

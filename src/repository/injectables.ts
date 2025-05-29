@@ -8,11 +8,29 @@ import { generateInjectableNameForRepository } from "./utils";
 import { PersistenceKeys } from "../persistence/constants";
 import { Adapter } from "../persistence/Adapter";
 
+/**
+ * @description Registry for injectable repositories.
+ * @summary Extends the base injectable registry to provide automatic repository resolution for models.
+ * @param {void} - No constructor parameters required.
+ * @class InjectablesRegistry
+ * @example
+ * const registry = new InjectablesRegistry();
+ * const userRepo = registry.get<UserRepository>('User');
+ * // If UserRepository exists, it will be returned
+ * // If not, but User model exists, a repository will be created for it
+ */
 export class InjectablesRegistry extends InjectableRegistryImp {
   constructor() {
     super();
   }
 
+  /**
+   * @description Gets an injectable by name with repository auto-resolution.
+   * @summary Extends the base get method to automatically resolve repositories for models when not found directly.
+   * @template T - The type of injectable to return.
+   * @param {string} name - The name of the injectable to retrieve.
+   * @return {T | undefined} - The injectable instance or undefined if not found.
+   */
   override get<T>(name: string): T | undefined {
     let injectable = super.get(name);
     if (!injectable)

@@ -308,7 +308,7 @@ export abstract class Adapter<
    * @description The context constructor for this adapter
    * @summary Reference to the context class constructor used by this adapter
    */
-  protected Context: Constructor<C> = Context<F> as any;
+  protected Context = Context<F>;
 
   /**
    * @description Creates a context for a database operation
@@ -337,7 +337,7 @@ export abstract class Adapter<
       .debug(
         `Creating new context for ${operation} operation on ${model.name} model with flag overrides: ${JSON.stringify(overrides)}`
       );
-    return new this.Context(
+    return new this.Context().accumulate(
       this.flags(operation, model, overrides, ...args)
     ) as unknown as C;
   }

@@ -66,11 +66,23 @@ export class Repository<
 
   private logger!: Logger;
 
+  /**
+   * @description Logger instance for this repository.
+   * @summary Provides access to the logger for this repository instance.
+   * @return {Logger} The logger instance.
+   */
   get log() {
     if (!this.logger) this.logger = Logging.for(this as any);
     return this.logger;
   }
 
+  /**
+   * @description Adapter for database operations.
+   * @summary Provides access to the adapter instance for this repository.
+   * @template A - The adapter type.
+   * @return {A} The adapter instance.
+   * @throws {InternalError} If no adapter is found.
+   */
   protected get adapter(): A {
     if (!this._adapter)
       throw new InternalError(
@@ -79,11 +91,21 @@ export class Repository<
     return this._adapter;
   }
 
-  protected get tableName() {
+  /**
+   * @description Table name for this repository's model.
+   * @summary Gets the database table name associated with this repository's model.
+   * @return {string} The table name.
+   */
+  protected get tableName(): string {
     if (!this._tableName) this._tableName = Repository.table(this.class);
     return this._tableName;
   }
 
+  /**
+   * @description Primary key properties for this repository's model.
+   * @summary Gets the sequence options containing primary key information.
+   * @return {SequenceOptions} The primary key properties.
+   */
   protected override get pkProps(): SequenceOptions {
     return super.pkProps;
   }
@@ -117,6 +139,12 @@ export class Repository<
     );
   }
 
+  /**
+   * @description Creates a proxy with overridden repository flags.
+   * @summary Returns a proxy of this repository with the specified flags overridden.
+   * @param {Partial<F>} flags - The flags to override.
+   * @return {Repository<M, Q, A, F, C>} A proxy of this repository with overridden flags.
+   */
   override(flags: Partial<F>) {
     this.log
       .for(this.override)
@@ -130,10 +158,24 @@ export class Repository<
     });
   }
 
+  /**
+   * @description Creates a new observer handler.
+   * @summary Factory method for creating an observer handler instance.
+   * @return {ObserverHandler} A new observer handler instance.
+   */
   protected ObserverHandler() {
     return new ObserverHandler();
   }
 
+  /**
+   * @description Prepares a model for creation.
+   * @summary Validates the model and prepares it for creation in the database.
+   * @template M - The model type.
+   * @param {M} model - The model to create.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<[M, ...any[]]>} The prepared model and context arguments.
+   * @throws {ValidationError} If the model fails validation.
+   */
   protected override async createPrefix(
     model: M,
     ...args: any[]
@@ -162,6 +204,13 @@ export class Repository<
     return [model, ...contextArgs.args];
   }
 
+  /**
+   * @description Creates a model in the database.
+   * @summary Persists a model instance to the database.
+   * @param {M} model - The model to create.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<M>} The created model with updated properties.
+   */
   async create(model: M, ...args: any[]): Promise<M> {
     // eslint-disable-next-line prefer-const
     let { record, id, transient } = this.adapter.prepare(model, this.pk);
@@ -177,10 +226,24 @@ export class Repository<
     );
   }
 
+  /**
+   * @description Post-creation hook.
+   * @summary Executes after a model is created to perform additional operations.
+   * @param {M} model - The created model.
+   * @param {C} context - The operation context.
+   * @return {Promise<M>} The processed model.
+   */
   override async createSuffix(model: M, context: C): Promise<M> {
     return super.createSuffix(model, context);
   }
 
+  /**
+   * @description Creates multiple models in the database.
+   * @summary Persists multiple model instances to the database in a batch operation.
+   * @param {M[]} models - The models to create.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<M[]>} The created models with updated properties.
+   */
   override async createAll(models: M[], ...args: any[]): Promise<M[]> {
     if (!models.length) return models;
     const prepared = models.map((m) => this.adapter.prepare(m, this.pk));
@@ -197,6 +260,14 @@ export class Repository<
     );
   }
 
+  /**
+   * @description Prepares multiple models for creation.
+   * @summary Validates multiple models and prepares them for creation in the database.
+   * @param {M[]} models - The models to create.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<[M[], ...any[]]>} The prepared models and context arguments.
+   * @throws {ValidationError} If any model fails validation.
+   */
   protected override async createAllPrefix(models: M[], ...args: any[]) {
     const contextArgs = await Context.args(
       OperationKeys.CREATE,
@@ -245,6 +316,13 @@ export class Repository<
     return [models, ...contextArgs.args];
   }
 
+  /**
+   * @description Prepares for reading a model by ID.
+   * @summary Prepares the context and enforces decorators before reading a model.
+   * @param {string} key - The primary key of the model to read.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<[string, ...any[]]>} The key and context arguments.
+   */
   protected override async readPrefix(key: string, ...args: any[]) {
     const contextArgs = await Context.args(
       OperationKeys.READ,
@@ -265,11 +343,25 @@ export class Repository<
     return [key, ...contextArgs.args];
   }
 
+  /**
+   * @description Reads a model from the database by ID.
+   * @summary Retrieves a model instance from the database using its primary key.
+   * @param {string|number|bigint} id - The primary key of the model to read.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<M>} The retrieved model instance.
+   */
   async read(id: string | number | bigint, ...args: any[]): Promise<M> {
     const m = await this.adapter.read(this.tableName, id, ...args);
     return this.adapter.revert<M>(m, this.class, this.pk, id);
   }
 
+  /**
+   * @description Prepares for reading multiple models by IDs.
+   * @summary Prepares the context and enforces decorators before reading multiple models.
+   * @param {string[]|number[]} keys - The primary keys of the models to read.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<[string[]|number[], ...any[]]>} The keys and context arguments.
+   */
   protected override async readAllPrefix(
     keys: string[] | number[],
     ...args: any[]
@@ -297,6 +389,13 @@ export class Repository<
     return [keys, ...contextArgs.args];
   }
 
+  /**
+   * @description Reads multiple models from the database by IDs.
+   * @summary Retrieves multiple model instances from the database using their primary keys.
+   * @param {string[]|number[]} keys - The primary keys of the models to read.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<M[]>} The retrieved model instances.
+   */
   override async readAll(
     keys: string[] | number[],
     ...args: any[]
@@ -307,6 +406,13 @@ export class Repository<
     );
   }
 
+  /**
+   * @description Updates a model in the database.
+   * @summary Persists changes to an existing model instance in the database.
+   * @param {M} model - The model to update.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<M>} The updated model with refreshed properties.
+   */
   async update(model: M, ...args: any[]): Promise<M> {
     // eslint-disable-next-line prefer-const
     let { record, id, transient } = this.adapter.prepare(model, this.pk);
@@ -314,6 +420,15 @@ export class Repository<
     return this.adapter.revert<M>(record, this.class, this.pk, id, transient);
   }
 
+  /**
+   * @description Prepares a model for update.
+   * @summary Validates the model and prepares it for update in the database.
+   * @param {M} model - The model to update.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<[M, ...any[]]>} The prepared model and context arguments.
+   * @throws {InternalError} If the model has no primary key value.
+   * @throws {ValidationError} If the model fails validation.
+   */
   protected override async updatePrefix(
     model: M,
     ...args: any[]
@@ -354,6 +469,13 @@ export class Repository<
     return [model, ...contextArgs.args];
   }
 
+  /**
+   * @description Updates multiple models in the database.
+   * @summary Persists changes to multiple existing model instances in the database in a batch operation.
+   * @param {M[]} models - The models to update.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<M[]>} The updated models with refreshed properties.
+   */
   override async updateAll(models: M[], ...args: any[]): Promise<M[]> {
     const records = models.map((m) => this.adapter.prepare(m, this.pk));
     const updated = await this.adapter.updateAll(
@@ -367,6 +489,15 @@ export class Repository<
     );
   }
 
+  /**
+   * @description Prepares multiple models for update.
+   * @summary Validates multiple models and prepares them for update in the database.
+   * @param {M[]} models - The models to update.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<any[]>} The prepared models and context arguments.
+   * @throws {InternalError} If any model has no primary key value.
+   * @throws {ValidationError} If any model fails validation.
+   */
   protected override async updateAllPrefix(
     models: M[],
     ...args: any[]
@@ -432,6 +563,13 @@ export class Repository<
     return [models, ...contextArgs.args];
   }
 
+  /**
+   * @description Prepares for deleting a model by ID.
+   * @summary Prepares the context and enforces decorators before deleting a model.
+   * @param {any} key - The primary key of the model to delete.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<[any, ...any[]]>} The key and context arguments.
+   */
   protected override async deletePrefix(key: any, ...args: any[]) {
     const contextArgs = await Context.args(
       OperationKeys.DELETE,
@@ -451,11 +589,25 @@ export class Repository<
     return [key, ...contextArgs.args];
   }
 
+  /**
+   * @description Deletes a model from the database by ID.
+   * @summary Removes a model instance from the database using its primary key.
+   * @param {string|number|bigint} id - The primary key of the model to delete.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<M>} The deleted model instance.
+   */
   async delete(id: string | number | bigint, ...args: any[]): Promise<M> {
     const m = await this.adapter.delete(this.tableName, id, ...args);
     return this.adapter.revert<M>(m, this.class, this.pk, id);
   }
 
+  /**
+   * @description Prepares for deleting multiple models by IDs.
+   * @summary Prepares the context and enforces decorators before deleting multiple models.
+   * @param {string[]|number[]} keys - The primary keys of the models to delete.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<[string[]|number[], ...any[]]>} The keys and context arguments.
+   */
   protected override async deleteAllPrefix(
     keys: string[] | number[],
     ...args: any[]
@@ -482,6 +634,13 @@ export class Repository<
     return [keys, ...contextArgs.args];
   }
 
+  /**
+   * @description Deletes multiple models from the database by IDs.
+   * @summary Removes multiple model instances from the database using their primary keys.
+   * @param {string[]|number[]} keys - The primary keys of the models to delete.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<M[]>} The deleted model instances.
+   */
   override async deleteAll(
     keys: string[] | number[],
     ...args: any[]
@@ -491,13 +650,35 @@ export class Repository<
       this.adapter.revert(r, this.class, this.pk, keys[i])
     );
   }
+  /**
+   * @description Creates a select query without specifying fields.
+   * @summary Starts building a query that will return all fields of the model.
+   * @template S - The array type of select selectors.
+   * @return {WhereOption<M, M[]>} A query builder for the model.
+   */
   select<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     S extends readonly SelectSelector<M>[],
   >(): WhereOption<M, M[]>;
+
+  /**
+   * @description Creates a select query with specific fields.
+   * @summary Starts building a query that will return only the specified fields of the model.
+   * @template S - The array type of select selectors.
+   * @param {readonly [...S]} selector - The fields to select.
+   * @return {WhereOption<M, Pick<M, S[number]>[]>} A query builder for the selected fields.
+   */
   select<S extends readonly SelectSelector<M>[]>(
     selector: readonly [...S]
   ): WhereOption<M, Pick<M, S[number]>[]>;
+
+  /**
+   * @description Implementation of the select method.
+   * @summary Creates a query builder for the model with optional field selection.
+   * @template S - The array type of select selectors.
+   * @param {readonly [...S]} [selector] - Optional fields to select.
+   * @return {WhereOption<M, M[]> | WhereOption<M, Pick<M, S[number]>[]>} A query builder.
+   */
   select<S extends readonly SelectSelector<M>[]>(
     selector?: readonly [...S]
   ): WhereOption<M, M[]> | WhereOption<M, Pick<M, S[number]>[]> {
@@ -507,6 +688,16 @@ export class Repository<
       .from(this.class);
   }
 
+  /**
+   * @description Executes a query with the specified conditions and options.
+   * @summary Provides a simplified way to query the database with common query parameters.
+   * @param {Condition<M>} condition - The condition to filter records.
+   * @param {keyof M} orderBy - The field to order results by.
+   * @param {OrderDirection} [order=OrderDirection.ASC] - The sort direction.
+   * @param {number} [limit] - Optional maximum number of results to return.
+   * @param {number} [skip] - Optional number of results to skip.
+   * @return {Promise<M[]>} The query results as model instances.
+   */
   async query(
     condition: Condition<M>,
     orderBy: keyof M,
@@ -522,7 +713,11 @@ export class Repository<
   }
 
   /**
-   *
+   * @description Registers an observer for this repository.
+   * @summary Adds an observer that will be notified of changes to models in this repository.
+   * @param {Observer} observer - The observer to register.
+   * @param {ObserverFilter} [filter] - Optional filter to limit which events the observer receives.
+   * @return {void}
    * @see {Observable#observe}
    */
   @final()
@@ -543,9 +738,11 @@ export class Repository<
   }
 
   /**
-   * @summary Unregisters an {@link Observer}
-   * @param {Observer} observer
-   *
+   * @description Unregisters an observer from this repository.
+   * @summary Removes an observer so it will no longer receive notifications of changes.
+   * @param {Observer} observer - The observer to unregister.
+   * @return {void}
+   * @throws {InternalError} If the observer handler is not initialized.
    * @see {Observable#unObserve}
    */
   @final()
@@ -567,6 +764,16 @@ export class Repository<
     }
   }
 
+  /**
+   * @description Notifies all observers of an event.
+   * @summary Updates all registered observers with information about a database event.
+   * @param {string} table - The table name where the event occurred.
+   * @param {OperationKeys|BulkCrudOperationKeys|string} event - The type of event that occurred.
+   * @param {EventIds} id - The ID or IDs of the affected records.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<void>} A promise that resolves when all observers have been notified.
+   * @throws {InternalError} If the observer handler is not initialized.
+   */
   async updateObservers(
     table: string,
     event: OperationKeys | BulkCrudOperationKeys | string,
@@ -593,6 +800,15 @@ export class Repository<
     );
   }
 
+  /**
+   * @description Alias for updateObservers.
+   * @summary Notifies all observers of an event (alias for updateObservers).
+   * @param {string} table - The table name where the event occurred.
+   * @param {OperationKeys|BulkCrudOperationKeys|string} event - The type of event that occurred.
+   * @param {EventIds} id - The ID or IDs of the affected records.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<void>} A promise that resolves when all observers have been notified.
+   */
   async refresh(
     table: string,
     event: OperationKeys | BulkCrudOperationKeys | string,
@@ -602,6 +818,17 @@ export class Repository<
     return this.updateObservers(table, event, id, ...args);
   }
 
+  /**
+   * @description Creates or retrieves a repository for a model.
+   * @summary Factory method that returns a repository instance for the specified model.
+   * @template M - The model type that extends Model.
+   * @template R - The repository type that extends Repo<M>.
+   * @param {Constructor<M>} model - The model constructor.
+   * @param {string} [defaultFlavour] - Optional default adapter flavour if not specified on the model.
+   * @param {...any[]} [args] - Additional arguments to pass to the repository constructor.
+   * @return {R} A repository instance for the model.
+   * @throws {InternalError} If no adapter is registered for the flavour.
+   */
   static forModel<M extends Model, R extends Repo<M>>(
     model: Constructor<M>,
     defaultFlavour?: string,

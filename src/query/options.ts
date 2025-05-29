@@ -16,6 +16,7 @@ import { Paginatable } from "../interfaces/Paginatable";
  * @description Exposes the GROUP BY method and remaining options
  *
  * @interface GroupByOption
+ * @memberOf module:core
  */
 export interface GroupByOption<M extends Model, R> extends Executor<R> {
   groupBy(selector: GroupBySelector<M>): Executor<R>;
@@ -25,6 +26,7 @@ export interface GroupByOption<M extends Model, R> extends Executor<R> {
  * @description Exposes the OFFSET method and remaining options
  *
  * @interface GroupByOption
+ * @memberOf module:core
  */
 export interface OffsetOption<R> extends Executor<R> {
   offset(selector: OffsetSelector): Executor<R>;
@@ -34,6 +36,7 @@ export interface OffsetOption<R> extends Executor<R> {
  * @description Exposes the LIMIT method and remaining options
  *
  * @interface LimitOption
+ * @memberOf module:core
  */
 export interface LimitOption<M extends Model, R>
   extends Executor<R>,
@@ -45,6 +48,7 @@ export interface LimitOption<M extends Model, R>
  * @description Exposes the ORDER BY method and remaining options
  *
  * @interface OrderByOption
+ * @memberOf module:core
  */
 export interface OrderByOption<M extends Model, R>
   extends Executor<R>,
@@ -56,6 +60,7 @@ export interface OrderByOption<M extends Model, R>
  * @description Exposes the ORDER BY method and remaining options
  *
  * @interface ThenByOption
+ * @memberOf module:core
  */
 export interface ThenByOption<M extends Model, R>
   extends LimitOption<M, R>,
@@ -72,6 +77,7 @@ export interface ThenByOption<M extends Model, R>
  * @extends GroupByOption
  * @extends LimitOption
  * @extends OffsetOption
+ * @memberOf module:core
  */
 export interface OrderAndGroupOption<M extends Model, R>
   extends OrderByOption<M, R>,
@@ -85,6 +91,7 @@ export interface OrderAndGroupOption<M extends Model, R>
  *
  * @interface WhereOption
  * @extends OrderAndGroupOption
+ * @memberOf module:core
  */
 export interface WhereOption<M extends Model, R>
   extends OrderAndGroupOption<M, R> {
@@ -102,6 +109,7 @@ export interface WhereOption<M extends Model, R>
  * @description Exposes the FROM method and remaining options
  *
  * @interface FromOption
+ * @memberOf module:core
  */
 export interface FromOption<M extends Model, R> {
   /**
@@ -119,6 +127,7 @@ export interface FromOption<M extends Model, R> {
  *
  * @interface DistinctOption
  * @extends FromOption
+ * @memberOf module:core
  */
 export interface DistinctOption<M extends Model, R> extends FromOption<M, R> {}
 
@@ -128,6 +137,7 @@ export interface DistinctOption<M extends Model, R> extends FromOption<M, R> {}
  *
  * @interface MaxOption
  * @extends FromOption
+ * @memberOf module:core
  */
 export interface MaxOption<M extends Model, R> extends FromOption<M, R> {}
 
@@ -137,6 +147,7 @@ export interface MaxOption<M extends Model, R> extends FromOption<M, R> {}
  *
  * @interface MinOption
  * @extends FromOption
+ * @memberOf module:core
  */
 export interface MinOption<M extends Model, R> extends FromOption<M, R> {}
 
@@ -146,6 +157,7 @@ export interface MinOption<M extends Model, R> extends FromOption<M, R> {}
  *
  * @interface CountOption
  * @extends FromOption
+ * @memberOf module:core
  */
 export interface CountOption<M extends Model, R> extends FromOption<M, R> {}
 
@@ -155,6 +167,7 @@ export interface CountOption<M extends Model, R> extends FromOption<M, R> {}
  *
  * @interface SelectOption
  * @extends FromOption
+ * @memberOf module:core
  */
 export interface SelectOption<M extends Model, R> extends FromOption<M, R> {
   distinct<S extends SelectSelector<M>>(selector: S): DistinctOption<M, M[S][]>;
@@ -171,6 +184,7 @@ export interface SelectOption<M extends Model, R> extends FromOption<M, R> {
  * @description Exposes the remaining options after an INTO
  *
  * @interface IntoOption
+ * @memberOf module:core
  */
 export interface IntoOption<M extends Model, R> {
   values(...models: M[]): Executor<R>;
@@ -182,6 +196,7 @@ export interface IntoOption<M extends Model, R> {
  * @description Exposes the remaining options after a VALUES
  *
  * @interface ValuesOption
+ * @memberOf module:core
  */
 export interface ValuesOption<M extends Model> extends Executor<M> {}
 /**
@@ -189,6 +204,7 @@ export interface ValuesOption<M extends Model> extends Executor<M> {}
  * @description Exposes the remaining options after an INSERT
  *
  * @interface InsertOption
+ * @memberOf module:core
  */
 export interface InsertOption<M extends Model, R = void> {
   /**
@@ -205,6 +221,7 @@ export interface InsertOption<M extends Model, R = void> {
  * @description Exposes the available operators for a {@link Condition}
  *
  * @interface AttributeOption
+ * @memberOf module:core
  */
 export interface AttributeOption<M extends Model> {
   /**
@@ -266,7 +283,19 @@ export interface AttributeOption<M extends Model> {
  * @summary The starting point for creating Conditions
  * @description Exposes the available operations for a {@link Condition}
  *
- * @interface ConditionBuilderOption
+ * @interface ConditionBuilderOptionLowLevelFatalError [File:D:\TeamCityWorkDir\CO\Stable\UE4\Engine\Source\Runtime\RenderCore\Private\RenderingThread.cpp] [Line: 1415]
+ * GameThread timed out waiting for RenderThread after 120.00 secs
+ *
+ *
+ * 0x0000000142ac639a Commandos-Win64-Shipping.exe!UnknownFunction []
+ * 0x0000000142adb630 Commandos-Win64-Shipping.exe!UnknownFunction []
+ * 0x0000000143e0443e Commandos-Win64-Shipping.exe!UnknownFunction []
+ * 0x0000000143e0b0cc Commandos-Win64-Shipping.exe!UnknownFunction []
+ * 0x0000000143e0b14a Commandos-Win64-Shipping.exe!UnknownFunction []
+ * 0x0000000143e0bf70 Commandos-Win64-Shipping.exe!UnknownFunction []
+ * 0x0000000143e14234 Commandos-Win64-Shipping.exe!UnknownFunction []
+ * 0x0000000146844742 Commandos-Win64-Shipping.exe!UnknownFunction []
+ * 0x00006fffffed4abd kernel32.dll!UnknownFunction []
  */
 export interface ConditionBuilderOption<M extends Model> {
   attribute(attr: keyof M): AttributeOption<M>;

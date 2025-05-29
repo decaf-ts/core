@@ -2,6 +2,15 @@ import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { Adapter } from "../persistence/Adapter";
 import { PersistenceKeys } from "../persistence/constants";
 
+/**
+ * @description Gets the table name for a model
+ * @summary Retrieves the table name associated with a model by checking metadata or falling back to the constructor name
+ * @template M - Type that extends Model
+ * @param {M | Constructor<M>} model - The model instance or constructor to get the table name for
+ * @return {string} The table name for the model
+ * @function getTableName
+ * @memberOf module:core
+ */
 export function getTableName<M extends Model>(
   model: M | Constructor<M>
 ): string {
@@ -20,6 +29,16 @@ export function getTableName<M extends Model>(
   return model.name;
 }
 
+/**
+ * @description Generates a sequence name for a model
+ * @summary Creates a standardized sequence name by combining the table name with additional arguments
+ * @template M - Type that extends Model
+ * @param {M | Constructor<M>} model - The model instance or constructor to generate the sequence name for
+ * @param {...string} args - Additional string arguments to append to the sequence name
+ * @return {string} The generated sequence name
+ * @function sequenceNameForModel
+ * @memberOf module:core
+ */
 export function sequenceNameForModel<M extends Model>(
   model: M | Constructor<M>,
   ...args: string[]

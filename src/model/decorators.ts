@@ -36,23 +36,38 @@ import {
 } from "./construction";
 import { AuthorizationError } from "../utils";
 
+/**
+ * @description Specifies the database table name for a model
+ * @summary Decorator that sets the table name for a model class in the database
+ * @param {string} tableName - The name of the table in the database
+ * @return {Function} A decorator function that can be applied to a class
+ * @function table
+ * @category Decorators
+ */
 export function table(tableName: string) {
   return metadata(Adapter.key(PersistenceKeys.TABLE), tableName);
 }
 
+/**
+ * @description Specifies the database column name for a model property
+ * @summary Decorator that maps a model property to a specific column name in the database
+ * @param {string} columnName - The name of the column in the database
+ * @return {Function} A decorator function that can be applied to a class property
+ * @function column
+ * @category Decorators
+ */
 export function column(columnName: string) {
   return propMetadata(Adapter.key(PersistenceKeys.COLUMN), columnName);
 }
 
 /**
- * @summary Index Decorator
- * @description properties decorated will the index in the
- * DB for performance in queries
- *
- * @param {OrderDirection[]} [directions]
- * @param {string[]} [compositions]
- *
+ * @description Creates an index on a model property for improved query performance
+ * @summary Decorator that marks a property to be indexed in the database, optionally with specific directions and compositions
+ * @param {OrderDirection[]} [directions] - Optional array of sort directions for the index
+ * @param {string[]} [compositions] - Optional array of property names to create a composite index
+ * @return {Function} A decorator function that can be applied to a class property
  * @function index
+ * @category Decorators
  */
 export function index(directions?: OrderDirection[], compositions?: string[]) {
   return propMetadata(

@@ -22,6 +22,42 @@ import { Sequence } from "../persistence/Sequence";
 import { Context } from "@decaf-ts/db-decorators";
 import { OrderDirection } from "../repository";
 
+/**
+ * @description Callback function for primary key creation
+ * @summary Handles the creation of primary key values for models using sequences
+ * @template M - Type that extends Model
+ * @template R - Type that extends Repo<M, F, C>
+ * @template V - Type that extends SequenceOptions
+ * @template F - Type that extends RepositoryFlags
+ * @template C - Type that extends Context<F>
+ * @param {Context<F>} context - The execution context
+ * @param {V} data - The sequence options
+ * @param {keyof M} key - The property key to set as primary key
+ * @param {M} model - The model instance
+ * @return {Promise<void>} A promise that resolves when the primary key is set
+ * @function pkOnCreate
+ * @category Property Decorators
+ * @mermaid
+ * sequenceDiagram
+ *   participant Model
+ *   participant pkOnCreate
+ *   participant Adapter
+ *   participant Sequence
+ *
+ *   Model->>pkOnCreate: Call with model instance
+ *   Note over pkOnCreate: Check if key already exists
+ *   alt Key exists or no type specified
+ *     pkOnCreate-->>Model: Return early
+ *   else Key needs to be created
+ *     pkOnCreate->>pkOnCreate: Generate sequence name if not provided
+ *     pkOnCreate->>Adapter: Request Sequence(data)
+ *     Adapter->>Sequence: Create sequence
+ *     Sequence-->>pkOnCreate: Return sequence
+ *     pkOnCreate->>Sequence: Call next()
+ *     Sequence-->>pkOnCreate: Return next value
+ *     pkOnCreate->>Model: Set primary key value
+ *   end
+ */
 export async function pkOnCreate<
   M extends Model,
   R extends Repo<M, F, C>,
@@ -66,15 +102,24 @@ export async function pkOnCreate<
 }
 
 /**
- * @summary Primary Key Decorator
- * @description Marks the property as the {@link Model}s primary key.
- *  Also marks the property as {@link unique} as {@required} and ensures the index is created properly according to the provided {@link Sequence}
- *
+ * @description Primary Key Decorator
+ * @summary Marks a property as the model's primary key with automatic sequence generation
+ * This decorator combines multiple behaviors: it marks the property as unique, required,
+ * and ensures the index is created properly according to the provided sequence options.
+ * @param {Omit<SequenceOptions, "cycle" | "startWith" | "incrementBy">} opts - Options for the sequence generation
+ * @return {PropertyDecorator} A property decorator that can be applied to model properties
  * @function pk
+ * @category Property Decorators
+ * @example
+ * ```typescript
+ * class User extends BaseModel {
+ *   @pk()
+ *   id!: string;
  *
- * @see unique
- * @see required
- * @see on
+ *   @required()
+ *   username!: string;
+ * }
+ * ```
  */
 export function pk(
   opts: Omit<

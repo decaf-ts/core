@@ -14,8 +14,16 @@ export * from "./utils";
 export * from "./persistence";
 
 /**
- * @summary stores the current package version
- * @description this is how you should document a constant
+ * @module core
+ * @description Core module for the Decaf TypeScript framework
+ * @summary This module provides the foundational components of the Decaf framework, including identity management, 
+ * model definitions, repository patterns, persistence layer, query building, and utility functions.
+ * It exports functionality from various submodules and sets up the injectable registry for repository decorators.
+ */
+
+/**
+ * @description Stores the current package version
+ * @summary A constant representing the version of the core package
  * @const VERSION
  * @memberOf module:core
  */

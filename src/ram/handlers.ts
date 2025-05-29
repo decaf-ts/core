@@ -21,7 +21,8 @@ import { UnsupportedError } from "../persistence";
  * @param {M} model - The model instance being created/updated
  * @return {Promise<void>} A promise that resolves when the field has been set
  * @function createdByOnRamCreateUpdate
- * @memberOf module:ram
+ * @memberOf module:core
+ * @category Ram
  */
 export async function createdByOnRamCreateUpdate<
   M extends Model,

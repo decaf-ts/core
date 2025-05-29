@@ -335,7 +335,7 @@ export abstract class Adapter<
     this.log
       .for(this.context)
       .debug(
-        `Creating new context for ${operation} operation on ${model.name} model with flags: ${JSON.stringify(overrides)}`
+        `Creating new context for ${operation} operation on ${model.name} model with flag overrides: ${JSON.stringify(overrides)}`
       );
     return new this.Context(
       this.flags(operation, model, overrides, ...args)

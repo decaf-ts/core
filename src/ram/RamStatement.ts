@@ -13,6 +13,33 @@ import { Statement } from "../query/Statement";
 import { Reflection } from "@decaf-ts/reflection";
 import { RamAdapter } from "./RamAdapter";
 
+/**
+ * @description RAM-specific query statement builder
+ * @summary Extends the base Statement class to provide query building functionality for the RAM adapter.
+ * This class translates high-level query operations into predicates that can filter and sort
+ * in-memory data structures.
+ * @template M - The model type being queried
+ * @template R - The result type returned by the query
+ * @param {RamAdapter} adapter - The RAM adapter instance to use for executing queries
+ * @class RamStatement
+ * @category Ram
+ * @example
+ * ```typescript
+ * // Create a statement for querying User models
+ * const statement = new RamStatement<User, User>(ramAdapter);
+ *
+ * // Build a query to find active users with age > 18
+ * const results = await statement
+ *   .from(User)
+ *   .where(Condition.and(
+ *     Condition.eq('active', true),
+ *     Condition.gt('age', 18)
+ *   ))
+ *   .orderBy('lastName', 'asc')
+ *   .limit(10)
+ *   .execute();
+ * ```
+ */
 export class RamStatement<M extends Model, R> extends Statement<
   RawRamQuery<M>,
   M,
@@ -22,6 +49,12 @@ export class RamStatement<M extends Model, R> extends Statement<
     super(adapter as any);
   }
 
+  /**
+   * @description Creates a sort comparator function
+   * @summary Generates a function that compares two model instances based on the orderBy criteria.
+   * This method handles different data types (string, number, date) and sort directions (asc, desc).
+   * @return {function(Model, Model): number} A comparator function for sorting model instances
+   */
   private getSort() {
     return (el1: Model, el2: Model) => {
       if (!this.orderBySelector)
@@ -68,6 +101,13 @@ export class RamStatement<M extends Model, R> extends Statement<
     };
   }
 
+  /**
+   * @description Builds a RAM query from the statement
+   * @summary Converts the statement's selectors and conditions into a RawRamQuery object
+   * that can be executed by the RAM adapter. This method assembles all query components
+   * (select, from, where, limit, offset, sort) into the final query structure.
+   * @return {RawRamQuery<M>} The constructed RAM query object
+   */
   protected build(): RawRamQuery<M> {
     const result: RawRamQuery<M> = {
       select: this.selectSelector,
@@ -85,6 +125,13 @@ export class RamStatement<M extends Model, R> extends Statement<
     return result;
   }
 
+  /**
+   * @description Creates a paginator for the query
+   * @summary Builds the query and wraps it in a RamPaginator to enable pagination of results.
+   * This allows retrieving large result sets in smaller chunks.
+   * @param {number} size - The page size (number of results per page)
+   * @return {Promise<Paginator<M, R, RawRamQuery<M>>>} A promise that resolves to a paginator for the query
+   */
   async paginate(size: number): Promise<Paginator<M, R, RawRamQuery<M>>> {
     try {
       const query = this.build();
@@ -99,6 +146,33 @@ export class RamStatement<M extends Model, R> extends Statement<
     }
   }
 
+  /**
+   * @description Parses a condition into a RAM query predicate
+   * @summary Converts a Condition object into a predicate function that can be used
+   * to filter model instances in memory. This method handles both simple conditions
+   * (equals, greater than, etc.) and complex conditions with logical operators (AND, OR).
+   * @template M - The model type for the condition
+   * @param {Condition<M>} condition - The condition to parse
+   * @return {RawRamQuery<M>} A RAM query object with a where predicate function
+   * @mermaid
+   * sequenceDiagram
+   *   participant Caller
+   *   participant RamStatement
+   *   participant SimpleCondition
+   *   participant ComplexCondition
+   *
+   *   Caller->>RamStatement: parseCondition(condition)
+   *   alt Simple condition (eq, gt, lt, etc.)
+   *     RamStatement->>SimpleCondition: Extract attr1, operator, comparison
+   *     SimpleCondition-->>RamStatement: Return predicate function
+   *   else Logical operator (AND, OR)
+   *     RamStatement->>ComplexCondition: Extract nested conditions
+   *     RamStatement->>RamStatement: parseCondition(leftCondition)
+   *     RamStatement->>RamStatement: parseCondition(rightCondition)
+   *     ComplexCondition-->>RamStatement: Combine predicates with logical operator
+   *   end
+   *   RamStatement-->>Caller: Return query with where predicate
+   */
   parseCondition<M extends Model>(condition: Condition<M>): RawRamQuery<M> {
     return {
       where: (m: Model) => {

@@ -8,7 +8,8 @@ import { RamAdapter } from "./RamAdapter";
  * @summary A nested Map structure that stores all entities by their table name and primary key.
  * The outer Map uses table names as keys, while the inner Map uses entity IDs as keys and entity instances as values.
  * @typedef {Map<string, Map<string | number, any>>} RamStorage
- * @memberOf module:ram
+ * @memberOf module:core
+ * @category Ram
  */
 export type RamStorage = Map<string, Map<string | number, any>>;
 
@@ -25,7 +26,8 @@ export type RamStorage = Map<string, Map<string | number, any>>;
  * @property {function(M, M): number} [sort] - Optional comparator function for sorting results
  * @property {number} [limit] - Optional maximum number of results to return
  * @property {number} [skip] - Optional number of results to skip (for pagination)
- * @memberOf module:ram
+ * @memberOf module:core
+ * @category Ram
  */
 export type RawRamQuery<M extends Model> = {
   select: undefined | (keyof M)[];
@@ -42,7 +44,8 @@ export type RawRamQuery<M extends Model> = {
  * Contains user identification information needed for tracking entity creation and updates.
  * @interface RamFlags
  * @property {string} UUID - Unique identifier for the current user
- * @memberOf module:ram
+ * @memberOf module:core
+ * @category Ram
  */
 export interface RamFlags extends RepositoryFlags {
   UUID: string;
@@ -54,7 +57,8 @@ export interface RamFlags extends RepositoryFlags {
  * It combines the model type with RAM-specific query, adapter, flags, and context types.
  * @template M - The model type managed by the repository
  * @typedef {Repository<M, RawRamQuery<any>, RamAdapter, RamFlags, Context<RamFlags>>} RamRepository
- * @memberOf module:ram
+ * @memberOf module:core
+ * @category Ram
  */
 export type RamRepository<M extends Model> = Repository<
   M,

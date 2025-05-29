@@ -6,6 +6,7 @@ import { RamFlags } from "./types";
  * @summary Provides a specialized context for RAM adapter operations, extending the base Context
  * with RAM-specific flags. This context is used to pass operation parameters and user information.
  * @class RamContext
+ * @category Ram
  * @example
  * ```typescript
  * // Create a new RAM context with UUID

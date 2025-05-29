@@ -10,11 +10,12 @@ import { pk } from "../../identity";
  * The sequence is identified by its ID and maintains the current value.
  * @param {ModelArg<Sequence>} seq - Initial sequence data
  * @class Sequence
+ * @category Ram
  * @example
  * ```typescript
  * // Create a new sequence
  * const orderSequence = new Sequence({ id: 'order_seq', current: 1 });
- * 
+ *
  * // Use the sequence to get the next value
  * const nextOrderId = parseInt(orderSequence.current.toString()) + 1;
  * orderSequence.current = nextOrderId;

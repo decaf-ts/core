@@ -31,14 +31,15 @@ import { RamFlavour } from "./constants";
  * This adapter is useful for testing, prototyping, and applications that don't require
  * persistent storage across application restarts.
  * @class RamAdapter
+ * @category Ram
  * @example
  * ```typescript
  * // Create a new RAM adapter
  * const adapter = new RamAdapter('myRamAdapter');
- * 
+ *
  * // Create a repository for a model
  * const userRepo = new (adapter.repository<User>())(User, adapter);
- * 
+ *
  * // Perform CRUD operations
  * const user = new User({ name: 'John', email: 'john@example.com' });
  * await userRepo.create(user);
@@ -50,7 +51,7 @@ import { RamFlavour } from "./constants";
  *   participant Repository
  *   participant RamAdapter
  *   participant Storage as In-Memory Storage
- *   
+ *
  *   Client->>Repository: create(model)
  *   Repository->>RamAdapter: create(tableName, id, model)
  *   RamAdapter->>RamAdapter: lock.acquire()
@@ -58,7 +59,7 @@ import { RamFlavour } from "./constants";
  *   RamAdapter->>RamAdapter: lock.release()
  *   RamAdapter-->>Repository: model
  *   Repository-->>Client: model
- *   
+ *
  *   Client->>Repository: findById(id)
  *   Repository->>RamAdapter: read(tableName, id)
  *   RamAdapter->>Storage: get(id)
@@ -193,7 +194,7 @@ export class RamAdapter extends Adapter<
    *   participant Caller
    *   participant RamAdapter
    *   participant Storage as In-Memory Storage
-   *   
+   *
    *   Caller->>RamAdapter: create(tableName, id, model)
    *   RamAdapter->>RamAdapter: lock.acquire()
    *   RamAdapter->>Storage: has(tableName)
@@ -236,7 +237,7 @@ export class RamAdapter extends Adapter<
    *   participant Caller
    *   participant RamAdapter
    *   participant Storage as In-Memory Storage
-   *   
+   *
    *   Caller->>RamAdapter: read(tableName, id)
    *   RamAdapter->>Storage: has(tableName)
    *   alt Table doesn't exist
@@ -277,7 +278,7 @@ export class RamAdapter extends Adapter<
    *   participant Caller
    *   participant RamAdapter
    *   participant Storage as In-Memory Storage
-   *   
+   *
    *   Caller->>RamAdapter: update(tableName, id, model)
    *   RamAdapter->>RamAdapter: lock.acquire()
    *   RamAdapter->>Storage: has(tableName)
@@ -322,7 +323,7 @@ export class RamAdapter extends Adapter<
    *   participant Caller
    *   participant RamAdapter
    *   participant Storage as In-Memory Storage
-   *   
+   *
    *   Caller->>RamAdapter: delete(tableName, id)
    *   RamAdapter->>RamAdapter: lock.acquire()
    *   RamAdapter->>Storage: has(tableName)
@@ -384,7 +385,7 @@ export class RamAdapter extends Adapter<
    *   participant Caller
    *   participant RamAdapter
    *   participant Storage as In-Memory Storage
-   *   
+   *
    *   Caller->>RamAdapter: raw(rawInput)
    *   RamAdapter->>RamAdapter: tableFor(from)
    *   alt Table doesn't exist
@@ -498,18 +499,18 @@ export class RamAdapter extends Adapter<
    *   participant RamAdapter
    *   participant Decoration
    *   participant Repository
-   *   
+   *
    *   RamAdapter->>Repository: key(PersistenceKeys.CREATED_BY)
    *   Repository-->>RamAdapter: createdByKey
    *   RamAdapter->>Repository: key(PersistenceKeys.UPDATED_BY)
    *   Repository-->>RamAdapter: updatedByKey
-   *   
+   *
    *   RamAdapter->>Decoration: flavouredAs(RamFlavour)
    *   Decoration-->>RamAdapter: DecoratorBuilder
    *   RamAdapter->>Decoration: for(createdByKey)
    *   RamAdapter->>Decoration: define(onCreate, propMetadata)
    *   RamAdapter->>Decoration: apply()
-   *   
+   *
    *   RamAdapter->>Decoration: flavouredAs(RamFlavour)
    *   Decoration-->>RamAdapter: DecoratorBuilder
    *   RamAdapter->>Decoration: for(updatedByKey)

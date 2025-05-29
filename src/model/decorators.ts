@@ -42,7 +42,7 @@ import { AuthorizationError } from "../utils";
  * @param {string} tableName - The name of the table in the database
  * @return {Function} A decorator function that can be applied to a class
  * @function table
- * @category Decorators
+ * @category Class Decorators
  */
 export function table(tableName: string) {
   return metadata(Adapter.key(PersistenceKeys.TABLE), tableName);
@@ -54,7 +54,7 @@ export function table(tableName: string) {
  * @param {string} columnName - The name of the column in the database
  * @return {Function} A decorator function that can be applied to a class property
  * @function column
- * @category Decorators
+ * @category Property Decorators
  */
 export function column(columnName: string) {
   return propMetadata(Adapter.key(PersistenceKeys.COLUMN), columnName);
@@ -67,7 +67,7 @@ export function column(columnName: string) {
  * @param {string[]} [compositions] - Optional array of property names to create a composite index
  * @return {Function} A decorator function that can be applied to a class property
  * @function index
- * @category Decorators
+ * @category Property Decorators
  */
 export function index(directions?: OrderDirection[], compositions?: string[]) {
   return propMetadata(
@@ -126,7 +126,7 @@ export async function uniqueOnCreateUpdate<
  * @summary Decorator that ensures a property value is unique across all instances of a model in the database
  * @return {Function} A decorator function that can be applied to a class property
  * @function unique
- * @category Decorators
+ * @category Property Decorators
  * @example
  * ```typescript
  * class User extends BaseModel {
@@ -187,7 +187,7 @@ export async function createdByOnCreateUpdate<
  * @summary Decorator that marks a property to store the identifier of the user who created the model instance
  * @return {Function} A decorator function that can be applied to a class property
  * @function createdBy
- * @category Decorators
+ * @category Property Decorators
  * @example
  * ```typescript
  * class Document extends BaseModel {
@@ -208,7 +208,7 @@ export function createdBy() {
  * @summary Decorator that marks a property to store the identifier of the user who last updated the model instance
  * @return {Function} A decorator function that can be applied to a class property
  * @function updatedBy
- * @category Decorators
+ * @category Property Decorators
  * @example
  * ```typescript
  * class Document extends BaseModel {
@@ -233,14 +233,14 @@ export function updatedBy() {
  * @param {boolean} [populate=true] - If true, automatically populates the relationship when the model is retrieved
  * @return {Function} A decorator function that can be applied to a class property
  * @function oneToOne
- * @category Decorators
+ * @category Property Decorators
  * @example
  * ```typescript
  * class User extends BaseModel {
  *   @oneToOne(Profile)
  *   profile!: string | Profile;
  * }
- * 
+ *
  * class Profile extends BaseModel {
  *   @required()
  *   bio!: string;
@@ -283,17 +283,17 @@ export function oneToOne<M extends Model>(
  * @param {boolean} [populate=true] - If true, automatically populates the relationship when the model is retrieved
  * @return {Function} A decorator function that can be applied to a class property
  * @function oneToMany
- * @category Decorators
+ * @category Property Decorators
  * @example
  * ```typescript
  * class Author extends BaseModel {
  *   @required()
  *   name!: string;
- *   
+ *
  *   @oneToMany(Book)
  *   books!: string[] | Book[];
  * }
- * 
+ *
  * class Book extends BaseModel {
  *   @required()
  *   title!: string;
@@ -337,17 +337,17 @@ export function oneToMany<M extends Model>(
  * @param {boolean} [populate=true] - If true, automatically populates the relationship when the model is retrieved
  * @return {Function} A decorator function that can be applied to a class property
  * @function manyToOne
- * @category Decorators
+ * @category Property Decorators
  * @example
  * ```typescript
  * class Book extends BaseModel {
  *   @required()
  *   title!: string;
- *   
+ *
  *   @manyToOne(Author)
  *   author!: string | Author;
  * }
- * 
+ *
  * class Author extends BaseModel {
  *   @required()
  *   name!: string;

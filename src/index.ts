@@ -1,3 +1,11 @@
+/**
+ * @module core
+ * @description Core module for the Decaf TypeScript framework
+ * @summary This module provides the foundational components of the Decaf framework, including identity management, 
+ * model definitions, repository patterns, persistence layer, query building, and utility functions.
+ * It exports functionality from various submodules and sets up the injectable registry for repository decorators.
+ */
+
 import { InjectablesRegistry } from "./repository";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 
@@ -12,14 +20,6 @@ export * from "./repository";
 export * from "./utils";
 //left to last on purpose
 export * from "./persistence";
-
-/**
- * @module core
- * @description Core module for the Decaf TypeScript framework
- * @summary This module provides the foundational components of the Decaf framework, including identity management, 
- * model definitions, repository patterns, persistence layer, query building, and utility functions.
- * It exports functionality from various submodules and sets up the injectable registry for repository decorators.
- */
 
 /**
  * @description Stores the current package version

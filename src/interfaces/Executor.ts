@@ -9,6 +9,7 @@ export interface Executor<R> {
   /**
    * @description Executes the operation
    * @summary Performs the operation and returns a promise that resolves to the result
+   * @template R - The type of result returned by the execute method
    * @return {Promise<R>} A promise that resolves to the result of type R
    */
   execute(): Promise<R>;

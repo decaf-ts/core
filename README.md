@@ -273,7 +273,7 @@ class User extends BaseModel {
   @required()
   username!: string;
 
-  @oneToOne(() => Profile)
+  @oneToOne(Profile)
   profile?: Profile;
 
   constructor(data?: Partial<User>) {
@@ -312,7 +312,7 @@ class Author extends BaseModel {
   @required()
   name!: string;
 
-  @oneToMany(() => Book)
+  @oneToMany(Book)
   books?: Book[];
 
   constructor(data?: Partial<Author>) {
@@ -353,7 +353,7 @@ class Book extends BaseModel {
   @required()
   authorId!: string;
 
-  @manyToOne(() => Author)
+  @manyToOne(Author)
   author?: Author;
 
   constructor(data?: Partial<Book>) {
@@ -384,7 +384,7 @@ Perform basic CRUD operations using a repository.
 import { Repository, BaseModel, pk, required } from '@decaf-ts/core';
 
 class User extends BaseModel {
-  @pk()
+  @pk({ type: 'Number' })
   id!: string;
 
   @required()
@@ -408,9 +408,9 @@ async function createUser() {
     email: 'john.doe@example.com'
   });
 
-  await userRepository.create(user);
-  console.log('User created with ID:', user.id);
-  return user;
+  const createdUser = await userRepository.create(user);
+  console.log('User created with ID:', createdUser.id);
+  return createdUser;
 }
 
 // Read a user by ID
@@ -423,9 +423,9 @@ async function getUserById(id: string) {
 // Update a user
 async function updateUser(user: User) {
   user.email = 'new.email@example.com';
-  await userRepository.update(user);
+  const updatedUser = await userRepository.update(user);
   console.log('User updated');
-  return user;
+  return updatedUser;
 }
 
 // Delete a user
@@ -522,10 +522,9 @@ const productRepository = new Repository(Product);
 // Get paginated results
 async function getProductsPage(pageNumber: number, pageSize: number) {
   const result = await productRepository.select()
-    .where(Condition.all())
     .orderBy('name', OrderDirection.ASC)
-    .paginate(pageNumber, pageSize)
-    .execute();
+    .paginate(pageSize)
+    .page()
 
   console.log(`Page ${pageNumber}: ${result.length} products`);
   console.log(`Total pages: ${result.totalPages}`);
@@ -566,7 +565,6 @@ const userRepository = new Repository(User);
 async function getUsersPublicInfo() {
   const users = await userRepository
     .select(['id', 'username', 'email'])
-    .where(Condition.all())
     .execute();
 
   // The returned objects will only have id, username, and email properties

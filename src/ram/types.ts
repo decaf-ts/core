@@ -20,7 +20,7 @@ export type RamStorage = Map<string, Map<string | number, any>>;
  * sorting criteria, and pagination options.
  * @template M - The model type being queried
  * @typedef {Object} RawRamQuery
- * @property {(keyof M)[] | undefined} select - Fields to select from the model, or undefined for all fields
+ * @property select - Fields to select from the model, or undefined for all fields
  * @property {Constructor<M>} from - The model constructor to query
  * @property {function(M): boolean} where - Predicate function for filtering entities
  * @property {function(M, M): number} [sort] - Optional comparator function for sorting results

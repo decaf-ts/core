@@ -17,7 +17,7 @@ import { UnsupportedError } from "../persistence";
  * @param {R} this - The repository instance
  * @param {Context<F>} context - The operation context containing user identification
  * @param {V} data - The relations metadata
- * @param {keyof M} key - The property key to set with the UUID
+ * @param key - The property key to set with the UUID
  * @param {M} model - The model instance being created/updated
  * @return {Promise<void>} A promise that resolves when the field has been set
  * @function createdByOnRamCreateUpdate

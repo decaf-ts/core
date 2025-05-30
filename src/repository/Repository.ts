@@ -207,7 +207,7 @@ export class Repository<
    * @description Creates a proxy with overridden repository flags.
    * @summary Returns a proxy of this repository with the specified flags overridden.
    * @param {Partial<F>} flags - The flags to override.
-   * @return {Repository<M, Q, A, F, C>} A proxy of this repository with overridden flags.
+   * @return {Repository} A proxy of this repository with overridden flags.
    */
   override(flags: Partial<F>): Repository<M, Q, A, F, C> {
     this.log
@@ -237,7 +237,7 @@ export class Repository<
    * @template M - The model type.
    * @param {M} model - The model to create.
    * @param {...any[]} args - Additional arguments.
-   * @return {Promise<[M, ...any[]]>} The prepared model and context arguments.
+   * @return The prepared model and context arguments.
    * @throws {ValidationError} If the model fails validation.
    */
   protected override async createPrefix(
@@ -329,7 +329,7 @@ export class Repository<
    * @summary Validates multiple models and prepares them for creation in the database.
    * @param {M[]} models - The models to create.
    * @param {...any[]} args - Additional arguments.
-   * @return {Promise<[M[], ...any[]]>} The prepared models and context arguments.
+   * @return The prepared models and context arguments.
    * @throws {ValidationError} If any model fails validation.
    */
   protected override async createAllPrefix(models: M[], ...args: any[]) {
@@ -385,7 +385,7 @@ export class Repository<
    * @summary Prepares the context and enforces decorators before reading a model.
    * @param {string} key - The primary key of the model to read.
    * @param {...any[]} args - Additional arguments.
-   * @return {Promise<[string, ...any[]]>} The key and context arguments.
+   * @return The key and context arguments.
    */
   protected override async readPrefix(key: string, ...args: any[]) {
     const contextArgs = await Context.args(
@@ -424,7 +424,7 @@ export class Repository<
    * @summary Prepares the context and enforces decorators before reading multiple models.
    * @param {string[]|number[]} keys - The primary keys of the models to read.
    * @param {...any[]} args - Additional arguments.
-   * @return {Promise<[string[]|number[], ...any[]]>} The keys and context arguments.
+   * @return The keys and context arguments.
    */
   protected override async readAllPrefix(
     keys: string[] | number[],
@@ -489,7 +489,7 @@ export class Repository<
    * @summary Validates the model and prepares it for update in the database.
    * @param {M} model - The model to update.
    * @param {...any[]} args - Additional arguments.
-   * @return {Promise<[M, ...any[]]>} The prepared model and context arguments.
+   * @return The prepared model and context arguments.
    * @throws {InternalError} If the model has no primary key value.
    * @throws {ValidationError} If the model fails validation.
    */
@@ -632,7 +632,7 @@ export class Repository<
    * @summary Prepares the context and enforces decorators before deleting a model.
    * @param {any} key - The primary key of the model to delete.
    * @param {...any[]} args - Additional arguments.
-   * @return {Promise<[any, ...any[]]>} The key and context arguments.
+   * @return The key and context arguments.
    */
   protected override async deletePrefix(key: any, ...args: any[]) {
     const contextArgs = await Context.args(
@@ -670,7 +670,7 @@ export class Repository<
    * @summary Prepares the context and enforces decorators before deleting multiple models.
    * @param {string[]|number[]} keys - The primary keys of the models to delete.
    * @param {...any[]} args - Additional arguments.
-   * @return {Promise<[string[]|number[], ...any[]]>} The keys and context arguments.
+   * @return The keys and context arguments.
    */
   protected override async deleteAllPrefix(
     keys: string[] | number[],
@@ -718,7 +718,7 @@ export class Repository<
    * @description Creates a select query without specifying fields.
    * @summary Starts building a query that will return all fields of the model.
    * @template S - The array type of select selectors.
-   * @return {WhereOption<M, M[]>} A query builder for the model.
+   * @return A query builder for the model.
    */
   select<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -729,8 +729,8 @@ export class Repository<
    * @description Creates a select query with specific fields.
    * @summary Starts building a query that will return only the specified fields of the model.
    * @template S - The array type of select selectors.
-   * @param {readonly [...S]} selector - The fields to select.
-   * @return {WhereOption<M, Pick<M, S[number]>[]>} A query builder for the selected fields.
+   * @param selector - The fields to select.
+   * @return A query builder for the selected fields.
    */
   select<S extends readonly SelectSelector<M>[]>(
     selector: readonly [...S]
@@ -740,8 +740,8 @@ export class Repository<
    * @description Implementation of the select method.
    * @summary Creates a query builder for the model with optional field selection.
    * @template S - The array type of select selectors.
-   * @param {readonly [...S]} [selector] - Optional fields to select.
-   * @return {WhereOption<M, M[]> | WhereOption<M, Pick<M, S[number]>[]>} A query builder.
+   * @param [selector] - Optional fields to select.
+   * @return A query builder.
    */
   select<S extends readonly SelectSelector<M>[]>(
     selector?: readonly [...S]
@@ -756,7 +756,7 @@ export class Repository<
    * @description Executes a query with the specified conditions and options.
    * @summary Provides a simplified way to query the database with common query parameters.
    * @param {Condition<M>} condition - The condition to filter records.
-   * @param {keyof M} orderBy - The field to order results by.
+   * @param orderBy - The field to order results by.
    * @param {OrderDirection} [order=OrderDirection.ASC] - The sort direction.
    * @param {number} [limit] - Optional maximum number of results to return.
    * @param {number} [skip] - Optional number of results to skip.

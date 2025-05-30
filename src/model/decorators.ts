@@ -92,7 +92,7 @@ export function index(directions?: OrderDirection[], compositions?: string[]) {
  * @param {R} this - The repository instance
  * @param {Context<F>} context - The context for the operation
  * @param {V} data - The metadata for the property
- * @param {keyof M} key - The property key to check for uniqueness
+ * @param key - The property key to check for uniqueness
  * @param {M} model - The model instance being created or updated
  * @return {Promise<void>} A promise that resolves when the check is complete or rejects with a ConflictError
  * @function uniqueOnCreateUpdate
@@ -154,7 +154,7 @@ export function unique() {
  * @param {R} this - The repository instance
  * @param {Context<F>} context - The context for the operation
  * @param {V} data - The metadata for the property
- * @param {keyof M} key - The property key to store the user identifier
+ * @param key - The property key to store the user identifier
  * @param {M} model - The model instance being created or updated
  * @return {Promise<void>} A promise that rejects with an AuthorizationError if user identification is not supported
  * @function createdByOnCreateUpdate

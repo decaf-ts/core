@@ -32,7 +32,7 @@ import { OrderDirection } from "../repository";
  * @template C - Type that extends Context<F>
  * @param {Context<F>} context - The execution context
  * @param {V} data - The sequence options
- * @param {keyof M} key - The property key to set as primary key
+ * @param key - The property key to set as primary key
  * @param {M} model - The model instance
  * @return {Promise<void>} A promise that resolves when the primary key is set
  * @function pkOnCreate

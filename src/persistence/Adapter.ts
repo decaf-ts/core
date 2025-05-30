@@ -348,8 +348,8 @@ export abstract class Adapter<
    * handling column mapping and separating transient properties
    * @template M - The model type
    * @param {M} model - The model instance to prepare
-   * @param {keyof M} pk - The primary key property name
-   * @return {{ record: Record<string, any>; id: string; transient?: Record<string, any> }} The prepared data
+   * @param pk - The primary key property name
+   * @return The prepared data
    */
   prepare<M extends Model>(
     model: M,
@@ -397,11 +397,11 @@ export abstract class Adapter<
    * @summary Reconstructs a model instance from database data, handling column mapping
    * and reattaching transient properties
    * @template M - The model type
-   * @param {Record<string, any>} obj - The database record
+   * @param obj - The database record
    * @param {string|Constructor<M>} clazz - The model class or name
-   * @param {keyof M} pk - The primary key property name
+   * @param pk - The primary key property name
    * @param {string|number|bigint} id - The primary key value
-   * @param {Record<string, any>} [transient] - Transient properties to reattach
+   * @param [transient] - Transient properties to reattach
    * @return {M} The reconstructed model instance
    */
   revert<M extends Model>(
@@ -458,9 +458,9 @@ export abstract class Adapter<
    * @summary Inserts a new record with the given ID and data into the specified table
    * @param {string} tableName - The name of the table to insert into
    * @param {string|number} id - The identifier for the new record
-   * @param {Record<string, any>} model - The data to insert
-   * @param {...any[]} args - Additional arguments specific to the adapter implementation
-   * @return {Promise<Record<string, any>>} A promise that resolves to the created record
+   * @param model - The data to insert
+   * @param {any[]} args - Additional arguments specific to the adapter implementation
+   * @return A promise that resolves to the created record
    */
   abstract create(
     tableName: string,
@@ -473,10 +473,10 @@ export abstract class Adapter<
    * @description Creates multiple records in the database
    * @summary Inserts multiple records with the given IDs and data into the specified table
    * @param {string} tableName - The name of the table to insert into
-   * @param {(string|number)[]} id - The identifiers for the new records
-   * @param {Record<string, any>[]} model - The data to insert for each record
+   * @param id - The identifiers for the new records
+   * @param model - The data to insert for each record
    * @param {...any[]} args - Additional arguments specific to the adapter implementation
-   * @return {Promise<Record<string, any>[]>} A promise that resolves to an array of created records
+   * @return A promise that resolves to an array of created records
    */
   async createAll(
     tableName: string,
@@ -500,7 +500,7 @@ export abstract class Adapter<
    * @param {string} tableName - The name of the table to read from
    * @param {string|number|bigint} id - The identifier of the record to retrieve
    * @param {...any[]} args - Additional arguments specific to the adapter implementation
-   * @return {Promise<Record<string, any>>} A promise that resolves to the retrieved record
+   * @return A promise that resolves to the retrieved record
    */
   abstract read(
     tableName: string,
@@ -512,9 +512,9 @@ export abstract class Adapter<
    * @description Retrieves multiple records from the database
    * @summary Fetches multiple records with the given IDs from the specified table
    * @param {string} tableName - The name of the table to read from
-   * @param {(string|number|bigint)[]} id - The identifiers of the records to retrieve
+   * @param id - The identifiers of the records to retrieve
    * @param {...any[]} args - Additional arguments specific to the adapter implementation
-   * @return {Promise<Record<string, any>[]>} A promise that resolves to an array of retrieved records
+   * @return A promise that resolves to an array of retrieved records
    */
   async readAll(
     tableName: string,
@@ -532,9 +532,9 @@ export abstract class Adapter<
    * @summary Modifies an existing record with the given ID in the specified table
    * @param {string} tableName - The name of the table to update
    * @param {string|number} id - The identifier of the record to update
-   * @param {Record<string, any>} model - The new data for the record
+   * @param  model - The new data for the record
    * @param {...any[]} args - Additional arguments specific to the adapter implementation
-   * @return {Promise<Record<string, any>>} A promise that resolves to the updated record
+   * @return A promise that resolves to the updated record
    */
   abstract update(
     tableName: string,
@@ -548,9 +548,9 @@ export abstract class Adapter<
    * @summary Modifies multiple existing records with the given IDs in the specified table
    * @param {string} tableName - The name of the table to update
    * @param {string[]|number[]} id - The identifiers of the records to update
-   * @param {Record<string, any>[]} model - The new data for each record
+   * @param model - The new data for each record
    * @param {...any[]} args - Additional arguments specific to the adapter implementation
-   * @return {Promise<Record<string, any>[]>} A promise that resolves to an array of updated records
+   * @return A promise that resolves to an array of updated records
    */
   async updateAll(
     tableName: string,
@@ -574,7 +574,7 @@ export abstract class Adapter<
    * @param {string} tableName - The name of the table to delete from
    * @param {string|number|bigint} id - The identifier of the record to delete
    * @param {...any[]} args - Additional arguments specific to the adapter implementation
-   * @return {Promise<Record<string, any>>} A promise that resolves to the deleted record
+   * @return A promise that resolves to the deleted record
    */
   abstract delete(
     tableName: string,
@@ -586,9 +586,9 @@ export abstract class Adapter<
    * @description Deletes multiple records from the database
    * @summary Removes multiple records with the given IDs from the specified table
    * @param {string} tableName - The name of the table to delete from
-   * @param {(string|number|bigint)[]} id - The identifiers of the records to delete
+   * @param id - The identifiers of the records to delete
    * @param {...any[]} args - Additional arguments specific to the adapter implementation
-   * @return {Promise<Record<string, any>[]>} A promise that resolves to an array of deleted records
+   * @return A promise that resolves to an array of deleted records
    */
   async deleteAll(
     tableName: string,
@@ -788,7 +788,7 @@ export abstract class Adapter<
    * @summary Retrieves all model constructors that are configured to use a specific adapter flavor
    * @template M - The model type
    * @param {string} flavour - The adapter flavor to find models for
-   * @return {ModelConstructor<any>[]} An array of model constructors
+   * @return An array of model constructors
    */
   static models<M extends Model>(flavour: string) {
     try {

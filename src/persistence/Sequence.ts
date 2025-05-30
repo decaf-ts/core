@@ -18,19 +18,19 @@ import { Logger, Logging } from "@decaf-ts/logging";
  *   constructor(options: SequenceOptions) {
  *     super(options);
  *   }
- *   
+ *
  *   async next(): Promise<number> {
  *     // Implementation to get next value from PostgreSQL sequence
  *     const result = await this.options.executor.raw(`SELECT nextval('${this.options.name}')`);
  *     return parseInt(result.rows[0].nextval);
  *   }
- *   
+ *
  *   async current(): Promise<number> {
  *     // Implementation to get current value from PostgreSQL sequence
  *     const result = await this.options.executor.raw(`SELECT currval('${this.options.name}')`);
  *     return parseInt(result.rows[0].currval);
  *   }
- *   
+ *
  *   async range(count: number): Promise<number[]> {
  *     // Implementation to get a range of values
  *     const values: number[] = [];
@@ -40,13 +40,13 @@ import { Logger, Logging } from "@decaf-ts/logging";
  *     return values;
  *   }
  * }
- * 
+ *
  * // Usage
  * const sequence = new PostgresSequence({
  *   name: 'user_id_seq',
  *   executor: dbExecutor
  * });
- * 
+ *
  * const nextId = await sequence.next();
  * ```
  */
@@ -76,14 +76,14 @@ export abstract class Sequence {
   /**
    * @description Gets the next value in the sequence
    * @summary Retrieves the next value from the sequence, incrementing it in the process
-   * @return {Promise<string|number|bigint>} A promise that resolves to the next value in the sequence
+   * @return A promise that resolves to the next value in the sequence
    */
   abstract next(): Promise<string | number | bigint>;
 
   /**
    * @description Gets the current value of the sequence
    * @summary Retrieves the current value of the sequence without incrementing it
-   * @return {Promise<string|number|bigint>} A promise that resolves to the current value in the sequence
+   * @return A promise that resolves to the current value in the sequence
    */
   abstract current(): Promise<string | number | bigint>;
 
@@ -91,7 +91,7 @@ export abstract class Sequence {
    * @description Gets a range of sequential values
    * @summary Retrieves multiple sequential values at once, which can be more efficient than calling next() multiple times
    * @param {number} count - The number of sequential values to retrieve
-   * @return {Promise<(number|string|bigint)[]>} A promise that resolves to an array of sequential values
+   * @return A promise that resolves to an array of sequential values
    */
   abstract range(count: number): Promise<(number | string | bigint)[]>;
 

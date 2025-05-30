@@ -43,7 +43,7 @@ export class RamSequence extends Sequence {
    * @description Retrieves the current value of the sequence
    * @summary Gets the current value of the sequence from storage. If the sequence
    * doesn't exist yet, it returns the configured starting value.
-   * @return {Promise<string | number | bigint>} A promise that resolves to the current sequence value
+   * @return A promise that resolves to the current sequence value
    */
   async current(): Promise<string | number | bigint> {
     const { name, startWith } = this.options;
@@ -87,7 +87,7 @@ export class RamSequence extends Sequence {
    * the new value to storage. This method handles both numeric and BigInt sequence types.
    * @param {string | number | bigint} current - The current value of the sequence
    * @param {number} [count] - Optional amount to increment by, defaults to the sequence's incrementBy value
-   * @return {Promise<string | number | bigint>} A promise that resolves to the new sequence value after incrementing
+   * @return A promise that resolves to the new sequence value after incrementing
    */
   private async increment(
     current: string | number | bigint,
@@ -130,7 +130,7 @@ export class RamSequence extends Sequence {
    * @description Gets the next value in the sequence
    * @summary Retrieves the current value of the sequence and increments it by the
    * configured increment amount. This is the main method used to get a new sequential value.
-   * @return {Promise<number | string | bigint>} A promise that resolves to the next value in the sequence
+   * @return A promise that resolves to the next value in the sequence
    */
   async next(): Promise<number | string | bigint> {
     const current = await this.current();
@@ -143,7 +143,7 @@ export class RamSequence extends Sequence {
    * This is useful when you need to allocate multiple IDs at once.
    * The method increments the sequence by the total amount needed and returns all values in the range.
    * @param {number} count - The number of sequential values to generate
-   * @return {Promise<(number | string | bigint)[]>} A promise that resolves to an array of sequential values
+   * @return A promise that resolves to an array of sequential values
    */
   async range(count: number): Promise<(number | string | bigint)[]> {
     const current = (await this.current()) as number;

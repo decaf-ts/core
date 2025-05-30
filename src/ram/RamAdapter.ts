@@ -133,7 +133,7 @@ export class RamAdapter extends Adapter<
    * @description Indexes models in the RAM adapter
    * @summary A no-op indexing method for the RAM adapter.
    * Since RAM adapter doesn't require explicit indexing, this method simply resolves immediately.
-   * @param {...Record<string, any>[]} models - Models to be indexed (unused)
+   * @param models - Models to be indexed (unused)
    * @return {Promise<any>} A promise that resolves when indexing is complete
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -147,8 +147,8 @@ export class RamAdapter extends Adapter<
    * This method extracts the primary key and creates a record without the primary key field.
    * @template M - The model type being prepared
    * @param {M} model - The model instance to prepare
-   * @param {keyof M} pk - The primary key property name
-   * @return {{ record: Record<string, any>; id: string }} Object containing the record and ID
+   * @param pk - The primary key property name
+   * @return Object containing the record and ID
    */
   override prepare<M extends Model>(
     model: M,
@@ -166,7 +166,7 @@ export class RamAdapter extends Adapter<
    * @template M - The model type to revert to
    * @param {Record<string, any>} obj - The stored record
    * @param {string | Constructor<M>} clazz - The model class or name
-   * @param {keyof M} pk - The primary key property name
+   * @param pk - The primary key property name
    * @param {string | number} id - The primary key value
    * @return {M} The reconstructed model instance
    */

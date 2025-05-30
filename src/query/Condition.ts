@@ -20,11 +20,11 @@ import { QueryError } from "./errors";
  * @example
  * // Create a simple condition
  * const nameCondition = Condition.attribute("name").eq("John");
- * 
+ *
  * // Create a complex condition
  * const complexCondition = Condition.attribute("age").gt(18)
  *   .and(Condition.attribute("status").eq("active"));
- * 
+ *
  * // Use the builder pattern
  * const userQuery = Condition.builder()
  *   .attribute("email").regexp(".*@example.com")
@@ -188,7 +188,7 @@ export class Condition<M extends Model> extends Model {
    * @description Creates a condition builder for a specific model attribute
    * @summary Static method that initializes a condition builder with the specified attribute
    * @template M - The model type this condition operates on
-   * @param {keyof M} attr - The model attribute to build a condition for
+   * @param attr - The model attribute to build a condition for
    * @return {AttributeOption<M>} A condition builder initialized with the attribute
    */
   static attribute<M extends Model>(attr: keyof M) {
@@ -199,7 +199,7 @@ export class Condition<M extends Model> extends Model {
    * @description Alias for the attribute method
    * @summary Shorthand method that initializes a condition builder with the specified attribute
    * @template M - The model type this condition operates on
-   * @param {keyof M} attr - The model attribute to build a condition for
+   * @param attr - The model attribute to build a condition for
    * @return {AttributeOption<M>} A condition builder initialized with the attribute
    */
   static attr<M extends Model>(attr: keyof M) {
@@ -223,7 +223,7 @@ export class Condition<M extends Model> extends Model {
     /**
      * @description Sets the attribute for the condition
      * @summary Specifies which model attribute the condition will operate on
-     * @param {keyof M} attr - The model attribute to use in the condition
+     * @param attr - The model attribute to use in the condition
      * @return {AttributeOption<M>} This builder instance for method chaining
      */
     attribute(attr: keyof M): AttributeOption<M> {
@@ -234,7 +234,7 @@ export class Condition<M extends Model> extends Model {
     /**
      * @description Alias for the attribute method
      * @summary Shorthand method to specify which model attribute the condition will operate on
-     * @param {keyof M} attr - The model attribute to use in the condition
+     * @param attr - The model attribute to use in the condition
      * @return {AttributeOption<M>} This builder instance for method chaining
      */
     attr(attr: keyof M) {

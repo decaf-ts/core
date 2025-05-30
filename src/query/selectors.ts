@@ -34,7 +34,7 @@ export type OffsetSelector = number;
  * @description Type for selecting fields in a query
  * @summary Defines the type for specifying which fields to select from a model
  * @template M - The model type this selector operates on
- * @typedef {keyof M} SelectSelector
+ * @typedef SelectSelector
  * @memberOf module:core
  */
 export type SelectSelector<M extends Model> = keyof M;

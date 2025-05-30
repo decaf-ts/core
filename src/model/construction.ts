@@ -595,7 +595,7 @@ export function getPopulateKey(
  * @template F - The repository flags type
  * @param {Context<F>} context - The context for the operation
  * @param {M} parentModel - The parent model that contains the relationship
- * @param {keyof M | string} propertyKey - The property key of the relationship
+ * @param propertyKey - The property key of the relationship
  * @param {string | number} pkValue - The primary key value of the related model
  * @param {any} cacheValue - The model instance to cache
  * @return {Promise<any>} A promise that resolves with the result of the cache operation
@@ -631,7 +631,7 @@ export async function cacheModelForPopulate<
  * @param {R} this - The repository instance
  * @param {Context<F>} context - The context for the operation
  * @param {V} data - The relations metadata
- * @param {keyof M} key - The property key of the relationship
+ * @param key - The property key of the relationship
  * @param {M} model - The model instance
  * @return {Promise<void>} A promise that resolves when the operation is complete
  * @function populate
@@ -748,7 +748,7 @@ const commomTypes = [
  * @summary Examines a model property's type metadata to determine the appropriate repository for related models
  * @template M - The model type extending Model
  * @param {any} model - The model instance containing the property
- * @param {string | keyof M} propertyKey - The property key to examine
+ * @param propertyKey - The property key to examine
  * @return {Repo<M>} A repository for the model type associated with the property
  * @function repositoryFromTypeMetadata
  * @memberOf module:core

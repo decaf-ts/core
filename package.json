@@ -42,7 +42,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/decaf-ts/ts-workspace.git"
+    "url": "git+https://github.com/decaf-ts/core.git"
   },
   "engines": {
     "node": ">=20.0.0",
@@ -73,9 +73,9 @@
   "author": "Tiago Venceslau",
   "license": "LGPL-3.0-or-later",
   "bugs": {
-    "url": "https://github.com/decaf-ts/ts-workspace/issues"
+    "url": "https://github.com/decaf-ts/core/issues"
   },
-  "homepage": "https://github.com/decaf-ts/ts-workspace#readme",
+  "homepage": "https://github.com/decaf-ts/core#readme",
   "devDependencies": {
     "@decaf-ts/utils": "latest",
     "@eslint/js": "^9.25.1",

@@ -67,8 +67,18 @@ export class RamPaginator<M extends Model, R> extends Paginator<
    * @return {Promise<R[]>} A promise that resolves to an array of results for the requested page
    */
   async page(page: number = 1): Promise<R[]> {
-    page = this.validatePage(page);
     const statement = this.prepare(this.statement);
+    if (!this._recordCount || !this._totalPages) {
+        this._totalPages = this._recordCount = 0;
+        const results: R[] = await this.adapter.raw({ ...statement, limit: undefined }) || [];
+        this._recordCount = results.length;
+        if (this._recordCount > 0) {
+            const size = statement?.limit || this.size;
+            this._totalPages = Math.ceil(this._recordCount / size);
+        }
+    }
+
+    page = this.validatePage(page);
     statement.skip = (page - 1) * this.size;
     const results: any[] = await this.adapter.raw(statement);
     this._currentPage = page;

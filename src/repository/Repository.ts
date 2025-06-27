@@ -2,6 +2,7 @@ import {
   BulkCrudOperationKeys,
   Context,
   DBKeys,
+  DefaultSeparator,
   enforceDBDecorators,
   findPrimaryKey,
   InternalError,
@@ -179,7 +180,7 @@ export class Repository<
     super(clazz);
     if (adapter) this._adapter = adapter;
     if (clazz) {
-      Repository.register(clazz, this);
+      Repository.register(clazz, this, this.adapter.alias);
       if (adapter) {
         const flavour = Reflect.getMetadata(
           Adapter.key(PersistenceKeys.ADAPTER),
@@ -895,12 +896,14 @@ export class Repository<
    */
   static forModel<M extends Model, R extends Repo<M>>(
     model: Constructor<M>,
-    defaultFlavour?: string,
+    alias?: string,
     ...args: any[]
   ): R {
     let repo: R | Constructor<R> | undefined;
+
+    const _alias: string | undefined = alias || Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model) ;
     try {
-      repo = this.get(model) as Constructor<R> | R;
+      repo = this.get(model,_alias) as Constructor<R> | R;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: any) {
       repo = undefined;
@@ -909,10 +912,10 @@ export class Repository<
     if (repo instanceof Repository) return repo as R;
 
     const flavour: string | undefined =
+      alias ||
       Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model) ||
       (repo &&
-        Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), repo)) ||
-      defaultFlavour;
+        Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), repo));
     const adapter: Adapter<any, any, any, any> | undefined = flavour
       ? Adapter.get(flavour)
       : undefined;
@@ -935,9 +938,13 @@ export class Repository<
    * @throws {InternalError} If no repository is registered for the model.
    */
   private static get<M extends Model>(
-    model: Constructor<M>
+    model: Constructor<M>,
+    alias ?: string
   ): Constructor<Repo<M>> | Repo<M> {
-    const name = Repository.table(model);
+    let name = Repository.table(model);
+    if (alias) {
+      name = [name, alias].join(DefaultSeparator)
+    }
     if (name in this._cache)
       return this._cache[name] as unknown as Constructor<Repo<M>> | Repo<M>;
     throw new InternalError(
@@ -955,9 +962,13 @@ export class Repository<
    */
   static register<M extends Model>(
     model: Constructor<M>,
-    repo: Constructor<Repo<M>> | Repo<M>
+    repo: Constructor<Repo<M>> | Repo<M>,
+    alias ?: string
   ) {
-    const name = Repository.table(model);
+    let name = Repository.table(model);
+    if (alias) {
+      name = [name, alias].join(DefaultSeparator)
+    }
     if (name in this._cache)
       throw new InternalError(`${name} already registered as a repository`);
     this._cache[name] = repo as any;

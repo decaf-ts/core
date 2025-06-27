@@ -554,7 +554,7 @@ export async function oneToManyOnDelete<
     );
   const isInstantiated = arrayType === "object";
   const repo = isInstantiated
-    ? Repository.forModel(values[0])
+    ? Repository.forModel(values[0],this.adapter.alias)
     : repositoryFromTypeMetadata(model, key);
 
   const uniqueValues = new Set([
@@ -822,3 +822,4 @@ export function repositoryFromTypeMetadata<M extends Model>(
 
   return Repository.forModel(constructor);
 }
+

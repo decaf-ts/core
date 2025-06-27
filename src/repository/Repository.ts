@@ -2,6 +2,7 @@ import {
   BulkCrudOperationKeys,
   Context,
   DBKeys,
+  DefaultSeparator,
   enforceDBDecorators,
   findPrimaryKey,
   InternalError,
@@ -93,7 +94,7 @@ export class Repository<
     super(clazz);
     if (adapter) this._adapter = adapter;
     if (clazz) {
-      Repository.register(clazz, this, this._adapter.alias);
+      Repository.register(clazz, this, this.adapter.alias);
       if (adapter) {
         const flavour = Reflect.getMetadata(
           Adapter.key(PersistenceKeys.ADAPTER),
@@ -643,7 +644,7 @@ export class Repository<
   ): Constructor<Repo<M>> | Repo<M> {
     let name = Repository.table(model);
     if (alias) {
-      name = name + "_" + alias;
+      name = [name, alias].join(DefaultSeparator)
     }
     if (name in this._cache)
       return this._cache[name] as unknown as Constructor<Repo<M>> | Repo<M>;
@@ -659,7 +660,7 @@ export class Repository<
   ) {
     let name = Repository.table(model);
     if (alias) {
-      name = name + "_" + alias;
+      name = [name, alias].join(DefaultSeparator)
     }
     if (name in this._cache)
       throw new InternalError(`${name} already registered as a repository`);

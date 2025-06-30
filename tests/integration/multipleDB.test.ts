@@ -4,17 +4,6 @@ import { RamAdapter } from "../../src/ram/RamAdapter";
 import { BaseModel, index, OrderDirection, pk, Repository, uses } from "../../src";
 import { readonly } from "@decaf-ts/db-decorators";
 
-
-const admin = "couchdb.admin";
-const admin_password = "couchdb.admin";
-const user = "couchdb.admin";
-const user_password = "couchdb.admin";
-const dbName = "queries_db";
-const dbHost = "localhost:10010";
-const dbHost2 = "localhost:10011";
-const protocol = "http"
-
-
 Model.setBuilder(Model.fromModel);
 
 jest.setTimeout(50000);

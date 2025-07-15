@@ -127,7 +127,7 @@ export class Repository<
 
   private readonly _adapter!: A;
   private _tableName!: string;
-  private _overrides?: Partial<F>;
+  protected _overrides?: Partial<F>;
 
   private logger!: Logger;
 
@@ -901,9 +901,10 @@ export class Repository<
   ): R {
     let repo: R | Constructor<R> | undefined;
 
-    const _alias: string | undefined = alias || Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model) ;
+    const _alias: string | undefined =
+      alias || Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model);
     try {
-      repo = this.get(model,_alias) as Constructor<R> | R;
+      repo = this.get(model, _alias) as Constructor<R> | R;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: any) {
       repo = undefined;
@@ -914,8 +915,7 @@ export class Repository<
     const flavour: string | undefined =
       alias ||
       Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model) ||
-      (repo &&
-        Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), repo));
+      (repo && Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), repo));
     const adapter: Adapter<any, any, any, any> | undefined = flavour
       ? Adapter.get(flavour)
       : undefined;
@@ -939,11 +939,11 @@ export class Repository<
    */
   private static get<M extends Model>(
     model: Constructor<M>,
-    alias ?: string
+    alias?: string
   ): Constructor<Repo<M>> | Repo<M> {
     let name = Repository.table(model);
     if (alias) {
-      name = [name, alias].join(DefaultSeparator)
+      name = [name, alias].join(DefaultSeparator);
     }
     if (name in this._cache)
       return this._cache[name] as unknown as Constructor<Repo<M>> | Repo<M>;
@@ -963,11 +963,11 @@ export class Repository<
   static register<M extends Model>(
     model: Constructor<M>,
     repo: Constructor<Repo<M>> | Repo<M>,
-    alias ?: string
+    alias?: string
   ) {
     let name = Repository.table(model);
     if (alias) {
-      name = [name, alias].join(DefaultSeparator)
+      name = [name, alias].join(DefaultSeparator);
     }
     if (name in this._cache)
       throw new InternalError(`${name} already registered as a repository`);

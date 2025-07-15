@@ -96,14 +96,14 @@ export class RamAdapter extends Adapter<
    * @param {OperationKeys} operation - The type of operation being performed
    * @param {Constructor<M>} model - The model constructor
    * @param {Partial<RamFlags>} flags - Partial flags to be extended
-   * @return {RamFlags} Complete flags with UUID
+   * @return {Promise<RamFlags>} Complete flags with UUID
    */
-  override flags<M extends Model>(
+  override async flags<M extends Model>(
     operation: OperationKeys,
     model: Constructor<M>,
     flags: Partial<RamFlags>
-  ): RamFlags {
-    return Object.assign(super.flags(operation, model, flags), {
+  ): Promise<RamFlags> {
+    return Object.assign(await super.flags(operation, model, flags), {
       UUID: crypto.randomUUID(),
     }) as RamFlags;
   }

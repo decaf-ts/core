@@ -137,10 +137,10 @@ export async function uniqueOnCreateUpdate<
  * ```
  */
 export function unique() {
-  return apply(
-    onCreateUpdate(uniqueOnCreateUpdate),
-    propMetadata(Repository.key(PersistenceKeys.UNIQUE), {})
-  );
+  const key = Repository.key(PersistenceKeys.UNIQUE);
+  return Decoration.for(key)
+    .define(onCreateUpdate(uniqueOnCreateUpdate), propMetadata(key, {}))
+    .apply();
 }
 
 /**

@@ -240,7 +240,7 @@ export abstract class Adapter<
    * @summary Factory method that creates an observer handler for this adapter
    * @return {ObserverHandler} A new observer handler instance
    */
-  protected ObserverHandler() {
+  protected ObserverHandler(): ObserverHandler {
     return new ObserverHandler();
   }
 
@@ -250,7 +250,7 @@ export abstract class Adapter<
    * @param {string} attr - The attribute name to check
    * @return {boolean} True if the attribute is reserved, false otherwise
    */
-  protected isReserved(attr: string) {
+  protected isReserved(attr: string): boolean {
     return !attr;
   }
 
@@ -287,15 +287,15 @@ export abstract class Adapter<
    * @param {Constructor<M>} model - The model constructor
    * @param {Partial<F>} flags - Custom flag overrides
    * @param {...any[]} args - Additional arguments
-   * @return {F} The complete set of flags
+   * @return {Promise<F>} The complete set of flags
    */
-  protected flags<M extends Model>(
+  protected async flags<M extends Model>(
     operation: OperationKeys,
     model: Constructor<M>,
     flags: Partial<F>,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
-  ): F {
+  ): Promise<F> {
     return Object.assign({}, DefaultRepositoryFlags, flags, {
       affectedTables: Repository.table(model),
       writeOperation: operation !== OperationKeys.READ,
@@ -332,14 +332,13 @@ export abstract class Adapter<
     model: Constructor<M>,
     ...args: any[]
   ): Promise<C> {
-    this.log
-      .for(this.context)
-      .debug(
-        `Creating new context for ${operation} operation on ${model.name} model with flag overrides: ${JSON.stringify(overrides)}`
-      );
-    return new this.Context().accumulate(
-      this.flags(operation, model, overrides, ...args)
-    ) as unknown as C;
+    const log = this.log.for(this.context);
+    log.debug(
+      `Creating new context for ${operation} operation on ${model.name} model with flag overrides: ${JSON.stringify(overrides)}`
+    );
+    const flags = await this.flags(operation, model, overrides, ...args);
+    log.debug(`Flags: ${JSON.stringify(flags)}`);
+    return new this.Context().accumulate(flags) as unknown as C;
   }
 
   /**

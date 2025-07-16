@@ -28,12 +28,12 @@ import { QueryError } from "./errors";
 /**
  * @description Base class for database query statements
  * @summary Provides a foundation for building and executing database queries
- * 
+ *
  * This abstract class implements the query builder pattern for constructing
  * database queries. It supports various query operations like select, from,
  * where, orderBy, groupBy, limit, and offset. It also provides methods for
  * executing queries and handling pagination.
- * 
+ *
  * @template Q - The query type specific to the database adapter
  * @template M - The model type this statement operates on
  * @template R - The return type of the query
@@ -49,20 +49,20 @@ import { QueryError } from "./errors";
  *   .orderBy(["createdAt", "DESC"])
  *   .limit(10)
  *   .execute();
- * 
+ *
  * // Use pagination
  * const paginator = await statement
  *   .select()
  *   .from(User)
  *   .paginate(20); // 20 users per page
- * 
+ *
  * @mermaid
  * sequenceDiagram
  *   participant Client
  *   participant Statement
  *   participant Adapter
  *   participant Database
- *   
+ *
  *   Client->>Statement: select()
  *   Client->>Statement: from(Model)
  *   Client->>Statement: where(condition)
@@ -215,6 +215,6 @@ export abstract class Statement<Q, M extends Model, R>
   }
 
   protected abstract build(): Q;
-  protected abstract parseCondition(condition: Condition<M>): Q;
+  protected abstract parseCondition(condition: Condition<M>, ...args: any[]): Q;
   abstract paginate(size: number): Promise<Paginator<M, R, Q>>;
 }

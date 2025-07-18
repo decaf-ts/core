@@ -39,13 +39,14 @@ import { AuthorizationError } from "../utils";
 /**
  * @description Specifies the database table name for a model
  * @summary Decorator that sets the table name for a model class in the database
- * @param {string} tableName - The name of the table in the database
+ * @param {string} opts - The name of the table in the database
  * @return {Function} A decorator function that can be applied to a class
  * @function table
  * @category Class Decorators
  */
-export function table(tableName: string) {
-  return metadata(Adapter.key(PersistenceKeys.TABLE), tableName);
+export function table<OPTS = string>(opts: OPTS) {
+  const key = Adapter.key(PersistenceKeys.TABLE);
+  return Decoration.for(key).define(metadata(key, opts)).apply();
 }
 
 /**
@@ -56,8 +57,9 @@ export function table(tableName: string) {
  * @function column
  * @category Property Decorators
  */
-export function column(columnName: string) {
-  return propMetadata(Adapter.key(PersistenceKeys.COLUMN), columnName);
+export function column<OPTS = string>(columnName: OPTS) {
+  const key = Adapter.key(PersistenceKeys.COLUMN);
+  return Decoration.for(key).define(propMetadata(key, columnName)).apply();
 }
 
 /**

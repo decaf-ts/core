@@ -27,28 +27,34 @@ export enum PersistenceKeys {
   /** @description Key for general metadata storage */
   METADATA = "__metadata",
 
+  // Ownership
+  /** @description Key for created-by ownership metadata */
+  OWNERSHIP = "ownership",
+
+  /** @description Key for created-by ownership metadata */
+  CREATED_BY = `${OWNERSHIP}.created-by`,
+
+  /** @description Key for updated-by ownership metadata */
+  UPDATED_BY = `${OWNERSHIP}.updated-by`,
+
+  // Relations
+
   /** @description Key for relations metadata storage */
   RELATIONS = "__relations",
 
-  /** @description Key for clause sequence metadata */
-  CLAUSE_SEQUENCE = "clause-sequence",
+  /** @description Key for relations metadata storage */
+  RELATION = "relation",
 
-  // Ownership
-  /** @description Key for created-by ownership metadata */
-  CREATED_BY = "ownership.created-by",
-
-  /** @description Key for updated-by ownership metadata */
-  UPDATED_BY = "ownership.updated-by",
-
-  // Relations
   /** @description Key for one-to-one relation metadata */
-  ONE_TO_ONE = "relations.one-to-one",
+  ONE_TO_ONE = `${RELATION}.one-to-one`,
 
   /** @description Key for one-to-many relation metadata */
-  ONE_TO_MANY = "relations.one-to-many",
+  ONE_TO_MANY = `${RELATION}.one-to-many`,
 
   /** @description Key for many-to-one relation metadata */
-  MANY_TO_ONE = "relations.many-to-one",
+  MANY_TO_ONE = `${RELATION}.many-to-one`,
+  /** @description Key for many-to-one relation metadata */
+  MANY_TO_MANY = `${RELATION}.many-to-one`,
 
   /** @description Key for populate metadata */
   POPULATE = "populate",

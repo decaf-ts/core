@@ -317,8 +317,13 @@ export function oneToMany<M extends Model>(
   return Decoration.for(key)
     .define(
       prop(PersistenceKeys.RELATIONS),
-      // @ts-expect-error purposeful override
-      list([clazz, String, Number, BigInt]),
+      list([
+        clazz,
+        String,
+        Number,
+        // @ts-expect-error Bigint is not a constructor
+        BigInt,
+      ]),
       onCreate(oneToManyOnCreate, metadata),
       onUpdate(oneToManyOnUpdate, metadata),
       onDelete(oneToManyOnDelete, metadata),
@@ -357,6 +362,58 @@ export function oneToMany<M extends Model>(
  * @see oneToOne
  */
 export function manyToOne<M extends Model>(
+  clazz: Constructor<M>,
+  cascadeOptions: CascadeMetadata = DefaultCascade,
+  populate = true
+) {
+  Model.register(clazz);
+  const metadata: RelationsMetadata = {
+    class: clazz.name,
+    cascade: cascadeOptions,
+    populate: populate,
+  };
+  const key = Repository.key(PersistenceKeys.MANY_TO_ONE);
+  return Decoration.for(key)
+    .define(
+      prop(PersistenceKeys.RELATIONS),
+      type([clazz.name, String.name, Number.name, BigInt.name]),
+      // onCreate(oneToManyOnCreate, metadata),
+      // onUpdate(oneToManyOnUpdate, metadata),
+      // onDelete(oneToManyOnDelete, metadata),
+      // afterAny(pop, metadata),
+      propMetadata(key, metadata)
+    )
+    .apply();
+}
+/**
+ * @description Defines a many-to-one relationship between models
+ * @summary Decorator that establishes a many-to-one relationship between multiple instances of the current model and another model
+ * @template M - The related model type extending Model
+ * @param {Constructor<M>} clazz - The constructor of the related model class
+ * @param {CascadeMetadata} [cascadeOptions=DefaultCascade] - Options for cascading operations (create, update, delete)
+ * @param {boolean} [populate=true] - If true, automatically populates the relationship when the model is retrieved
+ * @return {Function} A decorator function that can be applied to a class property
+ * @function manyToOne
+ * @category Property Decorators
+ * @example
+ * ```typescript
+ * class Book extends BaseModel {
+ *   @required()
+ *   title!: string;
+ *
+ *   @manyToOne(Author)
+ *   author!: string | Author;
+ * }
+ *
+ * class Author extends BaseModel {
+ *   @required()
+ *   name!: string;
+ * }
+ * ```
+ * @see oneToMany
+ * @see oneToOne
+ */
+export function manyToMany<M extends Model>(
   clazz: Constructor<M>,
   cascadeOptions: CascadeMetadata = DefaultCascade,
   populate = true

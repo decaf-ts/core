@@ -934,6 +934,7 @@ export class Repository<
    * @summary Gets a repository constructor or instance for the specified model from the internal cache.
    * @template M - The model type that extends Model.
    * @param {Constructor<M>} model - The model constructor.
+   * @param {string} [alias] - The adapter alias.
    * @return {Constructor<Repo<M>> | Repo<M>} The repository constructor or instance.
    * @throws {InternalError} If no repository is registered for the model.
    */

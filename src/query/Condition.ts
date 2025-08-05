@@ -1,11 +1,14 @@
 import { AttributeOption, ConditionBuilderOption } from "./options";
 import {
+  ConditionalAsync,
   Model,
   ModelErrorDefinition,
   required,
 } from "@decaf-ts/decorator-validation";
 import { GroupOperator, Operator } from "./constants";
 import { QueryError } from "./errors";
+
+type InferAsync<M> = M extends Model<infer A> ? A : false;
 
 /**
  * @description Represents a logical condition for database queries
@@ -30,7 +33,7 @@ import { QueryError } from "./errors";
  *   .attribute("email").regexp(".*@example.com")
  *   .and(Condition.attribute("lastLogin").gt(new Date("2023-01-01")));
  */
-export class Condition<M extends Model> extends Model {
+export class Condition<M extends Model<any>> extends Model<InferAsync<M>> {
   @required()
   protected attr1?: string | Condition<M> = undefined;
   @required()
@@ -85,56 +88,66 @@ export class Condition<M extends Model> extends Model {
    * @param {...string[]} exceptions - Fields to exclude from validation
    * @return {ModelErrorDefinition | undefined} Error definition if validation fails, undefined otherwise
    */
+  // @ts-expect-error ConditionalAsync override
   override hasErrors(
     ...exceptions: string[]
-  ): ModelErrorDefinition | undefined {
+  ): ConditionalAsync<InferAsync<M>, ModelErrorDefinition | undefined> {
+    const conditionCheck = (): ModelErrorDefinition | undefined => {
+      const invalidOpMessage = `Invalid operator ${this.operator}}`;
+
+      if (typeof this.attr1 === "string") {
+        if (this.comparison instanceof Condition)
+          return {
+            comparison: {
+              condition:
+                "Both sides of the comparison must be of the same type",
+            },
+          } as ModelErrorDefinition;
+        if (Object.values(Operator).indexOf(this.operator as Operator) === -1)
+          return {
+            operator: {
+              condition: invalidOpMessage,
+            },
+          } as ModelErrorDefinition;
+      }
+
+      if (this.attr1 instanceof Condition) {
+        if (
+          !(this.comparison instanceof Condition) &&
+          this.operator !== Operator.NOT
+        )
+          return {
+            comparison: {
+              condition: invalidOpMessage,
+            },
+          } as ModelErrorDefinition;
+        if (
+          Object.values(GroupOperator).indexOf(
+            this.operator as GroupOperator
+          ) === -1 &&
+          this.operator !== Operator.NOT
+        )
+          return {
+            operator: {
+              condition: invalidOpMessage,
+            },
+          } as ModelErrorDefinition;
+      }
+    };
+
     const errors = super.hasErrors(...exceptions);
-    if (errors) return errors;
+    if (!this.isAsync())
+      return (
+        (errors as ModelErrorDefinition | undefined) ??
+        (conditionCheck() as any)
+      );
 
-    const invalidOpMessage = `Invalid operator ${this.operator}}`;
-
-    if (typeof this.attr1 === "string") {
-      if (this.comparison instanceof Condition)
-        return {
-          comparison: {
-            condition: "Both sides of the comparison must be of the same type",
-          },
-        } as ModelErrorDefinition;
-      if (Object.values(Operator).indexOf(this.operator as Operator) === -1)
-        return {
-          operator: {
-            condition: invalidOpMessage,
-          },
-        } as ModelErrorDefinition;
-    }
-
-    if (this.attr1 instanceof Condition) {
-      if (
-        !(this.comparison instanceof Condition) &&
-        this.operator !== Operator.NOT
-      )
-        return {
-          comparison: {
-            condition: invalidOpMessage,
-          },
-        } as ModelErrorDefinition;
-      if (
-        Object.values(GroupOperator).indexOf(this.operator as GroupOperator) ===
-          -1 &&
-        this.operator !== Operator.NOT
-      )
-        return {
-          operator: {
-            condition: invalidOpMessage,
-          },
-        } as ModelErrorDefinition;
-      // if (this.operator !== Operator.NOT && typeof this.attr1.attr1 !== "string")
-      //     return {
-      //         attr1: {
-      //             condition: stringFormat("Parent condition attribute must be a string")
-      //         }
-      //     } as ModelErrorDefinition
-    }
+    return (async () => {
+      const resolved = await Promise.resolve(
+        errors as unknown as Promise<ModelErrorDefinition | undefined>
+      );
+      return resolved ?? conditionCheck();
+    })() as ConditionalAsync<InferAsync<M>, ModelErrorDefinition | undefined>;
   }
 
   /**

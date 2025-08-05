@@ -88,7 +88,6 @@ export class Condition<M extends Model<any>> extends Model<InferAsync<M>> {
    * @param {...string[]} exceptions - Fields to exclude from validation
    * @return {ModelErrorDefinition | undefined} Error definition if validation fails, undefined otherwise
    */
-  // @ts-expect-error ConditionalAsync override
   override hasErrors(
     ...exceptions: string[]
   ): ConditionalAsync<InferAsync<M>, ModelErrorDefinition | undefined> {

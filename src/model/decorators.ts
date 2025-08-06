@@ -57,9 +57,13 @@ export function table<OPTS = string>(opts: OPTS) {
  * @function column
  * @category Property Decorators
  */
-export function column<OPTS = string>(columnName: OPTS) {
+export function column<OPTS = string>(columnName?: OPTS) {
   const key = Adapter.key(PersistenceKeys.COLUMN);
-  return Decoration.for(key).define(propMetadata(key, columnName)).apply();
+  return Decoration.for(key)
+    .define(function column(obj: any, prop: any) {
+      return propMetadata(key, columnName || prop)(obj, prop);
+    })
+    .apply();
 }
 
 /**

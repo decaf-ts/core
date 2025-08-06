@@ -889,7 +889,7 @@ export class Repository<
    * @template M - The model type that extends Model.
    * @template R - The repository type that extends Repo<M>.
    * @param {Constructor<M>} model - The model constructor.
-   * @param {string} [defaultFlavour] - Optional default adapter flavour if not specified on the model.
+   * @param {string} [alias] - Optional default adapter flavour if not specified on the model.
    * @param {...any[]} [args] - Additional arguments to pass to the repository constructor.
    * @return {R} A repository instance for the model.
    * @throws {InternalError} If no adapter is registered for the flavour.

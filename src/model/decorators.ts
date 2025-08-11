@@ -8,7 +8,7 @@ import {
   RepositoryFlags,
   Context,
 } from "@decaf-ts/db-decorators";
-import { apply, metadata } from "@decaf-ts/reflection";
+import { metadata } from "@decaf-ts/reflection";
 import { PersistenceKeys } from "../persistence/constants";
 import { CascadeMetadata, IndexMetadata } from "../repository/types";
 import { DefaultCascade, OrderDirection } from "../repository/constants";
@@ -46,7 +46,12 @@ import { AuthorizationError } from "../utils";
  */
 export function table<OPTS = string>(opts: OPTS) {
   const key = Adapter.key(PersistenceKeys.TABLE);
-  return Decoration.for(key).define(metadata(key, opts)).apply();
+  return Decoration.for(key)
+    .define({
+      decorator: metadata,
+      args: [key, opts],
+    })
+    .apply();
 }
 
 /**
@@ -60,8 +65,9 @@ export function table<OPTS = string>(opts: OPTS) {
 export function column<OPTS = string>(columnName?: OPTS) {
   const key = Adapter.key(PersistenceKeys.COLUMN);
   return Decoration.for(key)
-    .define(function column(obj: any, prop: any) {
-      return propMetadata(key, columnName || prop)(obj, prop);
+    .define({
+      decorator: propMetadata,
+      args: [key, columnName],
     })
     .apply();
 }

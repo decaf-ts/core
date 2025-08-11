@@ -66,7 +66,11 @@ export function column<OPTS = string>(columnName?: OPTS) {
   const key = Adapter.key(PersistenceKeys.COLUMN);
   return Decoration.for(key)
     .define({
-      decorator: propMetadata,
+      decorator: function column(k, c) {
+        return function column(obj: any, attr: any) {
+          return propMetadata(k, c || attr)(obj, attr);
+        };
+      },
       args: [key, columnName],
     })
     .apply();

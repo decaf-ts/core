@@ -8,7 +8,7 @@ import {
   RepositoryFlags,
   Context,
 } from "@decaf-ts/db-decorators";
-import { metadata } from "@decaf-ts/reflection";
+import { apply, metadata } from "@decaf-ts/reflection";
 import { PersistenceKeys } from "../persistence/constants";
 import { CascadeMetadata, IndexMetadata } from "../repository/types";
 import { DefaultCascade, OrderDirection } from "../repository/constants";
@@ -277,16 +277,24 @@ export function oneToOne<M extends Model>(
     populate: populate,
   };
   const key = Repository.key(PersistenceKeys.ONE_TO_ONE);
-  return Decoration.for(key)
-    .define(
+
+  function oneToOneDec(clazz: Constructor<any>, meta: RelationsMetadata) {
+    return apply(
       prop(PersistenceKeys.RELATIONS),
       type([clazz.name, String.name, Number.name, BigInt.name]),
-      onCreate(oneToOneOnCreate, metadata),
-      onUpdate(oneToOneOnUpdate, metadata),
-      onDelete(oneToOneOnDelete, metadata),
-      afterAny(pop, metadata),
-      propMetadata(key, metadata)
-    )
+      onCreate(oneToOneOnCreate, meta),
+      onUpdate(oneToOneOnUpdate, meta),
+      onDelete(oneToOneOnDelete, meta),
+      afterAny(pop, meta),
+      propMetadata(key, meta)
+    );
+  }
+
+  return Decoration.for(key)
+    .define({
+      decorator: oneToOneDec,
+      args: [clazz, metadata],
+    })
     .apply();
 }
 

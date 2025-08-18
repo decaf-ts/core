@@ -270,16 +270,21 @@ export function oneToOne<M extends Model>(
   cascadeOptions: CascadeMetadata = DefaultCascade,
   populate: boolean = true
 ) {
-  if (!clazz.name) clazz = (clazz as () => Constructor<M>)() as Constructor<M>;
-  Model.register(clazz as Constructor<M>);
-  const metadata: RelationsMetadata = {
-    class: clazz.name,
-    cascade: cascadeOptions,
-    populate: populate,
-  };
   const key = Repository.key(PersistenceKeys.ONE_TO_ONE);
+  // Model.register(clazz as Constructor<M>);
 
-  function oneToOneDec(clazz: Constructor<any>, meta: RelationsMetadata) {
+  function oneToOneDec(
+    clazz: Constructor<M> | (() => Constructor<M>),
+    cascade: CascadeMetadata,
+    populate: boolean
+  ) {
+    if (!clazz.name)
+      clazz = (clazz as () => Constructor<M>)() as Constructor<M>;
+    const meta: RelationsMetadata = {
+      class: clazz.name,
+      cascade: cascade,
+      populate: populate,
+    };
     return apply(
       prop(PersistenceKeys.RELATIONS),
       type([clazz.name, String.name, Number.name, BigInt.name]),
@@ -294,7 +299,7 @@ export function oneToOne<M extends Model>(
   return Decoration.for(key)
     .define({
       decorator: oneToOneDec,
-      args: [clazz, metadata],
+      args: [clazz, cascadeOptions, populate],
     })
     .apply();
 }
@@ -332,20 +337,29 @@ export function oneToMany<M extends Model>(
   cascadeOptions: CascadeMetadata = DefaultCascade,
   populate: boolean = true
 ) {
-  if (!clazz.name) clazz = (clazz as () => Constructor<M>)() as Constructor<M>;
-  Model.register(clazz as Constructor<M>);
-  const metadata: RelationsMetadata = {
-    class: clazz.name,
-    cascade: cascadeOptions,
-    populate: populate,
-  };
+  if (!clazz.name) {
+    clazz = (clazz as () => Constructor<M>)() as Constructor<M>;
+  }
+  // Model.register(clazz as Constructor<M>);
+
   const key = Repository.key(PersistenceKeys.ONE_TO_MANY);
 
-  function oneToManyDec(clazz: Constructor<any>, metadata: RelationsMetadata) {
+  function oneToManyDec(
+    clazz: Constructor<M> | (() => Constructor<M>),
+    cascade: CascadeMetadata,
+    populate: boolean
+  ) {
+    if (!clazz.name)
+      clazz = (clazz as () => Constructor<M>)() as Constructor<M>;
+    const metadata: RelationsMetadata = {
+      class: clazz.name,
+      cascade: cascade,
+      populate: populate,
+    };
     return apply(
       prop(PersistenceKeys.RELATIONS),
       list([
-        clazz,
+        clazz as Constructor<M>,
         String,
         Number,
         // @ts-expect-error Bigint is not a constructor
@@ -362,7 +376,7 @@ export function oneToMany<M extends Model>(
   return Decoration.for(key)
     .define({
       decorator: oneToManyDec,
-      args: [clazz, metadata],
+      args: [clazz, cascadeOptions, populate],
     })
     .apply();
 }
@@ -400,16 +414,22 @@ export function manyToOne<M extends Model>(
   cascadeOptions: CascadeMetadata = DefaultCascade,
   populate = true
 ) {
-  if (!clazz.name) clazz = (clazz as () => Constructor<M>)() as Constructor<M>;
-  Model.register(clazz as Constructor<M>);
-  const metadata: RelationsMetadata = {
-    class: clazz.name,
-    cascade: cascadeOptions,
-    populate: populate,
-  };
+  // Model.register(clazz as Constructor<M>);
+
   const key = Repository.key(PersistenceKeys.MANY_TO_ONE);
 
-  function manyToOneDec(clazz: Constructor<any>, metadata: RelationsMetadata) {
+  function manyToOneDec(
+    clazz: Constructor<M> | (() => Constructor<M>),
+    cascade: CascadeMetadata,
+    populate: boolean
+  ) {
+    if (!clazz.name)
+      clazz = (clazz as () => Constructor<M>)() as Constructor<M>;
+    const metadata: RelationsMetadata = {
+      class: clazz.name,
+      cascade: cascade,
+      populate: populate,
+    };
     return apply(
       prop(PersistenceKeys.RELATIONS),
       type([clazz.name, String.name, Number.name, BigInt.name]),
@@ -424,7 +444,7 @@ export function manyToOne<M extends Model>(
   return Decoration.for(key)
     .define({
       decorator: manyToOneDec,
-      args: [clazz, metadata],
+      args: [clazz, cascadeOptions, populate],
     })
     .apply();
 }
@@ -461,16 +481,22 @@ export function manyToMany<M extends Model>(
   cascadeOptions: CascadeMetadata = DefaultCascade,
   populate = true
 ) {
-  if (!clazz.name) clazz = (clazz as () => Constructor<M>)() as Constructor<M>;
-  Model.register(clazz as Constructor<M>);
-  const metadata: RelationsMetadata = {
-    class: clazz.name,
-    cascade: cascadeOptions,
-    populate: populate,
-  };
+  // Model.register(clazz as Constructor<M>);
   const key = Repository.key(PersistenceKeys.MANY_TO_ONE);
-  return Decoration.for(key)
-    .define(
+
+  function manyToManyDec(
+    clazz: Constructor<M> | (() => Constructor<M>),
+    cascade: CascadeMetadata,
+    populate: boolean
+  ) {
+    if (!clazz.name)
+      clazz = (clazz as () => Constructor<M>)() as Constructor<M>;
+    const metadata: RelationsMetadata = {
+      class: clazz.name,
+      cascade: cascade,
+      populate: populate,
+    };
+    return apply(
       prop(PersistenceKeys.RELATIONS),
       type([clazz.name, String.name, Number.name, BigInt.name]),
       // onCreate(oneToManyOnCreate, metadata),
@@ -478,6 +504,12 @@ export function manyToMany<M extends Model>(
       // onDelete(oneToManyOnDelete, metadata),
       // afterAll(populate, metadata),
       propMetadata(key, metadata)
-    )
+    );
+  }
+  return Decoration.for(key)
+    .define({
+      decorator: manyToManyDec,
+      args: [clazz, cascadeOptions, populate],
+    })
     .apply();
 }

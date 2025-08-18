@@ -554,7 +554,7 @@ export async function oneToManyOnDelete<
     );
   const isInstantiated = arrayType === "object";
   const repo = isInstantiated
-    ? Repository.forModel(values[0],this.adapter.alias)
+    ? Repository.forModel(values[0], this.adapter.alias)
     : repositoryFromTypeMetadata(model, key);
 
   const uniqueValues = new Set([
@@ -806,9 +806,9 @@ export function repositoryFromTypeMetadata<M extends Model>(
       `Failed to find types decorators for property ${propertyKey as string}`
     );
 
-  const allowedTypes: string[] = Array.isArray(customTypes)
-    ? [...customTypes]
-    : [customTypes];
+  const allowedTypes: string[] = (
+    Array.isArray(customTypes) ? [...customTypes] : [customTypes]
+  ).map((t) => (typeof t === "function" ? t() : t));
   const constructorName = allowedTypes.find(
     (t) => !commomTypes.includes(`${t}`.toLowerCase())
   );
@@ -822,4 +822,3 @@ export function repositoryFromTypeMetadata<M extends Model>(
 
   return Repository.forModel(constructor);
 }
-

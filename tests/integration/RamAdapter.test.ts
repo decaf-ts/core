@@ -20,7 +20,7 @@ describe("Ram Adapter Integration", () => {
 
   it.only("creates", async () => {
     const obj = {
-      id: Date.now().toString(),
+      id: Date.now(),
       name: "test_name",
       nif: "123456789",
     };

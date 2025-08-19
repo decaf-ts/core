@@ -21,6 +21,7 @@ import { sequenceNameForModel } from "./utils";
 import { Sequence } from "../persistence/Sequence";
 import { Context } from "@decaf-ts/db-decorators";
 import { OrderDirection } from "../repository";
+import { apply } from "@decaf-ts/reflection";
 
 /**
  * @description Callback function for primary key creation
@@ -129,14 +130,19 @@ export function pk(
 ) {
   opts = Object.assign({}, DefaultSequenceOptions, opts) as SequenceOptions;
   const key = Repository.key(DBKeys.ID);
-  return Decoration.for(key)
-    .define(
+  function pkDec(options: SequenceOptions) {
+    return apply(
       index([OrderDirection.ASC, OrderDirection.DSC]),
       required(),
       readonly(),
-      // type([String.name, Number.name, BigInt.name]),
-      propMetadata(key, opts as SequenceOptions),
-      onCreate(pkOnCreate, opts as SequenceOptions)
-    )
+      propMetadata(key, options),
+      onCreate(pkOnCreate, options)
+    );
+  }
+  return Decoration.for(key)
+    .define({
+      decorator: pkDec,
+      args: [opts],
+    })
     .apply();
 }

@@ -88,6 +88,7 @@ export async function pkOnCreate<
       value: value,
     });
   };
+
   if (!data.name) data.name = sequenceNameForModel(model, "pk");
   let sequence: Sequence;
   try {

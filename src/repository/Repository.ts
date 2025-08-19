@@ -347,12 +347,20 @@ export class Repository<
     if (opts.type) {
       if (!opts.name) opts.name = Sequence.pk(models[0]);
       ids = await (await this.adapter.Sequence(opts)).range(models.length);
+    } else {
+      ids = models.map((m, i) => {
+        if (typeof m[this.pk] === "undefined")
+          throw new InternalError(
+            `Primary key is not defined for model in position ${i}`
+          );
+        return m[this.pk] as string;
+      });
     }
 
     models = await Promise.all(
       models.map(async (m, i) => {
         m = new this.class(m);
-        m[this.pk] = ids[i] as M[keyof M];
+        if (opts.type) m[this.pk] = ids[i] as M[keyof M];
         await enforceDBDecorators(
           this,
           contextArgs.context,

@@ -125,7 +125,7 @@ describe("Adapter", () => {
 
     it("creates", async () => {
       const model = new TestModel({
-        id: Date.now(),
+        id: Date.now().toString(),
         name: "test_name",
         nif: "123456789",
       });

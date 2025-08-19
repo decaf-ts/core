@@ -35,7 +35,7 @@ describe("Repository", () => {
   });
 
   it("creates", async () => {
-    const id = Date.now();
+    const id = Date.now().toString();
     const model = new TestModel({
       id: id,
       name: "test_name",

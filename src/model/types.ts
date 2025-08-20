@@ -1,4 +1,5 @@
 import { CascadeMetadata } from "../repository";
+import { Constructor } from "@decaf-ts/decorator-validation";
 
 /**
  * @description Metadata for model relationships
@@ -10,7 +11,7 @@ import { CascadeMetadata } from "../repository";
  * @memberOf module:model
  */
 export type RelationsMetadata = {
-  class: string;
+  class: string | (() => Constructor<any>);
   cascade: CascadeMetadata;
   populate: boolean;
 };

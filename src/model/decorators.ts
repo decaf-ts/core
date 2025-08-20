@@ -278,16 +278,19 @@ export function oneToOne<M extends Model>(
     cascade: CascadeMetadata,
     populate: boolean
   ) {
-    if (!clazz.name)
-      clazz = (clazz as () => Constructor<M>)() as Constructor<M>;
     const meta: RelationsMetadata = {
-      class: clazz.name,
+      class: clazz.name ? clazz.name : (clazz as any),
       cascade: cascade,
       populate: populate,
     };
     return apply(
       prop(PersistenceKeys.RELATIONS),
-      type([clazz.name, String.name, Number.name, BigInt.name]),
+      type([
+        clazz.name ? clazz.name : (clazz as any),
+        String.name,
+        Number.name,
+        BigInt.name,
+      ]),
       onCreate(oneToOneOnCreate, meta),
       onUpdate(oneToOneOnUpdate, meta),
       onDelete(oneToOneOnDelete, meta),
@@ -337,11 +340,6 @@ export function oneToMany<M extends Model>(
   cascadeOptions: CascadeMetadata = DefaultCascade,
   populate: boolean = true
 ) {
-  if (!clazz.name) {
-    clazz = (clazz as () => Constructor<M>)() as Constructor<M>;
-  }
-  // Model.register(clazz as Constructor<M>);
-
   const key = Repository.key(PersistenceKeys.ONE_TO_MANY);
 
   function oneToManyDec(
@@ -349,10 +347,8 @@ export function oneToMany<M extends Model>(
     cascade: CascadeMetadata,
     populate: boolean
   ) {
-    if (!clazz.name)
-      clazz = (clazz as () => Constructor<M>)() as Constructor<M>;
     const metadata: RelationsMetadata = {
-      class: clazz.name,
+      class: clazz.name ? clazz.name : (clazz as any),
       cascade: cascade,
       populate: populate,
     };
@@ -426,13 +422,18 @@ export function manyToOne<M extends Model>(
     if (!clazz.name)
       clazz = (clazz as () => Constructor<M>)() as Constructor<M>;
     const metadata: RelationsMetadata = {
-      class: clazz.name,
+      class: clazz.name ? clazz.name : (clazz as any),
       cascade: cascade,
       populate: populate,
     };
     return apply(
       prop(PersistenceKeys.RELATIONS),
-      type([clazz.name, String.name, Number.name, BigInt.name]),
+      type([
+        clazz.name ? clazz.name : (clazz as any),
+        String.name,
+        Number.name,
+        BigInt.name,
+      ]),
       // onCreate(oneToManyOnCreate, metadata),
       // onUpdate(oneToManyOnUpdate, metadata),
       // onDelete(oneToManyOnDelete, metadata),
@@ -489,16 +490,19 @@ export function manyToMany<M extends Model>(
     cascade: CascadeMetadata,
     populate: boolean
   ) {
-    if (!clazz.name)
-      clazz = (clazz as () => Constructor<M>)() as Constructor<M>;
     const metadata: RelationsMetadata = {
-      class: clazz.name,
+      class: clazz.name ? clazz.name : (clazz as any),
       cascade: cascade,
       populate: populate,
     };
     return apply(
       prop(PersistenceKeys.RELATIONS),
-      type([clazz.name, String.name, Number.name, BigInt.name]),
+      type([
+        clazz.name ? clazz.name : (clazz as any),
+        String.name,
+        Number.name,
+        BigInt.name,
+      ]),
       // onCreate(oneToManyOnCreate, metadata),
       // onUpdate(oneToManyOnUpdate, metadata),
       // onDelete(oneToManyOnDelete, metadata),

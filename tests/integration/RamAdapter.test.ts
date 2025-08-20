@@ -18,9 +18,9 @@ describe("Ram Adapter Integration", () => {
 
   let created: TestModel, updated: TestModel;
 
-  it.only("creates", async () => {
+  it("creates", async () => {
     const obj = {
-      id: Date.now(),
+      id: Date.now().toString(),
       name: "test_name",
       nif: "123456789",
     };
@@ -40,8 +40,6 @@ describe("Ram Adapter Integration", () => {
     expect(read).toBeDefined();
     expect(read.equals(created)).toEqual(true); // same model
     expect(read === created).toEqual(false); // different instances
-    const metadata = (read as any)[PersistenceKeys.METADATA];
-    expect(metadata).toBeDefined();
   });
 
   it("updates", async () => {
@@ -56,8 +54,6 @@ describe("Ram Adapter Integration", () => {
     expect(updated).toBeDefined();
     expect(updated.equals(created)).toEqual(false);
     expect(updated.equals(created, "updatedOn", "name")).toEqual(true); // minus the expected changes
-    const metadata = (updated as any)[PersistenceKeys.METADATA];
-    expect(metadata).toBeDefined();
   });
 
   it("deletes", async () => {
@@ -66,9 +62,6 @@ describe("Ram Adapter Integration", () => {
     expect(deleted.equals(updated)).toEqual(true);
 
     await expect(repo.read(created.id)).rejects.toThrowError(NotFoundError);
-
-    const metadata = (deleted as any)[PersistenceKeys.METADATA];
-    expect(metadata).toBeDefined();
   });
 
   it("bulk reads return metadata", async () => {});

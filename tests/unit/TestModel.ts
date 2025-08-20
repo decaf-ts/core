@@ -13,7 +13,7 @@ import { IdentifiedBaseModel } from "./IdentifiedBaseModel";
 @model()
 export class TestModel extends IdentifiedBaseModel {
   @pk()
-  id!: number;
+  id!: string;
 
   @column("tst_name")
   @required()

@@ -54,7 +54,7 @@ export enum PersistenceKeys {
   /** @description Key for many-to-one relation metadata */
   MANY_TO_ONE = `${RELATION}.many-to-one`,
   /** @description Key for many-to-one relation metadata */
-  MANY_TO_MANY = `${RELATION}.many-to-one`,
+  MANY_TO_MANY = `${RELATION}.many-to-many`,
 
   /** @description Key for populate metadata */
   POPULATE = "populate",

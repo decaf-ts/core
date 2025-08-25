@@ -46,7 +46,7 @@ import type { EventIds, ObserverFilter } from "../persistence";
  * @memberOf module:core
  */
 export type Repo<
-  M extends Model,
+  M extends Model<true | false>,
   F extends RepositoryFlags = any,
   C extends Context<F> = any,
   Q = any,
@@ -107,7 +107,7 @@ export type Repo<
  *   R-->>-C: created model
  */
 export class Repository<
-    M extends Model,
+    M extends Model<true | false>,
     Q,
     A extends Adapter<any, Q, F, C>,
     F extends RepositoryFlags = RepositoryFlags,
@@ -261,8 +261,10 @@ export class Repository<
       OperationKeys.ON
     );
 
-    const errors = model.hasErrors(
-      ...(contextArgs.context.get("ignoredValidationProperties") || [])
+    const errors = await Promise.resolve(
+      model.hasErrors(
+        ...(contextArgs.context.get("ignoredValidationProperties") || [])
+      )
     );
     if (errors) throw new ValidationError(errors.toString());
 
@@ -371,21 +373,24 @@ export class Repository<
         return m;
       })
     );
-    const errors = models
-      .map((m) =>
-        m.hasErrors(
-          ...(contextArgs.context.get("ignoredValidationProperties") || [])
-        )
-      )
-      .reduce((accum: string | undefined, e, i) => {
-        if (e)
-          accum =
-            typeof accum === "string"
-              ? accum + `\n - ${i}: ${e.toString()}`
-              : ` - ${i}: ${e.toString()}`;
-        return accum;
-      }, undefined);
-    if (errors) throw new ValidationError(errors);
+
+    const ignoredProps =
+      contextArgs.context.get("ignoredValidationProperties") || [];
+
+    const errors = await Promise.all(
+      models.map((m) => Promise.resolve(m.hasErrors(...ignoredProps)))
+    );
+
+    const errorMessages = errors.reduce((accum: string | undefined, e, i) => {
+      if (e)
+        accum =
+          typeof accum === "string"
+            ? accum + `\n - ${i}: ${e.toString()}`
+            : ` - ${i}: ${e.toString()}`;
+      return accum;
+    }, undefined);
+
+    if (errorMessages) throw new ValidationError(errorMessages);
     return [models, ...contextArgs.args];
   }
 
@@ -529,10 +534,12 @@ export class Repository<
       oldModel
     );
 
-    const errors = model.hasErrors(
-      oldModel,
-      ...Repository.relations(this.class),
-      ...(contextArgs.context.get("ignoredValidationProperties") || [])
+    const errors = await Promise.resolve(
+      model.hasErrors(
+        oldModel,
+        ...Repository.relations(this.class),
+        ...(contextArgs.context.get("ignoredValidationProperties") || [])
+      )
     );
     if (errors) throw new ValidationError(errors.toString());
     if (Repository.getMetadata(oldModel)) {
@@ -609,23 +616,25 @@ export class Repository<
       )
     );
 
-    const errors = models
-      .map((m, i) =>
-        m.hasErrors(
-          oldModels[i],
-          m,
-          ...(contextArgs.context.get("ignoredValidationProperties") || [])
-        )
+    const ignoredProps =
+      contextArgs.context.get("ignoredValidationProperties") || [];
+
+    const errors = await Promise.all(
+      models.map((m, i) =>
+        Promise.resolve(m.hasErrors(oldModels[i], m, ...ignoredProps))
       )
-      .reduce((accum: string | undefined, e, i) => {
-        if (e)
-          accum =
-            typeof accum === "string"
-              ? accum + `\n - ${i}: ${e.toString()}`
-              : ` - ${i}: ${e.toString()}`;
-        return accum;
-      }, undefined);
-    if (errors) throw new ValidationError(errors);
+    );
+
+    const errorMessages = errors.reduce((accum: string | undefined, e, i) => {
+      if (e)
+        accum =
+          typeof accum === "string"
+            ? accum + `\n - ${i}: ${e.toString()}`
+            : ` - ${i}: ${e.toString()}`;
+      return accum;
+    }, undefined);
+
+    if (errorMessages) throw new ValidationError(errorMessages);
 
     models.forEach((m, i) => {
       if (Repository.getMetadata(oldModels[i])) {

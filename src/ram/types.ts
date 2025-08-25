@@ -60,7 +60,7 @@ export interface RamFlags extends RepositoryFlags {
  * @memberOf module:core
  * @category Ram
  */
-export type RamRepository<M extends Model> = Repository<
+export type RamRepository<M extends Model<true | false>> = Repository<
   M,
   RawRamQuery<any>,
   RamAdapter,

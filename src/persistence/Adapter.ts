@@ -189,7 +189,7 @@ export abstract class Adapter<
    * @template M - The model type
    * @return {Constructor<Repository<M, Q, Adapter<Y, Q, F, C>, F, C>>} The repository constructor
    */
-  repository<M extends Model>(): Constructor<
+  repository<M extends Model<true | false>>(): Constructor<
     Repository<M, Q, Adapter<Y, Q, F, C>, F, C>
   > {
     return Repository;

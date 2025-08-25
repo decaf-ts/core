@@ -64,6 +64,7 @@ export async function createOrUpdate<
 >(
   model: M,
   context: Context<F>,
+  alias?: string,
   repository?: Repo<M, F, Context<F>>
 ): Promise<M> {
   if (!repository) {
@@ -71,7 +72,8 @@ export async function createOrUpdate<
     if (!constructor)
       throw new InternalError(`Could not find model ${model.constructor.name}`);
     repository = Repository.forModel<M, Repo<M>>(
-      constructor as unknown as ModelConstructor<M>
+      constructor as unknown as ModelConstructor<M>,
+      alias
     );
   }
   if (typeof model[repository.pk] === "undefined")
@@ -153,7 +155,11 @@ export async function oneToOneOnCreate<
   if (!propertyValue) return;
 
   if (typeof propertyValue !== "object") {
-    const innerRepo = repositoryFromTypeMetadata(model, key);
+    const innerRepo = repositoryFromTypeMetadata(
+      model,
+      key,
+      this.adapter.alias
+    );
     const read = await innerRepo.read(propertyValue);
     await cacheModelForPopulate(context, model, key, propertyValue, read);
     (model as any)[key] = propertyValue;
@@ -166,7 +172,7 @@ export async function oneToOneOnCreate<
   const constructor = Model.get(data.class as string);
   if (!constructor)
     throw new InternalError(`Could not find model ${data.class}`);
-  const repo: Repo<any> = Repository.forModel(constructor);
+  const repo: Repo<any> = Repository.forModel(constructor, this.adapter.alias);
   const created = await repo.create(propertyValue);
   const pk = findPrimaryKey(created).id;
   await cacheModelForPopulate(context, model, key, created[pk], created);
@@ -238,14 +244,22 @@ export async function oneToOneOnUpdate<
   if (data.cascade.update !== Cascade.CASCADE) return;
 
   if (typeof propertyValue !== "object") {
-    const innerRepo = repositoryFromTypeMetadata(model, key);
+    const innerRepo = repositoryFromTypeMetadata(
+      model,
+      key,
+      this.adapter.alias
+    );
     const read = await innerRepo.read(propertyValue);
     await cacheModelForPopulate(context, model, key, propertyValue, read);
     (model as any)[key] = propertyValue;
     return;
   }
 
-  const updated = await createOrUpdate(model[key] as M, context);
+  const updated = await createOrUpdate(
+    model[key] as M,
+    context,
+    this.adapter.alias
+  );
   const pk = findPrimaryKey(updated).id;
   await cacheModelForPopulate(
     context,
@@ -314,7 +328,11 @@ export async function oneToOneOnDelete<
   const propertyValue: any = model[key];
   if (!propertyValue) return;
   if (data.cascade.update !== Cascade.CASCADE) return;
-  const innerRepo: Repo<M> = repositoryFromTypeMetadata(model, key);
+  const innerRepo: Repo<M> = repositoryFromTypeMetadata(
+    model,
+    key,
+    this.adapter.alias
+  );
   let deleted: M;
   if (!(propertyValue instanceof Model))
     deleted = await innerRepo.delete(model[key] as string, context);
@@ -408,7 +426,7 @@ export async function oneToManyOnCreate<
     );
   const uniqueValues = new Set([...propertyValues]);
   if (arrayType !== "object") {
-    const repo = repositoryFromTypeMetadata(model, key);
+    const repo = repositoryFromTypeMetadata(model, key, this.adapter.alias);
     for (const id of uniqueValues) {
       const read = await repo.read(id);
       await cacheModelForPopulate(context, model, key, id, read);
@@ -422,7 +440,7 @@ export async function oneToManyOnCreate<
   const result: Set<string> = new Set();
 
   for (const m of propertyValues) {
-    const record = await createOrUpdate(m, context);
+    const record = await createOrUpdate(m, context, this.adapter.alias);
     await cacheModelForPopulate(context, model, key, record[pkName], record);
     result.add(record[pkName]);
   }
@@ -558,7 +576,7 @@ export async function oneToManyOnDelete<
   const isInstantiated = arrayType === "object";
   const repo = isInstantiated
     ? Repository.forModel(values[0], this.adapter.alias)
-    : repositoryFromTypeMetadata(model, key);
+    : repositoryFromTypeMetadata(model, key, this.adapter.alias);
 
   const uniqueValues = new Set([
     ...(isInstantiated
@@ -699,7 +717,8 @@ export async function populate<
     c: Context<F>,
     model: M,
     propName: string,
-    propKeyValues: any[]
+    propKeyValues: any[],
+    alias?: string
   ) {
     let cacheKey: string;
     let val: any;
@@ -710,7 +729,7 @@ export async function populate<
         val = await c.get(cacheKey as any);
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: any) {
-        const repo = repositoryFromTypeMetadata(model, propName);
+        const repo = repositoryFromTypeMetadata(model, propName, alias);
         if (!repo) throw new InternalError("Could not find repo");
         val = await repo.read(proKeyValue);
       }
@@ -722,7 +741,8 @@ export async function populate<
     context,
     model,
     key as string,
-    isArr ? nested : [nested]
+    isArr ? nested : [nested],
+    this.adapter.alias
   );
   (model as any)[key] = isArr ? res : res[0];
 }
@@ -790,7 +810,8 @@ const commomTypes = [
  */
 export function repositoryFromTypeMetadata<M extends Model>(
   model: any,
-  propertyKey: string | keyof M
+  propertyKey: string | keyof M,
+  alias?: string
 ): Repo<M> {
   const types = Reflect.getMetadata(
     Validation.key(
@@ -823,5 +844,6 @@ export function repositoryFromTypeMetadata<M extends Model>(
   if (!constructor)
     throw new InternalError(`No registered model found for ${constructorName}`);
 
-  return Repository.forModel(constructor);
+  return Repository.forModel(constructor, alias);
 }
+

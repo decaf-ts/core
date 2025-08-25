@@ -95,7 +95,7 @@ export abstract class Statement<Q, M extends Model, R>
   protected constructor(protected adapter: Adapter<any, Q, any, any>) {}
 
   protected get log(): Logger {
-    return (this.adapter as any).log.for(this);
+    return (this.adapter as any).log.for(Statement);
   }
 
   select<

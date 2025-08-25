@@ -8,7 +8,16 @@ import {
   required,
 } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
-import { BaseModel, Cascade, index, oneToMany, oneToOne, pk } from "../../src";
+import {
+  BaseModel,
+  Cascade,
+  column,
+  index,
+  oneToMany,
+  oneToOne,
+  pk,
+  table,
+} from "../../src";
 
 @model()
 export class TestCountryModel extends BaseModel {
@@ -165,6 +174,7 @@ export class TestDummyPhone extends BaseModel {
   }
 }
 
+@table("tst_user")
 @model()
 export class NoPopulateManyModel extends BaseModel {
   @pk({ type: "Number" })
@@ -174,6 +184,7 @@ export class NoPopulateManyModel extends BaseModel {
   @index()
   name!: string;
 
+  @column("tst_phones_list")
   @oneToMany(
     TestDummyPhone,
     { update: Cascade.CASCADE, delete: Cascade.CASCADE },

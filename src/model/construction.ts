@@ -166,7 +166,10 @@ export async function oneToOneOnCreate<
     return;
   }
 
-  const constructor = Model.get(data.class);
+  data.class =
+    typeof data.class === "string" ? data.class : (data.class as any)().name;
+
+  const constructor = Model.get(data.class as string);
   if (!constructor)
     throw new InternalError(`Could not find model ${data.class}`);
   const repo: Repo<any> = Repository.forModel(constructor, this.adapter.alias);
@@ -827,9 +830,9 @@ export function repositoryFromTypeMetadata<M extends Model>(
       `Failed to find types decorators for property ${propertyKey as string}`
     );
 
-  const allowedTypes: string[] = Array.isArray(customTypes)
-    ? [...customTypes]
-    : [customTypes];
+  const allowedTypes: string[] = (
+    Array.isArray(customTypes) ? [...customTypes] : [customTypes]
+  ).map((t) => (typeof t === "function" ? t() : t));
   const constructorName = allowedTypes.find(
     (t) => !commomTypes.includes(`${t}`.toLowerCase())
   );
@@ -843,3 +846,4 @@ export function repositoryFromTypeMetadata<M extends Model>(
 
   return Repository.forModel(constructor, alias);
 }
+

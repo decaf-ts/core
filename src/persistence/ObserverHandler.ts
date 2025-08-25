@@ -18,20 +18,20 @@ import { Logger } from "@decaf-ts/logging";
  * ```typescript
  * // Create an observer handler
  * const handler = new ObserverHandler();
- * 
+ *
  * // Register an observer
  * const myObserver = {
  *   refresh: async (table, event, id) => {
  *     console.log(`Change in ${table}: ${event} for ID ${id}`);
  *   }
  * };
- * 
+ *
  * // Add observer with a filter for only user table events
  * handler.observe(myObserver, (table, event, id) => table === 'users');
- * 
+ *
  * // Notify observers about an event
  * await handler.updateObservers(logger, 'users', 'CREATE', 123);
- * 
+ *
  * // Remove an observer when no longer needed
  * handler.unObserve(myObserver);
  * ```
@@ -94,11 +94,11 @@ export class ObserverHandler implements Observable {
    *   participant Client
    *   participant ObserverHandler
    *   participant Observer
-   *   
+   *
    *   Client->>ObserverHandler: updateObservers(log, table, event, id, ...args)
-   *   
+   *
    *   ObserverHandler->>ObserverHandler: Filter observers
-   *   
+   *
    *   loop For each observer with matching filter
    *     alt Observer has filter
    *       ObserverHandler->>Observer: Apply filter(table, event, id)
@@ -114,14 +114,14 @@ export class ObserverHandler implements Observable {
    *       ObserverHandler->>Observer: refresh(table, event, id, ...args)
    *     end
    *   end
-   *   
+   *
    *   ObserverHandler->>ObserverHandler: Process results
    *   loop For each result
    *     alt Result is rejected
    *       ObserverHandler->>Logger: Log error
    *     end
    *   end
-   *   
+   *
    *   ObserverHandler-->>Client: Return
    */
   async updateObservers(
@@ -145,7 +145,9 @@ export class ObserverHandler implements Observable {
             return false;
           }
         })
-        .map((o) => o.observer.refresh(table, event, id, ...args))
+        .map((o) => {
+          o.observer.refresh(table, event, id, ...args);
+        })
     );
     results.forEach((result, i) => {
       if (result.status === "rejected")

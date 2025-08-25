@@ -349,12 +349,20 @@ export class Repository<
     if (opts.type) {
       if (!opts.name) opts.name = Sequence.pk(models[0]);
       ids = await (await this.adapter.Sequence(opts)).range(models.length);
+    } else {
+      ids = models.map((m, i) => {
+        if (typeof m[this.pk] === "undefined")
+          throw new InternalError(
+            `Primary key is not defined for model in position ${i}`
+          );
+        return m[this.pk] as string;
+      });
     }
 
     models = await Promise.all(
       models.map(async (m, i) => {
         m = new this.class(m);
-        m[this.pk] = ids[i] as M[keyof M];
+        if (opts.type) m[this.pk] = ids[i] as M[keyof M];
         await enforceDBDecorators(
           this,
           contextArgs.context,
@@ -898,7 +906,7 @@ export class Repository<
    * @template M - The model type that extends Model.
    * @template R - The repository type that extends Repo<M>.
    * @param {Constructor<M>} model - The model constructor.
-   * @param {string} [defaultFlavour] - Optional default adapter flavour if not specified on the model.
+   * @param {string} [alias] - Optional default adapter flavour if not specified on the model.
    * @param {...any[]} [args] - Additional arguments to pass to the repository constructor.
    * @return {R} A repository instance for the model.
    * @throws {InternalError} If no adapter is registered for the flavour.
@@ -943,6 +951,7 @@ export class Repository<
    * @summary Gets a repository constructor or instance for the specified model from the internal cache.
    * @template M - The model type that extends Model.
    * @param {Constructor<M>} model - The model constructor.
+   * @param {string} [alias] - The adapter alias.
    * @return {Constructor<Repo<M>> | Repo<M>} The repository constructor or instance.
    * @throws {InternalError} If no repository is registered for the model.
    */

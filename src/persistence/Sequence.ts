@@ -126,6 +126,8 @@ export abstract class Sequence {
             : BigInt(value);
       case "BigInt":
         return BigInt(value);
+      case undefined:
+        return value;
       default:
         throw new InternalError("Should never happen");
     }

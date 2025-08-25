@@ -51,15 +51,23 @@ export interface SequenceOptions {
 /**
  * @description Default options for sequences
  * @summary Provides a standard configuration for number sequences starting at 0 and incrementing by 1
- * @const DefaultSequenceOptions
+ * @const NoneSequenceOptions
  * @memberOf module:core
  */
-export const DefaultSequenceOptions: SequenceOptions = {
-  type: "Number",
+export const NoneSequenceOptions: SequenceOptions = {
+  type: undefined,
   startWith: 0,
   incrementBy: 1,
   cycle: false,
 };
+
+/**
+ * @description Default options for sequences
+ * @summary Provides a standard configuration for number sequences starting at 0 and incrementing by 1
+ * @const DefaultSequenceOptions
+ * @memberOf module:core
+ */
+export const DefaultSequenceOptions: SequenceOptions = NoneSequenceOptions;
 
 /**
  * @description Predefined options for numeric sequences

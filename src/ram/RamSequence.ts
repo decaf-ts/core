@@ -147,7 +147,9 @@ export class RamSequence extends Sequence {
    */
   async range(count: number): Promise<(number | string | bigint)[]> {
     const current = (await this.current()) as number;
-    const incrementBy = this.parse(this.options.incrementBy) as number;
+    const incrementBy = this.parse(
+      this.options.incrementBy as number
+    ) as number;
     const next: string | number | bigint = await this.increment(
       current,
       (this.parse(count) as number) * incrementBy
@@ -161,4 +163,3 @@ export class RamSequence extends Sequence {
     return range;
   }
 }
-

@@ -1,7 +1,21 @@
-
-import { min, minlength, model, Model, ModelArg, required, type } from "@decaf-ts/decorator-validation";
+import {
+  min,
+  minlength,
+  model,
+  Model,
+  ModelArg,
+  required,
+  type,
+} from "@decaf-ts/decorator-validation";
 import { RamAdapter } from "../../src/ram/RamAdapter";
-import { BaseModel, index, OrderDirection, pk, Repository, uses } from "../../src";
+import {
+  BaseModel,
+  index,
+  OrderDirection,
+  pk,
+  Repository,
+  uses,
+} from "../../src";
 import { readonly } from "@decaf-ts/db-decorators";
 
 Model.setBuilder(Model.fromModel);
@@ -17,7 +31,6 @@ describe("Adapter Integration", () => {
     adapter1 = new RamAdapter("db1");
     adapter2 = new RamAdapter("db2");
 
-
     // // Second DB
     // PouchDb.plugin(memoryAdapter);
     // const db2 = new PouchDb('db2', { adapter: 'memory' });
@@ -25,7 +38,7 @@ describe("Adapter Integration", () => {
   });
   @uses("ram")
   @model()
-  class TestUser extends BaseModel {
+  class TestUserMultipleDB extends BaseModel {
     @pk({ type: "Number" })
     id!: number;
 
@@ -43,32 +56,31 @@ describe("Adapter Integration", () => {
     @type([String.name])
     sex!: "M" | "F";
 
-    constructor(arg?: ModelArg<TestUser>) {
+    constructor(arg?: ModelArg<TestUserMultipleDB>) {
       super(arg);
     }
   }
 
-
   it("Create and read on multiple DBs", async () => {
-    const repo1 = new Repository(adapter1,TestUser)
-    
-    const model1 = new TestUser({
-          age: 20,
-          name: "User1" ,
-          sex: "M",
-        })
+    const repo1 = new Repository(adapter1, TestUserMultipleDB);
+
+    const model1 = new TestUserMultipleDB({
+      age: 20,
+      name: "User1",
+      sex: "M",
+    });
 
     const created1 = await repo1.create(model1);
     expect(created1).toBeDefined();
     expect(!created1.hasErrors()).toBe(true);
 
-    const repo2 = new Repository(adapter2,TestUser)
-    
-    const model2 = new TestUser({
-          age: 21,
-          name: "User2" ,
-          sex: "F",
-        })
+    const repo2 = new Repository(adapter2, TestUserMultipleDB);
+
+    const model2 = new TestUserMultipleDB({
+      age: 21,
+      name: "User2",
+      sex: "F",
+    });
 
     const created2 = await repo2.create(model2);
     expect(created2).toBeDefined();
@@ -79,7 +91,5 @@ describe("Adapter Integration", () => {
 
     const result2 = await repo2.read(created2.id);
     expect(created2).toEqual(result2);
-
   });
 });
-

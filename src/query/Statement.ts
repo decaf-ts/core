@@ -24,6 +24,7 @@ import { Paginatable } from "../interfaces/Paginatable";
 import { Paginator } from "./Paginator";
 import { Adapter } from "../persistence";
 import { QueryError } from "./errors";
+import { Logger } from "@decaf-ts/logging";
 
 /**
  * @description Base class for database query statements
@@ -92,6 +93,10 @@ export abstract class Statement<Q, M extends Model, R>
   protected offsetSelector?: number;
 
   protected constructor(protected adapter: Adapter<any, Q, any, any>) {}
+
+  protected get log(): Logger {
+    return (this.adapter as any).log.for(this);
+  }
 
   select<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

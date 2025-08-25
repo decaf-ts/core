@@ -359,7 +359,6 @@ export abstract class Adapter<
     transient?: Record<string, any>;
   } {
     const log = this.log.for(this.prepare);
-    log.silly(`Preparing model ${model.constructor.name} before persisting`);
     const split = modelToTransient(model);
     const result = Object.entries(split.model).reduce(
       (accum: Record<string, any>, [key, val]) => {

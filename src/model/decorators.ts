@@ -483,7 +483,7 @@ export function manyToMany<M extends Model>(
   populate = true
 ) {
   // Model.register(clazz as Constructor<M>);
-  const key = Repository.key(PersistenceKeys.MANY_TO_ONE);
+  const key = Repository.key(PersistenceKeys.MANY_TO_MANY);
 
   function manyToManyDec(
     clazz: Constructor<M> | (() => Constructor<M>),
@@ -497,7 +497,7 @@ export function manyToMany<M extends Model>(
     };
     return apply(
       prop(PersistenceKeys.RELATIONS),
-      type([
+      list([
         clazz.name ? clazz.name : (clazz as any),
         String.name,
         Number.name,

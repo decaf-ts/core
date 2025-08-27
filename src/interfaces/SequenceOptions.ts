@@ -4,18 +4,20 @@
  * @interface SequenceOptions
  * @memberOf module:core
  */
-export interface SequenceOptions {
+export interface SequenceOptions<TYPE = "Number" | "BigInt" | undefined> {
   /**
    * @description Optional name for the sequence
    * @summary A unique identifier for the sequence
    */
   name?: string;
 
+  generated?: boolean;
+
   /**
    * @description The data type of the sequence
    * @summary Specifies whether the sequence generates Number or BigInt values
    */
-  type: "Number" | "BigInt" | undefined;
+  type: TYPE;
 
   /**
    * @description The initial value of the sequence
@@ -56,6 +58,7 @@ export interface SequenceOptions {
  */
 export const NoneSequenceOptions: SequenceOptions = {
   type: undefined,
+  generated: false,
   startWith: 0,
   incrementBy: 1,
   cycle: false,
@@ -77,6 +80,7 @@ export const DefaultSequenceOptions: SequenceOptions = NoneSequenceOptions;
  */
 export const NumericSequence: SequenceOptions = {
   type: "Number",
+  generated: true,
   startWith: 0,
   incrementBy: 1,
   cycle: false,
@@ -88,9 +92,10 @@ export const NumericSequence: SequenceOptions = {
  * @const BigIntSequence
  * @memberOf module:core
  */
-export const BigIntSequence: SequenceOptions = {
-  type: "BigInt",
-  startWith: 0,
-  incrementBy: 1,
-  cycle: false,
-};
+export const BigIntSequence: SequenceOptions = Object.assign(
+  {},
+  NumericSequence,
+  {
+    type: "BigInt",
+  }
+);

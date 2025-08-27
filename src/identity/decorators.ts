@@ -72,7 +72,7 @@ export async function pkOnCreate<
   key: keyof M,
   model: M
 ): Promise<void> {
-  if (!data.type || model[key]) {
+  if (!data.type || !data.generated || model[key]) {
     return;
   }
 
@@ -129,7 +129,13 @@ export function pk(
     "cycle" | "startWith" | "incrementBy"
   > = DefaultSequenceOptions
 ) {
-  opts = Object.assign({}, DefaultSequenceOptions, opts) as SequenceOptions;
+  opts = Object.assign({}, DefaultSequenceOptions, opts, {
+    generated:
+      opts.type && typeof opts.generated === "undefined"
+        ? true
+        : opts.generated || DefaultSequenceOptions.generated,
+  }) as SequenceOptions;
+
   const key = Repository.key(DBKeys.ID);
   function pkDec(options: SequenceOptions) {
     return apply(

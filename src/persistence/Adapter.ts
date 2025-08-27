@@ -337,7 +337,6 @@ export abstract class Adapter<
       `Creating new context for ${operation} operation on ${model.name} model with flag overrides: ${JSON.stringify(overrides)}`
     );
     const flags = await this.flags(operation, model, overrides, ...args);
-    log.debug(`Flags: ${JSON.stringify(flags)}`);
     return new this.Context().accumulate(flags) as unknown as C;
   }
 

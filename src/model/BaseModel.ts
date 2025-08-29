@@ -1,5 +1,6 @@
 import { DBOperations, timestamp } from "@decaf-ts/db-decorators";
 import { ModelArg, Model } from "@decaf-ts/decorator-validation";
+import { createdAt, updatedAt } from "./decorators";
 
 /**
  * @description Base model class for all domain models
@@ -29,14 +30,14 @@ export abstract class BaseModel extends Model {
    * @description Creation timestamp for the model
    * @summary Automatically set to the current date and time when the model is created
    */
-  @timestamp(DBOperations.CREATE)
+  @createdAt()
   createdOn!: Date;
 
   /**
    * @description Last update timestamp for the model
    * @summary Automatically updated to the current date and time whenever the model is modified
    */
-  @timestamp()
+  @updatedAt()
   updatedOn!: Date;
 
   protected constructor(arg?: ModelArg<BaseModel>) {

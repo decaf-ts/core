@@ -18,6 +18,7 @@ import {
   InternalError,
   NotFoundError,
   onCreate,
+  onCreateUpdate,
   OperationKeys,
 } from "@decaf-ts/db-decorators";
 import { RamSequence } from "./RamSequence";
@@ -533,7 +534,7 @@ export class RamAdapter extends Adapter<
     Decoration.flavouredAs(RamFlavour)
       .for(updatedByKey)
       .define(
-        onCreate(createdByOnRamCreateUpdate),
+        onCreateUpdate(createdByOnRamCreateUpdate),
         propMetadata(updatedByKey, {})
       )
       .apply();

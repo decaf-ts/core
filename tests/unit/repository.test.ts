@@ -8,6 +8,7 @@ import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { NotFoundError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Adapter, BaseModel, Observer, repository, uses } from "../../src";
 import { TestModel } from "./TestModel";
+import { Repo } from "../../src";
 
 Model.setBuilder(Model.fromModel);
 
@@ -107,6 +108,26 @@ describe("Repository", () => {
       const repo = Repository.forModel(StandardRepoTestModel);
       expect(repo).toBeDefined();
       expect(repo).toBeInstanceOf(Repository);
+    });
+
+    it("succeeds being injected", () => {
+      @uses("ram")
+      @model()
+      class StandardRepoTestModel2 extends BaseModel {
+        constructor(arg?: ModelArg<StandardRepoTestModel2>) {
+          super(arg);
+        }
+      }
+
+      class TestClass {
+        @repository(StandardRepoTestModel2)
+        repo!: Repo<StandardRepoTestModel2>;
+      }
+
+      const testClass = new TestClass();
+      expect(testClass).toBeDefined();
+      expect(testClass.repo).toBeDefined();
+      expect(testClass.repo).toBeInstanceOf(Repository);
     });
 
     it("succeeds when using decorators on the repo level", () => {

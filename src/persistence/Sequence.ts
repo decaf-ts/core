@@ -3,6 +3,7 @@ import { sequenceNameForModel } from "../identity/utils";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Logger, Logging } from "@decaf-ts/logging";
+import { UnsupportedError } from "./errors";
 
 /**
  * @description Abstract base class for sequence generation
@@ -62,7 +63,7 @@ export abstract class Sequence {
    * @summary Gets or initializes the logger for this sequence
    * @return {Logger} The logger instance
    */
-  protected get log() {
+  protected get log(): Logger {
     if (!this.logger) this.logger = Logging.for(this as any);
     return this.logger;
   }
@@ -114,7 +115,7 @@ export abstract class Sequence {
    * @return {string|number|bigint} The converted value
    */
   static parseValue(
-    type: "Number" | "BigInt" | undefined,
+    type: "Number" | "BigInt" | string | undefined,
     value: string | number | bigint
   ): string | number | bigint {
     switch (type) {
@@ -129,7 +130,9 @@ export abstract class Sequence {
       case undefined:
         return value;
       default:
-        throw new InternalError("Should never happen");
+        throw new UnsupportedError(
+          `Unsupported sequence type: ${type} for adapter ${this}`
+        );
     }
   }
 }

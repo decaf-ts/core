@@ -3,7 +3,11 @@ import {
   Injectables,
 } from "@decaf-ts/injectable-decorators";
 import { Repository } from "./Repository";
-import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
+import {
+  Constructor,
+  Model,
+  ModelConstructor,
+} from "@decaf-ts/decorator-validation";
 import { generateInjectableNameForRepository } from "./utils";
 import { PersistenceKeys } from "../persistence/constants";
 import { Adapter } from "../persistence/Adapter";
@@ -31,15 +35,23 @@ export class InjectablesRegistry extends InjectableRegistryImp {
    * @param {string} name - The name of the injectable to retrieve.
    * @return {T | undefined} - The injectable instance or undefined if not found.
    */
-  override get<T>(name: string): T | undefined {
+  override get<T>(
+    name: symbol | Constructor<T>,
+    flavour?: string
+  ): T | undefined {
     let injectable = super.get(name);
     if (!injectable)
       try {
-        const m = Model.get(name);
-        if (m) injectable = Repository.forModel(m);
+        let m = name;
+        if (typeof name === "symbol" || typeof name === "string") {
+          m = Model.get(name.toString()) as ModelConstructor<any>;
+        }
+        if (m)
+          injectable = Repository.forModel(m as Constructor<any>, flavour) as T;
         if (injectable) {
           if (injectable instanceof Repository) return injectable as T;
-          const flavour =
+          flavour =
+            flavour ||
             Reflect.getMetadata(
               Adapter.key(PersistenceKeys.ADAPTER),
               injectable.constructor

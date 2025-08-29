@@ -538,3 +538,4 @@ export class RamAdapter extends Adapter<
 }
 
 RamAdapter.decoration();
+Adapter.setCurrent(RamFlavour);

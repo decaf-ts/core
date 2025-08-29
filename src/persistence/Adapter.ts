@@ -2,7 +2,6 @@ import {
   BaseError,
   DBKeys,
   InternalError,
-  NotFoundError,
   Context,
   OperationKeys,
   RepositoryFlags,
@@ -38,11 +37,13 @@ Decoration.setFlavourResolver((obj: object) => {
   try {
     return (
       Adapter.flavourOf(Model.isModel(obj) ? obj.constructor : (obj as any)) ||
+      // Adapter.current?.alias ||
       DefaultFlavour
     );
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e: unknown) {
     return DefaultFlavour;
+    // return Adapter.current?.alias || DefaultFlavour;
   }
 });
 
@@ -146,7 +147,7 @@ export abstract class Adapter<
   >
   implements RawExecutor<Q>, Contextual<F, C>, Observable, Observer, ErrorParser
 {
-  private static _current: Adapter<any, any, any, any>;
+  private static _current: string;
   private static _cache: Record<string, Adapter<any, any, any, any>> = {};
 
   private logger!: Logger;
@@ -214,7 +215,7 @@ export abstract class Adapter<
     );
     if (!Adapter._current) {
       this.log.verbose(`Defined ${this.alias} persistence adapter as current`);
-      Adapter._current = this;
+      Adapter._current = this.alias;
     }
   }
 
@@ -723,7 +724,7 @@ export abstract class Adapter<
   static flavourOf<M extends Model>(model: Constructor<M>): string {
     return (
       Reflect.getMetadata(this.key(PersistenceKeys.ADAPTER), model) ||
-      this.current.flavour
+      this.current?.flavour
     );
   }
 
@@ -737,7 +738,7 @@ export abstract class Adapter<
       throw new InternalError(
         `No persistence flavour set. Please initialize your adapter`
       );
-    return Adapter._current;
+    return Adapter.get(Adapter._current);
   }
 
   /**
@@ -751,8 +752,9 @@ export abstract class Adapter<
    * @return {Adapter<Y, Q, F, C> | undefined} The adapter instance or undefined if not found
    */
   static get<Y, Q, C extends Context<F>, F extends RepositoryFlags>(
-    flavour: any
+    flavour?: any
   ): Adapter<Y, Q, F, C> | undefined {
+    if (!flavour) return Adapter.get(this._current);
     if (flavour in this._cache) return this._cache[flavour];
     throw new InternalError(`No Adapter registered under ${flavour}.`);
   }
@@ -764,10 +766,7 @@ export abstract class Adapter<
    * @return {void}
    */
   static setCurrent(flavour: string) {
-    const adapter = Adapter.get(flavour);
-    if (!adapter)
-      throw new NotFoundError(`No persistence flavour ${flavour} registered`);
-    this._current = adapter;
+    this._current = flavour;
   }
 
   /**

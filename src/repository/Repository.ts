@@ -919,7 +919,9 @@ export class Repository<
     let repo: R | Constructor<R> | undefined;
 
     const _alias: string | undefined =
-      alias || Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model);
+      alias ||
+      Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model) ||
+      Adapter.currentFlavour;
     try {
       repo = this.get(model, _alias) as Constructor<R> | R;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -932,7 +934,9 @@ export class Repository<
     const flavour: string | undefined =
       alias ||
       Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model) ||
-      (repo && Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), repo));
+      (repo &&
+        Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), repo)) ||
+      Adapter.currentFlavour;
     const adapter: Adapter<any, any, any, any> | undefined = flavour
       ? Adapter.get(flavour)
       : undefined;

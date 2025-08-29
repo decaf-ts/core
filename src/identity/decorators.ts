@@ -1,6 +1,7 @@
 import {
   Decoration,
   Model,
+  prop,
   propMetadata,
   required,
 } from "@decaf-ts/decorator-validation";
@@ -138,13 +139,16 @@ export function pk(
 
   const key = Repository.key(DBKeys.ID);
   function pkDec(options: SequenceOptions) {
-    return apply(
-      index([OrderDirection.ASC, OrderDirection.DSC]),
-      required(),
-      readonly(),
-      propMetadata(key, options),
-      onCreate(pkOnCreate, options)
-    );
+    return function pkDec(obj: any, attr: any) {
+      return apply(
+        index([OrderDirection.ASC, OrderDirection.DSC]),
+        required(),
+        readonly(),
+        propMetadata(key, options),
+        onCreate(pkOnCreate, options),
+        propMetadata(DBKeys.ID, attr)
+      )(obj, attr);
+    };
   }
   return Decoration.for(key)
     .define({

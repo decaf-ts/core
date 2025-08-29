@@ -1,8 +1,9 @@
 import { inject, injectable } from "@decaf-ts/injectable-decorators";
 import { DBKeys, IRepository } from "@decaf-ts/db-decorators";
 import { metadata } from "@decaf-ts/reflection";
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import { Constructor, Model, ModelKeys } from "@decaf-ts/decorator-validation";
 import { Repository } from "./Repository";
+import { Adapter, PersistenceKeys } from "../persistence";
 
 /**
  * @description Repository decorator for model classes.
@@ -33,21 +34,27 @@ import { Repository } from "./Repository";
  */
 export function repository<T extends Model>(
   model: Constructor<T>,
-  nameOverride?: string
+  flavour?: string
 ): any {
   return ((original: any, propertyKey?: any) => {
     if (propertyKey) {
-      return inject(nameOverride || model.name)(original, propertyKey);
+      return inject(model[ModelKeys.ANCHOR as keyof typeof model] || model)(
+        original,
+        propertyKey
+      );
     }
 
-    metadata(
-      Repository.key(DBKeys.REPOSITORY),
-      nameOverride || original.name
-    )(model);
-    Repository.register(model, original);
+    metadata(Repository.key(DBKeys.REPOSITORY), original.name)(model);
+    flavour =
+      flavour ||
+      Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), original);
+    Repository.register(
+      model[ModelKeys.ANCHOR as keyof typeof model] || model,
+      original,
+      flavour
+    );
     return injectable(
-      nameOverride || original.name,
-      true,
+      model[ModelKeys.ANCHOR as keyof typeof model] || model,
       (instance: IRepository<T>) => {
         Object.defineProperty(instance, DBKeys.CLASS, {
           enumerable: false,

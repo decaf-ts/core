@@ -4,7 +4,9 @@
  * @interface SequenceOptions
  * @memberOf module:core
  */
-export interface SequenceOptions<TYPE = "Number" | "BigInt" | undefined> {
+export interface SequenceOptions<
+  TYPE = "Number" | "BigInt" | string | undefined,
+> {
   /**
    * @description Optional name for the sequence
    * @summary A unique identifier for the sequence

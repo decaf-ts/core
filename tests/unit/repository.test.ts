@@ -72,7 +72,9 @@ describe("Repository", () => {
 
     expect(updated).toBeDefined();
     expect(updated.equals(created)).toEqual(false);
-    expect(updated.equals(created, "updatedOn", "name")).toEqual(true); // minus the expected changes
+    expect(updated.equals(created, "updatedOn", "name", "updatedBy")).toEqual(
+      true
+    ); // minus the expected changes
     expect(mock).toHaveBeenCalledWith(
       Repository.table(TestModel),
       OperationKeys.UPDATE,

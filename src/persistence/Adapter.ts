@@ -37,13 +37,18 @@ Decoration.setFlavourResolver((obj: object) => {
   try {
     return (
       Adapter.flavourOf(Model.isModel(obj) ? obj.constructor : (obj as any)) ||
-      // Adapter.current?.alias ||
+      Adapter.currentFlavour ||
       DefaultFlavour
     );
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e: unknown) {
+    // return DefaultFlavour;
+  }
+  try {
+    return Adapter.currentFlavour || DefaultFlavour;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (e: unknown) {
     return DefaultFlavour;
-    // return Adapter.current?.alias || DefaultFlavour;
   }
 });
 
@@ -824,4 +829,6 @@ export abstract class Adapter<
       throw new InternalError(e);
     }
   }
+
+  static decoration(): void {}
 }

@@ -7,6 +7,8 @@ import {
   afterAny,
   RepositoryFlags,
   Context,
+  timestamp,
+  OperationKeys,
 } from "@decaf-ts/db-decorators";
 import { apply, metadata } from "@decaf-ts/reflection";
 import { PersistenceKeys } from "../persistence/constants";
@@ -238,6 +240,14 @@ export function updatedBy() {
   return Decoration.for(key)
     .define(onCreateUpdate(createdByOnCreateUpdate), propMetadata(key, {}))
     .apply();
+}
+
+export function createdAt() {
+  return timestamp([OperationKeys.CREATE]);
+}
+
+export function updatedAt() {
+  return timestamp();
 }
 
 /**

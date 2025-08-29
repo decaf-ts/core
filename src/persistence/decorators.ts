@@ -13,5 +13,9 @@ import { Adapter } from "./Adapter";
  * @category Class Decorators
  */
 export function uses(flavour: string) {
-  return apply(metadata(Adapter.key(PersistenceKeys.ADAPTER), flavour));
+  return function uses(original: any) {
+    return apply(metadata(Adapter.key(PersistenceKeys.ADAPTER), flavour))(
+      original
+    );
+  };
 }

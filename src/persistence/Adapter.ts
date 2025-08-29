@@ -147,7 +147,7 @@ export abstract class Adapter<
   >
   implements RawExecutor<Q>, Contextual<F, C>, Observable, Observer, ErrorParser
 {
-  private static _current: string;
+  private static _currentFlavour: string;
   private static _cache: Record<string, Adapter<any, any, any, any>> = {};
 
   private logger!: Logger;
@@ -213,9 +213,9 @@ export abstract class Adapter<
     this.log.info(
       `Created ${this.alias} persistence adapter ${this._alias ? `(${this.flavour}) ` : ""} persistence adapter`
     );
-    if (!Adapter._current) {
+    if (!Adapter._currentFlavour) {
       this.log.verbose(`Defined ${this.alias} persistence adapter as current`);
-      Adapter._current = this.alias;
+      Adapter._currentFlavour = this.alias;
     }
   }
 
@@ -728,17 +728,21 @@ export abstract class Adapter<
     );
   }
 
+  static get currentFlavour() {
+    if (!Adapter._currentFlavour)
+      throw new InternalError(
+        `No persistence flavour set. Please initialize your adapter`
+      );
+    return Adapter._currentFlavour;
+  }
+
   /**
    * @description Gets the current default adapter
    * @summary Retrieves the adapter that is currently set as the default for operations
    * @return {Adapter<any, any, any, any>} The current adapter
    */
-  static get current() {
-    if (!Adapter._current)
-      throw new InternalError(
-        `No persistence flavour set. Please initialize your adapter`
-      );
-    return Adapter.get(Adapter._current);
+  static get current(): Adapter<any, any, any, any> | undefined {
+    return Adapter.get(this.currentFlavour);
   }
 
   /**
@@ -754,7 +758,7 @@ export abstract class Adapter<
   static get<Y, Q, C extends Context<F>, F extends RepositoryFlags>(
     flavour?: any
   ): Adapter<Y, Q, F, C> | undefined {
-    if (!flavour) return Adapter.get(this._current);
+    if (!flavour) return Adapter.get(this._currentFlavour);
     if (flavour in this._cache) return this._cache[flavour];
     throw new InternalError(`No Adapter registered under ${flavour}.`);
   }
@@ -766,7 +770,7 @@ export abstract class Adapter<
    * @return {void}
    */
   static setCurrent(flavour: string) {
-    this._current = flavour;
+    this._currentFlavour = flavour;
   }
 
   /**

@@ -14,4 +14,5 @@ export type RelationsMetadata = {
   class: string | (() => Constructor<any>);
   cascade: CascadeMetadata;
   populate: boolean;
+  name?: string;
 };

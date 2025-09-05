@@ -26,7 +26,12 @@ import {
 import { Adapter } from "../persistence/Adapter";
 import { Repo, Repository } from "../repository/Repository";
 import { Condition } from "../query/Condition";
-import { JoinTableOptions, RelationsMetadata } from "./types";
+import {
+  JoinColumnOptions,
+  JoinTableMultipleColumnsOptions,
+  JoinTableOptions,
+  RelationsMetadata,
+} from "./types";
 import {
   oneToManyOnCreate,
   oneToManyOnDelete,
@@ -87,16 +92,47 @@ export function column<OPTS = string>(columnName?: OPTS) {
  * @function index
  * @category Property Decorators
  */
-export function index(directions?: OrderDirection[], compositions?: string[]) {
-  return propMetadata(
-    Repository.key(
-      `${PersistenceKeys.INDEX}${compositions && compositions.length ? `.${compositions.join(".")}` : ""}`
-    ),
-    {
-      directions: directions,
-      compositions: compositions,
-    } as IndexMetadata
-  );
+export function index(): ReturnType<typeof propMetadata>;
+export function index(
+  directions: OrderDirection[]
+): ReturnType<typeof propMetadata>;
+export function index(compositions: string[]): ReturnType<typeof propMetadata>;
+export function index(
+  directions?: OrderDirection[] | string[],
+  compositions?: string[]
+) {
+  function index(
+    directions?: OrderDirection[] | string[],
+    compositions?: string[]
+  ) {
+    if (!compositions && directions) {
+      if (
+        !directions.find((d) =>
+          [OrderDirection.ASC, OrderDirection.DSC].includes(d as any)
+        )
+      ) {
+        compositions = directions as string[];
+        directions = undefined;
+      }
+    }
+
+    return propMetadata(
+      Repository.key(
+        `${PersistenceKeys.INDEX}${compositions && compositions.length ? `.${compositions.join(".")}` : ""}`
+      ),
+      {
+        directions: directions,
+        compositions: compositions,
+      } as IndexMetadata
+    );
+  }
+
+  return Decoration.for(PersistenceKeys.INDEX)
+    .define({
+      decorator: index,
+      args: [directions, compositions],
+    })
+    .apply();
 }
 
 /**
@@ -279,7 +315,7 @@ export function oneToOne<M extends Model>(
   clazz: Constructor<M> | (() => Constructor<M>),
   cascadeOptions: CascadeMetadata = DefaultCascade,
   populate: boolean = true,
-  joinTableOpts?: JoinTableOptions,
+  joinColumnOpts?: JoinColumnOptions,
   fk?: string
 ) {
   const key = Repository.key(PersistenceKeys.ONE_TO_ONE);
@@ -289,7 +325,7 @@ export function oneToOne<M extends Model>(
     clazz: Constructor<M> | (() => Constructor<M>),
     cascade: CascadeMetadata,
     populate: boolean,
-    joinTableOpts?: JoinTableOptions,
+    joinColumnOpts?: JoinColumnOptions,
     fk?: string
   ) {
     const meta: RelationsMetadata = {
@@ -297,7 +333,7 @@ export function oneToOne<M extends Model>(
       cascade: cascade,
       populate: populate,
     };
-    if (joinTableOpts) meta.joinTable = joinTableOpts;
+    if (joinColumnOpts) meta.joinTable = joinColumnOpts;
     if (fk) meta.name = fk;
     return apply(
       prop(PersistenceKeys.RELATIONS),
@@ -318,7 +354,7 @@ export function oneToOne<M extends Model>(
   return Decoration.for(key)
     .define({
       decorator: oneToOneDec,
-      args: [clazz, cascadeOptions, populate, joinTableOpts, fk],
+      args: [clazz, cascadeOptions, populate, joinColumnOpts, fk],
     })
     .apply();
 }
@@ -355,7 +391,7 @@ export function oneToMany<M extends Model>(
   clazz: Constructor<M> | (() => Constructor<M>),
   cascadeOptions: CascadeMetadata = DefaultCascade,
   populate: boolean = true,
-  joinTableOpts?: JoinTableOptions,
+  joinTableOpts?: JoinTableOptions | JoinTableMultipleColumnsOptions,
   fk?: string
 ) {
   const key = Repository.key(PersistenceKeys.ONE_TO_MANY);
@@ -364,7 +400,7 @@ export function oneToMany<M extends Model>(
     clazz: Constructor<M> | (() => Constructor<M>),
     cascade: CascadeMetadata,
     populate: boolean,
-    joinTableOpts?: JoinTableOptions,
+    joinTableOpts?: JoinTableOptions | JoinTableMultipleColumnsOptions,
     fk?: string
   ) {
     const metadata: RelationsMetadata = {
@@ -431,7 +467,7 @@ export function manyToOne<M extends Model>(
   clazz: Constructor<M> | (() => Constructor<M>),
   cascadeOptions: CascadeMetadata = DefaultCascade,
   populate = true,
-  joinTableOpts?: JoinTableOptions,
+  joinTableOpts?: JoinTableOptions | JoinTableMultipleColumnsOptions,
   fk?: string
 ) {
   // Model.register(clazz as Constructor<M>);
@@ -442,7 +478,7 @@ export function manyToOne<M extends Model>(
     clazz: Constructor<M> | (() => Constructor<M>),
     cascade: CascadeMetadata,
     populate: boolean,
-    joinTableOpts?: JoinTableOptions,
+    joinTableOpts?: JoinTableOptions | JoinTableMultipleColumnsOptions,
     fk?: string
   ) {
     if (!clazz.name)
@@ -509,7 +545,7 @@ export function manyToMany<M extends Model>(
   clazz: Constructor<M> | (() => Constructor<M>),
   cascadeOptions: CascadeMetadata = DefaultCascade,
   populate = true,
-  joinTableOpts?: JoinTableOptions,
+  joinTableOpts?: JoinTableOptions | JoinTableMultipleColumnsOptions,
   fk?: string
 ) {
   // Model.register(clazz as Constructor<M>);
@@ -519,7 +555,7 @@ export function manyToMany<M extends Model>(
     clazz: Constructor<M> | (() => Constructor<M>),
     cascade: CascadeMetadata,
     populate: boolean,
-    joinTableOpts?: JoinTableOptions,
+    joinTableOpts?: JoinTableOptions | JoinTableMultipleColumnsOptions,
     fk?: string
   ) {
     const metadata: RelationsMetadata = {

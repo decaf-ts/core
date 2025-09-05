@@ -26,7 +26,7 @@ import {
 import { Adapter } from "../persistence/Adapter";
 import { Repo, Repository } from "../repository/Repository";
 import { Condition } from "../query/Condition";
-import { RelationsMetadata } from "./types";
+import { JoinTableOptions, RelationsMetadata } from "./types";
 import {
   oneToManyOnCreate,
   oneToManyOnDelete,
@@ -279,6 +279,7 @@ export function oneToOne<M extends Model>(
   clazz: Constructor<M> | (() => Constructor<M>),
   cascadeOptions: CascadeMetadata = DefaultCascade,
   populate: boolean = true,
+  joinTableOpts?: JoinTableOptions,
   fk?: string
 ) {
   const key = Repository.key(PersistenceKeys.ONE_TO_ONE);
@@ -288,6 +289,7 @@ export function oneToOne<M extends Model>(
     clazz: Constructor<M> | (() => Constructor<M>),
     cascade: CascadeMetadata,
     populate: boolean,
+    joinTableOpts?: JoinTableOptions,
     fk?: string
   ) {
     const meta: RelationsMetadata = {
@@ -295,6 +297,7 @@ export function oneToOne<M extends Model>(
       cascade: cascade,
       populate: populate,
     };
+    if (joinTableOpts) meta.joinTable = joinTableOpts;
     if (fk) meta.name = fk;
     return apply(
       prop(PersistenceKeys.RELATIONS),
@@ -315,7 +318,7 @@ export function oneToOne<M extends Model>(
   return Decoration.for(key)
     .define({
       decorator: oneToOneDec,
-      args: [clazz, cascadeOptions, populate, fk],
+      args: [clazz, cascadeOptions, populate, joinTableOpts, fk],
     })
     .apply();
 }
@@ -352,6 +355,7 @@ export function oneToMany<M extends Model>(
   clazz: Constructor<M> | (() => Constructor<M>),
   cascadeOptions: CascadeMetadata = DefaultCascade,
   populate: boolean = true,
+  joinTableOpts?: JoinTableOptions,
   fk?: string
 ) {
   const key = Repository.key(PersistenceKeys.ONE_TO_MANY);
@@ -360,6 +364,7 @@ export function oneToMany<M extends Model>(
     clazz: Constructor<M> | (() => Constructor<M>),
     cascade: CascadeMetadata,
     populate: boolean,
+    joinTableOpts?: JoinTableOptions,
     fk?: string
   ) {
     const metadata: RelationsMetadata = {
@@ -367,6 +372,7 @@ export function oneToMany<M extends Model>(
       cascade: cascade,
       populate: populate,
     };
+    if (joinTableOpts) metadata.joinTable = joinTableOpts;
     if (fk) metadata.name = fk;
     return apply(
       prop(PersistenceKeys.RELATIONS),
@@ -388,7 +394,7 @@ export function oneToMany<M extends Model>(
   return Decoration.for(key)
     .define({
       decorator: oneToManyDec,
-      args: [clazz, cascadeOptions, populate, fk],
+      args: [clazz, cascadeOptions, populate, joinTableOpts, fk],
     })
     .apply();
 }
@@ -425,6 +431,7 @@ export function manyToOne<M extends Model>(
   clazz: Constructor<M> | (() => Constructor<M>),
   cascadeOptions: CascadeMetadata = DefaultCascade,
   populate = true,
+  joinTableOpts?: JoinTableOptions,
   fk?: string
 ) {
   // Model.register(clazz as Constructor<M>);
@@ -435,6 +442,7 @@ export function manyToOne<M extends Model>(
     clazz: Constructor<M> | (() => Constructor<M>),
     cascade: CascadeMetadata,
     populate: boolean,
+    joinTableOpts?: JoinTableOptions,
     fk?: string
   ) {
     if (!clazz.name)
@@ -444,6 +452,7 @@ export function manyToOne<M extends Model>(
       cascade: cascade,
       populate: populate,
     };
+    if (joinTableOpts) metadata.joinTable = joinTableOpts;
     if (fk) metadata.name = fk;
     return apply(
       prop(PersistenceKeys.RELATIONS),
@@ -464,7 +473,7 @@ export function manyToOne<M extends Model>(
   return Decoration.for(key)
     .define({
       decorator: manyToOneDec,
-      args: [clazz, cascadeOptions, populate, fk],
+      args: [clazz, cascadeOptions, populate, joinTableOpts, fk],
     })
     .apply();
 }
@@ -500,6 +509,7 @@ export function manyToMany<M extends Model>(
   clazz: Constructor<M> | (() => Constructor<M>),
   cascadeOptions: CascadeMetadata = DefaultCascade,
   populate = true,
+  joinTableOpts?: JoinTableOptions,
   fk?: string
 ) {
   // Model.register(clazz as Constructor<M>);
@@ -509,6 +519,7 @@ export function manyToMany<M extends Model>(
     clazz: Constructor<M> | (() => Constructor<M>),
     cascade: CascadeMetadata,
     populate: boolean,
+    joinTableOpts?: JoinTableOptions,
     fk?: string
   ) {
     const metadata: RelationsMetadata = {
@@ -516,6 +527,7 @@ export function manyToMany<M extends Model>(
       cascade: cascade,
       populate: populate,
     };
+    if (joinTableOpts) metadata.joinTable = joinTableOpts;
     if (fk) metadata.name = fk;
     return apply(
       prop(PersistenceKeys.RELATIONS),
@@ -535,7 +547,7 @@ export function manyToMany<M extends Model>(
   return Decoration.for(key)
     .define({
       decorator: manyToManyDec,
-      args: [clazz, cascadeOptions, populate, fk],
+      args: [clazz, cascadeOptions, populate, joinTableOpts, fk],
     })
     .apply();
 }

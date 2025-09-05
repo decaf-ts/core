@@ -1,6 +1,8 @@
 import { CascadeMetadata } from "../repository";
 import { Constructor } from "@decaf-ts/decorator-validation";
 
+export type JoinTableOptions = Record<string, any>;
+
 /**
  * @description Metadata for model relationships
  * @summary Type definition for storing metadata about relationships between models
@@ -15,4 +17,5 @@ export type RelationsMetadata = {
   cascade: CascadeMetadata;
   populate: boolean;
   name?: string;
+  joinTable?: JoinTableOptions;
 };

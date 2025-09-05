@@ -93,22 +93,42 @@ export function column<OPTS = string>(columnName?: OPTS) {
  * @category Property Decorators
  */
 export function index(): ReturnType<typeof propMetadata>;
+export function index(name: string): ReturnType<typeof propMetadata>;
 export function index(
   directions: OrderDirection[]
 ): ReturnType<typeof propMetadata>;
+export function index(
+  directions: OrderDirection[],
+  name: string
+): ReturnType<typeof propMetadata>;
 export function index(compositions: string[]): ReturnType<typeof propMetadata>;
 export function index(
-  directions?: OrderDirection[] | string[],
-  compositions?: string[]
+  compositions: string[],
+  name: string
+): ReturnType<typeof propMetadata>;
+export function index(
+  directions?: OrderDirection[] | string[] | string,
+  compositions?: string[] | string,
+  name?: string
 ) {
   function index(
-    directions?: OrderDirection[] | string[],
-    compositions?: string[]
+    directions?: OrderDirection[] | string[] | string,
+    compositions?: string[] | string,
+    name?: string
   ) {
+    if (typeof directions === "string") {
+      name = directions;
+      directions = undefined;
+      compositions = undefined;
+    }
+    if (typeof compositions === "string") {
+      name = compositions;
+      compositions = undefined;
+    }
     if (!compositions && directions) {
       if (
-        !directions.find((d) =>
-          [OrderDirection.ASC, OrderDirection.DSC].includes(d as any)
+        directions.find(
+          (d) => ![OrderDirection.ASC, OrderDirection.DSC].includes(d as any)
         )
       ) {
         compositions = directions as string[];
@@ -123,6 +143,7 @@ export function index(
       {
         directions: directions,
         compositions: compositions,
+        name: name,
       } as IndexMetadata
     );
   }
@@ -130,7 +151,7 @@ export function index(
   return Decoration.for(PersistenceKeys.INDEX)
     .define({
       decorator: index,
-      args: [directions, compositions],
+      args: [directions, compositions, name],
     })
     .apply();
 }

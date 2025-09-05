@@ -11,7 +11,7 @@ describe("Indexes", () => {
     @pk()
     id!: string;
 
-    @index()
+    @index("name_index")
     @required()
     name!: string;
 
@@ -29,12 +29,14 @@ describe("Indexes", () => {
       expect.objectContaining({
         id: {
           index: {
+            name: undefined,
             compositions: undefined,
             directions: ["asc", "desc"],
           },
         },
         name: {
           index: {
+            name: "name_index",
             compositions: undefined,
             directions: undefined,
           },

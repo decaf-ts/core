@@ -14,6 +14,7 @@ export type CascadeMetadata = {
 };
 
 export type IndexMetadata = {
+  name?: string;
   directions?: OrderDirection[2];
   compositions?: string[];
 };

@@ -32,6 +32,7 @@ import { final } from "../utils";
 import { Dispatch } from "./Dispatch";
 import { type EventIds, type ObserverFilter } from "./types";
 import { ObserverHandler } from "./ObserverHandler";
+import { UnsupportedError } from "./errors";
 
 Decoration.setFlavourResolver((obj: object) => {
   try {
@@ -841,7 +842,7 @@ export abstract class Adapter<
    * @return {Logger} A new logger instance for the specified method
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  for(_native: Y, ...args: any): Adapter<Y, Q, F, C> | undefined {
-    throw new InternalError("Method not supported by default");
+  for(...args: any[]): Adapter<Y, Q, F, C> {
+    throw new UnsupportedError("Method not supported by default");
   }
 }

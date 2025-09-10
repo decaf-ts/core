@@ -224,6 +224,30 @@ export class Repository<
   }
 
   /**
+   * Creates a new instance of the Repository class with a specific adapter and arguments.
+   *
+   * @template A - The type of the adapter.
+   * @template Q - The type of the query builder.
+   * @template F - The type of the filter.
+   * @template C - The type of the context.
+   *
+   * @param adapter - The adapter to be used for the new instance.
+   * @param args - Additional arguments to be passed to the new instance.
+   *
+   * @return A new instance of the Repository class with the specified adapter and arguments.
+   */
+  for(...args: any[]): Repository<M, Q, A, F, C> {
+    return new Proxy(this, {
+      get: (target: any, p: string | symbol, receiver: any) => {
+        if (p === "adapter") {
+          return this.adapter.for(...args);
+        }
+        return Reflect.get(target, p, receiver);
+      },
+    });
+  }
+
+  /**
    * @description Creates a new observer handler.
    * @summary Factory method for creating an observer handler instance.
    * @return {ObserverHandler} A new observer handler instance.

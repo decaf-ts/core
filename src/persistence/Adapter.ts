@@ -32,6 +32,7 @@ import { final } from "../utils";
 import { Dispatch } from "./Dispatch";
 import { type EventIds, type ObserverFilter } from "./types";
 import { ObserverHandler } from "./ObserverHandler";
+import { UnsupportedError } from "./errors";
 
 Decoration.setFlavourResolver((obj: object) => {
   try {
@@ -831,4 +832,17 @@ export abstract class Adapter<
   }
 
   static decoration(): void {}
+
+  /**
+   * @description Creates a child Adapter with specific congigurations
+   * @summary Returns a new Adapter instance with specific congigurations
+   * @param {string | Function} config - The method name or function to create a logger for
+   * @param {Partial<LoggingConfig>} config - Optional configuration to override settings
+   * @param {...any} args - Additional arguments to pass to the logger factory
+   * @return {Logger} A new logger instance for the specified method
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  for(...args: any[]): Adapter<Y, Q, F, C> {
+    throw new UnsupportedError("Method not supported by default");
+  }
 }

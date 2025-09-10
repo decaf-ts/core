@@ -237,7 +237,6 @@ export class Repository<
    * @return A new instance of the Repository class with the specified adapter and arguments.
    */
   for(...args: any[]): Repository<M, Q, A, F, C> {
-    this.log.for(this.for);
     return new Proxy(this, {
       get: (target: any, p: string | symbol, receiver: any) => {
         if (p === "adapter") {

@@ -601,3 +601,88 @@ async function demonstrateObserverPattern() {
   await repository.performAction('delete');
 }
 ```
+
+
+### Adapter Selection with @uses
+
+Description: Specify which persistence adapter flavor a model should use via the uses decorator so Repository.forModel knows which adapter to instantiate.
+
+```typescript
+import { model, BaseModel } from '@decaf-ts/decorator-validation';
+import { uses, Repository, Repo } from '@decaf-ts/core';
+
+@uses('ram')
+@model()
+class StandardRepoTestModel extends BaseModel {}
+
+// Later, obtain a repository without manually passing an adapter
+const repo = Repository.forModel(StandardRepoTestModel);
+// repo is a Repo<StandardRepoTestModel> backed by the 'ram' adapter
+```
+
+### Observing Repository Events
+
+Description: React to CREATE, UPDATE, and DELETE events by registering an Observer on a repository.
+
+```typescript
+import { Repository, OperationKeys } from '@decaf-ts/core';
+import { RamAdapter } from '@decaf-ts/core/ram';
+import { model, Model } from '@decaf-ts/decorator-validation';
+
+@model()
+class Thing extends Model {}
+
+const adapter = new RamAdapter();
+const repo = new Repository(adapter, Thing);
+
+// Minimal observer implementation
+const mock = jest.fn();
+const observer = {
+  async refresh(table: string, op: OperationKeys, id?: string) {
+    mock(table, op, id);
+  }
+};
+
+repo.observe(observer);
+
+// Perform operations and receive callbacks
+const created = await repo.create(new Thing({ id: '1' }));
+await repo.update(new Thing({ id: created.id }));
+await repo.delete(created.id);
+
+repo.unObserve(observer);
+```
+
+### Pagination with Paginator
+
+Description: Use the query builder to order results and paginate through them with a fixed-size Paginator.
+
+```typescript
+import { Repository, OrderDirection, Paginator } from '@decaf-ts/core';
+import { RamAdapter } from '@decaf-ts/core/ram';
+import { model, Model } from '@decaf-ts/decorator-validation';
+
+@model()
+class Country extends Model {
+  id!: number;
+  name!: string;
+}
+
+const adapter = new RamAdapter();
+const repo = new Repository(adapter, Country);
+
+// Seed some data
+await repo.createAll(
+  Array.from({ length: 25 }, (_, i) => new Country({ id: i + 1, name: `c${i+1}` }))
+);
+
+// Order descending by id and paginate with size 10
+const paginator: Paginator<Country> = await repo
+  .select()
+  .orderBy(['id', OrderDirection.DSC])
+  .paginate(10);
+
+const page1 = await paginator.page(); // items 25..16
+const page2 = await paginator.next(); // items 15..6
+const page3 = await paginator.next(); // items 5..1
+```

@@ -32,6 +32,14 @@ type InferAsync<M> = M extends Model<infer A> ? A : false;
  * const userQuery = Condition.builder()
  *   .attribute("email").regexp(".*@example.com")
  *   .and(Condition.attribute("lastLogin").gt(new Date("2023-01-01")));
+ * @mermaid
+ * sequenceDiagram
+ *   participant Dev
+ *   participant Condition
+ *   Dev->>Condition: builder().attribute("age").gt(18)
+ *   Condition-->>Dev: Condition(age > 18)
+ *   Dev->>Condition: .and(attribute("status").eq("active"))
+ *   Condition-->>Dev: Condition((age > 18) AND (status = "active"))
  */
 export class Condition<M extends Model<any>> extends Model<InferAsync<M>> {
   @required()

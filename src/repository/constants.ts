@@ -30,10 +30,11 @@ export enum Cascade {
 }
 
 /**
- * @description Default cascade configuration for entity relationships.
- * @summary Provides the default cascade behavior where updates cascade but deletes do not.
- * @type {CascadeMetadata}
- * @const DefaultCascade
+ * @description Shape of the default cascade configuration object used in repositories.
+ * @summary Documents the structure of the cascade configuration with explicit update and delete behaviors.
+ * @property {'cascade'|'none'} update - Determines whether updates cascade to related entities.
+ * @property {'cascade'|'none'} delete - Determines whether deletes cascade to related entities.
+ * @typeDef DefaultCascadeConfig
  * @memberOf module:core
  */
 export const DefaultCascade: CascadeMetadata = {

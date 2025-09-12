@@ -10,7 +10,7 @@ import { Adapter, PersistenceKeys } from "../persistence";
  * @summary Creates and registers a repository for a model class. Can be used as both a property decorator and a class decorator.
  * @template T - The model type that extends Model.
  * @param {Constructor<T>} model - The constructor of the model class.
- * @param {string} [nameOverride] - Optional name override for the repository.
+ * @param {string} [flavour] - the required adapter's flavour/alias. If not provided, it will be retrieved from the model metadata..
  * @return {any} - The decorator function.
  * @function repository
  * @mermaid
@@ -53,16 +53,15 @@ export function repository<T extends Model>(
       original,
       flavour
     );
-    return injectable(
-      model[ModelKeys.ANCHOR as keyof typeof model] || model,
-      (instance: IRepository<T>) => {
+    return injectable(model[ModelKeys.ANCHOR as keyof typeof model] || model, {
+      callback: (instance: IRepository<T>) => {
         Object.defineProperty(instance, DBKeys.CLASS, {
           enumerable: false,
           configurable: false,
           writable: false,
           value: model,
         });
-      }
-    )(original);
+      },
+    })(original);
   }) as any;
 }

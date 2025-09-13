@@ -14,15 +14,55 @@ import { Adapter } from "../persistence/Adapter";
 import { Logger, Logging } from "@decaf-ts/logging";
 
 /**
- * @description Registry for injectable repositories.
- * @summary Extends the base injectable registry to provide automatic repository resolution for models.
- * @param {void} - No constructor parameters required.
+ * @description Registry for injectable repositories with auto-resolution.
+ * @summary Provides an InjectableRegistry implementation that resolves repositories by model name or constructor. If a repository
+ * is not explicitly registered, it attempts to infer the correct repository using model metadata and the active or specified adapter flavour.
+ * @param {void} [constructor] No constructor parameters required; the superclass handles internal state.
  * @class InjectablesRegistry
  * @example
+ * // Basic usage: retrieve a repository by model name
  * const registry = new InjectablesRegistry();
  * const userRepo = registry.get<UserRepository>('User');
- * // If UserRepository exists, it will be returned
- * // If not, but User model exists, a repository will be created for it
+ * // If UserRepository is registered, it will be returned. Otherwise, a repository will be created if a User model exists.
+ *
+ * // Retrieve by constructor and specify adapter flavour
+ * const repoByCtor = registry.get<UserRepository>(UserModel, 'ram');
+ *
+ * // Retrieve by symbol (e.g., injectable token)
+ * const token = Symbol.for('UserRepository');
+ * const byToken = registry.get<UserRepository>(token);
+ * @mermaid
+ * sequenceDiagram
+ *   participant C as Consumer
+ *   participant R as InjectablesRegistry
+ *   participant B as BaseRegistry
+ *   participant M as Model
+ *   participant A as Adapter
+ *   participant RP as Repository
+ *   C->>R: get(name, flavour?)
+ *   activate R
+ *   R->>B: super.get(name)
+ *   alt Found in base registry
+ *     B-->>R: injectable
+ *     R-->>C: injectable
+ *   else Not found
+ *     R->>M: Model.get(name)
+ *     alt Model found
+ *       R->>A: resolve flavour (from arg/metadata/current)
+ *       R->>RP: Repository.forModel(modelCtor, alias)
+ *       alt Repository instance
+ *         RP-->>R: repository instance
+ *         R-->>C: repository instance
+ *       else Repository ctor
+ *         R->>A: Adapter.get(resolvedFlavour) or Adapter.current
+ *         A-->>R: adapter instance
+ *         R->>RP: new repoCtor(adapter, modelCtor)
+ *         R-->>C: repository instance
+ *       end
+ *     else Model not found
+ *       R-->>C: undefined
+ *     end
+ *   end
  */
 export class InjectablesRegistry extends InjectableRegistryImp {
   private logger?: Logger;
@@ -37,12 +77,39 @@ export class InjectablesRegistry extends InjectableRegistryImp {
   }
 
   /**
-   * @description Gets an injectable by name with repository auto-resolution.
-   * @summary Extends the base get method to automatically resolve repositories for models when not found directly.
-   * @template T - The type of injectable to return.
-   * @param {string | Constructor<T> | symbol} name - The name of the injectable to retrieve.
-   * @param {string} [flavour] - the adapter flavour of the repository.
-   * @return {T | undefined} - The injectable instance or undefined if not found.
+   * @description Retrieve an injectable with repository auto-resolution.
+   * @summary Attempts to get an injectable from the base registry; if not found and the name refers to a known model, it
+   * resolves the appropriate repository using the specified flavour or model metadata, falling back to the current adapter when needed.
+   * @template T The injectable type to be returned.
+   * @param {string | symbol | Constructor<T>} name Token, model name, or constructor associated with the injectable or model.
+   * @param {string} [flavour] Optional adapter flavour (e.g., "ram"). If omitted, derives from metadata or current adapter.
+   * @return {T | undefined} The located or auto-created injectable instance; otherwise undefined if it cannot be resolved.
+   * @mermaid
+   * sequenceDiagram
+   *   participant G as get(name, flavour?)
+   *   participant BR as BaseRegistry
+   *   participant M as Model
+   *   participant A as Adapter
+   *   participant RP as Repository
+   *   G->>BR: super.get(name)
+   *   alt Found
+   *     BR-->>G: injectable
+   *   else Not found
+   *     G->>M: derive modelCtor from name
+   *     alt modelCtor resolved
+   *       G->>A: resolve flavour (arg | metadata | current)
+   *       G->>RP: Repository.forModel(modelCtor, alias)
+   *       alt returns instance
+   *         RP-->>G: Repository instance
+   *       else returns ctor
+   *         G->>A: Adapter.get(flavour) | Adapter.current
+   *         A-->>G: adapter instance
+   *         G->>RP: new repoCtor(adapter, modelCtor)
+   *       end
+   *     else no modelCtor
+   *       G-->>G: return undefined
+   *     end
+   *   end
    */
   override get<T>(
     name: symbol | Constructor<T> | string,

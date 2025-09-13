@@ -1,4 +1,4 @@
-import { BaseError } from "@decaf-ts/db-decorators";
+import { BadRequestError, InternalError } from "@decaf-ts/db-decorators";
 
 /**
  * @description Error thrown when a user is not authorized to perform an action
@@ -14,9 +14,9 @@ import { BaseError } from "@decaf-ts/db-decorators";
  * }
  * ```
  */
-export class AuthorizationError extends BaseError {
-  constructor(msg: string | Error) {
-    super(AuthorizationError.name, msg, 401);
+export class AuthorizationError extends BadRequestError {
+  constructor(msg: string | Error, name = AuthorizationError.name, code = 401) {
+    super(msg, name, code);
   }
 }
 
@@ -35,9 +35,9 @@ export class AuthorizationError extends BaseError {
  * }
  * ```
  */
-export class ForbiddenError extends BaseError {
+export class ForbiddenError extends AuthorizationError {
   constructor(msg: string | Error) {
-    super(ForbiddenError.name, msg, 403);
+    super(msg, ForbiddenError.name, 403);
   }
 }
 
@@ -58,8 +58,8 @@ export class ForbiddenError extends BaseError {
  * }
  * ```
  */
-export class ConnectionError extends BaseError {
+export class ConnectionError extends InternalError {
   constructor(msg: string | Error) {
-    super(ConnectionError.name, msg, 503);
+    super(msg, ConnectionError.name, 503);
   }
 }

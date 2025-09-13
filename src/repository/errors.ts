@@ -1,4 +1,4 @@
-import { BaseError } from "@decaf-ts/db-decorators";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 /**
  * @description Error thrown when observer communication fails.
@@ -15,8 +15,8 @@ import { BaseError } from "@decaf-ts/db-decorators";
  *   }
  * }
  */
-export class ObserverError extends BaseError {
+export class ObserverError extends InternalError {
   constructor(msg: string | Error) {
-    super(ObserverError.name, msg, 500);
+    super(msg, ObserverError.name, 500);
   }
 }

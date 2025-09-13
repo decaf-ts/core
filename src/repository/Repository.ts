@@ -29,13 +29,13 @@ import { WhereOption } from "../query/options";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
 import { getTableName } from "../identity/utils";
 import { uses } from "../persistence/decorators";
-import { Logger, Logging } from "@decaf-ts/logging";
+import { Logger } from "@decaf-ts/logging";
 import { ObserverHandler } from "../persistence/ObserverHandler";
 import { final } from "../utils";
 import {
   EventIds,
   InferredAdapterConfig,
-  ObserverFilter,
+  type ObserverFilter,
 } from "../persistence";
 
 /**
@@ -50,7 +50,7 @@ import {
  * @memberOf module:core
  */
 export type Repo<
-  M extends Model<true | false>,
+  M extends Model<boolean>,
   F extends RepositoryFlags = any,
   C extends Context<F> = any,
   Q = any,
@@ -111,7 +111,7 @@ export type Repo<
  *   R-->>-C: created model
  */
 export class Repository<
-    M extends Model<true | false>,
+    M extends Model<boolean>,
     Q,
     A extends Adapter<any, Q, F, C>,
     F extends RepositoryFlags = RepositoryFlags,

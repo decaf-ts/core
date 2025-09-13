@@ -16,9 +16,9 @@ import { Model } from "@decaf-ts/decorator-validation";
 import { NotFoundError } from "@decaf-ts/db-decorators";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { RamRepository } from "../../src/ram/types";
-import { Repository } from "../../src/repository";
+import { Repository } from "../../src/repository/index";
 import { Sequence as Seq } from "../../src/ram/model/RamSequence";
-import { Sequence, sequenceNameForModel } from "../../src";
+import { Sequence, sequenceNameForModel } from "../../src/index";
 
 Model.setBuilder(Model.fromModel);
 

@@ -15,7 +15,7 @@ import {
   pk,
   Repository,
   uses,
-} from "../../src";
+} from "../../src/index";
 import { readonly } from "@decaf-ts/db-decorators";
 
 Model.setBuilder(Model.fromModel);

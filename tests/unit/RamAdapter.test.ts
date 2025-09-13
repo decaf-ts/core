@@ -3,11 +3,11 @@ import { RamAdapter } from "../../src/ram/RamAdapter";
 const adapter = new RamAdapter();
 
 import { Model } from "@decaf-ts/decorator-validation";
-import { TestModel } from "../unit/TestModel";
+import { TestModel } from "./TestModel";
 import { NotFoundError } from "@decaf-ts/db-decorators";
 import { RamRepository } from "../../src/ram/types";
-import { Repository } from "../../src/repository";
-import { PersistenceKeys } from "../../src";
+import { Repository } from "../../src/repository/index";
+import { PersistenceKeys } from "../../src/index";
 
 Model.setBuilder(Model.fromModel);
 

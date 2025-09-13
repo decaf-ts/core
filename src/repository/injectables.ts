@@ -11,7 +11,7 @@ import {
 import { generateInjectableNameForRepository } from "./utils";
 import { PersistenceKeys } from "../persistence/constants";
 import { Adapter } from "../persistence/Adapter";
-import { log, Logger, Logging } from "@decaf-ts/logging";
+import { Logger, Logging } from "@decaf-ts/logging";
 
 /**
  * @description Registry for injectable repositories.
@@ -48,39 +48,78 @@ export class InjectablesRegistry extends InjectableRegistryImp {
     name: symbol | Constructor<T> | string,
     flavour?: string
   ): T | undefined {
-    let injectable = super.get(name);
-    if (!injectable)
-      try {
-        let m = name;
-        if (typeof name === "symbol" || typeof name === "string") {
-          m = Model.get(name.toString()) as ModelConstructor<any>;
-        }
-        if (m)
-          injectable = Repository.forModel(m as Constructor<any>, flavour) as T;
-        if (injectable) {
-          if (injectable instanceof Repository) return injectable as T;
-          flavour =
-            flavour ||
-            Reflect.getMetadata(
-              Adapter.key(PersistenceKeys.ADAPTER),
-              injectable.constructor
-            ) ||
-            Reflect.getMetadata(
-              Adapter.key(PersistenceKeys.ADAPTER),
-              m as ModelConstructor<any>
-            );
-          Injectables.register(
-            injectable,
-            generateInjectableNameForRepository(
-              m as ModelConstructor<any>,
-              flavour
-            )
-          );
-        }
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (e: any) {
-        return undefined;
+    const log = this.log.for(this.get);
+    // First, try base registry, but guard against thrown errors
+    let injectable: T | undefined;
+    try {
+      injectable = super.get(name as any);
+    } catch {
+      // do nothing. we handle it later
+    }
+
+    if (!injectable) {
+      let modelCtor: Constructor<any> | undefined;
+      if (typeof name === "function") modelCtor = name as Constructor<any>;
+      else if (typeof name === "symbol" || typeof name === "string") {
+        modelCtor = Model.get(name.toString()) as ModelConstructor<any>;
       }
+
+      if (!modelCtor) return undefined;
+
+      // Resolve flavour from metadata if not provided
+      const metaKey = Adapter.key(PersistenceKeys.ADAPTER);
+      const resolvedFlavour =
+        flavour ||
+        (Reflect.getMetadata(metaKey, modelCtor) as string | undefined);
+
+      try {
+        // Determine an alias to use: prefer a directly registered adapter; otherwise, if the current adapter
+        // has the same flavour, use its alias to satisfy Repository.forModel/Adapter.get lookups.
+        let aliasToUse = resolvedFlavour;
+        try {
+          if (resolvedFlavour) Adapter.get(resolvedFlavour);
+        } catch {
+          const current = Adapter.current as any;
+          if (current && current.flavour === resolvedFlavour)
+            aliasToUse = current.alias;
+        }
+
+        injectable = Repository.forModel(
+          modelCtor as Constructor<any>,
+          aliasToUse
+        ) as T;
+        if (injectable instanceof Repository) return injectable as T;
+
+        // Otherwise, register the resolved injectable name for later retrieval
+        const f =
+          resolvedFlavour ||
+          (Reflect.getMetadata(metaKey, (injectable as any).constructor) as
+            | string
+            | undefined) ||
+          (Reflect.getMetadata(metaKey, modelCtor) as string | undefined);
+        Injectables.register(
+          injectable,
+          generateInjectableNameForRepository(
+            modelCtor as ModelConstructor<any>,
+            f as string
+          )
+        );
+      } catch (e: unknown) {
+        log.debug(
+          `No registered repository or adapter found. falling back to default adapter`
+        );
+        const repoCtor = (Repository as any)["get"](modelCtor, resolvedFlavour);
+        if (typeof repoCtor === "function") {
+          const adapter = resolvedFlavour
+            ? (Adapter.get(resolvedFlavour) as any)
+            : (Adapter.current as any);
+          if (!adapter) return undefined;
+          const instance = new repoCtor(adapter, modelCtor);
+          return instance as T;
+        }
+      }
+    }
+
     return injectable as T | undefined;
   }
 }

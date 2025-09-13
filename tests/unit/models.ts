@@ -17,7 +17,7 @@ import {
   oneToOne,
   pk,
   table,
-} from "../../src";
+} from "../../src/index";
 
 @model()
 export class TestCountryModel extends BaseModel {

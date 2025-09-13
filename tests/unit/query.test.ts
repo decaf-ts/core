@@ -20,7 +20,7 @@ import {
   uses,
   Repository,
   Condition,
-} from "../../src";
+} from "../../src/index";
 import { RamRepository } from "../../src/ram/types";
 
 Model.setBuilder(Model.fromModel);

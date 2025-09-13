@@ -15,6 +15,7 @@ import {
   type Constructor,
   Decoration,
   DefaultFlavour,
+  hashObj,
   Model,
   ModelConstructor,
   ModelRegistry,
@@ -27,12 +28,11 @@ import { Repository } from "../repository/Repository";
 import { Sequence } from "./Sequence";
 import { ErrorParser } from "../interfaces";
 import { Statement } from "../query/Statement";
-import { Logger, Logging } from "@decaf-ts/logging";
 import { final } from "../utils";
 import { Dispatch } from "./Dispatch";
 import { type EventIds, type ObserverFilter } from "./types";
 import { ObserverHandler } from "./ObserverHandler";
-import { UnsupportedError } from "./errors";
+import { LoggedClass } from "@decaf-ts/logging";
 
 Decoration.setFlavourResolver((obj: object) => {
   try {
@@ -54,24 +54,24 @@ Decoration.setFlavourResolver((obj: object) => {
 });
 
 /**
- * @description Abstract base class for database adapters
+ * @description Abstract Facade class for persistence adapters
  * @summary Provides the foundation for all database adapters in the persistence layer. This class
  * implements several interfaces to provide a consistent API for database operations, observer
  * pattern support, and error handling. It manages adapter registration, CRUD operations, and
  * observer notifications.
- * @template Y - The underlying database driver type
+ * @template Y - The underlying persistence driver config
  * @template Q - The query object type used by the adapter
  * @template F - The repository flags type
  * @template C - The context type
- * @param {Y} _native - The underlying database driver instance
+ * @param {Y} _native - The underlying persistence driver config
  * @param {string} flavour - The identifier for this adapter type
  * @param {string} [_alias] - Optional alternative name for this adapter
  * @class Adapter
  * @example
  * ```typescript
  * // Implementing a concrete adapter
- * class PostgresAdapter extends Adapter<pg.Client, pg.Query, PostgresFlags, PostgresContext> {
- *   constructor(client: pg.Client) {
+ * class PostgresAdapter extends Adapter<pg.PoolConfig, pg.Query, PostgresFlags, PostgresContext> {
+ *   constructor(client: pg.PoolConfig) {
  *     super(client, 'postgres');
  *   }
  *
@@ -151,31 +151,20 @@ export abstract class Adapter<
     F extends RepositoryFlags,
     C extends Context<F>,
   >
+  extends LoggedClass
   implements RawExecutor<Q>, Contextual<F, C>, Observable, Observer, ErrorParser
 {
   private static _currentFlavour: string;
   private static _cache: Record<string, Adapter<any, any, any, any>> = {};
-
-  private logger!: Logger;
 
   protected dispatch?: Dispatch<Y>;
 
   protected readonly observerHandler?: ObserverHandler;
 
   /**
-   * @description Logger accessor
-   * @summary Gets or initializes the logger for this adapter instance
-   * @return {Logger} The logger instance
-   */
-  protected get log() {
-    if (!this.logger) this.logger = Logging.for(this as any);
-    return this.logger;
-  }
-
-  /**
-   * @description Gets the native database driver
-   * @summary Provides access to the underlying database driver instance
-   * @return {Y} The native database driver
+   * @description Gets the native persistence config
+   * @summary Provides access to the underlying persistence driver config
+   * @return {Y} The native persistence driver config
    */
   get native() {
     return this._native;
@@ -211,6 +200,7 @@ export abstract class Adapter<
     readonly flavour: string,
     private readonly _alias?: string
   ) {
+    super();
     if (this.flavour in Adapter._cache)
       throw new InternalError(
         `${this.alias} persistence adapter ${this._alias ? `(${this.flavour}) ` : ""} already registered`
@@ -275,7 +265,8 @@ export abstract class Adapter<
    * @param {...any[]} args - Initialization arguments
    * @return {Promise<void>} A promise that resolves when initialization is complete
    */
-  abstract initialize(...args: any[]): Promise<void>;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async initialize(...args: any[]): Promise<void> {}
 
   /**
    * @description Creates a sequence generator
@@ -716,7 +707,7 @@ export abstract class Adapter<
    * @summary Returns a human-readable string identifying this adapter
    * @return {string} A string representation of the adapter
    */
-  toString() {
+  override toString() {
     return `${this.flavour} persistence Adapter`;
   }
 
@@ -833,16 +824,31 @@ export abstract class Adapter<
 
   static decoration(): void {}
 
+  protected proxies?: Record<string, typeof this>;
   /**
-   * @description Creates a child Adapter with specific congigurations
-   * @summary Returns a new Adapter instance with specific congigurations
-   * @param {string | Function} config - The method name or function to create a logger for
-   * @param {Partial<LoggingConfig>} config - Optional configuration to override settings
-   * @param {...any} args - Additional arguments to pass to the logger factory
-   * @return {Logger} A new logger instance for the specified method
+   * @description Creates a child Adapter with specific configurations
+   * @summary Returns a new Adapter instance with specific configurations
+   * @param {Partial<Y>} config - Partial configuration to override
+   * @param {...any[]} args - Additional arguments to pass to the logger factory
+   * @return {Adapter} A new adapter instance for the specified config override
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  for(...args: any[]): Adapter<Y, Q, F, C> {
-    throw new UnsupportedError("Method not supported by default");
+  for(config: Partial<Y>, ...args: any[]): typeof this {
+    if (!this.proxies) this.proxies = {};
+    const key = `${this.alias} - ${hashObj(config)}`;
+    if (key in this.proxies) return this.proxies[key];
+
+    const proxy = new Proxy(this, {
+      get: (target: typeof this, p: string | symbol, receiver: any) => {
+        if (p === "_native") {
+          const originalNative: Y = Reflect.get(target, p, receiver);
+          return Object.assign({}, originalNative, config);
+        }
+        return Reflect.get(target, p, receiver);
+      },
+    });
+
+    this.proxies[key] = proxy;
+    return proxy;
   }
 }

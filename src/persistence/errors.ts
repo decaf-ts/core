@@ -1,4 +1,4 @@
-import { BaseError } from "@decaf-ts/db-decorators";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 /**
  * @description Error thrown when an unsupported operation is attempted
@@ -12,7 +12,7 @@ import { BaseError } from "@decaf-ts/db-decorators";
  * if (!adapter.supportsTransactions()) {
  *   throw new UnsupportedError('Transactions are not supported by this adapter');
  * }
- * 
+ *
  * // Catching an UnsupportedError
  * try {
  *   await adapter.beginTransaction();
@@ -23,8 +23,8 @@ import { BaseError } from "@decaf-ts/db-decorators";
  * }
  * ```
  */
-export class UnsupportedError extends BaseError {
+export class UnsupportedError extends InternalError {
   constructor(msg: string | Error) {
-    super(UnsupportedError.name, msg, 500);
+    super(msg, UnsupportedError.name, 500);
   }
 }

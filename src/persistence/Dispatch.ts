@@ -7,8 +7,8 @@ import { ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Observable, Observer } from "../interfaces";
 import { Adapter } from "./Adapter";
 import { UnsupportedError } from "./errors";
-import { Logger, Logging } from "@decaf-ts/logging";
 import { EventIds } from "./types";
+import { LoggedClass } from "@decaf-ts/logging";
 
 /**
  * @description Dispatches database operation events to observers
@@ -36,7 +36,7 @@ import { EventIds } from "./types";
  * dispatch.unObserve(adapter);
  * ```
  */
-export class Dispatch<Y> implements Observable {
+export class Dispatch<Y> extends LoggedClass implements Observable {
   /**
    * @description The adapter being observed
    * @summary Reference to the database adapter whose operations are being monitored
@@ -56,27 +56,12 @@ export class Dispatch<Y> implements Observable {
   protected models!: ModelConstructor<any>[];
 
   /**
-   * @description Logger instance
-   * @summary Logger for recording dispatch activities
-   */
-  private logger!: Logger;
-
-  /**
-   * @description Accessor for the logger
-   * @summary Gets or initializes the logger for this dispatch instance
-   * @return {Logger} The logger instance
-   */
-  protected get log() {
-    if (!this.logger)
-      this.logger = Logging.for(this as any).for(this.adapter as any);
-    return this.logger;
-  }
-
-  /**
    * @description Creates a new Dispatch instance
    * @summary Initializes a new Dispatch instance without any adapter
    */
-  constructor() {}
+  constructor() {
+    super();
+  }
 
   /**
    * @description Initializes the dispatch by proxying adapter methods

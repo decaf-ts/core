@@ -121,18 +121,6 @@ export class RamAdapter extends Adapter<
   private lock = new Lock();
 
   /**
-   * @description Initializes the RAM adapter
-   * @summary A no-op initialization method for the RAM adapter.
-   * Since RAM adapter doesn't require any setup, this method simply resolves immediately.
-   * @param {...any[]} args - Initialization arguments (unused)
-   * @return {Promise<void>} A promise that resolves when initialization is complete
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async initialize(...args: any[]): Promise<void> {
-    return Promise.resolve(undefined);
-  }
-
-  /**
    * @description Indexes models in the RAM adapter
    * @summary A no-op indexing method for the RAM adapter.
    * Since RAM adapter doesn't require explicit indexing, this method simply resolves immediately.

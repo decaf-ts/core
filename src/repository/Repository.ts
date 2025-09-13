@@ -137,7 +137,10 @@ export class Repository<
    * @return {Logger} The logger instance.
    */
   get log(): Logger {
-    if (!this.logger) this.logger = Logging.for(this as any);
+    if (!this.logger)
+      this.logger = (
+        this.adapter["log" as keyof typeof this.adapter] as Logger
+      ).for(this.toString());
     return this.logger;
   }
 
@@ -224,14 +227,13 @@ export class Repository<
   }
 
   /**
-   * Creates a new instance of the Repository class with a specific adapter and arguments.
+   * @description Creates a new instance of the Repository class with a specific adapter and arguments.
    *
    * @template A - The type of the adapter.
    * @template Q - The type of the query builder.
    * @template F - The type of the filter.
    * @template C - The type of the context.
    *
-   * @param adapter - The adapter to be used for the new instance.
    * @param args - Additional arguments to be passed to the new instance.
    *
    * @return A new instance of the Repository class with the specified adapter and arguments.

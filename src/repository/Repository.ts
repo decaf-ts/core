@@ -32,7 +32,11 @@ import { uses } from "../persistence/decorators";
 import { Logger, Logging } from "@decaf-ts/logging";
 import { ObserverHandler } from "../persistence/ObserverHandler";
 import { final } from "../utils";
-import type { EventIds, ObserverFilter } from "../persistence";
+import {
+  EventIds,
+  InferredAdapterConfig,
+  ObserverFilter,
+} from "../persistence";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.
@@ -234,15 +238,19 @@ export class Repository<
    * @template F - The type of the filter.
    * @template C - The type of the context.
    *
-   * @param args - Additional arguments to be passed to the new instance.
+   * @param {Partial<InferredAdapterConfig<A>>} conf - adapter configurations to override.
+   * @param [args] - Additional arguments to be passed to the new instance.
    *
    * @return A new instance of the Repository class with the specified adapter and arguments.
    */
-  for(...args: any[]): Repository<M, Q, A, F, C> {
+  for(
+    conf: Partial<InferredAdapterConfig<A>>,
+    ...args: any[]
+  ): Repository<M, Q, A, F, C> {
     return new Proxy(this, {
       get: (target: any, p: string | symbol, receiver: any) => {
         if (p === "adapter") {
-          return this.adapter.for(...args);
+          return this.adapter.for(conf, ...args);
         }
         return Reflect.get(target, p, receiver);
       },
@@ -1006,6 +1014,7 @@ export class Repository<
    * @template M - The model type that extends Model.
    * @param {Constructor<M>} model - The model constructor.
    * @param {Constructor<Repo<M>> | Repo<M>} repo - The repository constructor or instance.
+   * @param {string} [alias] the adapter alias/flavour.
    * @throws {InternalError} If a repository is already registered for the model.
    */
   static register<M extends Model>(

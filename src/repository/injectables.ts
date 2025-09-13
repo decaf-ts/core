@@ -11,6 +11,7 @@ import {
 import { generateInjectableNameForRepository } from "./utils";
 import { PersistenceKeys } from "../persistence/constants";
 import { Adapter } from "../persistence/Adapter";
+import { log, Logger, Logging } from "@decaf-ts/logging";
 
 /**
  * @description Registry for injectable repositories.
@@ -24,6 +25,13 @@ import { Adapter } from "../persistence/Adapter";
  * // If not, but User model exists, a repository will be created for it
  */
 export class InjectablesRegistry extends InjectableRegistryImp {
+  private logger?: Logger;
+
+  protected get log(): Logger {
+    if (!this.logger) this.logger = Logging.for(this as any);
+    return this.logger;
+  }
+
   constructor() {
     super();
   }
@@ -32,11 +40,12 @@ export class InjectablesRegistry extends InjectableRegistryImp {
    * @description Gets an injectable by name with repository auto-resolution.
    * @summary Extends the base get method to automatically resolve repositories for models when not found directly.
    * @template T - The type of injectable to return.
-   * @param {string} name - The name of the injectable to retrieve.
+   * @param {string | Constructor<T> | symbol} name - The name of the injectable to retrieve.
+   * @param {string} [flavour] - the adapter flavour of the repository.
    * @return {T | undefined} - The injectable instance or undefined if not found.
    */
   override get<T>(
-    name: symbol | Constructor<T>,
+    name: symbol | Constructor<T> | string,
     flavour?: string
   ): T | undefined {
     let injectable = super.get(name);

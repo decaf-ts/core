@@ -1,4 +1,5 @@
 import { BulkCrudOperationKeys, OperationKeys } from "@decaf-ts/db-decorators";
+import { Adapter } from "./Adapter";
 
 /**
  * @description Type representing possible ID formats for database events
@@ -31,3 +32,6 @@ export type ObserverFilter = (
   event: OperationKeys | BulkCrudOperationKeys | string,
   id: EventIds
 ) => boolean;
+
+export type InferredAdapterConfig<A> =
+  A extends Adapter<infer CONF, any, any, any> ? CONF : never;

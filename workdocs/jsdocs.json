@@ -32,8 +32,8 @@
       "useLongnameInNav": false
     },
     "better-docs": {
-      "name": "decaf's Core Module",
-      "title": "decaf's Core Module",
+      "name": "@decaf-ts/core Documentation",
+      "title": "@decaf-ts/core docs",
       "hideGenerator": true,
       "useLongnameInNav": false,
       "navLinks": [

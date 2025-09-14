@@ -24,15 +24,18 @@ import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { RawExecutor } from "../interfaces/RawExecutor";
 import { Observable } from "../interfaces/Observable";
 import { PersistenceKeys } from "./constants";
-import { Repository } from "../repository/Repository";
+import type { Repository } from "../repository/Repository";
 import { Sequence } from "./Sequence";
 import { ErrorParser } from "../interfaces";
 import { Statement } from "../query/Statement";
 import { final } from "../utils";
-import { Dispatch } from "./Dispatch";
+import type { Dispatch } from "./Dispatch";
 import { type EventIds, type ObserverFilter } from "./types";
 import { ObserverHandler } from "./ObserverHandler";
 import { LoggedClass } from "@decaf-ts/logging";
+import { getColumnName, getTableName } from "../identity/utils";
+import { Repository as Repo } from "@decaf-ts/db-decorators";
+import { AdapterDispatch } from "./types";
 
 Decoration.setFlavourResolver((obj: object) => {
   try {
@@ -162,8 +165,12 @@ export abstract class Adapter<
 {
   private static _currentFlavour: string;
   private static _cache: Record<string, Adapter<any, any, any, any, any>> = {};
+  private static _baseRepository: Constructor<
+    Repository<any, any, any, any, any>
+  >;
+  private static _baseDispatch: Constructor<Dispatch>;
 
-  protected dispatch?: Dispatch<CONF>;
+  protected dispatch?: AdapterDispatch;
 
   protected readonly observerHandler?: ObserverHandler;
 
@@ -203,7 +210,11 @@ export abstract class Adapter<
       CONTEXT
     >
   > {
-    return Repository;
+    if (!Adapter._baseRepository)
+      throw new InternalError(
+        `This should be overridden when necessary. Otherwise it will be replaced lazily`
+      );
+    return Adapter._baseRepository;
   }
 
   @final()
@@ -277,10 +288,10 @@ export abstract class Adapter<
   /**
    * @description Creates a new dispatch instance
    * @summary Factory method that creates a dispatch instance for this adapter
-   * @return {Dispatch<Y>} A new dispatch instance
+   * @return {Dispatch} A new dispatch instance
    */
-  protected Dispatch(): Dispatch<CONF> {
-    return new Dispatch();
+  protected Dispatch(): Dispatch {
+    return new Adapter._baseDispatch();
   }
 
   /**
@@ -346,7 +357,7 @@ export abstract class Adapter<
     ...args: any[]
   ): Promise<FLAGS> {
     return Object.assign({}, DefaultRepositoryFlags, flags, {
-      affectedTables: Repository.table(model),
+      affectedTables: getTableName(model),
       writeOperation: operation !== OperationKeys.READ,
       timestamp: new Date(),
       operation: operation,
@@ -411,7 +422,7 @@ export abstract class Adapter<
     const result = Object.entries(split.model).reduce(
       (accum: Record<string, any>, [key, val]) => {
         if (typeof val === "undefined") return accum;
-        const mappedProp = Repository.column(model, key);
+        const mappedProp = getColumnName(model, key);
         if (this.isReserved(mappedProp))
           throw new InternalError(`Property name ${mappedProp} is reserved`);
         accum[mappedProp] = val;
@@ -467,7 +478,7 @@ export abstract class Adapter<
     const metadata = obj[PersistenceKeys.METADATA];
     const result = Object.keys(m).reduce((accum: M, key) => {
       if (key === pk) return accum;
-      (accum as Record<string, any>)[key] = obj[Repository.column(accum, key)];
+      (accum as Record<string, any>)[key] = obj[getColumnName(accum, key)];
       return accum;
     }, m);
 
@@ -833,7 +844,7 @@ export abstract class Adapter<
    * @return {string} The formatted metadata key
    */
   static key(key: string) {
-    return Repository.key(key);
+    return Repo.key(key);
   }
 
   /**
@@ -858,11 +869,11 @@ export abstract class Adapter<
           if (f && f === flavour) return m;
           if (!f) {
             const repo = Reflect.getMetadata(
-              Repository.key(DBKeys.REPOSITORY),
+              Repo.key(DBKeys.REPOSITORY),
               m as ModelConstructor<any>
             );
             if (!repo) return;
-            const repository = Repository.forModel(m);
+            const repository = (this._baseRepository as any).forModel(m);
 
             f = Reflect.getMetadata(
               Adapter.key(PersistenceKeys.ADAPTER),

@@ -1,5 +1,6 @@
 import { BulkCrudOperationKeys, OperationKeys } from "@decaf-ts/db-decorators";
 import { Adapter } from "./Adapter";
+import { Observable } from "../interfaces/index";
 
 /**
  * @description Type representing possible ID formats for database events
@@ -35,3 +36,13 @@ export type ObserverFilter = (
 
 export type InferredAdapterConfig<A> =
   A extends Adapter<infer CONF, any, any, any> ? CONF : never;
+
+export interface AdapterDispatch extends Observable {
+  close(): Promise<void>;
+
+  updateObservers(
+    table: string,
+    event: OperationKeys | BulkCrudOperationKeys | string,
+    id: EventIds
+  ): Promise<void>;
+}

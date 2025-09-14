@@ -4,11 +4,12 @@ import {
   BulkCrudOperationKeys,
 } from "@decaf-ts/db-decorators";
 import { ModelConstructor } from "@decaf-ts/decorator-validation";
-import { Observable, Observer } from "../interfaces";
+import { Observer } from "../interfaces";
 import { Adapter } from "./Adapter";
 import { UnsupportedError } from "./errors";
-import { EventIds } from "./types";
+import { AdapterDispatch, EventIds } from "./types";
 import { LoggedClass } from "@decaf-ts/logging";
+import { Repository } from "../repository/index";
 
 /**
  * @description Dispatches database operation events to observers
@@ -36,18 +37,12 @@ import { LoggedClass } from "@decaf-ts/logging";
  * dispatch.unObserve(adapter);
  * ```
  */
-export class Dispatch<Y> extends LoggedClass implements Observable {
+export class Dispatch extends LoggedClass implements AdapterDispatch {
   /**
    * @description The adapter being observed
    * @summary Reference to the database adapter whose operations are being monitored
    */
-  protected adapter?: Adapter<Y, any, any, any>;
-
-  /**
-   * @description The native database driver
-   * @summary Reference to the underlying database driver from the adapter
-   */
-  protected native?: Y;
+  protected adapter?: Adapter<any, any, any, any, any>;
 
   /**
    * @description List of model constructors
@@ -102,7 +97,7 @@ export class Dispatch<Y> extends LoggedClass implements Observable {
   protected async initialize(): Promise<void> {
     if (!this.adapter)
       throw new InternalError(`No adapter observed for dispatch`);
-    const adapter = this.adapter as Adapter<Y, any, any, any>;
+    const adapter = this.adapter as Adapter<any, any, any, any>;
     (
       [
         OperationKeys.CREATE,
@@ -111,7 +106,7 @@ export class Dispatch<Y> extends LoggedClass implements Observable {
         BulkCrudOperationKeys.CREATE_ALL,
         BulkCrudOperationKeys.UPDATE_ALL,
         BulkCrudOperationKeys.DELETE_ALL,
-      ] as (keyof Adapter<Y, any, any, any>)[]
+      ] as (keyof Adapter<any, any, any, any>)[]
     ).forEach((method) => {
       if (!adapter[method])
         throw new InternalError(
@@ -171,21 +166,20 @@ export class Dispatch<Y> extends LoggedClass implements Observable {
    * @summary Performs any necessary cleanup when the dispatch is no longer needed
    * @return {Promise<void>} A promise that resolves when closing is complete
    */
-  async close() {
+  async close(): Promise<void> {
     // to nothing in this instance but may be required for closing connections
   }
 
   /**
    * @description Starts observing an adapter
    * @summary Connects this dispatch to an adapter to monitor its operations
-   * @param {Adapter<Y, any, any, any>} observer - The adapter to observe
+   * @param {Adapter<any, any, any, any>} observer - The adapter to observe
    * @return {void}
    */
-  observe(observer: Adapter<Y, any, any, any>): void {
+  observe(observer: Adapter<any, any, any, any>): void {
     if (!(observer instanceof Adapter))
       throw new UnsupportedError("Only Adapters can be observed by dispatch");
     this.adapter = observer;
-    this.native = observer.config;
     this.models = Adapter.models(this.adapter.alias);
     this.initialize().then(() =>
       this.log.verbose(
@@ -230,3 +224,5 @@ export class Dispatch<Y> extends LoggedClass implements Observable {
     }
   }
 }
+
+if (Adapter) Adapter["_baseDispatch"] = Dispatch;

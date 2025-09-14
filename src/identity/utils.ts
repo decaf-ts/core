@@ -1,5 +1,5 @@
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
-import { Adapter } from "../persistence/Adapter";
+import { Repository } from "@decaf-ts/db-decorators";
 import { PersistenceKeys } from "../persistence/constants";
 
 /**
@@ -17,7 +17,7 @@ export function getTableName<M extends Model>(
   const obj = model instanceof Model ? model.constructor : model;
 
   const metadata = Reflect.getOwnMetadata(
-    Adapter.key(PersistenceKeys.TABLE),
+    Repository.key(PersistenceKeys.TABLE),
     obj
   );
   if (metadata) {
@@ -27,6 +27,18 @@ export function getTableName<M extends Model>(
     return model.constructor.name;
   }
   return model.name;
+}
+
+export function getColumnName<M extends Model>(
+  model: M,
+  attribute: string
+): string {
+  const metadata = Reflect.getMetadata(
+    Repository.key(PersistenceKeys.COLUMN),
+    model,
+    attribute
+  );
+  return metadata ? metadata : attribute;
 }
 
 /**

@@ -3,7 +3,7 @@ import { Constructor, sf } from "@decaf-ts/decorator-validation";
 import { Adapter } from "../persistence/Adapter";
 import { PersistenceKeys } from "../persistence/constants";
 import { Model } from "@decaf-ts/decorator-validation";
-import { Repository } from "./Repository";
+import { getTableName } from "../identity/utils";
 
 /**
  * @description Generates a unique injectable name for a repository.
@@ -53,5 +53,5 @@ export function generateInjectableNameForRepository<T extends Model>(
         `Could not retrieve flavour from model ${model instanceof Model ? model.constructor.name : model.name}`
       );
   }
-  return sf(PersistenceKeys.INJECTABLE, flavour, Repository.table(model));
+  return sf(PersistenceKeys.INJECTABLE, flavour, getTableName(model));
 }

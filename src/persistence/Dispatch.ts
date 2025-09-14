@@ -185,7 +185,7 @@ export class Dispatch<Y> extends LoggedClass implements Observable {
     if (!(observer instanceof Adapter))
       throw new UnsupportedError("Only Adapters can be observed by dispatch");
     this.adapter = observer;
-    this.native = observer.native;
+    this.native = observer.config;
     this.models = Adapter.models(this.adapter.alias);
     this.initialize().then(() =>
       this.log.verbose(

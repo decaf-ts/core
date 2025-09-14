@@ -94,7 +94,7 @@ export abstract class Statement<Q, M extends Model, R>
   protected limitSelector?: number;
   protected offsetSelector?: number;
 
-  protected constructor(protected adapter: Adapter<any, Q, any, any>) {
+  protected constructor(protected adapter: Adapter<any, any, Q, any, any>) {
     super();
   }
 

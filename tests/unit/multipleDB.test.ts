@@ -28,8 +28,8 @@ describe("Adapter Integration", () => {
 
   beforeAll(async () => {
     // First db
-    adapter1 = new RamAdapter("db1");
-    adapter2 = new RamAdapter("db2");
+    adapter1 = new RamAdapter({ user: "user1" }, "db1");
+    adapter2 = new RamAdapter({ user: "user1" }, "db2");
 
     // // Second DB
     // PouchDb.plugin(memoryAdapter);

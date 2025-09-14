@@ -67,3 +67,7 @@ export type RamRepository<M extends Model<true | false>> = Repository<
   RamFlags,
   Context<RamFlags>
 >;
+
+export type RamConfig = {
+  user: string;
+};

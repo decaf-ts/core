@@ -1,7 +1,6 @@
 import {
   Decoration,
   Model,
-  prop,
   propMetadata,
   required,
 } from "@decaf-ts/decorator-validation";

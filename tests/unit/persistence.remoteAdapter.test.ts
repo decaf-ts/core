@@ -1,6 +1,12 @@
 import "reflect-metadata";
-import { RemoteAdapter } from "../../src/persistence/RemoteAdapter";
-import { RepositoryFlags, Context, InternalError } from "@decaf-ts/db-decorators";
+import {
+  RepositoryFlags,
+  Context,
+  InternalError,
+  BaseError,
+} from "@decaf-ts/db-decorators";
+import { Adapter, Sequence, SequenceOptions, Statement } from "../../src/index";
+import { Model } from "@decaf-ts/decorator-validation/lib/model";
 
 class DummyContext<F extends RepositoryFlags> extends Context<F> {}
 
@@ -8,7 +14,72 @@ type Cfg = { url: string };
 
 type F = RepositoryFlags;
 
-class TestRemoteAdapter extends RemoteAdapter<Cfg, { connected: boolean }, any, F, DummyContext<F>> {
+class TestRemoteAdapter extends Adapter<
+  Cfg,
+  { connected: boolean },
+  any,
+  F,
+  DummyContext<F>
+> {
+  Statement<M extends Model>(): Statement<any, M, any> {
+    throw new Error("Method not implemented.");
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  parseError(err: Error): BaseError {
+    throw new Error("Method not implemented.");
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  Sequence(options: SequenceOptions): Promise<Sequence> {
+    throw new Error("Method not implemented.");
+  }
+  create(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    tableName: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    id: string | number,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    model: Record<string, any>,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: any[]
+  ): Promise<Record<string, any>> {
+    throw new Error("Method not implemented.");
+  }
+  read(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    tableName: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    id: string | number | bigint,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: any[]
+  ): Promise<Record<string, any>> {
+    throw new Error("Method not implemented.");
+  }
+  update(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    tableName: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    id: string | number,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    model: Record<string, any>,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: any[]
+  ): Promise<Record<string, any>> {
+    throw new Error("Method not implemented.");
+  }
+  delete(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    tableName: string,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    id: string | number | bigint,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: any[]
+  ): Promise<Record<string, any>> {
+    throw new Error("Method not implemented.");
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  raw<R>(rawInput: any, ...args: any[]): Promise<R> {
+    throw new Error("Method not implemented.");
+  }
   constructor(cfg: Cfg, alias = "dummy") {
     super(cfg, "remote", alias);
   }
@@ -35,7 +106,7 @@ describe("persistence/RemoteAdapter", () => {
     // create proxy with partial config
     const proxy = base.for({ url: "http://b" });
     // _native on proxy should merge config
-    const n = (proxy as any)._native as Cfg;
+    const n = (proxy as any)._config as Cfg;
     expect(n.url).toBe("http://b");
 
     // set _client through proxy reflective setter and read back
@@ -48,12 +119,16 @@ describe("persistence/RemoteAdapter", () => {
   });
 
   it("shutdownProxies handles missing key, single and all", async () => {
-    const base = new TestRemoteAdapter({ url: "http://a" }, "base");
+    const base = new TestRemoteAdapter({ url: "http://a" }, "second");
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const p1 = base.for({ url: "x" });
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const p2 = base.for({ url: "y" });
 
     // calling with a non-existent key should throw
-    await expect(base["shutdownProxies"].call(base, "missing")).rejects.toBeInstanceOf(InternalError);
+    await expect(
+      base["shutdownProxies"].call(base, "missing")
+    ).rejects.toBeInstanceOf(InternalError);
 
     // find actual proxy keys
     const keys = Object.keys((base as any).proxies);

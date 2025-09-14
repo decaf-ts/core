@@ -54,7 +54,7 @@ export type Repo<
   F extends RepositoryFlags = any,
   C extends Context<F> = any,
   Q = any,
-  A extends Adapter<any, Q, F, C> = any,
+  A extends Adapter<any, any, Q, F, C> = any,
 > = Repository<M, Q, A, F, C>;
 
 /**
@@ -113,7 +113,7 @@ export type Repo<
 export class Repository<
     M extends Model<boolean>,
     Q,
-    A extends Adapter<any, Q, F, C>,
+    A extends Adapter<any, any, Q, F, C>,
     F extends RepositoryFlags = RepositoryFlags,
     C extends Context<F> = Context<F>,
   >

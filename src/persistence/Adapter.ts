@@ -59,11 +59,11 @@ Decoration.setFlavourResolver((obj: object) => {
  * implements several interfaces to provide a consistent API for database operations, observer
  * pattern support, and error handling. It manages adapter registration, CRUD operations, and
  * observer notifications.
- * @template Y - The underlying persistence driver config
- * @template Q - The query object type used by the adapter
- * @template F - The repository flags type
- * @template C - The context type
- * @param {Y} _native - The underlying persistence driver config
+ * @template CONFIG - The underlying persistence driver config
+ * @template QUERY - The query object type used by the adapter
+ * @template FLAGS - The repository flags type
+ * @template CONTEXT - The context type
+ * @param {CONFIG} _config - The underlying persistence driver config
  * @param {string} flavour - The identifier for this adapter type
  * @param {string} [_alias] - Optional alternative name for this adapter
  * @class Adapter
@@ -146,28 +146,37 @@ Decoration.setFlavourResolver((obj: object) => {
  *   Adapter --|> ErrorParser
  */
 export abstract class Adapter<
-    Y,
-    Q,
-    F extends RepositoryFlags,
-    C extends Context<F>,
+    CONF,
+    CONN,
+    QUERY,
+    FLAGS extends RepositoryFlags = RepositoryFlags,
+    CONTEXT extends Context<FLAGS> = Context<FLAGS>,
   >
   extends LoggedClass
-  implements RawExecutor<Q>, Contextual<F, C>, Observable, Observer, ErrorParser
+  implements
+    RawExecutor<QUERY>,
+    Contextual<FLAGS, CONTEXT>,
+    Observable,
+    Observer,
+    ErrorParser
 {
   private static _currentFlavour: string;
-  private static _cache: Record<string, Adapter<any, any, any, any>> = {};
+  private static _cache: Record<string, Adapter<any, any, any, any, any>> = {};
 
-  protected dispatch?: Dispatch<Y>;
+  protected dispatch?: Dispatch<CONF>;
 
   protected readonly observerHandler?: ObserverHandler;
+
+  protected _client?: CONN;
 
   /**
    * @description Gets the native persistence config
    * @summary Provides access to the underlying persistence driver config
-   * @return {Y} The native persistence driver config
+   * @template CONF
+   * @return {CONF} The native persistence driver config
    */
-  get native() {
-    return this._native;
+  get config(): CONF {
+    return this._config;
   }
 
   /**
@@ -175,7 +184,7 @@ export abstract class Adapter<
    * @summary Returns the alias if set, otherwise returns the flavor name
    * @return {string} The adapter's identifier
    */
-  get alias() {
+  get alias(): string {
     return this._alias || this.flavour;
   }
 
@@ -183,12 +192,54 @@ export abstract class Adapter<
    * @description Gets the repository constructor for this adapter
    * @summary Returns the constructor for creating repositories that work with this adapter
    * @template M - The model type
-   * @return {Constructor<Repository<M, Q, Adapter<Y, Q, F, C>, F, C>>} The repository constructor
+   * @return {Constructor<Repository<M, QUERY, Adapter<CONF, CONN, QUERY, FLAGS, CONTEXT>, FLAGS, CONTEXT>>} The repository constructor
    */
-  repository<M extends Model<true | false>>(): Constructor<
-    Repository<M, Q, Adapter<Y, Q, F, C>, F, C>
+  repository<M extends Model<boolean>>(): Constructor<
+    Repository<
+      M,
+      QUERY,
+      Adapter<CONF, CONN, QUERY, FLAGS, CONTEXT>,
+      FLAGS,
+      CONTEXT
+    >
   > {
     return Repository;
+  }
+
+  @final()
+  protected async shutdownProxies(k?: string) {
+    if (!this.proxies) return;
+    if (k && !(k in this.proxies))
+      throw new InternalError(`No proxy found for ${k}`);
+    if (!k) {
+      for (const key in this.proxies) {
+        try {
+          await this.proxies[key].shutdown();
+        } catch (e: unknown) {
+          this.log.error(`Failed to shutdown proxied adapter ${key}: ${e}`);
+          continue;
+        }
+        delete this.proxies[key];
+      }
+    } else {
+      try {
+        await this.proxies[k].shutdown();
+        delete this.proxies[k];
+      } catch (e: unknown) {
+        this.log.error(`Failed to shutdown proxied adapter ${k}: ${e}`);
+      }
+    }
+  }
+
+  /**
+   * @description Shuts down the adapter
+   * @summary Performs any necessary cleanup tasks, such as closing connections
+   * When overriding this method, ensure to call the base method first
+   * @return {Promise<void>} A promise that resolves when shutdown is complete
+   */
+  async shutdown(): Promise<void> {
+    await this.shutdownProxies();
+    if (this.dispatch) await this.dispatch.close();
   }
 
   /**
@@ -196,12 +247,12 @@ export abstract class Adapter<
    * @summary Initializes the adapter with the native driver and registers it in the adapter cache
    */
   protected constructor(
-    private readonly _native: Y,
+    private readonly _config: CONF,
     readonly flavour: string,
     private readonly _alias?: string
   ) {
     super();
-    if (this.flavour in Adapter._cache)
+    if (this.alias in Adapter._cache)
       throw new InternalError(
         `${this.alias} persistence adapter ${this._alias ? `(${this.flavour}) ` : ""} already registered`
       );
@@ -221,14 +272,14 @@ export abstract class Adapter<
    * @template M - The model type
    * @return {Statement} A statement builder for the model
    */
-  abstract Statement<M extends Model>(): Statement<Q, M, any>;
+  abstract Statement<M extends Model>(): Statement<QUERY, M, any>;
 
   /**
    * @description Creates a new dispatch instance
    * @summary Factory method that creates a dispatch instance for this adapter
    * @return {Dispatch<Y>} A new dispatch instance
    */
-  protected Dispatch(): Dispatch<Y> {
+  protected Dispatch(): Dispatch<CONF> {
     return new Dispatch();
   }
 
@@ -290,23 +341,23 @@ export abstract class Adapter<
   protected async flags<M extends Model>(
     operation: OperationKeys,
     model: Constructor<M>,
-    flags: Partial<F>,
+    flags: Partial<FLAGS>,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
-  ): Promise<F> {
+  ): Promise<FLAGS> {
     return Object.assign({}, DefaultRepositoryFlags, flags, {
       affectedTables: Repository.table(model),
       writeOperation: operation !== OperationKeys.READ,
       timestamp: new Date(),
       operation: operation,
-    }) as F;
+    }) as FLAGS;
   }
 
   /**
    * @description The context constructor for this adapter
    * @summary Reference to the context class constructor used by this adapter
    */
-  protected Context = Context<F>;
+  protected Context = Context<FLAGS>;
 
   /**
    * @description Creates a context for a database operation
@@ -326,16 +377,16 @@ export abstract class Adapter<
       | OperationKeys.READ
       | OperationKeys.UPDATE
       | OperationKeys.DELETE,
-    overrides: Partial<F>,
+    overrides: Partial<FLAGS>,
     model: Constructor<M>,
     ...args: any[]
-  ): Promise<C> {
+  ): Promise<CONTEXT> {
     const log = this.log.for(this.context);
     log.debug(
       `Creating new context for ${operation} operation on ${model.name} model with flag overrides: ${JSON.stringify(overrides)}`
     );
     const flags = await this.flags(operation, model, overrides, ...args);
-    return new this.Context().accumulate(flags) as unknown as C;
+    return new this.Context().accumulate(flags) as unknown as CONTEXT;
   }
 
   /**
@@ -605,7 +656,7 @@ export abstract class Adapter<
    * @param {...any[]} args - Additional arguments specific to the adapter implementation
    * @return {Promise<R>} A promise that resolves to the query result
    */
-  abstract raw<R>(rawInput: Q, ...args: any[]): Promise<R>;
+  abstract raw<R>(rawInput: QUERY, ...args: any[]): Promise<R>;
 
   /**
    * @description Registers an observer for database events
@@ -745,16 +796,21 @@ export abstract class Adapter<
   /**
    * @description Gets an adapter by flavor
    * @summary Retrieves a registered adapter by its flavor name
-   * @template Y - The database driver type
-   * @template Q - The query type
-   * @template C - The context type
-   * @template F - The repository flags type
+   * @template CONF - The database driver config
+   * @template CONN - The database driver instance
+   * @template QUERY - The query type
+   * @template CCONTEXT - The context type
+   * @template FLAGS - The repository flags type
    * @param {string} flavour - The flavor name of the adapter to retrieve
-   * @return {Adapter<Y, Q, F, C> | undefined} The adapter instance or undefined if not found
+   * @return {Adapter<CONF, CONN, QUERY, CONTEXT, FLAGS> | undefined} The adapter instance or undefined if not found
    */
-  static get<Y, Q, C extends Context<F>, F extends RepositoryFlags>(
-    flavour?: any
-  ): Adapter<Y, Q, F, C> | undefined {
+  static get<
+    CONF,
+    CONN,
+    QUERY,
+    CONTEXT extends Context<FLAGS>,
+    FLAGS extends RepositoryFlags,
+  >(flavour?: any): Adapter<CONF, CONN, QUERY, FLAGS, CONTEXT> | undefined {
     if (!flavour) return Adapter.get(this._currentFlavour);
     if (flavour in this._cache) return this._cache[flavour];
     throw new InternalError(`No Adapter registered under ${flavour}.`);
@@ -766,7 +822,7 @@ export abstract class Adapter<
    * @param {string} flavour - The flavor name of the adapter to set as current
    * @return {void}
    */
-  static setCurrent(flavour: string) {
+  static setCurrent(flavour: string): void {
     this._currentFlavour = flavour;
   }
 
@@ -825,29 +881,54 @@ export abstract class Adapter<
   static decoration(): void {}
 
   protected proxies?: Record<string, typeof this>;
+
   /**
-   * @description Creates a child Adapter with specific configurations
-   * @summary Returns a new Adapter instance with specific configurations
-   * @param {Partial<Y>} config - Partial configuration to override
-   * @param {...any[]} args - Additional arguments to pass to the logger factory
-   * @return {Adapter} A new adapter instance for the specified config override
+   * @description Returns the client instance for the adapter
+   * @summary This method should be overridden by subclasses to return the client instance for the adapter.
+   * @template CON - The type of the client instance
+   * @return {CON} The client instance for the adapter
+   * @abstract
+   * @function getClient
+   * @memberOf module:core
+   * @instance
+   * @protected
    */
+  protected abstract getClient(): CONN;
+
+  @final()
+  get client(): CONN {
+    if (!this._client) {
+      this._client = this.getClient();
+    }
+    return this._client;
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  for(config: Partial<Y>, ...args: any[]): typeof this {
+  for(config: Partial<CONF>, ...args: any[]): typeof this {
     if (!this.proxies) this.proxies = {};
     const key = `${this.alias} - ${hashObj(config)}`;
-    if (key in this.proxies) return this.proxies[key];
+    if (key in this.proxies) return this.proxies[key] as typeof this;
 
+    let client: any;
     const proxy = new Proxy(this, {
       get: (target: typeof this, p: string | symbol, receiver: any) => {
-        if (p === "_native") {
-          const originalNative: Y = Reflect.get(target, p, receiver);
-          return Object.assign({}, originalNative, config);
+        if (p === "_config") {
+          const originalConf: CONF = Reflect.get(target, p, receiver);
+          return Object.assign({}, originalConf, config);
+        }
+        if (p === "_client") {
+          return client;
         }
         return Reflect.get(target, p, receiver);
       },
+      set: (target: any, p: string | symbol, value: any, receiver: any) => {
+        if (p === "_client") {
+          client = value;
+          return true;
+        }
+        return Reflect.set(target, p, value, receiver);
+      },
     });
-
     this.proxies[key] = proxy;
     return proxy;
   }

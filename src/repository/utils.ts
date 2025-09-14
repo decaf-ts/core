@@ -7,13 +7,35 @@ import { Repository } from "./Repository";
 
 /**
  * @description Generates a unique injectable name for a repository.
- * @summary Creates a standardized name for repository injectables based on model and adapter flavour.
- * @template T - The model type that extends Model.
- * @param {Constructor<T> | T} model - The model constructor or instance.
- * @param {string} [flavour] - Optional adapter flavour. If not provided, it will be retrieved from the model metadata.
- * @return {string} The generated injectable name.
- * @throws {InternalError} If no flavour is provided and none can be retrieved from the model.
+ * @summary Creates a standardized injectable token for repositories using the adapter flavour and model table name.
+ * This helps the DI system register and resolve repository instances consistently across adapters.
+ * @template T The model type that extends Model.
+ * @param {Constructor<T> | T} model The model constructor or instance from which to derive the table name.
+ * @param {string} [flavour] Optional adapter flavour/alias. If omitted, it is read from model metadata.
+ * @return {string} A namespaced injectable token for the repository (e.g., "db:repo:ram:users").
+ * @throws {InternalError} If the flavour cannot be determined from arguments or metadata.
  * @function generateInjectableNameForRepository
+ * @mermaid
+ * sequenceDiagram
+ *   participant C as Caller
+ *   participant U as generateInjectableNameForRepository
+ *   participant R as Reflect Metadata
+ *   participant A as Adapter
+ *   participant S as String Formatter
+ *   C->>U: call(model, flavour?)
+ *   alt flavour provided
+ *     U-->>U: use provided flavour
+ *   else flavour not provided
+ *     U->>A: Adapter.key(ADAPTER)
+ *     U->>R: getMetadata(key, model|model.ctor)
+ *     alt metadata present
+ *       R-->>U: flavour
+ *     else missing
+ *       U-->>C: throw InternalError
+ *     end
+ *   end
+ *   U->>S: sf(INJECTABLE, flavour, Repository.table(model))
+ *   S-->>C: token string
  * @memberOf module:core
  */
 export function generateInjectableNameForRepository<T extends Model>(

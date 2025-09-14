@@ -3,7 +3,7 @@ import { InternalError } from "@decaf-ts/db-decorators";
 import { TestCountryModel } from "./models";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { RamRepository } from "../../src/ram/types";
-import { OrderDirection, Paginator, Repository } from "../../src";
+import { OrderDirection, Paginator, Repository } from "../../src/index";
 
 Model.setBuilder(Model.fromModel);
 

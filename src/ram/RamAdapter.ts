@@ -1,4 +1,10 @@
-import { RamFlags, RawRamQuery, RamStorage, RamRepository } from "./types";
+import {
+  RamFlags,
+  RawRamQuery,
+  RamStorage,
+  RamRepository,
+  RamConfig,
+} from "./types";
 import { RamStatement } from "./RamStatement";
 import { RamContext } from "./RamContext";
 import { Repository } from "../repository/Repository";
@@ -8,6 +14,7 @@ import { Lock } from "@decaf-ts/transactional-decorators";
 import {
   Constructor,
   Decoration,
+  hashObj,
   Model,
   propMetadata,
 } from "@decaf-ts/decorator-validation";
@@ -71,13 +78,14 @@ Adapter.setCurrent(RamFlavour);
  *   Repository-->>Client: model
  */
 export class RamAdapter extends Adapter<
+  RamConfig,
   RamStorage,
   RawRamQuery<any>,
   RamFlags,
   RamContext
 > {
-  constructor(alias?: string) {
-    super(new Map<string, Map<string, any>>(), RamFlavour, alias);
+  constructor(conf: RamConfig = {} as any, alias?: string) {
+    super(conf, RamFlavour, alias);
   }
 
   /**
@@ -87,7 +95,9 @@ export class RamAdapter extends Adapter<
    * @template M - The model type for the repository
    * @return {Constructor<RamRepository<M>>} A constructor for creating RAM repositories
    */
-  override repository<M extends Model>(): Constructor<RamRepository<M>> {
+  override repository<M extends Model<boolean>>(): Constructor<
+    RamRepository<M>
+  > {
     return super.repository<M>() as Constructor<RamRepository<M>>;
   }
 
@@ -101,13 +111,13 @@ export class RamAdapter extends Adapter<
    * @param {Partial<RamFlags>} flags - Partial flags to be extended
    * @return {Promise<RamFlags>} Complete flags with UUID
    */
-  override async flags<M extends Model>(
+  override async flags<M extends Model<boolean>>(
     operation: OperationKeys,
     model: Constructor<M>,
     flags: Partial<RamFlags>
   ): Promise<RamFlags> {
     return Object.assign(await super.flags(operation, model, flags), {
-      UUID: crypto.randomUUID(),
+      UUID: this.config.user || "" + Date.now(),
     }) as RamFlags;
   }
 
@@ -119,18 +129,6 @@ export class RamAdapter extends Adapter<
   > = {};
 
   private lock = new Lock();
-
-  /**
-   * @description Initializes the RAM adapter
-   * @summary A no-op initialization method for the RAM adapter.
-   * Since RAM adapter doesn't require any setup, this method simply resolves immediately.
-   * @param {...any[]} args - Initialization arguments (unused)
-   * @return {Promise<void>} A promise that resolves when initialization is complete
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async initialize(...args: any[]): Promise<void> {
-    return Promise.resolve(undefined);
-  }
 
   /**
    * @description Indexes models in the RAM adapter
@@ -218,12 +216,12 @@ export class RamAdapter extends Adapter<
     model: Record<string, any>
   ): Promise<Record<string, any>> {
     await this.lock.acquire();
-    if (!this.native.has(tableName)) this.native.set(tableName, new Map());
-    if (this.native.get(tableName) && this.native.get(tableName)?.has(id))
+    if (!this.client.has(tableName)) this.client.set(tableName, new Map());
+    if (this.client.get(tableName) && this.client.get(tableName)?.has(id))
       throw new ConflictError(
         `Record with id ${id} already exists in table ${tableName}`
       );
-    this.native.get(tableName)?.set(id, model);
+    this.client.get(tableName)?.set(id, model);
     this.lock.release();
     return model;
   }
@@ -258,13 +256,13 @@ export class RamAdapter extends Adapter<
     tableName: string,
     id: string | number
   ): Promise<Record<string, any>> {
-    if (!this.native.has(tableName))
+    if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.native.get(tableName)?.has(id))
+    if (!this.client.get(tableName)?.has(id))
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
-    return this.native.get(tableName)?.get(id);
+    return this.client.get(tableName)?.get(id);
   }
 
   /**
@@ -302,13 +300,13 @@ export class RamAdapter extends Adapter<
     model: Record<string, any>
   ): Promise<Record<string, any>> {
     await this.lock.acquire();
-    if (!this.native.has(tableName))
+    if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.native.get(tableName)?.has(id))
+    if (!this.client.get(tableName)?.has(id))
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
-    this.native.get(tableName)?.set(id, model);
+    this.client.get(tableName)?.set(id, model);
     this.lock.release();
     return model;
   }
@@ -348,14 +346,14 @@ export class RamAdapter extends Adapter<
     id: string | number
   ): Promise<Record<string, any>> {
     await this.lock.acquire();
-    if (!this.native.has(tableName))
+    if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.native.get(tableName)?.has(id))
+    if (!this.client.get(tableName)?.has(id))
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
-    const natived = this.native.get(tableName)?.get(id);
-    this.native.get(tableName)?.delete(id);
+    const natived = this.client.get(tableName)?.get(id);
+    this.client.get(tableName)?.delete(id);
     this.lock.release();
     return natived;
   }
@@ -372,8 +370,8 @@ export class RamAdapter extends Adapter<
   protected tableFor<M extends Model>(from: string | Constructor<M>) {
     if (typeof from === "string") from = Model.get(from) as Constructor<M>;
     const table = Repository.table(from);
-    if (!this.native.has(table)) this.native.set(table, new Map());
-    return this.native.get(table);
+    if (!this.client.has(table)) this.client.set(table, new Map());
+    return this.client.get(table);
   }
 
   /**
@@ -476,7 +474,7 @@ export class RamAdapter extends Adapter<
    * @template M - The model type for the statement
    * @return {RamStatement<M, any>} A new statement builder instance
    */
-  Statement<M extends Model>(): RamStatement<M, any> {
+  Statement<M extends Model<boolean>>(): RamStatement<M, any> {
     return new RamStatement<M, any>(this as any);
   }
 
@@ -489,6 +487,25 @@ export class RamAdapter extends Adapter<
    */
   async Sequence(options: SequenceOptions): Promise<Sequence> {
     return new RamSequence(options, this);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  override for(config: Partial<RamConfig>, ...args: any[]): typeof this {
+    if (!this.proxies) this.proxies = {};
+    const key = `${this.alias} - ${hashObj(config)}`;
+    if (key in this.proxies) return this.proxies[key] as typeof this;
+
+    const proxy = new Proxy(this, {
+      get: (target: typeof this, p: string | symbol, receiver: any) => {
+        if (p === "_config") {
+          const originalConf: RamConfig = Reflect.get(target, p, receiver);
+          return Object.assign({}, originalConf, config);
+        }
+        return Reflect.get(target, p, receiver);
+      },
+    });
+    this.proxies[key] = proxy;
+    return proxy;
   }
 
   /**
@@ -520,7 +537,7 @@ export class RamAdapter extends Adapter<
    *   RamAdapter->>Decoration: define(onCreate, propMetadata)
    *   RamAdapter->>Decoration: apply()
    */
-  static override decoration() {
+  static override decoration(): void {
     super.decoration();
     const createdByKey = Repository.key(PersistenceKeys.CREATED_BY);
     const updatedByKey = Repository.key(PersistenceKeys.UPDATED_BY);
@@ -538,6 +555,10 @@ export class RamAdapter extends Adapter<
         propMetadata(updatedByKey, {})
       )
       .apply();
+  }
+
+  protected override getClient(): RamStorage {
+    return new Map();
   }
 }
 

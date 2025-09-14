@@ -1,4 +1,4 @@
-import { BaseError } from "@decaf-ts/db-decorators";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 /**
  * @description Error thrown during query operations
@@ -7,9 +7,9 @@ import { BaseError } from "@decaf-ts/db-decorators";
  * @class QueryError
  * @category Errors
  */
-export class QueryError extends BaseError {
+export class QueryError extends InternalError {
   constructor(msg: string | Error) {
-    super(QueryError.name, msg, 500);
+    super(msg, QueryError.name, 500);
   }
 }
 
@@ -20,8 +20,8 @@ export class QueryError extends BaseError {
  * @class PagingError
  * @category Errors
  */
-export class PagingError extends BaseError {
+export class PagingError extends InternalError {
   constructor(msg: string | Error) {
-    super(PagingError.name, msg, 500);
+    super(msg, PagingError.name, 500);
   }
 }

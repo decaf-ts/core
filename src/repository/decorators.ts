@@ -61,6 +61,7 @@ export function repository<T extends Model>(
           writable: false,
           value: model,
         });
+        return instance;
       },
     })(original);
   }) as any;

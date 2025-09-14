@@ -29,10 +29,14 @@ import { WhereOption } from "../query/options";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
 import { getTableName } from "../identity/utils";
 import { uses } from "../persistence/decorators";
-import { Logger, Logging } from "@decaf-ts/logging";
+import { Logger } from "@decaf-ts/logging";
 import { ObserverHandler } from "../persistence/ObserverHandler";
 import { final } from "../utils";
-import type { EventIds, ObserverFilter } from "../persistence";
+import {
+  EventIds,
+  InferredAdapterConfig,
+  type ObserverFilter,
+} from "../persistence";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.
@@ -46,11 +50,11 @@ import type { EventIds, ObserverFilter } from "../persistence";
  * @memberOf module:core
  */
 export type Repo<
-  M extends Model<true | false>,
+  M extends Model<boolean>,
   F extends RepositoryFlags = any,
   C extends Context<F> = any,
   Q = any,
-  A extends Adapter<any, Q, F, C> = any,
+  A extends Adapter<any, any, Q, F, C> = any,
 > = Repository<M, Q, A, F, C>;
 
 /**
@@ -107,9 +111,9 @@ export type Repo<
  *   R-->>-C: created model
  */
 export class Repository<
-    M extends Model<true | false>,
+    M extends Model<boolean>,
     Q,
-    A extends Adapter<any, Q, F, C>,
+    A extends Adapter<any, any, Q, F, C>,
     F extends RepositoryFlags = RepositoryFlags,
     C extends Context<F> = Context<F>,
   >
@@ -137,7 +141,10 @@ export class Repository<
    * @return {Logger} The logger instance.
    */
   get log(): Logger {
-    if (!this.logger) this.logger = Logging.for(this as any);
+    if (!this.logger)
+      this.logger = (
+        this.adapter["log" as keyof typeof this.adapter] as Logger
+      ).for(this.toString());
     return this.logger;
   }
 
@@ -224,23 +231,26 @@ export class Repository<
   }
 
   /**
-   * Creates a new instance of the Repository class with a specific adapter and arguments.
+   * @description Creates a new instance of the Repository class with a specific adapter and arguments.
    *
    * @template A - The type of the adapter.
    * @template Q - The type of the query builder.
    * @template F - The type of the filter.
    * @template C - The type of the context.
    *
-   * @param adapter - The adapter to be used for the new instance.
-   * @param args - Additional arguments to be passed to the new instance.
+   * @param {Partial<InferredAdapterConfig<A>>} conf - adapter configurations to override.
+   * @param [args] - Additional arguments to be passed to the new instance.
    *
    * @return A new instance of the Repository class with the specified adapter and arguments.
    */
-  for(...args: any[]): Repository<M, Q, A, F, C> {
+  for(
+    conf: Partial<InferredAdapterConfig<A>>,
+    ...args: any[]
+  ): Repository<M, Q, A, F, C> {
     return new Proxy(this, {
       get: (target: any, p: string | symbol, receiver: any) => {
         if (p === "adapter") {
-          return this.adapter.for(...args);
+          return this.adapter.for(conf, ...args);
         }
         return Reflect.get(target, p, receiver);
       },
@@ -1004,6 +1014,7 @@ export class Repository<
    * @template M - The model type that extends Model.
    * @param {Constructor<M>} model - The model constructor.
    * @param {Constructor<Repo<M>> | Repo<M>} repo - The repository constructor or instance.
+   * @param {string} [alias] the adapter alias/flavour.
    * @throws {InternalError} If a repository is already registered for the model.
    */
   static register<M extends Model>(

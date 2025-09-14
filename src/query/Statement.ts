@@ -25,6 +25,7 @@ import { Paginator } from "./Paginator";
 import { Adapter } from "../persistence";
 import { QueryError } from "./errors";
 import { Logger } from "@decaf-ts/logging";
+import { LoggedClass } from "@decaf-ts/logging";
 
 /**
  * @description Base class for database query statements
@@ -78,6 +79,7 @@ import { Logger } from "@decaf-ts/logging";
  *   Statement-->>Client: return final results
  */
 export abstract class Statement<Q, M extends Model, R>
+  extends LoggedClass
   implements Executor<R>, RawExecutor<Q>, Paginatable<M, R, Q>
 {
   protected readonly selectSelector?: SelectSelector<M>[];
@@ -92,9 +94,11 @@ export abstract class Statement<Q, M extends Model, R>
   protected limitSelector?: number;
   protected offsetSelector?: number;
 
-  protected constructor(protected adapter: Adapter<any, Q, any, any>) {}
+  protected constructor(protected adapter: Adapter<any, any, Q, any, any>) {
+    super();
+  }
 
-  protected get log(): Logger {
+  protected override get log(): Logger {
     return (this.adapter as any).log.for(Statement);
   }
 

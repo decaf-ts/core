@@ -84,7 +84,7 @@ export class RamAdapter extends Adapter<
   RamFlags,
   RamContext
 > {
-  constructor(conf: RamConfig, alias?: string) {
+  constructor(conf: RamConfig = {} as any, alias?: string) {
     super(conf, RamFlavour, alias);
   }
 
@@ -117,7 +117,7 @@ export class RamAdapter extends Adapter<
     flags: Partial<RamFlags>
   ): Promise<RamFlags> {
     return Object.assign(await super.flags(operation, model, flags), {
-      UUID: this.config.user || Date.now(),
+      UUID: this.config.user || "" + Date.now(),
     }) as RamFlags;
   }
 

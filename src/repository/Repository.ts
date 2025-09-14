@@ -27,7 +27,7 @@ import { Sequence } from "../persistence/Sequence";
 import { Condition } from "../query/Condition";
 import { WhereOption } from "../query/options";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
-import { getTableName } from "../identity/utils";
+import { getColumnName, getTableName } from "../identity/utils";
 import { uses } from "../persistence/decorators";
 import { Logger } from "@decaf-ts/logging";
 import { ObserverHandler } from "../persistence/ObserverHandler";
@@ -1169,11 +1169,8 @@ export class Repository<
    * @return {string} The column name for the attribute.
    */
   static column<M extends Model>(model: M, attribute: string): string {
-    const metadata = Reflect.getMetadata(
-      Adapter.key(PersistenceKeys.COLUMN),
-      model,
-      attribute
-    );
-    return metadata ? metadata : attribute;
+    return getColumnName(model, attribute);
   }
 }
+
+if (Adapter) Adapter["_baseRepository"] = Repository;

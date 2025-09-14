@@ -1,8 +1,8 @@
 import "reflect-metadata";
 import { generateInjectableNameForRepository } from "../../src/repository/utils";
 import { PersistenceKeys } from "../../src/persistence/constants";
-import { Adapter } from "../../src/persistence/Adapter";
 import { Repository } from "../../src/repository/Repository";
+import { Adapter } from "../../src/persistence/Adapter";
 import { TestModel } from "./TestModel";
 
 // Group related tests for repository utils

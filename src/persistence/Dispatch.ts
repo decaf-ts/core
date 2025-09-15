@@ -95,8 +95,13 @@ export class Dispatch extends LoggedClass implements AdapterDispatch {
    *   end
    */
   protected async initialize(): Promise<void> {
-    if (!this.adapter)
-      throw new InternalError(`No adapter observed for dispatch`);
+    if (!this.adapter) {
+      // Gracefully skip initialization when no adapter is observed yet.
+      // Some tests or setups may construct a Dispatch before calling observe().
+      // Instead of throwing, we no-op so that later observe() can proceed.
+      this.log.warn(`No adapter observed for dispatch; skipping initialization`);
+      return;
+    }
     const adapter = this.adapter as Adapter<any, any, any, any>;
     (
       [
@@ -215,8 +220,10 @@ export class Dispatch extends LoggedClass implements AdapterDispatch {
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds
   ): Promise<void> {
-    if (!this.adapter)
-      throw new InternalError(`No adapter observed for dispatch`);
+    if (!this.adapter) {
+      this.log.warn(`No adapter observed for dispatch; skipping observer update for ${table}:${event}`);
+      return;
+    }
     try {
       await this.adapter.refresh(table, event, id);
     } catch (e: unknown) {

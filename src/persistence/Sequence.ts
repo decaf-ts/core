@@ -1,7 +1,6 @@
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
 import { sequenceNameForModel } from "../identity/utils";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
-import { InternalError } from "@decaf-ts/db-decorators";
 import { Logger, Logging } from "@decaf-ts/logging";
 import { UnsupportedError } from "./errors";
 

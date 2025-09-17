@@ -17,7 +17,7 @@ import { NotFoundError } from "@decaf-ts/db-decorators";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { RamRepository } from "../../src/ram/types";
 import { Repository } from "../../src/repository/index";
-import { Sequence as Seq } from "../../src/ram/model/RamSequence";
+import { RamSequenceModel as Seq } from "../../src/ram/model/RamSequenceModel";
 import { Sequence, sequenceNameForModel } from "../../src/index";
 
 Model.setBuilder(Model.fromModel);

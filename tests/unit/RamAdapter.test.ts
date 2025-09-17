@@ -7,7 +7,6 @@ import { TestModel } from "./TestModel";
 import { NotFoundError } from "@decaf-ts/db-decorators";
 import { RamRepository } from "../../src/ram/types";
 import { Repository } from "../../src/repository/index";
-import { PersistenceKeys } from "../../src/index";
 
 Model.setBuilder(Model.fromModel);
 

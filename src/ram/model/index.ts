@@ -1,1 +1,1 @@
-export * from "./RamSequence";
+export * from "./RamSequenceModel";

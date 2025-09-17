@@ -1,4 +1,3 @@
-import { DBOperations, timestamp } from "@decaf-ts/db-decorators";
 import { ModelArg, Model } from "@decaf-ts/decorator-validation";
 import { createdAt, updatedAt } from "./decorators";
 

@@ -173,7 +173,7 @@ export class InjectablesRegistry extends InjectableRegistryImp {
         );
       } catch (e: unknown) {
         log.debug(
-          `No registered repository or adapter found. falling back to default adapter`
+          `No registered repository or adapter found. falling back to default adapter. Error: ${(e as Error)?.message || JSON.stringify(e)}`
         );
         const repoCtor = (Repository as any)["get"](modelCtor, resolvedFlavour);
         if (typeof repoCtor === "function") {

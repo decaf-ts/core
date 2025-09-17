@@ -23,7 +23,7 @@ import { pk } from "../../identity";
  */
 @table("__RamSequence")
 @model()
-export class Sequence extends BaseModel {
+export class RamSequenceModel extends BaseModel {
   /**
    * @description Primary key identifier for the sequence
    */
@@ -38,7 +38,7 @@ export class Sequence extends BaseModel {
   @index()
   current!: string | number;
 
-  constructor(seq?: ModelArg<Sequence>) {
+  constructor(seq?: ModelArg<RamSequenceModel>) {
     super(seq);
   }
 }

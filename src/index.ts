@@ -20,6 +20,7 @@ export * from "./interfaces";
 export * from "./model";
 export * from "./query";
 export * from "./utils";
+export * from "./ram/RamAdapter";
 //left to last on purpose
 export * from "./persistence";
 

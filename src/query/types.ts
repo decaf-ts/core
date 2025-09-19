@@ -8,8 +8,8 @@ export interface QueryAssist {
   where: Condition<any>;
   groupBy?: string[];
   orderBy?: OrderBySelector<any>[];
-  limit?: number;
-  offset?: number;
+  limit: number | undefined;
+  offset: number | undefined;
 }
 
 export enum QueryClause {

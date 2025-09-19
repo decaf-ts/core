@@ -16,7 +16,7 @@ export class MethodQueryBuilder {
     const groupBy = this.extractGroupBy(methodName);
     const orderBy = this.extractOrderBy(methodName);
     const where = this.buildWhere(core, values);
-    const limit = this.extractLimit(core, values);
+    const { limit, offset } = this.extractLimitAndOffset(core, values);
 
     return {
       action: "find",
@@ -24,6 +24,7 @@ export class MethodQueryBuilder {
       groupBy,
       orderBy,
       limit,
+      offset,
     };
   }
 
@@ -107,13 +108,25 @@ export class MethodQueryBuilder {
     return { field: lowerFirst(str) };
   }
 
-  private static extractLimit(core: string, values: any[]): number | undefined {
-    if (
-      values.length === core.split(/And|Or/).length + 1 &&
-      typeof values[values.length - 1] === "number"
-    ) {
-      return values[values.length - 1];
+  private static extractLimitAndOffset(
+    core: string,
+    values: any[]
+  ): { limit?: number; offset?: number } {
+    const parts = core.split(/OrderBy|GroupBy/)[0] || "";
+    const conditionCount = parts.split(/And|Or/).length;
+    const extraArgs = values.slice(conditionCount);
+
+    let limit: number | undefined = undefined;
+    let offset: number | undefined = undefined;
+
+    if (extraArgs.length >= 1 && typeof extraArgs[0] === "number") {
+      limit = extraArgs[0];
     }
-    return undefined;
+
+    if (extraArgs.length >= 2 && typeof extraArgs[1] === "number") {
+      offset = extraArgs[1];
+    }
+
+    return { limit, offset };
   }
 }

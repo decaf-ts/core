@@ -2,25 +2,25 @@ import { QueryOptions } from "./types";
 import { MethodQueryBuilder } from "./MethodQueryBuilder";
 
 export function query(options: QueryOptions = {}) {
-  // return (target: any, propertyKey: any, descriptor: PropertyDescriptor) => {
-  return (target: any, propertyKey: any, descriptor: any) => {
+  return (target: any, propertyKey: any, descriptor: PropertyDescriptor) => {
     // const originalMethod = descriptor.value;
     const methodName = propertyKey.toString();
     descriptor.value = function (...args: any[]) {
-      const { action, where, groupBy, orderBy, limit } =
+      const { where, groupBy, orderBy, limit, offset } =
         MethodQueryBuilder.build(methodName, ...args);
 
-      //   select: undefined | (keyof M)[];
-      //   from: Constructor<M>;
-      //   where: Condition
-      //   sort?: []
-      //   limit?: number;
-      //   skip?: number;
       let stmt = (this as any).select() as any;
       if (where) stmt = stmt.where(where);
-      if (limit) stmt = stmt.limit(limit);
       if (orderBy) stmt = stmt.orderBy(orderBy[0]);
-      // if (offset) stmt = stmt.orderBy(orderBy[0]);
+      if (groupBy) {
+        /* stmt = stmt.groupBy(groupBy); */
+      }
+
+      // allow limit and offset by default
+      if (!(options.allowLimit === false) && limit) stmt = stmt.limit(limit);
+      if (!(options.allowOffset === false) && offset)
+        stmt = stmt.offset(offset);
+
       return stmt.execute();
     };
   };

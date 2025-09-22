@@ -1,4 +1,4 @@
-import { Sequence as Seq } from "./model/RamSequence";
+import { RamSequenceModel } from "./model/RamSequenceModel";
 import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 import { Sequence } from "../persistence";
 import { SequenceOptions } from "../interfaces";
@@ -32,11 +32,11 @@ import { Repo, Repository } from "../repository";
  * ```
  */
 export class RamSequence extends Sequence {
-  protected repo: Repo<Seq>;
+  protected repo: Repo<RamSequenceModel>;
 
   constructor(options: SequenceOptions, adapter: RamAdapter) {
     super(options);
-    this.repo = Repository.forModel(Seq, adapter.alias);
+    this.repo = Repository.forModel(RamSequenceModel, adapter.alias);
   }
 
   /**
@@ -48,7 +48,7 @@ export class RamSequence extends Sequence {
   async current(): Promise<string | number | bigint> {
     const { name, startWith } = this.options;
     try {
-      const sequence: Seq = await this.repo.read(name as string);
+      const sequence: RamSequenceModel = await this.repo.read(name as string);
       return this.parse(sequence.current as string | number);
     } catch (e: any) {
       if (e instanceof NotFoundError) {
@@ -110,17 +110,17 @@ export class RamSequence extends Sequence {
       default:
         throw new InternalError("Should never happen");
     }
-    let seq: Seq;
+    let seq: RamSequenceModel;
     const repo = this.repo.override({
       ignoredValidationProperties: ["updatedOn"],
     });
     try {
-      seq = await repo.update(new Seq({ id: name, current: next }));
+      seq = await repo.update(new RamSequenceModel({ id: name, current: next }));
     } catch (e: any) {
       if (!(e instanceof NotFoundError)) {
         throw e;
       }
-      seq = await repo.create(new Seq({ id: name, current: next }));
+      seq = await repo.create(new RamSequenceModel({ id: name, current: next }));
     }
 
     return seq.current as string | number | bigint;

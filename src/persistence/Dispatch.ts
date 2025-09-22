@@ -9,7 +9,6 @@ import { Adapter } from "./Adapter";
 import { UnsupportedError } from "./errors";
 import { AdapterDispatch, EventIds } from "./types";
 import { LoggedClass } from "@decaf-ts/logging";
-import { Repository } from "../repository/index";
 
 /**
  * @description Dispatches database operation events to observers

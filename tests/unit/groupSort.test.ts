@@ -1,12 +1,5 @@
 import { RamAdapter, RamRepository } from "../../src/ram";
-import {
-  Adapter,
-  Repository,
-  BaseModel,
-  pk,
-  column,
-  PersistenceKeys,
-} from "../../src";
+import { Adapter, Repository, BaseModel, pk, PersistenceKeys } from "../../src";
 import {
   Context,
   GroupSort,
@@ -181,6 +174,6 @@ describe("Adapter", () => {
     expect(deleted).toBeDefined();
     expect(deleted.equals(updated)).toEqual(true);
 
-    await expect(repo.read(created.id)).rejects.toThrowError(NotFoundError);
+    await expect(repo.read(created.id)).rejects.toThrow(NotFoundError);
   });
 });

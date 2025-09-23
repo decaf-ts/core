@@ -13,6 +13,7 @@ export class MethodQueryBuilder {
     }
 
     const core = this.extractCore(methodName);
+    const select = this.extractSelect(methodName);
     const groupBy = this.extractGroupBy(methodName);
     const orderBy = this.extractOrderBy(methodName);
     const where = this.buildWhere(core, values);
@@ -20,6 +21,7 @@ export class MethodQueryBuilder {
 
     return {
       action: "find",
+      select: select,
       where,
       groupBy,
       orderBy,
@@ -29,7 +31,28 @@ export class MethodQueryBuilder {
   }
 
   private static extractCore(methodName: string): string {
-    return methodName.substring(QueryClause.FIND_BY.length);
+    const afterFindBy = methodName.substring(QueryClause.FIND_BY.length);
+    const regex = /(Then[A-Z]|OrderBy|GroupBy|Limit|Offset)/;
+    const match = afterFindBy.match(regex);
+    return match ? afterFindBy.substring(0, match.index) : afterFindBy;
+  }
+
+  private static extractSelect(methodName: string): string[] | undefined {
+    const selectIndex = methodName.indexOf(QueryClause.SELECT);
+    if (selectIndex === -1) return undefined;
+
+    const afterSelect = methodName.substring(
+      selectIndex + QueryClause.SELECT.length
+    );
+
+    // Search for next Then, GroupBy, OrderBy...
+    const match = afterSelect.match(/(Then[A-Z]|OrderBy|GroupBy|Limit|Offset)/);
+
+    const selectPart = match
+      ? afterSelect.substring(0, match.index)
+      : afterSelect;
+
+    return selectPart.split(QueryClause.AND).map(lowerFirst).filter(Boolean);
   }
 
   private static extractGroupBy(methodName: string): string[] | undefined {

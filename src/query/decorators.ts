@@ -15,29 +15,31 @@ export function query(options: QueryOptions = {}) {
 
       let stmt = (this as any).select(select) as any;
       if (where) stmt = stmt.where(where);
-      if (orderBy) stmt = stmt.orderBy(orderBy[0]);
+      // if (orderBy) stmt = stmt.orderBy(orderBy[0]);
       if (groupBy) {
         // group by not implemented yet
         /* stmt = stmt.groupBy(groupBy); */
       }
 
       // allow limit and offset by default
-      const { allowLimit, allowOffset, throwIfNotAllowed } = {
+      const { allowLimit, allowOffset, allowOrderBy, throws } = {
         allowLimit: true,
+        allowOrderBy: true,
         allowOffset: true,
-        throwIfNotAllowed: true,
+        throws: true,
         ...options,
       };
 
       const params = [
         // keep the order to ensure the expected behavior
+        { key: "orderBy", value: (orderBy || [])[0], allowed: allowOrderBy }, // orderBy only supports one sentence
         { key: "limit", value: limit, allowed: allowLimit },
         { key: "offset", value: offset, allowed: allowOffset },
       ];
 
       for (const param of params) {
         if (param.value !== undefined) {
-          if (!param.allowed && throwIfNotAllowed) {
+          if (!param.allowed && throws) {
             throw new Error(
               `${param.key[0].toUpperCase() + param.key.slice(1)} is not allowed for this query`
             );

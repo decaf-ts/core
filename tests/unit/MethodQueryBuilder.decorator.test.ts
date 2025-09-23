@@ -1,5 +1,6 @@
 import { Model } from "@decaf-ts/decorator-validation";
 import { MethodQueryBuilderRepo } from "./MethodQueryBuilderRepo";
+import { OrderDirection } from "../../src/index";
 // import { RamAdapter } from "../../src/ram/RamAdapter";
 // const ramAdapter = new RamAdapter();
 
@@ -71,7 +72,9 @@ describe("MethodQueryBuilder Decorator", () => {
 
   describe("OrderBy", () => {
     it("should order by name ascending", async () => {
-      const orderByResult = await userRepo.findByActiveOrderByNameAsc(true);
+      const orderByResult = await userRepo.findByActiveOrderByNameAsc(true, [
+        ["name", OrderDirection.ASC],
+      ]);
       const names = orderByResult.map((r) => r.name);
       expect(names).toEqual([...names].sort());
 
@@ -82,9 +85,23 @@ describe("MethodQueryBuilder Decorator", () => {
     });
 
     it("should order by age desc then by country dsc", async () => {
-      const result = []; // await userRepo.findByActiveOrderByAgeDescThenByCountryDsc(true);
-      const ages = result.map((r) => r.age);
-      expect(ages).toEqual([...ages].sort((a, b) => b - a));
+      const orderByResult = await userRepo.findByActive(true, [
+        ["age", OrderDirection.DSC],
+        ["country", OrderDirection.DSC],
+      ]);
+
+      const sorted = [...orderByResult].sort((a, b) => {
+        if (a.age !== b.age) return b.age - a.age; // age desc
+        return b.country.localeCompare(a.country); // country dsc
+      });
+
+      // const ages = orderByResult.map((r) => r.age);
+      // const countries = orderByResult.map((r) => r.country);
+
+      expect(orderByResult).toEqual(sorted);
+
+      const noOrderByResult = await userRepo.findByActive(true);
+      expect(noOrderByResult).not.toEqual(orderByResult);
     });
   });
 
@@ -128,6 +145,7 @@ describe("MethodQueryBuilder Decorator", () => {
       const selectedFields = ["name", "age"];
       const limitResult = await userRepo.findByActiveThenSelectNameAndAge(
         true,
+        undefined,
         1
       );
       expect(limitResult.length).toEqual(1);
@@ -148,7 +166,7 @@ describe("MethodQueryBuilder Decorator", () => {
       const result = await userRepo.findByActive(true);
       expect(result.length).toBeGreaterThanOrEqual(2);
 
-      const limitResult = await userRepo.findByActive(true, 1);
+      const limitResult = await userRepo.findByActive(true, undefined, 1);
       expect(limitResult.length).toEqual(1);
     });
   });
@@ -158,7 +176,7 @@ describe("MethodQueryBuilder Decorator", () => {
       const result = await userRepo.findByActive(true);
       expect(result.length).toBeGreaterThanOrEqual(2);
 
-      const limitResult = await userRepo.findByActive(true, 1);
+      const limitResult = await userRepo.findByActive(true, undefined, 1);
       expect(limitResult.length).toEqual(1);
     });
 
@@ -166,14 +184,14 @@ describe("MethodQueryBuilder Decorator", () => {
       const allResult = await userRepo.findByActive(true);
       expect(allResult.length).toBeGreaterThanOrEqual(3);
 
-      const l1Result = await userRepo.findByActive(true, 1, 1);
+      const l1Result = await userRepo.findByActive(true, undefined, 1, 1);
       expect(l1Result).toEqual([allResult[1]]);
 
-      const l2Result = await userRepo.findByActive(true, 2, 1);
+      const l2Result = await userRepo.findByActive(true, undefined, 2, 1);
       expect(l2Result).toEqual([allResult[1], allResult[2]]);
 
-      const l3Result = await userRepo.findByActive(true, 2, 2);
-      expect(l3Result).toEqual([allResult[2]]);
+      const l3Result = await userRepo.findByActive(true, undefined, 2, 3);
+      expect(l3Result).toEqual([allResult[3]]);
     });
   });
 });

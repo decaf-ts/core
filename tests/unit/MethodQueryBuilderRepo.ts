@@ -10,6 +10,7 @@ import {
 import {
   BaseModel,
   column,
+  OrderBySelector,
   pk,
   query,
   Repository,
@@ -81,7 +82,10 @@ export class MethodQueryBuilderRepo extends Repository<
     this.select().orderBy(["name", "asc"]).limit(10).offset(10);
 
     const data = [
+      // "John Smith",
+      // "Johnathan M. Smith",
       "John Smith",
+      "Johnathan Smith",
       "Emily Johnson",
       "Michael Brown",
       "Sarah Davis",
@@ -107,6 +111,7 @@ export class MethodQueryBuilderRepo extends Repository<
   @query()
   findByName(
     name: string,
+    orderBy?: OrderBySelector<any>[],
     limit?: number,
     offset?: number
   ): Promise<TestUserModel[]> {
@@ -116,6 +121,7 @@ export class MethodQueryBuilderRepo extends Repository<
   @query()
   findByCountryDiff(
     country: string,
+    orderBy?: OrderBySelector<any>[],
     limit?: number,
     offset?: number
   ): Promise<TestUserModel[]> {
@@ -126,6 +132,7 @@ export class MethodQueryBuilderRepo extends Repository<
   findByAgeGreaterThanAndAgeLessThan(
     age1: number,
     age2: number,
+    orderBy?: OrderBySelector<any>[],
     limit?: number,
     offset?: number
   ): Promise<TestUserModel[]> {
@@ -136,6 +143,7 @@ export class MethodQueryBuilderRepo extends Repository<
   findByAgeGreaterThanEqualAndAgeLessThanEqual(
     age1: number,
     age2: number,
+    orderBy?: OrderBySelector<any>[],
     limit?: number,
     offset?: number
   ): Promise<TestUserModel[]> {
@@ -146,6 +154,7 @@ export class MethodQueryBuilderRepo extends Repository<
   findByAgeBetween(
     age1: number,
     age2: number,
+    orderBy?: OrderBySelector<any>[],
     limit?: number,
     offset?: number
   ): Promise<TestUserModel[]> {
@@ -155,6 +164,7 @@ export class MethodQueryBuilderRepo extends Repository<
   @query()
   async findByActive(
     active: boolean,
+    orderBy?: OrderBySelector<any>[],
     limit?: number,
     offset?: number
   ): Promise<TestUserModel[]> {
@@ -164,6 +174,7 @@ export class MethodQueryBuilderRepo extends Repository<
   @query()
   findByCountryIn(
     countries: string[],
+    orderBy?: OrderBySelector<any>[],
     limit?: number,
     offset?: number
   ): Promise<TestUserModel[]> {
@@ -174,6 +185,7 @@ export class MethodQueryBuilderRepo extends Repository<
   findByNameEqualsOrAgeGreaterThan(
     name: string,
     age: number,
+    orderBy?: OrderBySelector<any>[],
     limit?: number,
     offset?: number
   ): Promise<TestUserModel[]> {
@@ -183,6 +195,7 @@ export class MethodQueryBuilderRepo extends Repository<
   @query()
   findByNameMatches(
     name: string,
+    orderBy?: OrderBySelector<any>[],
     limit?: number,
     offset?: number
   ): Promise<TestUserModel[]> {
@@ -192,6 +205,7 @@ export class MethodQueryBuilderRepo extends Repository<
   @query()
   findByActiveOrderByNameAsc(
     active: boolean,
+    orderBy?: OrderBySelector<any>[],
     limit?: number,
     offset?: number
   ): Promise<TestUserModel[]> {
@@ -201,6 +215,7 @@ export class MethodQueryBuilderRepo extends Repository<
   @query()
   findByActiveThenSelectNameAndAge(
     active: boolean,
+    orderBy?: OrderBySelector<any>[],
     limit?: number,
     offset?: number
   ): Promise<TestUserModel[]> {

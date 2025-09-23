@@ -15,9 +15,12 @@ export class MethodQueryBuilder {
     const core = this.extractCore(methodName);
     const select = this.extractSelect(methodName);
     const groupBy = this.extractGroupBy(methodName);
-    const orderBy = this.extractOrderBy(methodName);
+    // const orderBy = this.extractOrderBy(methodName);
     const where = this.buildWhere(core, values);
-    const { limit, offset } = this.extractLimitAndOffset(core, values);
+    const { orderBy, limit, offset } = this.extractOrderLimitOffset(
+      core,
+      values
+    );
 
     return {
       action: "find",
@@ -66,29 +69,29 @@ export class MethodQueryBuilder {
     return groupByPart.split("ThenBy").map(lowerFirst).filter(Boolean);
   }
 
-  private static extractOrderBy(
-    methodName: string
-  ): OrderBySelector<any>[] | undefined {
-    const orderByIndex = methodName.indexOf(QueryClause.ORDER_BY);
-    if (orderByIndex === -1) return undefined;
-
-    const after = methodName.substring(
-      orderByIndex + QueryClause.ORDER_BY.length
-    );
-    const orderParts = after.split("ThenBy");
-
-    return orderParts.map((part) => {
-      const match = part.match(/(.*?)(Asc|Desc|Dsc)$/);
-      if (!match) throw new Error(`Invalid OrderBy part: ${part}`);
-      const [, field, dir] = match;
-      return [
-        lowerFirst(field),
-        dir.toLowerCase() === "dsc"
-          ? OrderDirection.DSC
-          : (dir.toLowerCase() as OrderDirection),
-      ];
-    });
-  }
+  // private static extractOrderBy(
+  //   methodName: string
+  // ): OrderBySelector<any>[] | undefined {
+  //   const orderByIndex = methodName.indexOf(QueryClause.ORDER_BY);
+  //   if (orderByIndex === -1) return undefined;
+  //
+  //   const after = methodName.substring(
+  //     orderByIndex + QueryClause.ORDER_BY.length
+  //   );
+  //   const orderParts = after.split("ThenBy");
+  //
+  //   return orderParts.map((part) => {
+  //     const match = part.match(/(.*?)(Asc|Desc|Dsc)$/);
+  //     if (!match) throw new Error(`Invalid OrderBy part: ${part}`);
+  //     const [, field, dir] = match;
+  //     return [
+  //       lowerFirst(field),
+  //       dir.toLowerCase() === "dsc"
+  //         ? OrderDirection.DSC
+  //         : (dir.toLowerCase() as OrderDirection),
+  //     ];
+  //   });
+  // }
 
   private static buildWhere(core: string, values: any[]): Condition<any> {
     const parts = core.split(/OrderBy|GroupBy/)[0] || "";
@@ -131,25 +134,26 @@ export class MethodQueryBuilder {
     return { field: lowerFirst(str) };
   }
 
-  private static extractLimitAndOffset(
+  private static extractOrderLimitOffset(
     core: string,
     values: any[]
-  ): { limit?: number; offset?: number } {
-    const parts = core.split(/OrderBy|GroupBy/)[0] || "";
-    const conditionCount = parts.split(/And|Or/).length;
+  ): { orderBy?: OrderBySelector<any>[]; limit?: number; offset?: number } {
+    const conditionCount = core.split(/And|Or/).length;
     const extraArgs = values.slice(conditionCount);
 
-    let limit: number | undefined = undefined;
-    let offset: number | undefined = undefined;
+    let orderBy: OrderBySelector<any>[] | undefined;
+    let limit: number | undefined;
+    let offset: number | undefined;
 
-    if (extraArgs.length >= 1 && typeof extraArgs[0] === "number") {
-      limit = extraArgs[0];
-    }
+    if (extraArgs.length >= 1 && Array.isArray(extraArgs[0]))
+      orderBy = extraArgs[0] as OrderBySelector<any>[];
 
-    if (extraArgs.length >= 2 && typeof extraArgs[1] === "number") {
-      offset = extraArgs[1];
-    }
+    if (extraArgs.length >= 2 && typeof extraArgs[1] === "number")
+      limit = extraArgs[1];
 
-    return { limit, offset };
+    if (extraArgs.length >= 3 && typeof extraArgs[2] === "number")
+      offset = extraArgs[2];
+
+    return { orderBy, limit, offset };
   }
 }

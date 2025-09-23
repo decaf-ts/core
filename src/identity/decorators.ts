@@ -10,6 +10,7 @@ import {
 } from "../interfaces/SequenceOptions";
 import {
   DBKeys,
+  GroupSort,
   InternalError,
   onCreate,
   readonly,
@@ -22,6 +23,8 @@ import { Sequence } from "../persistence/Sequence";
 import { Context } from "@decaf-ts/db-decorators";
 import { OrderDirection } from "../repository";
 import { apply } from "@decaf-ts/reflection";
+
+const defaultPkPriority = 60; // Default priority for primary key to run latter than other properties
 
 /**
  * @description Callback function for primary key creation
@@ -137,14 +140,14 @@ export function pk(
   }) as SequenceOptions;
 
   const key = Repository.key(DBKeys.ID);
-  function pkDec(options: SequenceOptions) {
+  function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
     return function pkDec(obj: any, attr: any) {
       return apply(
         index([OrderDirection.ASC, OrderDirection.DSC]),
         required(),
         readonly(),
         propMetadata(key, options),
-        onCreate(pkOnCreate, options),
+        onCreate(pkOnCreate, options, groupsort),
         propMetadata(DBKeys.ID, attr)
       )(obj, attr);
     };
@@ -152,7 +155,7 @@ export function pk(
   return Decoration.for(key)
     .define({
       decorator: pkDec,
-      args: [opts],
+      args: [opts, { priority: defaultPkPriority }],
     })
     .apply();
 }

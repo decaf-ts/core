@@ -2,12 +2,14 @@ import { Condition, MethodQueryBuilder, OrderDirection } from "../../src";
 
 describe("MethodQueryBuilder", () => {
   describe("Operators", () => {
-    it("should handle Equals and Is", () => {
+    it("should handle Equals and In", () => {
       const equals = MethodQueryBuilder.build("findByNameEquals", "Marta");
-      const is = MethodQueryBuilder.build("findByActiveIs", true);
-
       expect(equals.where).toEqual(Condition.attribute("name").eq("Marta"));
-      expect(is.where).toEqual(Condition.attribute("active").eq(true));
+
+      const inQuery = MethodQueryBuilder.build("findByCountryIn", ["EN", "US"]);
+      expect(inQuery.where).toEqual(
+        Condition.attribute("country").in(["EN", "US"])
+      );
     });
 
     it("should handle GreaterThan and LessThan together", () => {
@@ -39,10 +41,10 @@ describe("MethodQueryBuilder", () => {
     });
 
     it("should handle True and False", () => {
-      const trueQuery = MethodQueryBuilder.build("findByActiveTrue", true);
-      const falseQuery = MethodQueryBuilder.build("findByActiveFalse", false);
-
+      const trueQuery = MethodQueryBuilder.build("findByActive", true);
       expect(trueQuery.where).toEqual(Condition.attribute("active").eq(true));
+
+      const falseQuery = MethodQueryBuilder.build("findByActive", false);
       expect(falseQuery.where).toEqual(Condition.attribute("active").eq(false));
     });
 
@@ -137,6 +139,26 @@ describe("MethodQueryBuilder", () => {
     it("should not set limit if not provided", () => {
       const result = MethodQueryBuilder.build("findByActive", true);
       expect(result.limit).toBeUndefined();
+    });
+  });
+
+  describe("Offset", () => {
+    it("should parse offset as last argument", () => {
+      const result = MethodQueryBuilder.build(
+        "findByActive",
+        true,
+        10, // limit
+        2 // offset
+      );
+
+      expect(result.limit).toBe(10);
+      expect(result.offset).toBe(2);
+    });
+
+    it("should not set limit if not provided", () => {
+      const result = MethodQueryBuilder.build("findByActive", true);
+      expect(result.limit).toBeUndefined();
+      expect(result.offset).toBe(undefined);
     });
   });
 

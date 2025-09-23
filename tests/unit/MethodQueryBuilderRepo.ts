@@ -1,6 +1,22 @@
 import { RamAdapter } from "../../src/ram/RamAdapter";
-import { maxlength, min, minlength, model, ModelArg, required, } from "@decaf-ts/decorator-validation";
-import { BaseModel, column, pk, query, Repository, repository, table, } from "../../src";
+import {
+  maxlength,
+  min,
+  minlength,
+  model,
+  ModelArg,
+  required,
+} from "@decaf-ts/decorator-validation";
+import {
+  BaseModel,
+  column,
+  pk,
+  query,
+  Repository,
+  repository,
+  table,
+  UnsupportedError,
+} from "../../src";
 
 const ramAdapter = new RamAdapter();
 
@@ -49,12 +65,8 @@ export class TestUserModel extends BaseModel {
   }
 }
 
-export interface QueryRepository {
-  findByName(name: string): TestUserModel | TestUserModel[];
-}
-
 @repository(TestUserModel)
-export class MethodQueryBuilderRepo implements  QueryRepository extends Repository<
+export class MethodQueryBuilderRepo extends Repository<
   TestUserModel,
   any,
   any,
@@ -66,7 +78,7 @@ export class MethodQueryBuilderRepo implements  QueryRepository extends Reposito
   }
 
   init() {
-    this.select().orderBy(["name", "asc"]).limit(10).offset(10)
+    this.select().orderBy(["name", "asc"]).limit(10).offset(10);
 
     const data = [
       "John Smith",
@@ -93,35 +105,105 @@ export class MethodQueryBuilderRepo implements  QueryRepository extends Reposito
   }
 
   @query()
-  findByName(name: string): any {}
-
-  // @query()
-  // findByName: (name: string) => TestUserModel | TestUserModel[]
-
-  @query()
-  findByAgeGreaterThanAndAgeLessThan(age1: number, age2: number) {}
-
-  @query()
-  findByAgeGreaterThanEqualAndAgeLessThanEqual(age1: number, age2: number) {}
+  findByName(
+    name: string,
+    limit?: number,
+    offset?: number
+  ): Promise<TestUserModel[]> {
+    throw new UnsupportedError(`Method overridden by @query decorator.`);
+  }
 
   @query()
-  async findByActive(): Promise<any[]> {}
+  findByCountryDiff(
+    country: string,
+    limit?: number,
+    offset?: number
+  ): Promise<TestUserModel[]> {
+    throw new UnsupportedError(`Method overridden by @query decorator.`);
+  }
 
   @query()
-  findByActiveTrue() {}
+  findByAgeGreaterThanAndAgeLessThan(
+    age1: number,
+    age2: number,
+    limit?: number,
+    offset?: number
+  ): Promise<TestUserModel[]> {
+    throw new UnsupportedError(`Method overridden by @query decorator.`);
+  }
 
   @query()
-  findByActiveFalse() {}
+  findByAgeGreaterThanEqualAndAgeLessThanEqual(
+    age1: number,
+    age2: number,
+    limit?: number,
+    offset?: number
+  ): Promise<TestUserModel[]> {
+    throw new UnsupportedError(`Method overridden by @query decorator.`);
+  }
 
   @query()
-  findByCountryIn(countries: string[]) {}
+  findByAgeBetween(
+    age1: number,
+    age2: number,
+    limit?: number,
+    offset?: number
+  ): Promise<TestUserModel[]> {
+    throw new UnsupportedError(`Method overridden by @query decorator.`);
+  }
 
   @query()
-  findByNameEqualsOrAgeGreaterThan(name: string, age: number) {}
+  async findByActive(
+    active: boolean,
+    limit?: number,
+    offset?: number
+  ): Promise<TestUserModel[]> {
+    throw new UnsupportedError(`Method overridden by @query decorator.`);
+  }
+
+  @query()
+  findByCountryIn(
+    countries: string[],
+    limit?: number,
+    offset?: number
+  ): Promise<TestUserModel[]> {
+    throw new UnsupportedError(`Method overridden by @query decorator.`);
+  }
+
+  @query()
+  findByNameEqualsOrAgeGreaterThan(
+    name: string,
+    age: number,
+    limit?: number,
+    offset?: number
+  ): Promise<TestUserModel[]> {
+    throw new UnsupportedError(`Method overridden by @query decorator.`);
+  }
+
+  @query()
+  findByNameMatches(
+    name: string,
+    limit?: number,
+    offset?: number
+  ): Promise<TestUserModel[]> {
+    throw new UnsupportedError(`Method overridden by @query decorator.`);
+  }
+
+  @query()
+  findByActiveOrderByNameAsc(
+    active: boolean,
+    limit?: number,
+    offset?: number
+  ): Promise<TestUserModel[]> {
+    throw new UnsupportedError(`Method overridden by @query decorator.`);
+  }
+
+  @query()
+  findByActiveThenSelectNameAndAge(
+    active: boolean,
+    limit?: number,
+    offset?: number
+  ): Promise<TestUserModel[]> {
+    throw new UnsupportedError(`Method overridden by @query decorator.`);
+  }
 }
-
-// defineQueries(TestUserModelRepo, [
-//   "findByName",
-//   "findByNameAndAgeGreaterThan",
-//   "findByAgeGreaterThanAndActiveGroupByAgeThenByStateOrderByAgeDescThenByCountryDsc",
-// ]);

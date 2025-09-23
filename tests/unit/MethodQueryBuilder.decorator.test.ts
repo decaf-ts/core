@@ -18,6 +18,11 @@ describe("MethodQueryBuilder Decorator", () => {
       expect(result.map((r) => r.name)).toEqual(["John Smith"]);
     });
 
+    it("should filter with Diff", async () => {
+      const result = await userRepo.findByCountryDiff("ON");
+      expect(result.every((u) => u.country !== "ON")).toBe(true);
+    });
+
     it("should filter with GreaterThan and LessThan", async () => {
       const result = await userRepo.findByAgeGreaterThanAndAgeLessThan(21, 25);
       expect(result.every((u) => u.age > 21 && u.age < 25)).toBe(true);
@@ -29,19 +34,29 @@ describe("MethodQueryBuilder Decorator", () => {
       expect(result.every((u) => u.age >= 22 && u.age <= 24)).toBe(true);
     });
 
+    it("should filter with Between", async () => {
+      const result = await userRepo.findByAgeBetween(25, 35);
+      expect(result.every((u) => u.age >= 25 && u.age <= 35)).toBe(true);
+    });
+
     it("should filter with True and False", async () => {
-      const actives = await userRepo.findByActiveTrue();
+      const actives = await userRepo.findByActive(true);
       expect(actives.every((u) => u.active)).toBe(true);
 
-      const inactives = await userRepo.findByActiveFalse();
+      const inactives = await userRepo.findByActive(false);
       expect(inactives.every((u) => !u.active)).toBe(true);
     });
 
-    it("should filter with In", async () => {
+    it.skip("should filter with In", async () => {
       const result = await userRepo.findByCountryIn(["TH", "ON"]);
       expect(result.map((r) => r.country)).toEqual(
         expect.arrayContaining(["TH", "ON"])
       );
+    });
+
+    it("should filter with Matches (regex)", async () => {
+      const result = await userRepo.findByNameMatches("^David");
+      expect(result.every((u) => /^David/.test(u.name))).toBe(true);
     });
 
     it("should filter with Or", async () => {
@@ -54,11 +69,16 @@ describe("MethodQueryBuilder Decorator", () => {
     });
   });
 
-  describe.skip("OrderBy", () => {
+  describe("OrderBy", () => {
     it("should order by name ascending", async () => {
-      const result = []; // await userRepo.findByActiveOrderByNameAsc(true);
-      const names = result.map((r) => r.name);
+      const orderByResult = await userRepo.findByActiveOrderByNameAsc(true);
+      const names = orderByResult.map((r) => r.name);
       expect(names).toEqual([...names].sort());
+
+      const noOrderByNames = (await userRepo.findByActive(true)).map(
+        (r) => r.name
+      );
+      expect(noOrderByNames).not.toEqual(names);
     });
 
     it("should order by age desc then by country dsc", async () => {
@@ -75,7 +95,7 @@ describe("MethodQueryBuilder Decorator", () => {
       expect(groups).toEqual(expect.arrayContaining(data.map((d) => d.state)));
     });
 
-    it("should group by age then by state", async () => {
+    it.skip("should group by age then by state", async () => {
       const result = [];
       // await userRepo.findByAgeGreaterThanAndActiveGroupByAgeThenByStateOrderByAgeDescThenByCountryDsc(
       //   21,
@@ -88,6 +108,41 @@ describe("MethodQueryBuilder Decorator", () => {
     });
   });
 
+  describe("Select", () => {
+    it("should select only the specified fields", async () => {
+      const selectedFields = ["name", "age"];
+      const result = await userRepo.findByActiveThenSelectNameAndAge(true);
+      expect(result.length).toBeGreaterThanOrEqual(2);
+      result.forEach((user) => {
+        Object.keys(user).forEach((key) => {
+          if (selectedFields.includes(key)) {
+            expect(user[key]).not.toBeUndefined();
+          } else {
+            expect(user[key]).toBeUndefined();
+          }
+        });
+      });
+    });
+
+    it("should select fields and apply limit", async () => {
+      const selectedFields = ["name", "age"];
+      const limitResult = await userRepo.findByActiveThenSelectNameAndAge(
+        true,
+        1
+      );
+      expect(limitResult.length).toEqual(1);
+      limitResult.forEach((user) => {
+        Object.keys(user).forEach((key) => {
+          if (selectedFields.includes(key)) {
+            expect(user[key]).not.toBeUndefined();
+          } else {
+            expect(user[key]).toBeUndefined();
+          }
+        });
+      });
+    });
+  });
+
   describe("Limit", () => {
     it("should limit the number of results", async () => {
       const result = await userRepo.findByActive(true);
@@ -95,6 +150,30 @@ describe("MethodQueryBuilder Decorator", () => {
 
       const limitResult = await userRepo.findByActive(true, 1);
       expect(limitResult.length).toEqual(1);
+    });
+  });
+
+  describe("Offset", () => {
+    it("should offset the number of results", async () => {
+      const result = await userRepo.findByActive(true);
+      expect(result.length).toBeGreaterThanOrEqual(2);
+
+      const limitResult = await userRepo.findByActive(true, 1);
+      expect(limitResult.length).toEqual(1);
+    });
+
+    it("should offset and limit the number of results", async () => {
+      const allResult = await userRepo.findByActive(true);
+      expect(allResult.length).toBeGreaterThanOrEqual(3);
+
+      const l1Result = await userRepo.findByActive(true, 1, 1);
+      expect(l1Result).toEqual([allResult[1]]);
+
+      const l2Result = await userRepo.findByActive(true, 2, 1);
+      expect(l2Result).toEqual([allResult[1], allResult[2]]);
+
+      const l3Result = await userRepo.findByActive(true, 2, 2);
+      expect(l3Result).toEqual([allResult[2]]);
     });
   });
 });

@@ -21,7 +21,7 @@ export enum QueryClause {
   LIMIT = "Limit",
 }
 
-export type OperatorParser = (field: string, values: any) => Condition<any>;
+export type OperatorParser = (field: string, ...args: any) => Condition<any>;
 
 export interface FilterDescriptor {
   field: string;

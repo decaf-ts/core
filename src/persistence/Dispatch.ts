@@ -98,7 +98,9 @@ export class Dispatch extends LoggedClass implements AdapterDispatch {
       // Gracefully skip initialization when no adapter is observed yet.
       // Some tests or setups may construct a Dispatch before calling observe().
       // Instead of throwing, we no-op so that later observe() can proceed.
-      this.log.warn(`No adapter observed for dispatch; skipping initialization`);
+      this.log.verbose(
+        `No adapter observed for dispatch; skipping initialization`
+      );
       return;
     }
     const adapter = this.adapter as Adapter<any, any, any, any>;
@@ -220,7 +222,9 @@ export class Dispatch extends LoggedClass implements AdapterDispatch {
     id: EventIds
   ): Promise<void> {
     if (!this.adapter) {
-      this.log.warn(`No adapter observed for dispatch; skipping observer update for ${table}:${event}`);
+      this.log.verbose(
+        `No adapter observed for dispatch; skipping observer update for ${table}:${event}`
+      );
       return;
     }
     try {

@@ -5,3 +5,7 @@ export * from "./options";
 export * from "./Paginator";
 export * from "./selectors";
 export * from "./Statement";
+export * from "./decorators";
+export * from "./MethodQueryBuilder";
+export * from "./types";
+export * from "./utils";

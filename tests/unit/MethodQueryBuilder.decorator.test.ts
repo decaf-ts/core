@@ -1,6 +1,6 @@
 import { Model } from "@decaf-ts/decorator-validation";
 import { MethodQueryBuilderRepo } from "./MethodQueryBuilderRepo";
-import { OrderDirection } from "../../src/index";
+import { OrderDirection, QueryError } from "../../src/index";
 // import { RamAdapter } from "../../src/ram/RamAdapter";
 // const ramAdapter = new RamAdapter();
 
@@ -192,6 +192,38 @@ describe("MethodQueryBuilder Decorator", () => {
 
       const l3Result = await userRepo.findByActive(true, undefined, 2, 3);
       expect(l3Result).toEqual([allResult[3]]);
+    });
+  });
+
+  describe("Check options availability", () => {
+    const cases = [
+      {
+        name: "orderBy",
+        args: [10, [["age", OrderDirection.ASC]]],
+        message: "OrderBy is not allowed for this query",
+      },
+      {
+        name: "limit",
+        args: [10, undefined, 1],
+        message: "Limit is not allowed for this query",
+      },
+      {
+        name: "offset",
+        args: [10, undefined, undefined, 1],
+        message: "Offset is not allowed for this query",
+      },
+    ];
+
+    cases.forEach(({ name, args, message }) => {
+      it(`should throw if ${name} not allowed`, async () => {
+        try {
+          await userRepo.findByAgeGreaterThanThenThrows(...args);
+          fail(`Expected ${name} to throw but it did not`);
+        } catch (err: any) {
+          expect(err).toBeInstanceOf(QueryError);
+          expect(err.message).toBe(new QueryError(message).message);
+        }
+      });
     });
   });
 });

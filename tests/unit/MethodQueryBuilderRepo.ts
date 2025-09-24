@@ -221,4 +221,19 @@ export class MethodQueryBuilderRepo extends Repository<
   ): Promise<TestUserModel[]> {
     throw new UnsupportedError(`Method overridden by @query decorator.`);
   }
+
+  @query({
+    allowOffset: false,
+    allowLimit: false,
+    allowOrderBy: false,
+    throws: true,
+  })
+  findByAgeGreaterThanThenThrows(
+    age: number,
+    orderBy?: OrderBySelector<any>[],
+    limit?: number,
+    offset?: number
+  ): Promise<TestUserModel[]> {
+    throw new UnsupportedError(`Method overridden by @query decorator.`);
+  }
 }

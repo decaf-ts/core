@@ -1,5 +1,6 @@
 import { QueryOptions } from "./types";
 import { MethodQueryBuilder } from "./MethodQueryBuilder";
+import { QueryError } from "./errors";
 
 export function query(options: QueryOptions = {}) {
   return (
@@ -28,7 +29,7 @@ export function query(options: QueryOptions = {}) {
         allowOffset: true,
         throws: true,
         ...options,
-      };
+      } as QueryOptions;
 
       const params = [
         // keep the order to ensure the expected behavior
@@ -40,7 +41,7 @@ export function query(options: QueryOptions = {}) {
       for (const param of params) {
         if (param.value !== undefined) {
           if (!param.allowed && throws) {
-            throw new Error(
+            throw new QueryError(
               `${param.key[0].toUpperCase() + param.key.slice(1)} is not allowed for this query`
             );
           } else if (param.allowed) {

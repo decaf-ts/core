@@ -16,7 +16,7 @@ export type QueryOptions = {
   allowLimit?: boolean;
   allowOffset?: boolean;
   allowOrderBy?: boolean;
-  throwIfNotAllowed?: boolean;
+  throws?: boolean;
 };
 
 /**

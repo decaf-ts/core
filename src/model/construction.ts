@@ -335,11 +335,10 @@ export async function oneToOneOnDelete<
   );
   let deleted: M;
   if (!(propertyValue instanceof Model))
-    deleted = await innerRepo.delete(model[key] as string, context);
+    deleted = await innerRepo.delete(model[key] as string);
   else
     deleted = await innerRepo.delete(
-      (model[key] as M)[innerRepo.pk as keyof M] as string,
-      context
+      (model[key] as M)[innerRepo.pk as keyof M] as string
     );
   await cacheModelForPopulate(
     context,
@@ -585,7 +584,7 @@ export async function oneToManyOnDelete<
   ]);
 
   for (const id of uniqueValues.values()) {
-    const deleted = await repo.delete(id, context);
+    const deleted = await repo.delete(id);
     await cacheModelForPopulate(context, model, key, id, deleted);
   }
   (model as any)[key] = [...uniqueValues];
@@ -846,4 +845,3 @@ export function repositoryFromTypeMetadata<M extends Model>(
 
   return Repository.forModel(constructor, alias);
 }
-

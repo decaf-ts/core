@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import {
   maxlength,
@@ -205,8 +207,11 @@ export class MethodQueryBuilderRepo extends Repository<
   @query()
   findByActiveOrderByNameAsc(
     active: boolean,
+
     orderBy?: OrderBySelector<any>[],
+
     limit?: number,
+
     offset?: number
   ): Promise<TestUserModel[]> {
     throw new UnsupportedError(`Method overridden by @query decorator.`);
@@ -215,8 +220,11 @@ export class MethodQueryBuilderRepo extends Repository<
   @query()
   findByActiveThenSelectNameAndAge(
     active: boolean,
+
     orderBy?: OrderBySelector<any>[],
+
     limit?: number,
+
     offset?: number
   ): Promise<TestUserModel[]> {
     throw new UnsupportedError(`Method overridden by @query decorator.`);

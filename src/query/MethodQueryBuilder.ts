@@ -5,6 +5,12 @@ import { OperatorsMap } from "./utils";
 const lowerFirst = (str: string): string =>
   str.charAt(0).toLowerCase() + str.slice(1);
 
+export type OrderLimitOffsetExtract = {
+  orderBy?: OrderBySelector<any>[];
+  limit?: number;
+  offset?: number;
+};
+
 /**
  * @description
  * Utility class to build query objects from repository method names.
@@ -275,16 +281,12 @@ export class MethodQueryBuilder {
    * @param core {string} - The extracted core string from the method name.
    * @param values {any[]} - The values corresponding to method arguments, including conditions and extras.
    *
-   * @return {{
-   *   orderBy?: OrderBySelector<any>[];
-   *   limit?: number;
-   *   offset?: number;
-   * }} An object containing orderBy, limit, and offset values if present.
+   * @return {OrderLimitOffsetExtract} An object containing orderBy, limit, and offset values if present.
    */
   private static extractOrderLimitOffset(
     core: string,
     values: any[]
-  ): { orderBy?: OrderBySelector<any>[]; limit?: number; offset?: number } {
+  ): OrderLimitOffsetExtract {
     const conditionCount = core.split(/And|Or/).length;
     const extraArgs = values.slice(conditionCount);
 

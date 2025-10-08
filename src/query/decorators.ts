@@ -5,12 +5,14 @@ import { QueryError } from "./errors";
 export function query(options: QueryOptions = {}) {
   return (
     target: object,
-    propertyKey: string | symbol,
-    descriptor: TypedPropertyDescriptor<any>
-  ): TypedPropertyDescriptor<any> | void => {
+    propertyKey?: any,
+    descriptor?: TypedPropertyDescriptor<any>
+  ): any => {
     // const originalMethod = descriptor.value;
     const methodName = propertyKey.toString();
-    descriptor.value = function (...args: any[]) {
+    (descriptor as TypedPropertyDescriptor<any>).value = function (
+      ...args: any[]
+    ) {
       const { select, where, groupBy, orderBy, limit, offset } =
         MethodQueryBuilder.build(methodName, ...args);
 

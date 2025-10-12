@@ -1,4 +1,4 @@
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import { Constructor, Model, ModelKeys } from "@decaf-ts/decorator-validation";
 import { Repository } from "@decaf-ts/db-decorators";
 import { PersistenceKeys } from "../persistence/constants";
 
@@ -18,7 +18,7 @@ export function getTableName<M extends Model>(
 
   const metadata = Reflect.getOwnMetadata(
     Repository.key(PersistenceKeys.TABLE),
-    obj
+    obj[ModelKeys.ANCHOR as unknown as keyof typeof obj] || obj
   );
   if (metadata) {
     return metadata;

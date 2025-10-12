@@ -828,6 +828,10 @@ export class Repository<
     return query.execute();
   }
 
+  attr(prop: keyof M) {
+    return Condition.attr<M>(prop);
+  }
+
   /**
    * @description Registers an observer for this repository.
    * @summary Adds an observer that will be notified of changes to models in this repository.

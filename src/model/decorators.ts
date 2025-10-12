@@ -51,14 +51,16 @@ import { AuthorizationError } from "../utils";
  * @function table
  * @category Class Decorators
  */
-export function table<OPTS = string>(opts: OPTS) {
-  const key = Adapter.key(PersistenceKeys.TABLE);
-  return Decoration.for(key)
-    .define({
-      decorator: metadata,
-      args: [key, opts],
-    })
-    .apply();
+export function table<OPTS = string>(opts?: OPTS) {
+  return function table(target: any) {
+    const key = Adapter.key(PersistenceKeys.TABLE);
+    return Decoration.for(key)
+      .define({
+        decorator: metadata,
+        args: [key, opts || target.name.toLowerCase()],
+      })
+      .apply()(target);
+  };
 }
 
 /**

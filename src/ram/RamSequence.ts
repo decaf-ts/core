@@ -107,6 +107,9 @@ export class RamSequence extends Sequence {
       case "BigInt":
         next = (this.parse(current) as bigint) + BigInt(toIncrementBy);
         break;
+      case "String":
+        next = this.parse(current);
+        break;
       default:
         throw new InternalError("Should never happen");
     }
@@ -158,7 +161,7 @@ export class RamSequence extends Sequence {
     for (let i: number = 1; i <= count; i++) {
       range.push(current + incrementBy * (this.parse(i) as number));
     }
-    if (range[range.length - 1] !== next)
+    if (range[range.length - 1] !== next && this.options.type !== "String")
       throw new InternalError("Miscalculation of range");
     return range;
   }

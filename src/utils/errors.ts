@@ -36,8 +36,8 @@ export class AuthorizationError extends BadRequestError {
  * ```
  */
 export class ForbiddenError extends AuthorizationError {
-  constructor(msg: string | Error) {
-    super(msg, ForbiddenError.name, 403);
+  constructor(msg: string | Error, name = ForbiddenError.name) {
+    super(msg, name, 403);
   }
 }
 

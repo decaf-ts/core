@@ -494,7 +494,6 @@ export function manyToOne<M extends Model>(
   fk?: string
 ) {
   // Model.register(clazz as Constructor<M>);
-
   const key = Repository.key(PersistenceKeys.MANY_TO_ONE);
 
   function manyToOneDec(
@@ -504,10 +503,11 @@ export function manyToOne<M extends Model>(
     joinTableOpts?: JoinTableOptions | JoinTableMultipleColumnsOptions,
     fk?: string
   ) {
-    if (!clazz.name)
-      clazz = (clazz as () => Constructor<M>)() as Constructor<M>;
+    const clazzName = () =>
+      (clazz?.name ? clazz : (clazz as () => Constructor<M>)()).name;
+
     const metadata: RelationsMetadata = {
-      class: clazz.name ? clazz.name : (clazz as any),
+      class: clazz?.name ? clazz.name : (clazz as any),
       cascade: cascade,
       populate: populate,
     };
@@ -515,12 +515,7 @@ export function manyToOne<M extends Model>(
     if (fk) metadata.name = fk;
     return apply(
       prop(PersistenceKeys.RELATIONS),
-      type([
-        clazz.name ? clazz.name : (clazz as any),
-        String.name,
-        Number.name,
-        BigInt.name,
-      ]),
+      type([clazzName, String.name, Number.name, BigInt.name]),
       // onCreate(oneToManyOnCreate, metadata),
       // onUpdate(oneToManyOnUpdate, metadata),
       // onDelete(oneToManyOnDelete, metadata),
@@ -536,6 +531,7 @@ export function manyToOne<M extends Model>(
     })
     .apply();
 }
+
 /**
  * @description Defines a many-to-one relationship between models
  * @summary Decorator that establishes a many-to-one relationship between multiple instances of the current model and another model

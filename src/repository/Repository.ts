@@ -396,7 +396,12 @@ export class Repository<
     models = await Promise.all(
       models.map(async (m, i) => {
         m = new this.class(m);
-        if (opts.type) m[this.pk] = ids[i] as M[keyof M];
+        if (opts.type) {
+          m[this.pk] = (opts.type !== 'String' ? 
+            ids[i] : opts.generated ? 
+              ids[i] : `${m[this.pk]}`.toString()) as M[keyof M];
+        }
+    
         await enforceDBDecorators(
           this,
           contextArgs.context,

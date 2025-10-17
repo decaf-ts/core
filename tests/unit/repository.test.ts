@@ -1,4 +1,8 @@
+import { RamFlavour } from "../../src/ram/index";
 import { RamAdapter } from "../../src/ram/RamAdapter";
+import { Adapter, BaseModel, Observer, repository, uses } from "../../src";
+RamAdapter.decoration();
+Adapter.setCurrent(RamFlavour);
 
 const ramAdapter = new RamAdapter();
 
@@ -6,12 +10,10 @@ import { Repository } from "../../src/repository/Repository";
 import { model, Model } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { NotFoundError, OperationKeys } from "@decaf-ts/db-decorators";
-import { Adapter, BaseModel, Observer, repository, uses } from "../../src";
 import { TestModel } from "./TestModel";
 import { Repo } from "../../src";
 
 Model.setBuilder(Model.fromModel);
-
 describe("Repository", () => {
   let created: TestModel;
 

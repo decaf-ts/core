@@ -1,5 +1,8 @@
 import { RamAdapter } from "../../src/ram/RamAdapter";
-
+import { Adapter } from "../../src/index";
+import { RamFlavour } from "../../src/ram/index";
+RamAdapter.decoration();
+Adapter.setCurrent(RamFlavour);
 const ramAdapter = new RamAdapter();
 
 import { Repository } from "../../src/repository/Repository";

@@ -1,14 +1,14 @@
 import { RamAdapter } from "../../src/ram/RamAdapter";
-
+import { Adapter } from "../../src/";
+import { RamFlavour } from "../../src/ram/index";
+RamAdapter.decoration();
+Adapter.setCurrent(RamFlavour);
 const adapter = new RamAdapter();
 
-import { Model } from "@decaf-ts/decorator-validation";
 import { TestModel } from "./TestModel";
 import { NotFoundError } from "@decaf-ts/db-decorators";
 import { RamRepository } from "../../src/ram/types";
 import { Repository } from "../../src/repository/index";
-
-Model.setBuilder(Model.fromModel);
 
 jest.setTimeout(50000);
 

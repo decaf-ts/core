@@ -561,6 +561,3 @@ export class RamAdapter extends Adapter<
     return new Map();
   }
 }
-
-RamAdapter.decoration();
-Adapter.setCurrent(RamFlavour);

@@ -127,6 +127,7 @@ export abstract class Sequence {
       case "BigInt":
         return BigInt(value);
       case undefined:
+      case "String":
         return value;
       default:
         throw new UnsupportedError(

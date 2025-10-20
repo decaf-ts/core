@@ -397,11 +397,15 @@ export class Repository<
       models.map(async (m, i) => {
         m = new this.class(m);
         if (opts.type) {
-          m[this.pk] = (opts.type !== 'String' ? 
-            ids[i] : opts.generated ? 
-              ids[i] : `${m[this.pk]}`.toString()) as M[keyof M];
+          m[this.pk] = (
+            opts.type !== "String"
+              ? ids[i]
+              : opts.generated
+                ? ids[i]
+                : `${m[this.pk]}`.toString()
+          ) as M[keyof M];
         }
-    
+
         await enforceDBDecorators(
           this,
           contextArgs.context,
@@ -1006,10 +1010,15 @@ export class Repository<
     model: Constructor<M>,
     alias?: string
   ): Constructor<Repo<M>> | Repo<M> {
-    let name = Repository.table(model);
+    const name: string = Repository.table(model);
+    let registryName: string = name;
     if (alias) {
-      name = [name, alias].join(DefaultSeparator);
+      registryName = [name, alias].join(DefaultSeparator);
     }
+    if (registryName in this._cache)
+      return this._cache[registryName] as unknown as
+        | Constructor<Repo<M>>
+        | Repo<M>;
     if (name in this._cache)
       return this._cache[name] as unknown as Constructor<Repo<M>> | Repo<M>;
     throw new InternalError(
@@ -1035,8 +1044,10 @@ export class Repository<
     if (alias) {
       name = [name, alias].join(DefaultSeparator);
     }
-    if (name in this._cache)
-      throw new InternalError(`${name} already registered as a repository`);
+    if (name in this._cache) {
+      if (this._cache[name] instanceof Repository)
+        throw new InternalError(`${name} already has a registered instance`);
+    }
     this._cache[name] = repo as any;
   }
 

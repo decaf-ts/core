@@ -31,9 +31,6 @@ import {
 import { RamSequence } from "./RamSequence";
 import { createdByOnRamCreateUpdate } from "./handlers";
 import { RamFlavour } from "./constants";
-
-Adapter.setCurrent(RamFlavour);
-
 /**
  * @description In-memory adapter for data persistence
  * @summary The RamAdapter provides an in-memory implementation of the persistence layer.

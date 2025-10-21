@@ -13,6 +13,7 @@ import { Injectables } from "@decaf-ts/injectable-decorators";
 Injectables.setRegistry(new InjectablesRegistry());
 
 // imported first on purpose
+export * from "./overrides";
 export * from "./repository";
 
 export * from "./identity";

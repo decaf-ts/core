@@ -36,6 +36,7 @@ import { LoggedClass } from "@decaf-ts/logging";
 import { getColumnName, getTableName } from "../identity/utils";
 import { Repository as Repo } from "@decaf-ts/db-decorators";
 import { AdapterDispatch } from "./types";
+import { Metadata } from "@decaf-ts/decoration";
 
 Decoration.setFlavourResolver((obj: object) => {
   try {
@@ -361,6 +362,10 @@ export abstract class Adapter<
       writeOperation: operation !== OperationKeys.READ,
       timestamp: new Date(),
       operation: operation,
+      ignoredValidationProperties: Metadata.validationExceptions(
+        model,
+        operation
+      ),
     }) as FLAGS;
   }
 

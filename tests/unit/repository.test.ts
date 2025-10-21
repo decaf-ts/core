@@ -1,6 +1,6 @@
+import { Adapter, BaseModel, Observer, repository, uses } from "../../src";
 import { RamFlavour } from "../../src/ram/index";
 import { RamAdapter } from "../../src/ram/RamAdapter";
-import { Adapter, BaseModel, Observer, repository, uses } from "../../src";
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
 

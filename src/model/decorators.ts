@@ -1,16 +1,21 @@
 import {
+  afterAny,
   ConflictError,
+  Context,
   onCreate,
   onCreateUpdate,
   onDelete,
   onUpdate,
-  afterAny,
-  RepositoryFlags,
-  Context,
-  timestamp,
   OperationKeys,
+  RepositoryFlags,
+  timestamp,
 } from "@decaf-ts/db-decorators";
 import { apply, metadata } from "@decaf-ts/reflection";
+import {
+  apply as newApply,
+  Metadata,
+  metadata as newMetadata,
+} from "@decaf-ts/decoration";
 import { PersistenceKeys } from "../persistence/constants";
 import { CascadeMetadata, IndexMetadata } from "../repository/types";
 import { DefaultCascade, OrderDirection } from "../repository/constants";
@@ -605,4 +610,33 @@ export function manyToMany<M extends Model>(
       args: [clazz, cascadeOptions, populate, joinTableOpts, fk],
     })
     .apply();
+}
+
+export function noValidateOn(...ops: OperationKeys[]) {
+  return function noValidateOn(target: any, propertyKey?: any) {
+    const currentMeta =
+      Metadata.get(
+        target,
+        Metadata.key(PersistenceKeys.NO_VALIDATE, propertyKey)
+      ) || [];
+    const newMeta = [...new Set([...currentMeta, ...ops])];
+    return newApply(
+      newMetadata(
+        Metadata.key(PersistenceKeys.NO_VALIDATE, propertyKey),
+        newMeta
+      )
+    )(target, propertyKey);
+  };
+}
+
+export function noValidateOnCreate() {
+  return noValidateOn(OperationKeys.CREATE);
+}
+
+export function noValidateOnUpdate() {
+  return noValidateOn(OperationKeys.UPDATE);
+}
+
+export function noValidateOnCreateUpdate() {
+  return noValidateOn(OperationKeys.UPDATE, OperationKeys.CREATE);
 }

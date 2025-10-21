@@ -58,4 +58,6 @@ export enum PersistenceKeys {
 
   /** @description Key for populate metadata */
   POPULATE = "populate",
+  /** @description Key for populate metadata */
+  NO_VALIDATE = "no-validate",
 }

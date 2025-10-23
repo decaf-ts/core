@@ -8,6 +8,7 @@
 
 import { InjectablesRegistry } from "./repository/injectables";
 import { Injectables } from "@decaf-ts/injectable-decorators";
+import { Metadata } from "@decaf-ts/decoration";
 
 // overrides the previous Injectables registry to enable the @repository decorator
 Injectables.setRegistry(new InjectablesRegistry());
@@ -32,3 +33,13 @@ export * from "./persistence";
  * @memberOf module:core
  */
 export const VERSION = "##VERSION##";
+
+/**
+ * @description Stores the current package version
+ * @summary A constant representing the version of the core package
+ * @const PACKAGE_NAME
+ * @memberOf module:core
+ */
+export const PACKAGE_NAME = "##PACKAGE##";
+
+Metadata.registerLibrary(PACKAGE_NAME, VERSION);

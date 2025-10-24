@@ -1,0 +1,188 @@
+{
+  "core": [
+    {
+      "Slogan": "Decaf‑TS Core: the calm under‑layer your stack didn’t know it needed.",
+      "Tags": "Core, Calm, Coffee‑themed"
+    },
+    {
+      "Slogan": "Build strong models. Then sit back and sip your decaf.",
+      "Tags": "Models, Coffee‑themed, Developer"
+    },
+    {
+      "Slogan": "Repository pattern without the caffeine crash.",
+      "Tags": "Repository, Calm, Technical"
+    },
+    {
+      "Slogan": "Adapters plug in. You relax. It’s that decaf simple.",
+      "Tags": "Adapter, Calm, Coffee‑themed"
+    },
+    {
+      "Slogan": "Query DSL so smooth it’s like foam on a latte.",
+      "Tags": "QueryDSL, Coffee‑themed, Fun"
+    },
+    {
+      "Slogan": "Strong‑typed models + low‑stress devs = win.",
+      "Tags": "Typing, Developer, Calm"
+    },
+    {
+      "Slogan": "Plug persistence into your code without plugging in your adrenaline.",
+      "Tags": "Persistence, Calm, Technical"
+    },
+    {
+      "Slogan": "Your data‑layer’s decaf revolution.",
+      "Tags": "DataLayer, Branding, Coffee‑themed"
+    },
+    {
+      "Slogan": "From in‑memory to HTTP to SQL — all served decaf.",
+      "Tags": "Adapter, FullStack, Coffee‑themed"
+    },
+    {
+      "Slogan": "Typed models. Calm code. Zero jitters.",
+      "Tags": "Typing, Calm, Developer"
+    },
+    {
+      "Slogan": "Hook your business logic, not your blood pressure.",
+      "Tags": "BusinessLogic, Humor, Calm"
+    },
+    {
+      "Slogan": "Pagination and observers that don’t observe your panic.",
+      "Tags": "Pagination, Observer, Calm"
+    },
+    {
+      "Slogan": "Base classes that let you build, not burn out.",
+      "Tags": "BaseClasses, Developer, Calm"
+    },
+    {
+      "Slogan": "Because your code deserves a barista‑quality data layer.",
+      "Tags": "Branding, Coffee‑themed, Technical"
+    },
+    {
+      "Slogan": "Register your model, take a breath, build features.",
+      "Tags": "Model, Developer, Calm"
+    },
+    {
+      "Slogan": "Adapters agnostic. Devs relaxed.",
+      "Tags": "Adapter, Chill, Developer"
+    },
+    {
+      "Slogan": "Table, column, relation — served decaf style.",
+      "Tags": "Schema, Coffee‑themed, Technical"
+    },
+    {
+      "Slogan": "Support for CRUD, bulk ops and low heart‑rate.",
+      "Tags": "CRUD, Productivity, Calm"
+    },
+    {
+      "Slogan": "Use decorators. Not stimulants.",
+      "Tags": "Decorators, Coffee‑themed, Fun"
+    },
+    {
+      "Slogan": "A data stack so mellow your IDE sighs in relief.",
+      "Tags": "DeveloperDX, Calm, Humor"
+    },
+    {
+      "Slogan": "From Model to Repository to Adapter: the smooth journey.",
+      "Tags": "Flow, Technical, Calm"
+    },
+    {
+      "Slogan": "Clean architecture. Clean code. Clean coffee cup.",
+      "Tags": "Architecture, Coffee‑themed, Developer"
+    },
+    {
+      "Slogan": "Let the core hold the weight while your features fly.",
+      "Tags": "Core, Productivity, Calm"
+    },
+    {
+      "Slogan": "Sequence, statement, observer — in decaf harmony.",
+      "Tags": "Sequence, Observer, Calm"
+    },
+    {
+      "Slogan": "Adapter‑agnostic so you can choose your storage, not your stress level.",
+      "Tags": "Adapter, Calm, Technical"
+    },
+    {
+      "Slogan": "Type models once, query everywhere, heart‑rate unchanged.",
+      "Tags": "Typing, Query, Calm"
+    },
+    {
+      "Slogan": "Your code’s new backbone—strong, steady, decaf.",
+      "Tags": "Backbone, Coffee‑themed, Developer"
+    },
+    {
+      "Slogan": "Build data access layers while your coffee cools.",
+      "Tags": "Developer, Coffee‑themed, Chill"
+    },
+    {
+      "Slogan": "Because caffeine should happen in your cup, not your stack.",
+      "Tags": "Coffee‑themed, Humor, Technical"
+    },
+    {
+      "Slogan": "Models that represent, repos that respect, devs that rest.",
+      "Tags": "Models, Repository, Calm"
+    },
+    {
+      "Slogan": "Unified API across storages so you don’t switch modes (or jump heartbeats).",
+      "Tags": "API, Adapter, Calm"
+    },
+    {
+      "Slogan": "Plug‑and‑play persistence. Pour yourself a decaf.",
+      "Tags": "Persistence, Coffee‑themed, Developer"
+    },
+    {
+      "Slogan": "When your core is calm, your stack behaves.",
+      "Tags": "Stack, Calm, Technical"
+    },
+    {
+      "Slogan": "Write logic like you’re writing a memo — not a frantic caffeine rush.",
+      "Tags": "Developer, Humor, Calm"
+    },
+    {
+      "Slogan": "Observe changes without observing panic.",
+      "Tags": "Observer, Calm, DataFlow"
+    },
+    {
+      "Slogan": "Your data model’s best friend and your heartbeat’s ally.",
+      "Tags": "Model, Calm, Developer"
+    },
+    {
+      "Slogan": "From raw record to typed instance without the roller‑coaster.",
+      "Tags": "Mapping, Smooth, Technical"
+    },
+    {
+      "Slogan": "Dedicate your cup to decaf, your stack to clarity.",
+      "Tags": "Coffee‑themed, Branding, Developer"
+    },
+    {
+      "Slogan": "Stop chasing features. Let your core chase complexity.",
+      "Tags": "Developer, Productivity, Calm"
+    },
+    {
+      "Slogan": "Adapters evolve; your code stays stable and serene.",
+      "Tags": "Adapter, Stability, Calm"
+    },
+    {
+      "Slogan": "Strong base. Smooth finish. Zero caffeine crash.",
+      "Tags": "Branding, Coffee‑themed, Calm"
+    },
+    {
+      "Slogan": "Your code workflow’s recliner: lean back, ship features.",
+      "Tags": "Workflow, Chill, Technical"
+    },
+    {
+      "Slogan": "Model validation, repository wiring, decorators—without the buzz.",
+      "Tags": "Validation, Decorators, Calm"
+    },
+    {
+      "Slogan": "Let your core handle the plumbing while you sip gently.",
+      "Tags": "Core, Coffee‑themed, Developer"
+    },
+    {
+      "Slogan": "Decaf‑TS Core: because even your low‑level layers deserve elegance.",
+      "Tags": "Core, Calm, Branding"
+    },
+    {
+      "Slogan": "Build once, adapt many. Heart‑rate stays steady.",
+      "Tags": "Adaptability, Calm, Developer"
+    }
+  ]
+}

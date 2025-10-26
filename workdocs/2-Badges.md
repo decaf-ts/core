@@ -1,4 +1,3 @@
-
 ![Licence](https://img.shields.io/github/license/decaf-ts/core.svg?style=plastic)
 ![GitHub language count](https://img.shields.io/github/languages/count/decaf-ts/core?style=plastic)
 ![GitHub top language](https://img.shields.io/github/languages/top/decaf-ts/core?style=plastic)
@@ -21,3 +20,5 @@
 ![NPM Version](https://img.shields.io/badge/dynamic/json.svg?url=https%3A%2F%2Fraw.githubusercontent.com%2Fbadges%2Fshields%2Fmaster%2Fpackage.json&label=NPM&query=$.engines.npm&colorB=purple)
 
 Documentation [here](https://decaf-ts.github.io/injectable-decorators/), Test results [here](https://decaf-ts.github.io/injectable-decorators/workdocs/reports/html/test-report.html) and Coverage [here](https://decaf-ts.github.io/injectable-decorators/workdocs/reports/coverage/lcov-report/index.html)
+
+Minimal size: ##PACKAGE_SIZE## kb gzipped

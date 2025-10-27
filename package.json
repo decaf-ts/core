@@ -6,11 +6,13 @@
   "exports": {
     ".": {
       "require": "./lib/index.cjs",
-      "import": "./lib/esm/index.js"
+      "import": "./lib/esm/index.js",
+      "types": "./lib/index.d.ts"
     },
     "./ram": {
       "require": "./lib/ram/index.cjs",
-      "import": "./lib/esm/ram/index.js"
+      "import": "./lib/esm/ram/index.js",
+      "types": "./lib/esm/index.d.ts"
     }
   },
   "types": "lib/index.d.ts",

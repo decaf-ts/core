@@ -4,13 +4,8 @@ import {
   ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
-import {
-  Adapter,
-  pk,
-  RamAdapter,
-  Repository,
-  repository,
-} from "../../src/index";
+import { Adapter, pk, Repository, repository } from "../../src/index";
+import { RamAdapter } from "../../src/ram/index";
 
 describe("repository injection", () => {
   beforeAll(() => {

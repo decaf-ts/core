@@ -1,6 +1,7 @@
 import { Constructor, Model, ModelKeys } from "@decaf-ts/decorator-validation";
-import { Repository } from "@decaf-ts/db-decorators";
+import { InternalError, Repository } from "@decaf-ts/db-decorators";
 import { PersistenceKeys } from "../persistence/constants";
+import { Adapter } from "../persistence/index";
 
 /**
  * @description Gets the table name for a model
@@ -14,12 +15,16 @@ import { PersistenceKeys } from "../persistence/constants";
 export function getTableName<M extends Model>(
   model: M | Constructor<M>
 ): string {
-  const obj = model instanceof Model ? model.constructor : model;
+  const obj =
+    model instanceof Model ? Model.get(model.constructor.name) : model;
+
+  if (!obj) throw new InternalError(`Unable to find model ${model}`);
 
   const metadata = Reflect.getOwnMetadata(
-    Repository.key(PersistenceKeys.TABLE),
-    obj[ModelKeys.ANCHOR as unknown as keyof typeof obj] || obj
+    Adapter.key(PersistenceKeys.TABLE),
+    obj[ModelKeys.MODEL as unknown as keyof typeof obj] || obj
   );
+
   if (metadata) {
     return metadata;
   }

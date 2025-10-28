@@ -28,7 +28,8 @@ import {
   propMetadata,
   type,
 } from "@decaf-ts/decorator-validation";
-import { Adapter } from "../persistence/Adapter";
+
+import { Adapter } from "../persistence/";
 import { Repo, Repository } from "../repository/Repository";
 import { Condition } from "../query/Condition";
 import {

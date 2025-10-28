@@ -6,7 +6,7 @@ import {
 } from "@decaf-ts/decorator-validation";
 import { Repository, table } from "../../src/index";
 
-describe.skip("TableName edge case", () => {
+describe("TableName edge case", () => {
   it("handles modes with name property", () => {
     @table("tst_named")
     @model()

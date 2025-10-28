@@ -8,6 +8,7 @@ import {
 import { RamStatement } from "./RamStatement";
 import { RamContext } from "./RamContext";
 import { Repository } from "../repository/Repository";
+import { Dispatch } from "../persistence/Dispatch";
 import { Adapter, PersistenceKeys, Sequence } from "../persistence";
 import { SequenceOptions } from "../interfaces";
 import { Lock } from "@decaf-ts/transactional-decorators";
@@ -116,6 +117,10 @@ export class RamAdapter extends Adapter<
     return Object.assign(await super.flags(operation, model, flags), {
       UUID: this.config.user || "" + Date.now(),
     }) as RamFlags;
+  }
+
+  protected override Dispatch(): Dispatch {
+    return super.Dispatch();
   }
 
   override Context = RamContext;

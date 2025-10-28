@@ -1,10 +1,10 @@
 // purposely in first place
 export * from "./Dispatch";
 
-export * from "./Adapter";
 export * from "./constants";
 export * from "./decorators";
 export * from "./errors";
 export * from "./ObserverHandler";
 export * from "./Sequence";
 export * from "./types";
+export * from "./Adapter";

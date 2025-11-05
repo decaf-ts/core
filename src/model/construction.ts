@@ -843,5 +843,5 @@ export function repositoryFromTypeMetadata<M extends Model>(
   if (!constructor)
     throw new InternalError(`No registered model found for ${constructorName}`);
 
-  return Repository.forModel(constructor, alias);
+  return Repository.forModel(constructor, alias) as any;
 }

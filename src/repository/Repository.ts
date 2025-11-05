@@ -6,11 +6,11 @@ import {
   enforceDBDecorators,
   findPrimaryKey,
   InternalError,
+  ValidationError,
   IRepository,
   OperationKeys,
   Repository as Rep,
   RepositoryFlags,
-  ValidationError,
   wrapMethodWithContext,
 } from "@decaf-ts/db-decorators";
 import { Observable } from "../interfaces/Observable";

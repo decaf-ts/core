@@ -82,9 +82,10 @@
   },
   "homepage": "https://github.com/decaf-ts/core#readme",
   "devDependencies": {
+    "@decaf-ts/logging": "latest",
     "@decaf-ts/utils": "latest"
   },
-  "peerDependencies": {
+  "dependencies": {
     "@decaf-ts/db-decorators": "latest",
     "@decaf-ts/decoration": "latest",
     "@decaf-ts/decorator-validation": "latest",

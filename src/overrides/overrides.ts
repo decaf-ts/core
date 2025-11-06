@@ -1,5 +1,5 @@
-import { Metadata } from "@decaf-ts/decoration";
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import { Constructor, Metadata } from "@decaf-ts/decoration";
+import { Model } from "@decaf-ts/decorator-validation";
 import { OperationKeys } from "@decaf-ts/db-decorators";
 import { PersistenceKeys } from "../persistence/index";
 

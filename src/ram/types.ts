@@ -1,7 +1,8 @@
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import { Model } from "@decaf-ts/decorator-validation";
 import { Repository } from "../repository";
 import { Context, RepositoryFlags } from "@decaf-ts/db-decorators";
 import { RamAdapter } from "./RamAdapter";
+import { Constructor } from "@decaf-ts/decoration";
 
 /**
  * @description In-memory storage structure for the RAM adapter

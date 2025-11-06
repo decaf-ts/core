@@ -1,9 +1,10 @@
 import { InternalError } from "@decaf-ts/db-decorators";
-import { Constructor, sf } from "@decaf-ts/decorator-validation";
+import { sf } from "@decaf-ts/decorator-validation";
 import { Adapter } from "../persistence/Adapter";
 import { PersistenceKeys } from "../persistence/constants";
 import { Model } from "@decaf-ts/decorator-validation";
 import { getTableName } from "../identity/utils";
+import { Constructor } from "@decaf-ts/decoration";
 
 /**
  * @description Generates a unique injectable name for a repository.

@@ -1,8 +1,9 @@
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import { Model } from "@decaf-ts/decorator-validation";
 import { sequenceNameForModel } from "../identity/utils";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { Logger, Logging } from "@decaf-ts/logging";
 import { UnsupportedError } from "./errors";
+import { Constructor } from "@decaf-ts/decoration";
 
 /**
  * @description Abstract base class for sequence generation

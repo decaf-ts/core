@@ -10,24 +10,21 @@ import {
   RepositoryFlags,
   timestamp,
 } from "@decaf-ts/db-decorators";
-import { apply, metadata } from "@decaf-ts/reflection";
 import {
   apply as newApply,
   Metadata,
   metadata as newMetadata,
+  Decoration,
+  propMetadata,
+  Constructor,
+  prop,
+  metadata,
+  apply,
 } from "@decaf-ts/decoration";
 import { PersistenceKeys } from "../persistence/constants";
 import { CascadeMetadata, IndexMetadata } from "../repository/types";
 import { DefaultCascade, OrderDirection } from "../repository/constants";
-import {
-  Constructor,
-  Decoration,
-  list,
-  Model,
-  prop,
-  propMetadata,
-  type,
-} from "@decaf-ts/decorator-validation";
+import { list, Model, type } from "@decaf-ts/decorator-validation";
 
 import { Adapter } from "../persistence/";
 import { Repo, Repository } from "../repository/Repository";

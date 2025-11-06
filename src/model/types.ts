@@ -1,5 +1,5 @@
+import { Constructor } from "@decaf-ts/decoration";
 import { CascadeMetadata } from "../repository";
-import { Constructor } from "@decaf-ts/decorator-validation";
 
 /**
  * Describes join column options.

@@ -1,13 +1,10 @@
 import {
+  Constructor,
   InjectableRegistryImp,
   Injectables,
 } from "@decaf-ts/injectable-decorators";
 import { Repository } from "./Repository";
-import {
-  Constructor,
-  Model,
-  ModelConstructor,
-} from "@decaf-ts/decorator-validation";
+import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { generateInjectableNameForRepository } from "./utils";
 import { PersistenceKeys } from "../persistence/constants";
 import { Adapter } from "../persistence/Adapter";

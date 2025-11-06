@@ -1,6 +1,7 @@
 import { PagingError } from "./errors";
 import { Adapter } from "../persistence";
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import { Model } from "@decaf-ts/decorator-validation";
+import { Constructor } from "@decaf-ts/decoration";
 
 /**
  * @description Handles pagination for database queries

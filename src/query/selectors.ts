@@ -1,5 +1,6 @@
+import { Constructor } from "@decaf-ts/decoration";
 import { OrderDirection } from "../repository";
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import { Model } from "@decaf-ts/decorator-validation";
 
 /**
  * @description Type for selecting the data source in a query

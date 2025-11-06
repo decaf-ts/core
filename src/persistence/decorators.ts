@@ -1,6 +1,6 @@
-import { apply, metadata } from "@decaf-ts/reflection";
 import { PersistenceKeys } from "./constants";
 import { Adapter } from "./Adapter";
+import { apply, metadata } from "@decaf-ts/decoration";
 
 /**
  * @description Specifies which persistence adapter flavor a model should use

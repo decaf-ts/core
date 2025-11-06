@@ -1,9 +1,4 @@
-import {
-  Decoration,
-  Model,
-  propMetadata,
-  required,
-} from "@decaf-ts/decorator-validation";
+import { Model, required } from "@decaf-ts/decorator-validation";
 import {
   DefaultSequenceOptions,
   SequenceOptions,
@@ -22,7 +17,7 @@ import { sequenceNameForModel } from "./utils";
 import { Sequence } from "../persistence/Sequence";
 import { Context } from "@decaf-ts/db-decorators";
 import { OrderDirection } from "../repository";
-import { apply } from "@decaf-ts/reflection";
+import { apply, Decoration, propMetadata } from "@decaf-ts/decoration";
 
 const defaultPkPriority = 60; // Default priority for primary key to run latter than other properties
 

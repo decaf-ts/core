@@ -1,5 +1,4 @@
 import {
-  Constructor,
   Model,
   ModelConstructor,
   Validation,
@@ -8,7 +7,6 @@ import {
 import { Repo, Repository } from "../repository/Repository";
 import { RelationsMetadata } from "./types";
 import {
-  findPrimaryKey,
   InternalError,
   NotFoundError,
   RepositoryFlags,
@@ -16,6 +14,7 @@ import {
 import { PersistenceKeys } from "../persistence/constants";
 import { Cascade } from "../repository/constants";
 import { Context } from "@decaf-ts/db-decorators";
+import { Constructor } from "@decaf-ts/decoration";
 
 /**
  * @description Creates or updates a model instance

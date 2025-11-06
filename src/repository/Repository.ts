@@ -1,10 +1,8 @@
 import {
   BulkCrudOperationKeys,
   Context,
-  DBKeys,
   DefaultSeparator,
   enforceDBDecorators,
-  findPrimaryKey,
   InternalError,
   ValidationError,
   IRepository,
@@ -12,11 +10,12 @@ import {
   Repository as Rep,
   RepositoryFlags,
   wrapMethodWithContext,
+  DBKeys,
 } from "@decaf-ts/db-decorators";
 import { Observable } from "../interfaces/Observable";
 import { type Observer } from "../interfaces/Observer";
 import { Adapter } from "../persistence/Adapter";
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import { Model } from "@decaf-ts/decorator-validation";
 import { PersistenceKeys } from "../persistence/constants";
 import { OrderDirection } from "./constants";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
@@ -37,6 +36,7 @@ import {
   InferredAdapterConfig,
   type ObserverFilter,
 } from "../persistence";
+import { Constructor, Metadata } from "@decaf-ts/decoration";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.
@@ -189,9 +189,13 @@ export class Repository<
     if (clazz) {
       Repository.register(clazz, this, this.adapter.alias);
       if (adapter) {
-        const flavour = Reflect.getMetadata(
-          Adapter.key(PersistenceKeys.ADAPTER),
-          clazz
+        // const flavour = Reflect.getMetadata(
+        //   Adapter.key(PersistenceKeys.ADAPTER),
+        //   clazz
+        // );
+        const flavour = Metadata.get(
+          clazz as any,
+          Adapter.key(PersistenceKeys.ADAPTER)
         );
         if (flavour && flavour !== adapter.flavour)
           throw new InternalError("Incompatible flavours");
@@ -967,7 +971,8 @@ export class Repository<
 
     const _alias: string | undefined =
       alias ||
-      Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model) ||
+      Metadata.get(model, Adapter.key(PersistenceKeys.ADAPTER)) ||
+      // Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model)
       Adapter.currentFlavour;
     try {
       repo = this.get(model, _alias) as Constructor<R> | R;
@@ -980,9 +985,10 @@ export class Repository<
 
     const flavour: string | undefined =
       alias ||
-      Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model) ||
-      (repo &&
-        Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), repo)) ||
+      Metadata.get(model, Adapter.key(PersistenceKeys.ADAPTER)) ||
+      // Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model)
+      (repo && Metadata.get(repo, Adapter.key(PersistenceKeys.ADAPTER))) ||
+      // Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), repo)
       Adapter.currentFlavour;
     const adapter: Adapter<any, any, any, any> | undefined = flavour
       ? Adapter.get(flavour)
@@ -1105,11 +1111,15 @@ export class Repository<
    * @throws {InternalError} If no sequence options are defined for the model.
    */
   static getSequenceOptions<M extends Model>(model: M) {
-    const pk = findPrimaryKey(model).id;
-    const metadata = Reflect.getMetadata(
-      Repository.key(DBKeys.ID),
-      model,
-      pk as string
+    // const pk: keyof M = Model.pk(model);
+    // const metadataOld = Reflect.getMetadata(
+    //   Repository.key(DBKeys.ID),
+    //   model,
+    //   pk as string
+    // );
+    const metadata = Metadata.get(
+      model.constructor as any,
+      Repository.key(DBKeys.ID)
     );
     if (!metadata)
       throw new InternalError(
@@ -1126,13 +1136,24 @@ export class Repository<
    * @return {Record<string, Record<string, IndexMetadata>>} A nested record of property names to index metadata.
    */
   static indexes<M extends Model>(model: M | Constructor<M>) {
+    // TODO: replace this from metadata
     const indexDecorators = Reflection.getAllPropertyDecorators(
       model instanceof Model ? model : new model(),
       DBKeys.REFLECT
     );
+    // const m = DBKeys.REFLECT?.replace(/[.]$/, "");
+    // const metaAll = Metadata.get(
+    //   model instanceof Model ? model.constructor : (model as any)
+    // );
+    // const meta = Metadata.get(
+    //   model instanceof Model ? model.constructor : (model as any),
+    //   DBKeys.REFLECT?.replace(/[.]$/, "")
+    // );
     return Object.entries(indexDecorators || {}).reduce(
       (accum: Record<string, Record<string, IndexMetadata>>, [k, val]) => {
-        const decs = val.filter((v) => v.key.startsWith(PersistenceKeys.INDEX));
+        const decs = val.filter((v: any) =>
+          v.key.startsWith(PersistenceKeys.INDEX)
+        );
         if (decs && decs.length) {
           for (const dec of decs) {
             const { key, props } = dec;

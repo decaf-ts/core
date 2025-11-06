@@ -4,7 +4,7 @@ import { Adapter } from "../persistence/Adapter";
 import { PersistenceKeys } from "../persistence/constants";
 import { Model } from "@decaf-ts/decorator-validation";
 import { getTableName } from "../identity/utils";
-import { Constructor } from "@decaf-ts/decoration";
+import { Constructor, Metadata } from "@decaf-ts/decoration";
 
 /**
  * @description Generates a unique injectable name for a repository.
@@ -49,6 +49,15 @@ export function generateInjectableNameForRepository<T extends Model>(
       key,
       model instanceof Model ? model.constructor : model
     );
+    // const meta = Metadata.get(
+    //   model instanceof Model ? model.constructor : (model as any)
+    // );
+
+    // TODO: Find why flavour can be found in reflect, but not in metadata
+    // flavour = Metadata.get(
+    //   model instanceof Model ? model.constructor : (model as any),
+    //   Adapter.key(PersistenceKeys.ADAPTER)
+    // );
     if (!flavour)
       throw new InternalError(
         `Could not retrieve flavour from model ${model instanceof Model ? model.constructor.name : model.name}`

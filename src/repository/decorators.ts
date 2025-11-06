@@ -7,7 +7,7 @@ import { DBKeys, IRepository } from "@decaf-ts/db-decorators";
 import { Model, ModelKeys } from "@decaf-ts/decorator-validation";
 import { Repository } from "./Repository";
 import { Adapter, PersistenceKeys } from "../persistence";
-import { metadata } from "@decaf-ts/decoration";
+import { Metadata, metadata } from "@decaf-ts/decoration";
 
 /**
  * @description Repository decorator for model classes.
@@ -51,7 +51,8 @@ export function repository<T extends Model>(
     metadata(Repository.key(DBKeys.REPOSITORY), original.name)(model);
     flavour =
       flavour ||
-      Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), original);
+      Metadata.get(original.constructor, Adapter.key(PersistenceKeys.ADAPTER));
+    // Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), original);
     Repository.register(
       model[ModelKeys.ANCHOR as keyof typeof model] || model,
       original,

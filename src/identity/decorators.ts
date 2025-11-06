@@ -146,9 +146,9 @@ export function pk(
         index([OrderDirection.ASC, OrderDirection.DSC]),
         required(),
         readonly(),
+        propMetadata(Metadata.key(DBKeys.ID, attr), {}),
         propMetadata(key, options),
-        onCreate(pkOnCreate, options, groupsort),
-        propMetadata(DBKeys.ID, attr)
+        onCreate(pkOnCreate, options, groupsort)
       )(obj, attr);
     };
   }

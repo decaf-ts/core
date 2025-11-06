@@ -63,6 +63,7 @@ export class RamStatement<M extends Model, R> extends Statement<
         );
       const selector = this.orderBySelector;
       const [key, direction] = selector;
+      // TODO: Replace this from metadata
       const type = Reflection.getTypeFromDecorator(el1, key as string);
       if (!type)
         throw new QueryError(`type not compatible with sorting: ${type}`);

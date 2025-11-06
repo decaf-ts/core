@@ -14,7 +14,7 @@ import {
 import { PersistenceKeys } from "../persistence/constants";
 import { Cascade } from "../repository/constants";
 import { Context } from "@decaf-ts/db-decorators";
-import { Constructor } from "@decaf-ts/decoration";
+import { Constructor, Metadata } from "@decaf-ts/decoration";
 
 /**
  * @description Creates or updates a model instance
@@ -173,7 +173,7 @@ export async function oneToOneOnCreate<
     throw new InternalError(`Could not find model ${data.class}`);
   const repo: Repo<any> = Repository.forModel(constructor, this.adapter.alias);
   const created = await repo.create(propertyValue);
-  const pk = findPrimaryKey(created).id;
+  const pk = Model.pk(created);
   await cacheModelForPopulate(context, model, key, created[pk], created);
   (model as any)[key] = created[pk];
 }
@@ -259,15 +259,15 @@ export async function oneToOneOnUpdate<
     context,
     this.adapter.alias
   );
-  const pk = findPrimaryKey(updated).id;
+  const pk = Model.pk(updated);
   await cacheModelForPopulate(
     context,
     model,
     key,
-    updated[pk] as string,
+    updated[pk as keyof M] as string,
     updated
   );
-  model[key] = updated[pk];
+  model[key] = updated[pk as keyof M];
 }
 
 /**
@@ -433,7 +433,7 @@ export async function oneToManyOnCreate<
     return;
   }
 
-  const pkName = findPrimaryKey(propertyValues[0]).id;
+  const pkName = Model.pk(propertyValues[0]);
 
   const result: Set<string> = new Set();
 
@@ -834,6 +834,13 @@ export function repositoryFromTypeMetadata<M extends Model>(
   const constructorName = allowedTypes.find(
     (t) => !commomTypes.includes(`${t}`.toLowerCase())
   );
+
+  // TODO: test usage of the below (need to create test)
+  const newTypes = Metadata.getPropDesignTypes(
+    model instanceof Model ? model.constructor : (model as any),
+    propertyKey as string
+  );
+
   if (!constructorName)
     throw new InternalError(
       `Property key ${propertyKey as string} does not have a valid constructor type`

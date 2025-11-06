@@ -12,26 +12,26 @@ import { Dispatch } from "../persistence/Dispatch";
 import { Adapter, PersistenceKeys, Sequence } from "../persistence";
 import { SequenceOptions } from "../interfaces";
 import { Lock } from "@decaf-ts/transactional-decorators";
-import {
-  Constructor,
-  Decoration,
-  hashObj,
-  Model,
-  propMetadata,
-} from "@decaf-ts/decorator-validation";
+import { hashObj, Model } from "@decaf-ts/decorator-validation";
 import {
   BaseError,
   ConflictError,
-  findPrimaryKey,
   OperationKeys,
   InternalError,
   NotFoundError,
   onCreate,
   onCreateUpdate,
+  DBKeys,
 } from "@decaf-ts/db-decorators";
 import { RamSequence } from "./RamSequence";
 import { createdByOnRamCreateUpdate } from "./handlers";
 import { RamFlavour } from "./constants";
+import {
+  Constructor,
+  Decoration,
+  Metadata,
+  propMetadata,
+} from "@decaf-ts/decoration";
 /**
  * @description In-memory adapter for data persistence
  * @summary The RamAdapter provides an in-memory implementation of the persistence layer.
@@ -425,7 +425,10 @@ export class RamAdapter extends Adapter<
     const collection = this.tableFor(from);
     if (!collection)
       throw new InternalError(`Table ${from} not found in RamAdapter`);
-    const { id, props } = findPrimaryKey(new from());
+    // const { id, props } = findPrimaryKey(new from());
+
+    const id = Model.pk(from);
+    const props = Metadata.get(from, Metadata.key(DBKeys.ID, id));
 
     let result: any[] = Array.from(collection.entries()).map(([pk, r]) =>
       this.revert(

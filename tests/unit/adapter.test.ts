@@ -2,10 +2,10 @@ import { RamAdapter, RamRepository } from "../../src/ram";
 const adapter = new RamAdapter();
 import { Adapter, repository, uses, Repository } from "../../src";
 import { TestModel } from "./TestModel";
-import { findPrimaryKey, NotFoundError } from "@decaf-ts/db-decorators";
+import { NotFoundError } from "@decaf-ts/db-decorators";
 import { Model, model } from "@decaf-ts/decorator-validation";
-import type { Constructor } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
+import { Constructor } from "@decaf-ts/decoration";
 
 Model.setBuilder(Model.fromModel);
 
@@ -38,7 +38,7 @@ describe("Adapter", () => {
       nif: "123456789",
     });
 
-    const { record, id } = adapter.prepare(create, findPrimaryKey(create).id);
+    const { record, id } = adapter.prepare(create, Model.pk(create));
     expect(record).toMatchObject({
       tst_name: create.name,
       tst_nif: create.nif,

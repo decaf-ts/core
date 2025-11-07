@@ -1136,32 +1136,15 @@ export class Repository<
    * @return {Record<string, Record<string, IndexMetadata>>} A nested record of property names to index metadata.
    */
   static indexes<M extends Model>(model: M | Constructor<M>) {
-    // TODO: replace this from metadata
-    const indexDecorators = Reflection.getAllPropertyDecorators(
-      model instanceof Model ? model : new model(),
-      DBKeys.REFLECT
+    const indexDecorators = Metadata.get(
+      model instanceof Model ? model.constructor : (model as any),
+      PersistenceKeys.INDEX
     );
-    // const m = DBKeys.REFLECT?.replace(/[.]$/, "");
-    // const metaAll = Metadata.get(
-    //   model instanceof Model ? model.constructor : (model as any)
-    // );
-    // const meta = Metadata.get(
-    //   model instanceof Model ? model.constructor : (model as any),
-    //   DBKeys.REFLECT?.replace(/[.]$/, "")
-    // );
-    return Object.entries(indexDecorators || {}).reduce(
-      (accum: Record<string, Record<string, IndexMetadata>>, [k, val]) => {
-        const decs = val.filter((v: any) =>
-          v.key.startsWith(PersistenceKeys.INDEX)
-        );
-        if (decs && decs.length) {
-          for (const dec of decs) {
-            const { key, props } = dec;
-            accum[k] = accum[k] || {};
-            accum[k][key] = props as IndexMetadata;
-          }
-        }
-        return accum;
+
+    return Object.keys(indexDecorators || {}).reduce(
+      (acum: Record<string, Record<string, IndexMetadata>>, t: any) => {
+        acum[t] = { [PersistenceKeys.INDEX]: indexDecorators[t] };
+        return acum;
       },
       {}
     );
@@ -1175,19 +1158,10 @@ export class Repository<
    * @return {string[]} An array of property names that are relations.
    */
   static relations<M extends Model>(model: M | Constructor<M>): string[] {
-    const result: string[] = [];
-    let prototype =
-      model instanceof Model
-        ? Object.getPrototypeOf(model)
-        : (model as any).prototype;
-    while (prototype != null) {
-      const props: string[] = prototype[PersistenceKeys.RELATIONS];
-      if (props) {
-        result.push(...props);
-      }
-      prototype = Object.getPrototypeOf(prototype);
-    }
-    return result;
+    return Metadata.get(
+      model instanceof Model ? model.constructor : (model as any),
+      PersistenceKeys.RELATIONS
+    );
   }
 
   /**

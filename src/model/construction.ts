@@ -727,7 +727,11 @@ export async function populate<
         val = await c.get(cacheKey as any);
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: any) {
-        const repo = repositoryFromTypeMetadata(model, propName, alias);
+        const repo = repositoryFromTypeMetadata(
+          model,
+          propName as keyof M,
+          alias
+        );
         if (!repo) throw new InternalError("Could not find repo");
         val = await repo.read(proKeyValue);
       }
@@ -784,16 +788,7 @@ const commomTypes = [
  *
  *   Caller->>repositoryFromTypeMetadata: model, propertyKey
  *
- *   repositoryFromTypeMetadata->>Validation: key(Array.isArray(model[propertyKey]) ? ValidationKeys.LIST : ValidationKeys.TYPE)
- *   Validation-->>repositoryFromTypeMetadata: validationKey
- *
- *   repositoryFromTypeMetadata->>Reflect: getMetadata(validationKey, model, propertyKey)
- *   Reflect-->>repositoryFromTypeMetadata: types
- *
- *   repositoryFromTypeMetadata->>repositoryFromTypeMetadata: determine customTypes based on property type
- *   repositoryFromTypeMetadata->>repositoryFromTypeMetadata: check if types and customTypes exist
- *
- *   repositoryFromTypeMetadata->>repositoryFromTypeMetadata: create allowedTypes array
+ *   repositoryFromTypeMetadata->>repositoryFromTypeMetadata: Get allowedTypes array
  *   repositoryFromTypeMetadata->>repositoryFromTypeMetadata: find constructorName not in commomTypes
  *   repositoryFromTypeMetadata->>repositoryFromTypeMetadata: check if constructorName exists
  *
@@ -807,38 +802,17 @@ const commomTypes = [
  *   repositoryFromTypeMetadata-->>Caller: repo
  */
 export function repositoryFromTypeMetadata<M extends Model>(
-  model: any,
-  propertyKey: string | keyof M,
+  model: M,
+  propertyKey: keyof M,
   alias?: string
 ): Repo<M> {
-  const types = Reflect.getMetadata(
-    Validation.key(
-      Array.isArray(model[propertyKey])
-        ? ValidationKeys.LIST
-        : ValidationKeys.TYPE
-    ),
-    model,
-    propertyKey as string
-  );
-  const customTypes: any = Array.isArray(model[propertyKey])
-    ? types.clazz
-    : types.customTypes;
-  if (!types || !customTypes)
-    throw new InternalError(
-      `Failed to find types decorators for property ${propertyKey as string}`
-    );
-
-  const allowedTypes: string[] = (
-    Array.isArray(customTypes) ? [...customTypes] : [customTypes]
-  ).map((t) => (typeof t === "function" ? t() : t));
-  const constructorName = allowedTypes.find(
-    (t) => !commomTypes.includes(`${t}`.toLowerCase())
-  );
-
-  // TODO: test usage of the below (need to create test)
-  const newTypes = Metadata.getPropDesignTypes(
+  const { designTypes: allowedTypes } = Metadata.getPropDesignTypes(
     model instanceof Model ? model.constructor : (model as any),
     propertyKey as string
+  );
+
+  const constructorName = allowedTypes?.find(
+    (t) => !commomTypes.includes(`${t}`.toLowerCase())
   );
 
   if (!constructorName)

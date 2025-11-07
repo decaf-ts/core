@@ -34,10 +34,10 @@ import { getColumnName, getTableName } from "../identity/utils";
 import { Repository as Repo } from "@decaf-ts/db-decorators";
 import { AdapterDispatch } from "./types";
 import {
-  Constructor,
   Decoration,
   DefaultFlavour,
   Metadata,
+  type Constructor,
 } from "@decaf-ts/decoration";
 
 Decoration.setFlavourResolver((obj: object) => {

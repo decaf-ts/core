@@ -121,36 +121,39 @@ export function index(
     compositions?: string[] | string,
     name?: string
   ) {
-    if (typeof directions === "string") {
-      name = directions;
-      directions = undefined;
-      compositions = undefined;
-    }
-    if (typeof compositions === "string") {
-      name = compositions;
-      compositions = undefined;
-    }
-    if (!compositions && directions) {
-      if (
-        directions.find(
-          (d) => ![OrderDirection.ASC, OrderDirection.DSC].includes(d as any)
-        )
-      ) {
-        compositions = directions as string[];
+    return function index(obj: any, attr: any) {
+      if (typeof directions === "string") {
+        name = directions;
         directions = undefined;
+        compositions = undefined;
       }
-    }
+      if (typeof compositions === "string") {
+        name = compositions;
+        compositions = undefined;
+      }
+      if (!compositions && directions) {
+        if (
+          directions.find(
+            (d) => ![OrderDirection.ASC, OrderDirection.DSC].includes(d as any)
+          )
+        ) {
+          compositions = directions as string[];
+          directions = undefined;
+        }
+      }
 
-    return propMetadata(
-      Repository.key(
-        `${PersistenceKeys.INDEX}${compositions && compositions.length ? `.${compositions.join(".")}` : ""}`
-      ),
-      {
-        directions: directions,
-        compositions: compositions,
-        name: name,
-      } as IndexMetadata
-    );
+      return propMetadata(
+        Metadata.key(
+          `${PersistenceKeys.INDEX}${compositions && compositions?.length ? `.${compositions.join(".")}` : ""}`,
+          attr
+        ),
+        {
+          directions: directions,
+          compositions: compositions,
+          name: name,
+        } as IndexMetadata
+      )(obj, attr);
+    };
   }
 
   return Decoration.for(PersistenceKeys.INDEX)
@@ -344,7 +347,7 @@ export function oneToOne<M extends Model>(
   joinColumnOpts?: JoinColumnOptions,
   fk?: string
 ) {
-  const key = Repository.key(PersistenceKeys.ONE_TO_ONE);
+  const key = PersistenceKeys.ONE_TO_ONE;
   // Model.register(clazz as Constructor<M>);
 
   function oneToOneDec(
@@ -362,18 +365,13 @@ export function oneToOne<M extends Model>(
     if (joinColumnOpts) meta.joinTable = joinColumnOpts;
     if (fk) meta.name = fk;
     return apply(
-      prop(PersistenceKeys.RELATIONS),
-      type([
-        clazz.name ? clazz.name : (clazz as any),
-        String.name,
-        Number.name,
-        BigInt.name,
-      ]),
+      prop(),
+      relation(key, meta),
+      type([clazz as any, String, Number, BigInt]),
       onCreate(oneToOneOnCreate, meta),
       onUpdate(oneToOneOnUpdate, meta),
       onDelete(oneToOneOnDelete, meta),
-      afterAny(pop, meta),
-      propMetadata(key, meta)
+      afterAny(pop, meta)
     );
   }
 
@@ -420,7 +418,7 @@ export function oneToMany<M extends Model>(
   joinTableOpts?: JoinTableOptions | JoinTableMultipleColumnsOptions,
   fk?: string
 ) {
-  const key = Repository.key(PersistenceKeys.ONE_TO_MANY);
+  const key = PersistenceKeys.ONE_TO_MANY;
 
   function oneToManyDec(
     clazz: Constructor<M> | (() => Constructor<M>),
@@ -437,7 +435,8 @@ export function oneToMany<M extends Model>(
     if (joinTableOpts) metadata.joinTable = joinTableOpts;
     if (fk) metadata.name = fk;
     return apply(
-      prop(PersistenceKeys.RELATIONS),
+      prop(),
+      relation(key, metadata),
       list([
         clazz as Constructor<M>,
         String,
@@ -448,8 +447,7 @@ export function oneToMany<M extends Model>(
       onCreate(oneToManyOnCreate, metadata),
       onUpdate(oneToManyOnUpdate, metadata),
       onDelete(oneToManyOnDelete, metadata),
-      afterAny(pop, metadata),
-      propMetadata(key, metadata)
+      afterAny(pop, metadata)
     );
   }
 
@@ -497,7 +495,7 @@ export function manyToOne<M extends Model>(
   fk?: string
 ) {
   // Model.register(clazz as Constructor<M>);
-  const key = Repository.key(PersistenceKeys.MANY_TO_ONE);
+  const key = PersistenceKeys.MANY_TO_ONE;
 
   function manyToOneDec(
     clazz: Constructor<M> | (() => Constructor<M>),
@@ -506,9 +504,6 @@ export function manyToOne<M extends Model>(
     joinTableOpts?: JoinTableOptions | JoinTableMultipleColumnsOptions,
     fk?: string
   ) {
-    const clazzName = () =>
-      (clazz?.name ? clazz : (clazz as () => Constructor<M>)()).name;
-
     const metadata: RelationsMetadata = {
       class: clazz?.name ? clazz.name : (clazz as any),
       cascade: cascade,
@@ -517,13 +512,13 @@ export function manyToOne<M extends Model>(
     if (joinTableOpts) metadata.joinTable = joinTableOpts;
     if (fk) metadata.name = fk;
     return apply(
-      prop(PersistenceKeys.RELATIONS),
-      type([clazzName, String.name, Number.name, BigInt.name]),
+      prop(),
+      relation(key, metadata),
+      type([clazz, String, Number, BigInt])
       // onCreate(oneToManyOnCreate, metadata),
       // onUpdate(oneToManyOnUpdate, metadata),
       // onDelete(oneToManyOnDelete, metadata),
       // afterAny(pop, metadata),
-      propMetadata(key, metadata)
     );
   }
 
@@ -571,7 +566,7 @@ export function manyToMany<M extends Model>(
   fk?: string
 ) {
   // Model.register(clazz as Constructor<M>);
-  const key = Repository.key(PersistenceKeys.MANY_TO_MANY);
+  const key = PersistenceKeys.MANY_TO_MANY;
 
   function manyToManyDec(
     clazz: Constructor<M> | (() => Constructor<M>),
@@ -588,18 +583,13 @@ export function manyToMany<M extends Model>(
     if (joinTableOpts) metadata.joinTable = joinTableOpts;
     if (fk) metadata.name = fk;
     return apply(
-      prop(PersistenceKeys.RELATIONS),
-      list([
-        clazz.name ? clazz.name : (clazz as any),
-        String.name,
-        Number.name,
-        BigInt.name,
-      ]),
+      prop(),
+      relation(key, metadata),
+      list([clazz as any, String, Number, BigInt])
       // onCreate(oneToManyOnCreate, metadata),
       // onUpdate(oneToManyOnUpdate, metadata),
       // onDelete(oneToManyOnDelete, metadata),
       // afterAll(populate, metadata),
-      propMetadata(key, metadata)
     );
   }
   return Decoration.for(key)
@@ -637,4 +627,30 @@ export function noValidateOnUpdate() {
 
 export function noValidateOnCreateUpdate() {
   return noValidateOn(OperationKeys.UPDATE, OperationKeys.CREATE);
+}
+
+/**
+ * @description Specifies the model property as a relation
+ * @summary Decorator that specifies the model property as a relation in the database
+ * @return {Function} A decorator function that can be applied to a class property
+ * @function relation
+ * @category Property Decorators
+ */
+export function relation(relationKey: string, meta: RelationsMetadata) {
+  const key = PersistenceKeys.RELATIONS;
+  function relation(relationKey: string, meta: RelationsMetadata) {
+    return function relation(obj: any, attr: any) {
+      propMetadata(relationKey, meta)(obj, attr);
+      const existing = Metadata.get(obj.constructor, PersistenceKeys.RELATIONS);
+      const relations = existing?.length ? [...existing, attr] : [attr];
+      return propMetadata(PersistenceKeys.RELATIONS, relations)(obj, attr);
+    };
+  }
+
+  return Decoration.for(key)
+    .define({
+      decorator: relation,
+      args: [relationKey, meta],
+    })
+    .apply();
 }

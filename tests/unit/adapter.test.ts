@@ -7,8 +7,6 @@ import { Model, model } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
 
-Model.setBuilder(Model.fromModel);
-
 describe("Adapter", () => {
   let repo: RamRepository<TestModel>;
 

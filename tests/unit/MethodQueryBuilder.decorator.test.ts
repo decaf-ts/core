@@ -1,10 +1,7 @@
-import { Model } from "@decaf-ts/decorator-validation";
 import { MethodQueryBuilderRepo } from "./MethodQueryBuilderRepo";
 import { OrderDirection, QueryError } from "../../src/index";
 // import { RamAdapter } from "../../src/ram/RamAdapter";
 // const ramAdapter = new RamAdapter();
-
-Model.setBuilder(Model.fromModel);
 
 describe("MethodQueryBuilder Decorator", () => {
   const userRepo = new MethodQueryBuilderRepo();

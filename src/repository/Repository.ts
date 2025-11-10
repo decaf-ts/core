@@ -20,7 +20,6 @@ import { PersistenceKeys } from "../persistence/constants";
 import { OrderDirection } from "./constants";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { Queriable } from "../interfaces/Queriable";
-import { Reflection } from "@decaf-ts/reflection";
 import { IndexMetadata } from "./types";
 import { Sequence } from "../persistence/Sequence";
 import { Condition } from "../query/Condition";
@@ -1111,6 +1110,7 @@ export class Repository<
    * @throws {InternalError} If no sequence options are defined for the model.
    */
   static getSequenceOptions<M extends Model>(model: M) {
+    // TODO: Check this further to use pk
     // const pk: keyof M = Model.pk(model);
     // const metadataOld = Reflect.getMetadata(
     //   Repository.key(DBKeys.ID),
@@ -1119,7 +1119,8 @@ export class Repository<
     // );
     const metadata = Metadata.get(
       model.constructor as any,
-      Repository.key(DBKeys.ID)
+      Repository.key(DBKeys.ID) as string
+      // Metadata.key((Repository.key(DBKeys.ID) as string, pk as string))
     );
     if (!metadata)
       throw new InternalError(
@@ -1158,9 +1159,11 @@ export class Repository<
    * @return {string[]} An array of property names that are relations.
    */
   static relations<M extends Model>(model: M | Constructor<M>): string[] {
-    return Metadata.get(
-      model instanceof Model ? model.constructor : (model as any),
-      PersistenceKeys.RELATIONS
+    return (
+      Metadata.get(
+        model instanceof Model ? model.constructor : (model as any),
+        PersistenceKeys.RELATIONS
+      ) || []
     );
   }
 

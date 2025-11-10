@@ -19,9 +19,6 @@ import { RamRepository } from "../../src/ram/types";
 import { Repository } from "../../src/repository/index";
 import { RamSequenceModel as Seq } from "../../src/ram/model/RamSequenceModel";
 import { Sequence, sequenceNameForModel } from "../../src/index";
-import { Metadata } from "@decaf-ts/decoration";
-
-Model.setBuilder(Model.fromModel);
 
 jest.setTimeout(500000);
 
@@ -106,8 +103,6 @@ describe(`Complex Database`, function () {
         };
 
         const address = new NoPopulateOnceModel({ country });
-        const meta = Metadata.get(address.constructor as any);
-        const relations = Repository.relations(address);
         const created = await noPopulateOnceModelRepository.create(address);
 
         expect(created.country).toEqual(noPopulateOnceCurVal + 1);

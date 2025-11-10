@@ -23,8 +23,6 @@ import {
 } from "../../src/index";
 import { RamRepository } from "../../src/ram/types";
 
-Model.setBuilder(Model.fromModel);
-
 jest.setTimeout(50000);
 
 describe("Queries", () => {

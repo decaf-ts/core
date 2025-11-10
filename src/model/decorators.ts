@@ -80,7 +80,7 @@ export function column<OPTS = string>(columnName?: OPTS) {
     .define({
       decorator: function column(k, c) {
         return function column(obj: any, attr: any) {
-          return propMetadata(k, c || attr)(obj, attr);
+          return propMetadata(Metadata.key(k, attr), c || attr)(obj, attr);
         };
       },
       args: [key, columnName],

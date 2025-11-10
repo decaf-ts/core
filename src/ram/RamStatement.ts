@@ -10,8 +10,8 @@ import { Model } from "@decaf-ts/decorator-validation";
 import { RamPaginator } from "./RamPaginator";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Statement } from "../query/Statement";
-import { Reflection } from "@decaf-ts/reflection";
 import { RamAdapter } from "./RamAdapter";
+import { Metadata } from "@decaf-ts/decoration";
 
 /**
  * @description RAM-specific query statement builder
@@ -63,8 +63,10 @@ export class RamStatement<M extends Model, R> extends Statement<
         );
       const selector = this.orderBySelector;
       const [key, direction] = selector;
-      // TODO: Replace this from metadata
-      const type = Reflection.getTypeFromDecorator(el1, key as string);
+      const { designType: type } = Metadata.getPropDesignTypes(
+        el1.constructor as any,
+        key
+      );
       if (!type)
         throw new QueryError(`type not compatible with sorting: ${type}`);
 

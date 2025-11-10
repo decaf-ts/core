@@ -43,14 +43,10 @@ export function getColumnName<M extends Model>(
   model: M,
   attribute: string
 ): string {
-  // const metadata = Reflect.getMetadata(
-  //   Repository.key(PersistenceKeys.COLUMN),
-  //   model,
-  //   attribute
-  // );
+  const columnKey = Repository.key(PersistenceKeys.COLUMN);
   const metadata = Metadata.get(
     model instanceof Model ? model.constructor : (model as any),
-    Repository.key(PersistenceKeys.COLUMN)
+    Metadata.key(columnKey, attribute)
   );
   return metadata ? metadata : attribute;
 }

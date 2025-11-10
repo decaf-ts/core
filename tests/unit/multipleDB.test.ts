@@ -18,8 +18,6 @@ import {
 } from "../../src/index";
 import { readonly } from "@decaf-ts/db-decorators";
 
-Model.setBuilder(Model.fromModel);
-
 jest.setTimeout(50000);
 
 describe("Adapter Integration", () => {

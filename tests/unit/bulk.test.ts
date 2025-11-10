@@ -16,8 +16,6 @@ import {
 } from "../../src/index";
 import type { RamRepository } from "../../src/ram/types";
 
-Model.setBuilder(Model.fromModel);
-
 jest.setTimeout(50000);
 
 describe("Bulk operations", () => {

@@ -15,7 +15,6 @@ import { NotFoundError, OperationKeys } from "@decaf-ts/db-decorators";
 import { TestModel } from "./TestModel";
 import { Repo } from "../../src";
 
-Model.setBuilder(Model.fromModel);
 describe("Repository", () => {
   let created: TestModel;
 

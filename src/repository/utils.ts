@@ -44,20 +44,10 @@ export function generateInjectableNameForRepository<T extends Model>(
   flavour?: string
 ): string {
   if (!flavour) {
-    const key = Adapter.key(PersistenceKeys.ADAPTER);
-    flavour = Reflect.getMetadata(
-      key,
-      model instanceof Model ? model.constructor : model
+    flavour = Metadata.get(
+      model instanceof Model ? model.constructor : (model as any),
+      Adapter.key(PersistenceKeys.ADAPTER)
     );
-    // const meta = Metadata.get(
-    //   model instanceof Model ? model.constructor : (model as any)
-    // );
-
-    // TODO: Find why flavour can be found in reflect, but not in metadata
-    // flavour = Metadata.get(
-    //   model instanceof Model ? model.constructor : (model as any),
-    //   Adapter.key(PersistenceKeys.ADAPTER)
-    // );
     if (!flavour)
       throw new InternalError(
         `Could not retrieve flavour from model ${model instanceof Model ? model.constructor.name : model.name}`

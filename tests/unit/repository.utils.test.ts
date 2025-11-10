@@ -4,6 +4,7 @@ import { PersistenceKeys } from "../../src/persistence/constants";
 import { Repository } from "../../src/repository/Repository";
 import { Adapter } from "../../src/persistence/Adapter";
 import { TestModel } from "./TestModel";
+import { Metadata } from "@decaf-ts/decoration";
 
 // Group related tests for repository utils
 
@@ -30,7 +31,7 @@ describe("repository/utils.generateInjectableNameForRepository", () => {
   });
 
   it("resolves flavour from metadata on constructor", () => {
-    Reflect.defineMetadata(key, "ram", TestModel as any);
+    Metadata.set(TestModel, key, "ram");
     const name = generateInjectableNameForRepository(TestModel as any);
     expect(name).toBe(
       `decaf_ram_adapter_for_${Repository.table(TestModel as any)}`

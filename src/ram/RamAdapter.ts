@@ -215,17 +215,22 @@ export class RamAdapter extends Adapter<
   async create(
     tableName: string,
     id: string | number,
-    model: Record<string, any>
+    model: Record<string, any>,
+    ...args: any[]
   ): Promise<Record<string, any>> {
-    await this.lock.acquire();
-    if (!this.client.has(tableName)) this.client.set(tableName, new Map());
-    if (this.client.get(tableName) && this.client.get(tableName)?.has(id))
-      throw new ConflictError(
-        `Record with id ${id} already exists in table ${tableName}`
-      );
-    this.client.get(tableName)?.set(id, model);
-    this.lock.release();
-    return model;
+    const useLocalLock = this.shouldUseLocalLock(args);
+    if (useLocalLock) await this.lock.acquire();
+    try {
+      if (!this.client.has(tableName)) this.client.set(tableName, new Map());
+      if (this.client.get(tableName) && this.client.get(tableName)?.has(id))
+        throw new ConflictError(
+          `Record with id ${id} already exists in table ${tableName}`
+        );
+      this.client.get(tableName)?.set(id, model);
+      return model;
+    } finally {
+      if (useLocalLock) this.lock.release();
+    }
   }
 
   /**
@@ -299,18 +304,23 @@ export class RamAdapter extends Adapter<
   async update(
     tableName: string,
     id: string | number,
-    model: Record<string, any>
+    model: Record<string, any>,
+    ...args: any[]
   ): Promise<Record<string, any>> {
-    await this.lock.acquire();
-    if (!this.client.has(tableName))
-      throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.client.get(tableName)?.has(id))
-      throw new NotFoundError(
-        `Record with id ${id} not found in table ${tableName}`
-      );
-    this.client.get(tableName)?.set(id, model);
-    this.lock.release();
-    return model;
+    const useLocalLock = this.shouldUseLocalLock(args);
+    if (useLocalLock) await this.lock.acquire();
+    try {
+      if (!this.client.has(tableName))
+        throw new NotFoundError(`Table ${tableName} not found`);
+      if (!this.client.get(tableName)?.has(id))
+        throw new NotFoundError(
+          `Record with id ${id} not found in table ${tableName}`
+        );
+      this.client.get(tableName)?.set(id, model);
+      return model;
+    } finally {
+      if (useLocalLock) this.lock.release();
+    }
   }
 
   /**
@@ -345,19 +355,24 @@ export class RamAdapter extends Adapter<
    */
   async delete(
     tableName: string,
-    id: string | number
+    id: string | number,
+    ...args: any[]
   ): Promise<Record<string, any>> {
-    await this.lock.acquire();
-    if (!this.client.has(tableName))
-      throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.client.get(tableName)?.has(id))
-      throw new NotFoundError(
-        `Record with id ${id} not found in table ${tableName}`
-      );
-    const natived = this.client.get(tableName)?.get(id);
-    this.client.get(tableName)?.delete(id);
-    this.lock.release();
-    return natived;
+    const useLocalLock = this.shouldUseLocalLock(args);
+    if (useLocalLock) await this.lock.acquire();
+    try {
+      if (!this.client.has(tableName))
+        throw new NotFoundError(`Table ${tableName} not found`);
+      if (!this.client.get(tableName)?.has(id))
+        throw new NotFoundError(
+          `Record with id ${id} not found in table ${tableName}`
+        );
+      const natived = this.client.get(tableName)?.get(id);
+      this.client.get(tableName)?.delete(id);
+      return natived;
+    } finally {
+      if (useLocalLock) this.lock.release();
+    }
   }
 
   /**

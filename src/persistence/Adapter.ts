@@ -1,3 +1,4 @@
+import "../overrides";
 import {
   BaseError,
   DBKeys,
@@ -37,6 +38,7 @@ import { getColumnName, getTableName } from "../identity/utils";
 import { Repository as Repo } from "@decaf-ts/db-decorators";
 import { AdapterDispatch } from "./types";
 import { Metadata } from "@decaf-ts/decoration";
+import { Transaction } from "@decaf-ts/transactional-decorators";
 
 Decoration.setFlavourResolver((obj: object) => {
   try {
@@ -357,7 +359,13 @@ export abstract class Adapter<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<FLAGS> {
+    const activeTransaction =
+      (flags?.transaction as Transaction<any> | undefined) ??
+      (Transaction.getLock().currentTransaction as
+        | Transaction<any>
+        | undefined);
     return Object.assign({}, DefaultRepositoryFlags, flags, {
+      transaction: activeTransaction,
       affectedTables: getTableName(model),
       writeOperation: operation !== OperationKeys.READ,
       timestamp: new Date(),

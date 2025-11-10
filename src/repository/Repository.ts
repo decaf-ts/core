@@ -37,6 +37,11 @@ import {
   InferredAdapterConfig,
   type ObserverFilter,
 } from "../persistence";
+import {
+  Transaction,
+  transactional,
+} from "@decaf-ts/transactional-decorators";
+import { adapterLock } from "../overrides/AdapterLock";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.
@@ -211,6 +216,52 @@ export class Repository<
     );
   }
 
+  protected contextOverrides(): Partial<F> {
+    const overrides = Object.assign(
+      {},
+      (this._overrides || {}) as Partial<RepositoryFlags>
+    ) as Partial<F>;
+    const transaction = this.resolveCurrentTransaction();
+    if (transaction) {
+      (overrides as Partial<RepositoryFlags>).transaction = transaction;
+    }
+    return overrides;
+  }
+
+  private resolveCurrentTransaction(): Transaction<any> | undefined {
+    return (
+      Transaction.contextTransaction(this) ||
+      (Transaction.getLock()
+        .currentTransaction as Transaction<any> | undefined)
+    );
+  }
+
+  private extractContextArg(args: any[]): C | undefined {
+    if (!args.length) return undefined;
+    const candidate = args[args.length - 1];
+    return candidate instanceof Context ? (candidate as C) : undefined;
+  }
+
+  private async ensureTransactionalLocks(
+    context: C | undefined,
+    recordIds?: Array<string | number | bigint>
+  ) {
+    if (!context) return;
+    const transaction = context.get("transaction") as
+      | Transaction<any>
+      | undefined;
+    if (!transaction) return;
+    await adapterLock.lockTables(transaction, this.tableName);
+    if (recordIds && recordIds.length) {
+      const normalized = recordIds.filter(
+        (id) => typeof id !== "undefined" && id !== null
+      );
+      if (normalized.length) {
+        await adapterLock.lockRecords(transaction, this.tableName, normalized);
+      }
+    }
+  }
+
   /**
    * @description Creates a proxy with overridden repository flags.
    * @summary Returns a proxy of this repository with the specified flags overridden.
@@ -284,7 +335,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextOverrides()
     );
     model = new this.class(model);
     await enforceDBDecorators(
@@ -312,18 +363,19 @@ export class Repository<
    * @param {...any[]} args - Additional arguments.
    * @return {Promise<M>} The created model with updated properties.
    */
+  @transactional()
   async create(model: M, ...args: any[]): Promise<M> {
     // eslint-disable-next-line prefer-const
     let { record, id, transient } = this.adapter.prepare(model, this.pk);
+    const context = this.extractContextArg(args);
+    await this.ensureTransactionalLocks(context, [id]);
     record = await this.adapter.create(this.tableName, id, record, ...args);
-    let c: C | undefined = undefined;
-    if (args.length) c = args[args.length - 1] as C;
     return this.adapter.revert<M>(
       record,
       this.class,
       this.pk,
       id,
-      c && c.get("rebuildWithTransient") ? transient : undefined
+      context && context.get("rebuildWithTransient") ? transient : undefined
     );
   }
 
@@ -345,11 +397,14 @@ export class Repository<
    * @param {...any[]} args - Additional arguments.
    * @return {Promise<M[]>} The created models with updated properties.
    */
+  @transactional()
   override async createAll(models: M[], ...args: any[]): Promise<M[]> {
     if (!models.length) return models;
+    const context = this.extractContextArg(args);
     const prepared = models.map((m) => this.adapter.prepare(m, this.pk));
-    const ids = prepared.map((p) => p.id);
+    const ids = prepared.map((p) => p.id) as Array<string | number | bigint>;
     let records = prepared.map((p) => p.record);
+    await this.ensureTransactionalLocks(context, ids);
     records = await this.adapter.createAll(
       this.tableName,
       ids as (string | number)[],
@@ -375,7 +430,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextOverrides()
     );
     if (!models.length) return [models, ...contextArgs.args];
     const opts = Repository.getSequenceOptions(models[0]);
@@ -450,7 +505,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextOverrides()
     );
     const model: M = new this.class();
     model[this.pk] = key as M[keyof M];
@@ -534,11 +589,20 @@ export class Repository<
    * @param {...any[]} args - Additional arguments.
    * @return {Promise<M>} The updated model with refreshed properties.
    */
+  @transactional()
   async update(model: M, ...args: any[]): Promise<M> {
     // eslint-disable-next-line prefer-const
     let { record, id, transient } = this.adapter.prepare(model, this.pk);
+    const context = this.extractContextArg(args);
+    await this.ensureTransactionalLocks(context, [id]);
     record = await this.adapter.update(this.tableName, id, record, ...args);
-    return this.adapter.revert<M>(record, this.class, this.pk, id, transient);
+    return this.adapter.revert<M>(
+      record,
+      this.class,
+      this.pk,
+      id,
+      transient
+    );
   }
 
   /**
@@ -559,7 +623,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextOverrides()
     );
     const pk = model[this.pk] as string;
     if (!pk)
@@ -599,8 +663,14 @@ export class Repository<
    * @param {...any[]} args - Additional arguments.
    * @return {Promise<M[]>} The updated models with refreshed properties.
    */
+  @transactional()
   override async updateAll(models: M[], ...args: any[]): Promise<M[]> {
     const records = models.map((m) => this.adapter.prepare(m, this.pk));
+    const context = this.extractContextArg(args);
+    await this.ensureTransactionalLocks(
+      context,
+      records.map((r) => r.id) as Array<string | number | bigint>
+    );
     const updated = await this.adapter.updateAll(
       this.tableName,
       records.map((r) => r.id),
@@ -630,7 +700,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextOverrides()
     );
     const ids = models.map((m) => {
       const id = m[this.pk] as string;
@@ -701,7 +771,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextOverrides()
     );
     const model = await this.read(key, ...contextArgs.args);
     await enforceDBDecorators(
@@ -721,7 +791,9 @@ export class Repository<
    * @param {...any[]} args - Additional arguments.
    * @return {Promise<M>} The deleted model instance.
    */
+  @transactional()
   async delete(id: string | number | bigint, ...args: any[]): Promise<M> {
+    await this.ensureTransactionalLocks(this.extractContextArg(args), [id]);
     const m = await this.adapter.delete(this.tableName, id, ...args);
     return this.adapter.revert<M>(m, this.class, this.pk, id);
   }
@@ -742,7 +814,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextOverrides()
     );
     const models = await this.readAll(keys, ...contextArgs.args);
     await Promise.all(
@@ -766,10 +838,15 @@ export class Repository<
    * @param {...any[]} args - Additional arguments.
    * @return {Promise<M[]>} The deleted model instances.
    */
+  @transactional()
   override async deleteAll(
     keys: string[] | number[],
     ...args: any[]
   ): Promise<M[]> {
+    await this.ensureTransactionalLocks(
+      this.extractContextArg(args),
+      keys as Array<string | number | bigint>
+    );
     const results = await this.adapter.deleteAll(this.tableName, keys, ...args);
     return results.map((r, i) =>
       this.adapter.revert(r, this.class, this.pk, keys[i])

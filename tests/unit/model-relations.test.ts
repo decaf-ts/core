@@ -141,8 +141,6 @@ describe(`Complex Database`, function () {
           incrementBy: 1,
           cycle: false,
         });
-        console.log(`Model: ${JSON.stringify(sequenceModel, null, 2)}`);
-        console.log(`Model: ${sequenceCountry}`);
         const addressCurVal = (await sequenceModel.current()) as number;
 
         const countryCurVal = (await sequenceCountry.current()) as number;

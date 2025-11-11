@@ -2,7 +2,6 @@ import {
   min,
   minlength,
   model,
-  Model,
   ModelArg,
   required,
   type,
@@ -51,7 +50,7 @@ describe("Adapter Integration", () => {
 
     @required()
     @readonly()
-    @type([String.name])
+    @type([String])
     sex!: "M" | "F";
 
     constructor(arg?: ModelArg<TestUserMultipleDB>) {

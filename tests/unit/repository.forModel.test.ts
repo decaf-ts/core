@@ -11,11 +11,13 @@ describe("repository/Repository.forModel", () => {
   const key = Adapter.key(PersistenceKeys.ADAPTER);
 
   beforeEach(() => {
+    // TODO: Replace with Metdata
     Reflect.deleteMetadata?.(key as any, TestModel as any);
   });
 
   it("throws InternalError when no adapter is registered for the model flavour", () => {
     // no adapter registered and model has explicit flavour
+    // TODO: Replace with Metdata
     Reflect.defineMetadata(key, "nonexistent", TestModel as any);
     expect(() => Repository.forModel(TestModel as any)).toThrow(InternalError);
   });

@@ -52,7 +52,6 @@ export function repository<T extends Model>(
     flavour =
       flavour ||
       Metadata.get(original.constructor, Adapter.key(PersistenceKeys.ADAPTER));
-    // Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), original);
     Repository.register(
       model[ModelKeys.ANCHOR as keyof typeof model] || model,
       original,

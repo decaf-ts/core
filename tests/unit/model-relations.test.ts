@@ -12,7 +12,6 @@ import {
   testUser,
   TestUserModel,
 } from "./models";
-import { Model } from "@decaf-ts/decorator-validation";
 import { NotFoundError } from "@decaf-ts/db-decorators";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { RamRepository } from "../../src/ram/types";

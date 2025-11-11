@@ -1,9 +1,4 @@
-import {
-  minlength,
-  Model,
-  model,
-  required,
-} from "@decaf-ts/decorator-validation";
+import { minlength, model, required } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { NotFoundError } from "@decaf-ts/db-decorators";
 import { RamAdapter } from "../../src/ram/RamAdapter";

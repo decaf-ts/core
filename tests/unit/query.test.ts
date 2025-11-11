@@ -5,7 +5,6 @@ const adapter = new RamAdapter();
 import {
   min,
   minlength,
-  Model,
   model,
   required,
   type,
@@ -43,7 +42,7 @@ describe("Queries", () => {
 
     @required()
     @readonly()
-    @type([String.name])
+    @type([String])
     sex!: "M" | "F";
 
     constructor(arg?: ModelArg<TestUser>) {

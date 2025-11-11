@@ -792,10 +792,6 @@ export abstract class Adapter<
       Metadata.get(model, this.key(PersistenceKeys.ADAPTER)) ||
       this.current?.flavour
     );
-    // return (
-    //   Reflect.getMetadata(this.key(PersistenceKeys.ADAPTER), model) ||
-    //   this.current?.flavour
-    // );
   }
 
   static get currentFlavour() {
@@ -873,33 +869,18 @@ export abstract class Adapter<
       ).cache;
       const managedModels: ModelConstructor<any>[] = Object.values(cache)
         .map((m: ModelConstructor<M>) => {
-          // let f = Reflect.getMetadata(
-          //   Adapter.key(PersistenceKeys.ADAPTER),
-          //   m as ModelConstructor<any>
-          // );
-
           let f = Metadata.get(
             m as ModelConstructor<any>,
             Adapter.key(PersistenceKeys.ADAPTER)
           );
           if (f && f === flavour) return m;
           if (!f) {
-            // const repo = Reflect.getMetadata(
-            //   Repo.key(DBKeys.REPOSITORY),
-            //   m as ModelConstructor<any>
-            // );
-
             const repo = Metadata.get(
               m as ModelConstructor<any>,
               Repo.key(DBKeys.REPOSITORY)
             );
             if (!repo) return;
             const repository = (this._baseRepository as any).forModel(m);
-
-            // f = Reflect.getMetadata(
-            //   Adapter.key(PersistenceKeys.ADAPTER),
-            //   repository
-            // );
 
             f = Metadata.get(
               repository.constructor,

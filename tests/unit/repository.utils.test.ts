@@ -13,6 +13,7 @@ describe("repository/utils.generateInjectableNameForRepository", () => {
 
   beforeEach(() => {
     // ensure clean metadata before each test
+    // TODO: Replace with Metdata
     Reflect.deleteMetadata?.(key as any, TestModel as any);
   });
 

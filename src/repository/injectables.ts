@@ -135,7 +135,6 @@ export class InjectablesRegistry extends InjectableRegistryImp {
       const metaKey = Adapter.key(PersistenceKeys.ADAPTER);
       const resolvedFlavour =
         flavour || (Metadata.get(modelCtor, metaKey) as string | undefined);
-      // (Reflect.getMetadata(metaKey, modelCtor) as string | undefined);
 
       try {
         // Determine an alias to use: prefer a directly registered adapter; otherwise, if the current adapter
@@ -158,13 +157,9 @@ export class InjectablesRegistry extends InjectableRegistryImp {
         // Otherwise, register the resolved injectable name for later retrieval
         const f =
           resolvedFlavour ||
-          // (Reflect.getMetadata(metaKey, (injectable as any).constructor) as
-          //   | string
-          //   | undefined)
           (Metadata.get((injectable as any).constructor, metaKey) as
             | string
             | undefined) ||
-          // (Reflect.getMetadata(metaKey, modelCtor) as string | undefined)
           (Metadata.get(modelCtor, metaKey) as string | undefined);
         Injectables.register(
           injectable,

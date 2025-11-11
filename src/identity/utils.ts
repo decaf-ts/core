@@ -21,10 +21,6 @@ export function getTableName<M extends Model>(
 
   if (!obj) throw new InternalError(`Unable to find model ${model}`);
 
-  // const meta = Reflect.getOwnMetadata(
-  //   Adapter.key(PersistenceKeys.TABLE),
-  //   obj[ModelKeys.MODEL as unknown as keyof typeof obj] || obj
-
   const meta = Metadata.get(
     model instanceof Model ? model.constructor : (model as any),
     Adapter.key(PersistenceKeys.TABLE)

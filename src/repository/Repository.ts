@@ -188,10 +188,6 @@ export class Repository<
     if (clazz) {
       Repository.register(clazz, this, this.adapter.alias);
       if (adapter) {
-        // const flavour = Reflect.getMetadata(
-        //   Adapter.key(PersistenceKeys.ADAPTER),
-        //   clazz
-        // );
         const flavour = Metadata.get(
           clazz as any,
           Adapter.key(PersistenceKeys.ADAPTER)
@@ -971,7 +967,6 @@ export class Repository<
     const _alias: string | undefined =
       alias ||
       Metadata.get(model, Adapter.key(PersistenceKeys.ADAPTER)) ||
-      // Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model)
       Adapter.currentFlavour;
     try {
       repo = this.get(model, _alias) as Constructor<R> | R;
@@ -985,9 +980,7 @@ export class Repository<
     const flavour: string | undefined =
       alias ||
       Metadata.get(model, Adapter.key(PersistenceKeys.ADAPTER)) ||
-      // Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model)
       (repo && Metadata.get(repo, Adapter.key(PersistenceKeys.ADAPTER))) ||
-      // Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), repo)
       Adapter.currentFlavour;
     const adapter: Adapter<any, any, any, any> | undefined = flavour
       ? Adapter.get(flavour)

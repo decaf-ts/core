@@ -1,7 +1,6 @@
 import {
   Model,
   ModelConstructor,
-  Validation,
   ValidationKeys,
 } from "@decaf-ts/decorator-validation";
 import { Repo, Repository } from "../repository/Repository";
@@ -806,10 +805,31 @@ export function repositoryFromTypeMetadata<M extends Model>(
   propertyKey: keyof M,
   alias?: string
 ): Repo<M> {
-  const { designTypes: allowedTypes } = Metadata.getPropDesignTypes(
-    model instanceof Model ? model.constructor : (model as any),
-    propertyKey as string
-  );
+  if (!model) throw new Error("No model was provided to get repository");
+  let allowedTypes;
+  if (Array.isArray(model[propertyKey]) || model[propertyKey] instanceof Set) {
+    const customTypes = Metadata.get(
+      model instanceof Model ? model.constructor : (model as any),
+      Metadata.key(
+        ValidationKeys.REFLECT,
+        propertyKey as string,
+        ValidationKeys.LIST
+      )
+    )?.clazz;
+
+    if (!customTypes)
+      throw new InternalError(
+        `Failed to find types decorators for property ${propertyKey as string}`
+      );
+
+    allowedTypes = (
+      Array.isArray(customTypes) ? [...customTypes] : [customTypes]
+    ).map((t) => (typeof t === "function" ? t() : t));
+  } else
+    allowedTypes = Metadata.getPropDesignTypes(
+      model instanceof Model ? model.constructor : (model as any),
+      propertyKey as string
+    )?.designTypes;
 
   const constructorName = allowedTypes?.find(
     (t) => !commomTypes.includes(`${t}`.toLowerCase())

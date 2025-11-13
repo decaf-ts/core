@@ -18,6 +18,7 @@ import {
   Repository,
   repository,
   table,
+  unique,
   UnsupportedError,
 } from "../../src";
 

@@ -8,7 +8,7 @@ import { TestModel } from "./TestModel";
 // Group related tests for Repository.forModel error paths
 
 describe("repository/Repository.forModel", () => {
-  const key = Adapter.key(PersistenceKeys.ADAPTER);
+  const key = PersistenceKeys.ADAPTER;
 
   beforeEach(() => {
     // TODO: Replace with Metdata

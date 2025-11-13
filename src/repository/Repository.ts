@@ -188,10 +188,7 @@ export class Repository<
     if (clazz) {
       Repository.register(clazz, this, this.adapter.alias);
       if (adapter) {
-        const flavour = Metadata.get(
-          clazz as any,
-          Adapter.key(PersistenceKeys.ADAPTER)
-        );
+        const flavour = Metadata.get(clazz as any, PersistenceKeys.ADAPTER);
         if (flavour && flavour !== adapter.flavour)
           throw new InternalError("Incompatible flavours");
         uses(adapter.flavour)(clazz);
@@ -922,8 +919,8 @@ export class Repository<
       table,
       event,
       Array.isArray(id)
-        ? id.map((i) => Sequence.parseValue(this.pkProps.type, i) as string)
-        : (Sequence.parseValue(this.pkProps.type, id) as string),
+        ? id.map((i) => Sequence.parseValue(this.pkProps?.type, i) as string)
+        : (Sequence.parseValue(this.pkProps?.type, id) as string),
       ...args
     );
   }
@@ -966,7 +963,7 @@ export class Repository<
 
     const _alias: string | undefined =
       alias ||
-      Metadata.get(model, Adapter.key(PersistenceKeys.ADAPTER)) ||
+      Metadata.get(model, PersistenceKeys.ADAPTER) ||
       Adapter.currentFlavour;
     try {
       repo = this.get(model, _alias) as Constructor<R> | R;
@@ -979,8 +976,8 @@ export class Repository<
 
     const flavour: string | undefined =
       alias ||
-      Metadata.get(model, Adapter.key(PersistenceKeys.ADAPTER)) ||
-      (repo && Metadata.get(repo, Adapter.key(PersistenceKeys.ADAPTER))) ||
+      Metadata.get(model, PersistenceKeys.ADAPTER) ||
+      (repo && Metadata.get(repo, PersistenceKeys.ADAPTER)) ||
       Adapter.currentFlavour;
     const adapter: Adapter<any, any, any, any> | undefined = flavour
       ? Adapter.get(flavour)
@@ -1103,18 +1100,9 @@ export class Repository<
    * @throws {InternalError} If no sequence options are defined for the model.
    */
   static getSequenceOptions<M extends Model>(model: M) {
-    // TODO: Check this further to use pk
-    // const pk: keyof M = Model.pk(model);
-    // const metadataOld = Reflect.getMetadata(
-    //   Repository.key(DBKeys.ID),
-    //   model,
-    //   pk as string
-    // );
-    const metadata = Metadata.get(
-      model.constructor as any,
-      Repository.key(DBKeys.ID) as string
-      // Metadata.key((Repository.key(DBKeys.ID) as string, pk as string))
-    );
+    const pkName = Model.pk(model.constructor as any);
+    const key = Metadata.key(DBKeys.ID, pkName);
+    const metadata = Metadata.get(model.constructor as any, key);
     if (!metadata)
       throw new InternalError(
         "No sequence options defined for model. did you use the @pk decorator?"

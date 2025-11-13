@@ -871,7 +871,7 @@ export abstract class Adapter<
         .map((m: ModelConstructor<M>) => {
           let f = Metadata.get(
             m as ModelConstructor<any>,
-            Adapter.key(PersistenceKeys.ADAPTER)
+            PersistenceKeys.ADAPTER
           );
           if (f && f === flavour) return m;
           if (!f) {
@@ -882,10 +882,7 @@ export abstract class Adapter<
             if (!repo) return;
             const repository = (this._baseRepository as any).forModel(m);
 
-            f = Metadata.get(
-              repository.constructor,
-              Adapter.key(PersistenceKeys.ADAPTER)
-            );
+            f = Metadata.get(repository.constructor, PersistenceKeys.ADAPTER);
             return f;
           }
         })

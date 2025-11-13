@@ -132,7 +132,7 @@ export class InjectablesRegistry extends InjectableRegistryImp {
       if (!modelCtor) return undefined;
 
       // Resolve flavour from metadata if not provided
-      const metaKey = Adapter.key(PersistenceKeys.ADAPTER);
+      const metaKey = PersistenceKeys.ADAPTER;
       const resolvedFlavour =
         flavour || (Metadata.get(modelCtor, metaKey) as string | undefined);
 

@@ -425,8 +425,6 @@ export class RamAdapter extends Adapter<
     const collection = this.tableFor(from);
     if (!collection)
       throw new InternalError(`Table ${from} not found in RamAdapter`);
-    // const { id, props } = findPrimaryKey(new from());
-
     const id = Model.pk(from);
     const props = Metadata.get(from, Metadata.key(DBKeys.ID, id));
 
@@ -544,8 +542,8 @@ export class RamAdapter extends Adapter<
    */
   static override decoration(): void {
     super.decoration();
-    const createdByKey = Repository.key(PersistenceKeys.CREATED_BY);
-    const updatedByKey = Repository.key(PersistenceKeys.UPDATED_BY);
+    const createdByKey = PersistenceKeys.CREATED_BY;
+    const updatedByKey = PersistenceKeys.UPDATED_BY;
     Decoration.flavouredAs(RamFlavour)
       .for(createdByKey)
       .define(

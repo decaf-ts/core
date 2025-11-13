@@ -23,7 +23,7 @@ export function getTableName<M extends Model>(
 
   const meta = Metadata.get(
     model instanceof Model ? model.constructor : (model as any),
-    Adapter.key(PersistenceKeys.TABLE)
+    PersistenceKeys.TABLE
   );
 
   if (meta) {
@@ -36,13 +36,12 @@ export function getTableName<M extends Model>(
 }
 
 export function getColumnName<M extends Model>(
-  model: M,
+  model: M | Constructor<M>,
   attribute: string
 ): string {
-  const columnKey = Repository.key(PersistenceKeys.COLUMN);
   const metadata = Metadata.get(
     model instanceof Model ? model.constructor : (model as any),
-    Metadata.key(columnKey, attribute)
+    Metadata.key(PersistenceKeys.COLUMN, attribute)
   );
   return metadata ? metadata : attribute;
 }

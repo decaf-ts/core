@@ -2,14 +2,13 @@ import "reflect-metadata";
 import { generateInjectableNameForRepository } from "../../src/repository/utils";
 import { PersistenceKeys } from "../../src/persistence/constants";
 import { Repository } from "../../src/repository/Repository";
-import { Adapter } from "../../src/persistence/Adapter";
 import { TestModel } from "./TestModel";
 import { Metadata } from "@decaf-ts/decoration";
 
 // Group related tests for repository utils
 
 describe("repository/utils.generateInjectableNameForRepository", () => {
-  const key = Adapter.key(PersistenceKeys.ADAPTER);
+  const key = PersistenceKeys.ADAPTER;
 
   beforeEach(() => {
     // ensure clean metadata before each test

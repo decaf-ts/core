@@ -26,8 +26,7 @@ import { CascadeMetadata, IndexMetadata } from "../repository/types";
 import { DefaultCascade, OrderDirection } from "../repository/constants";
 import { list, Model, type } from "@decaf-ts/decorator-validation";
 
-import { Adapter } from "../persistence/";
-import { Repo, Repository } from "../repository/Repository";
+import { Repo } from "../repository/Repository";
 import { Condition } from "../query/Condition";
 import {
   JoinColumnOptions,
@@ -56,7 +55,7 @@ import { AuthorizationError } from "../utils";
  */
 export function table<OPTS = string>(opts?: OPTS) {
   return function table(target: any) {
-    const key = Adapter.key(PersistenceKeys.TABLE);
+    const key = PersistenceKeys.TABLE;
     return Decoration.for(key)
       .define({
         decorator: metadata,
@@ -75,7 +74,7 @@ export function table<OPTS = string>(opts?: OPTS) {
  * @category Property Decorators
  */
 export function column<OPTS = string>(columnName?: OPTS) {
-  const key = Adapter.key(PersistenceKeys.COLUMN);
+  const key = PersistenceKeys.COLUMN;
   return Decoration.for(key)
     .define({
       decorator: function column(k, c) {
@@ -220,7 +219,7 @@ export async function uniqueOnCreateUpdate<
  * ```
  */
 export function unique() {
-  const key = Repository.key(PersistenceKeys.UNIQUE);
+  const key = PersistenceKeys.UNIQUE;
   return Decoration.for(key)
     .define(onCreateUpdate(uniqueOnCreateUpdate), propMetadata(key, {}))
     .apply();
@@ -280,7 +279,7 @@ export async function createdByOnCreateUpdate<
  * ```
  */
 export function createdBy() {
-  const key = Repository.key(PersistenceKeys.CREATED_BY);
+  const key = PersistenceKeys.CREATED_BY;
   return Decoration.for(key)
     .define(onCreate(createdByOnCreateUpdate), propMetadata(key, {}))
     .apply();
@@ -301,7 +300,7 @@ export function createdBy() {
  * ```
  */
 export function updatedBy() {
-  const key = Repository.key(PersistenceKeys.UPDATED_BY);
+  const key = PersistenceKeys.UPDATED_BY;
   return Decoration.for(key)
     .define(onCreateUpdate(createdByOnCreateUpdate), propMetadata(key, {}))
     .apply();

@@ -27,7 +27,7 @@ import { Constructor, Metadata } from "@decaf-ts/decoration";
  *   alt flavour provided
  *     U-->>U: use provided flavour
  *   else flavour not provided
- *     U->>A: Adapter.key(ADAPTER)
+ *     U->>A: ADAPTER
  *     U->>R: getMetadata(key, model|model.ctor)
  *     alt metadata present
  *       R-->>U: flavour
@@ -46,7 +46,7 @@ export function generateInjectableNameForRepository<T extends Model>(
   if (!flavour) {
     flavour = Metadata.get(
       model instanceof Model ? model.constructor : (model as any),
-      Adapter.key(PersistenceKeys.ADAPTER)
+      PersistenceKeys.ADAPTER
     );
     if (!flavour)
       throw new InternalError(

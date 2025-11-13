@@ -1,7 +1,12 @@
 import { Metadata } from "@decaf-ts/decoration";
 import { Constructor, Model } from "@decaf-ts/decorator-validation";
-import { OperationKeys } from "@decaf-ts/db-decorators";
-import { PersistenceKeys } from "../persistence/index";
+import {
+  Context,
+  InternalError,
+  OperationKeys,
+  RepositoryFlags,
+} from "@decaf-ts/db-decorators";
+import { Adapter, type Migration, PersistenceKeys } from "../persistence/index";
 
 (Metadata as any).validationExceptions = function <M extends Model>(
   this: Metadata,
@@ -15,4 +20,27 @@ import { PersistenceKeys } from "../persistence/index";
   return Object.entries(noValidation)
     .filter(([, val]) => val.includes(op))
     .map(([key]) => key);
+}.bind(Metadata);
+
+(Metadata as any).migrationsFor = function <
+  A extends Adapter<CONF, CONN, QUERY, FLAGS, CONTEXT>,
+  CONF,
+  CONN,
+  QUERY,
+  FLAGS extends RepositoryFlags = RepositoryFlags,
+  CONTEXT extends Context<FLAGS> = Context<FLAGS>,
+>(
+  adapter?: A
+): Constructor<Migration<any, A, CONF, CONN, QUERY, FLAGS, CONTEXT>>[] {
+  adapter = adapter ?? (Adapter.current as A);
+  if (!adapter) throw new InternalError(`Could not get adapter for migrations`);
+  const migrations = Metadata["innerGet"](
+    Symbol.for(PersistenceKeys.MIGRATION),
+    adapter.alias
+  );
+  return migrations.map(
+    (m: {
+      class: Constructor<Migration<any, A, CONF, CONN, QUERY, FLAGS, CONTEXT>>;
+    }) => m.class
+  );
 }.bind(Metadata);

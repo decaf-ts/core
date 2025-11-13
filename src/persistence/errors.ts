@@ -28,3 +28,15 @@ export class UnsupportedError extends InternalError {
     super(msg, UnsupportedError.name, 500);
   }
 }
+
+export class MigrationError extends InternalError {
+  constructor(msg: string | Error, name = MigrationError.name) {
+    super(msg, name, 500);
+  }
+}
+
+export class MigrationRuleError extends MigrationError {
+  constructor(msg: string | Error) {
+    super(msg, MigrationRuleError.name);
+  }
+}

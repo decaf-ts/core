@@ -1,6 +1,12 @@
-import { BulkCrudOperationKeys, OperationKeys } from "@decaf-ts/db-decorators";
+import {
+  BulkCrudOperationKeys,
+  Context,
+  OperationKeys,
+  RepositoryFlags,
+} from "@decaf-ts/db-decorators";
 import { Adapter } from "./Adapter";
 import { Observable } from "../interfaces/index";
+import { Logger } from "@decaf-ts/logging";
 
 /**
  * @description Type representing possible ID formats for database events
@@ -45,4 +51,18 @@ export interface AdapterDispatch extends Observable {
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds
   ): Promise<void>;
+}
+
+export interface Migration<
+  QUERYRUNNER,
+  A extends Adapter<CONF, CONN, QUERY, FLAGS, CONTEXT>,
+  CONF,
+  CONN,
+  QUERY,
+  FLAGS extends RepositoryFlags = RepositoryFlags,
+  CONTEXT extends Context<FLAGS> = Context<FLAGS>,
+> {
+  transaction: boolean;
+  up(qr: QUERYRUNNER, adapter?: A, log?: Logger): Promise<void>;
+  down(qr: QUERYRUNNER, adapter?: A, log?: Logger): Promise<void>;
 }

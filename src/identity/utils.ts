@@ -1,7 +1,7 @@
 import { Constructor, Model, ModelKeys } from "@decaf-ts/decorator-validation";
 import { InternalError, Repository } from "@decaf-ts/db-decorators";
 import { PersistenceKeys } from "../persistence/constants";
-import { Adapter } from "../persistence/index";
+import { Adapter } from "../persistence/Adapter";
 
 /**
  * @description Gets the table name for a model

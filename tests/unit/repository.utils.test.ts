@@ -10,12 +10,6 @@ import { Metadata } from "@decaf-ts/decoration";
 describe("repository/utils.generateInjectableNameForRepository", () => {
   const key = PersistenceKeys.ADAPTER;
 
-  beforeEach(() => {
-    // ensure clean metadata before each test
-    // TODO: Replace with Metdata
-    Reflect.deleteMetadata?.(key as any, TestModel as any);
-  });
-
   it("throws InternalError when flavour cannot be resolved", () => {
     expect(() => generateInjectableNameForRepository(TestModel as any)).toThrow(
       /Could not retrieve flavour from model TestModel/

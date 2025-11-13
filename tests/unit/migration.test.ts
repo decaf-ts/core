@@ -18,9 +18,10 @@ class RamMigration extends AbsMigration<
   Context<RamFlags>
 > {
   constructor() {
-    super("ram");
+    super();
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected getQueryRunner(conn: any): any {
     return {};
   }

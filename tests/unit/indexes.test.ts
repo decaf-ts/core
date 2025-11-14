@@ -1,6 +1,7 @@
 import { Model, model, required } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
-import { index, pk, Repository, uses } from "../../src";
+import { index, pk, Repository } from "../../src";
+import { uses } from "@decaf-ts/decoration";
 
 describe("Indexes", () => {
   @uses("ram")

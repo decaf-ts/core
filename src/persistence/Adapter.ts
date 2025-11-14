@@ -41,24 +41,18 @@ import {
 } from "@decaf-ts/decoration";
 import { MigrationError } from "./errors";
 
-Decoration.setFlavourResolver((obj: object) => {
+const flavourResolver = Decoration["flavourResolver"].bind(Decoration);
+Decoration["flavourResolver"] = (obj: object) => {
   try {
-    return (
-      Adapter.flavourOf(Model.isModel(obj) ? obj.constructor : (obj as any)) ||
-      Adapter.currentFlavour ||
-      DefaultFlavour
-    );
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  } catch (e: unknown) {
-    // return DefaultFlavour;
-  }
-  try {
+    const result = flavourResolver(obj);
+    if (result && result !== DefaultFlavour) return result;
+    const x = Adapter.currentFlavour;
     return Adapter.currentFlavour || DefaultFlavour;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e: unknown) {
     return DefaultFlavour;
   }
-});
+};
 
 /**
  * @description Abstract Facade class for persistence adapters

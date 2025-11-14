@@ -1,11 +1,11 @@
 import { RamAdapter, RamRepository } from "../../src/ram";
 const adapter = new RamAdapter();
-import { Adapter, repository, uses, Repository } from "../../src";
+import { Adapter, repository, Repository } from "../../src";
 import { TestModel } from "./TestModel";
 import { NotFoundError } from "@decaf-ts/db-decorators";
 import { Model, model } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
-import { Constructor } from "@decaf-ts/decoration";
+import { Constructor, uses } from "@decaf-ts/decoration";
 
 describe("Adapter", () => {
   let repo: RamRepository<TestModel>;

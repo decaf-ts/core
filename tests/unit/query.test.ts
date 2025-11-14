@@ -16,11 +16,11 @@ import {
   index,
   OrderDirection,
   pk,
-  uses,
   Repository,
   Condition,
 } from "../../src/index";
 import { RamRepository } from "../../src/ram/types";
+import { uses } from "@decaf-ts/decoration";
 
 jest.setTimeout(50000);
 

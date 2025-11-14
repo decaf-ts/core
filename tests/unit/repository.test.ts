@@ -1,6 +1,6 @@
 import { Dispatch } from "../../src/persistence/Dispatch";
 console.log(Dispatch);
-import { Adapter, BaseModel, Observer, repository, uses } from "../../src";
+import { Adapter, BaseModel, Observer, repository } from "../../src";
 import { RamFlavour } from "../../src/ram/index";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 RamAdapter.decoration();
@@ -14,6 +14,7 @@ import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { NotFoundError, OperationKeys } from "@decaf-ts/db-decorators";
 import { TestModel } from "./TestModel";
 import { Repo } from "../../src";
+import { uses } from "@decaf-ts/decoration";
 
 describe("Repository", () => {
   let created: TestModel;

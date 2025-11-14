@@ -1,7 +1,6 @@
 import { Model } from "@decaf-ts/decorator-validation";
-import { InternalError, Repository } from "@decaf-ts/db-decorators";
+import { InternalError } from "@decaf-ts/db-decorators";
 import { PersistenceKeys } from "../persistence/constants";
-import { Adapter } from "../persistence/index";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 
 /**

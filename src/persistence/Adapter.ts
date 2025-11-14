@@ -27,7 +27,7 @@ import { ErrorParser } from "../interfaces";
 import { Statement } from "../query/Statement";
 import { final } from "../utils";
 import type { Dispatch } from "./Dispatch";
-import { type EventIds, type ObserverFilter } from "./types";
+import { type EventIds, Migration, type ObserverFilter } from "./types";
 import { ObserverHandler } from "./ObserverHandler";
 import { LoggedClass } from "@decaf-ts/logging";
 import { getColumnName, getTableName } from "../identity/utils";
@@ -39,6 +39,7 @@ import {
   Metadata,
   type Constructor,
 } from "@decaf-ts/decoration";
+import { MigrationError } from "./errors";
 
 Decoration.setFlavourResolver((obj: object) => {
   try {
@@ -946,5 +947,25 @@ export abstract class Adapter<
     });
     this.proxies[key] = proxy;
     return proxy;
+  }
+
+  migrations() {
+    return Metadata.migrationsFor(this);
+  }
+
+  async migrate(
+    migrations: Constructor<
+      Migration<any, any, any, any, any>
+    >[] = this.migrations()
+  ) {
+    for (const migration of migrations) {
+      try {
+        const m = new migration();
+        await m.up(this as any, this, this.log);
+        await m.down(this as any, this, this.log);
+      } catch (e: unknown) {
+        throw new MigrationError(e as Error);
+      }
+    }
   }
 }

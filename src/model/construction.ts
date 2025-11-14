@@ -14,6 +14,7 @@ import { PersistenceKeys } from "../persistence/constants";
 import { Cascade } from "../repository/constants";
 import { Context } from "@decaf-ts/db-decorators";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
+import { isClass } from "@decaf-ts/logging";
 
 /**
  * @description Creates or updates a model instance
@@ -164,10 +165,7 @@ export async function oneToOneOnCreate<
     return;
   }
 
-  data.class =
-    typeof data.class === "string" ? data.class : (data.class as any)().name;
-
-  const constructor = Model.get(data.class as string);
+  const constructor = isClass(data.class) ? data.class : data.class();
   if (!constructor)
     throw new InternalError(`Could not find model ${data.class}`);
   const repo: Repo<any> = Repository.forModel(constructor, this.adapter.alias);

@@ -6,9 +6,8 @@ import {
   RepositoryFlags,
 } from "@decaf-ts/db-decorators";
 import { LoggedClass, Logger } from "@decaf-ts/logging";
-import { Decoration } from "@decaf-ts/decorator-validation";
 import { PersistenceKeys } from "./constants";
-import { Metadata, metadata } from "@decaf-ts/decoration";
+import { Decoration, Metadata, metadata } from "@decaf-ts/decoration";
 import { MigrationRuleError } from "./errors";
 
 export function prefixMethod(

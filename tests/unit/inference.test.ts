@@ -1,6 +1,6 @@
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { Adapter } from "../../src/index";
-import { RamFlavour } from "../../src/ram/index";
+import { RamFlavour } from "../../src/ram/constants";
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
 const ramAdapter = new RamAdapter();

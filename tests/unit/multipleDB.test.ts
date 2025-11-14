@@ -13,9 +13,9 @@ import {
   OrderDirection,
   pk,
   Repository,
-  uses,
 } from "../../src/index";
 import { readonly } from "@decaf-ts/db-decorators";
+import { uses } from "@decaf-ts/decoration";
 
 jest.setTimeout(50000);
 

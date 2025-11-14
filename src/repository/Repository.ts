@@ -26,7 +26,7 @@ import { Condition } from "../query/Condition";
 import { WhereOption } from "../query/options";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
 import { getColumnName, getTableName } from "../identity/utils";
-import { uses } from "../persistence/decorators";
+// import { uses } from "../persistence/decorators";
 import { Logger } from "@decaf-ts/logging";
 import { ObserverHandler } from "../persistence/ObserverHandler";
 import { final } from "../utils";
@@ -35,7 +35,7 @@ import {
   InferredAdapterConfig,
   type ObserverFilter,
 } from "../persistence";
-import { Constructor, Metadata } from "@decaf-ts/decoration";
+import { Constructor, Metadata, uses } from "@decaf-ts/decoration";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.

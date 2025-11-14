@@ -357,7 +357,7 @@ export function oneToOne<M extends Model>(
     fk?: string
   ) {
     const meta: RelationsMetadata = {
-      class: clazz.name ? clazz.name : (clazz as any),
+      class: clazz,
       cascade: cascade,
       populate: populate,
     };
@@ -366,7 +366,7 @@ export function oneToOne<M extends Model>(
     return apply(
       prop(),
       relation(key, meta),
-      type([clazz as any, String, Number, BigInt]),
+      type([clazz, String, Number, BigInt]),
       onCreate(oneToOneOnCreate, meta),
       onUpdate(oneToOneOnUpdate, meta),
       onDelete(oneToOneOnDelete, meta),
@@ -427,7 +427,7 @@ export function oneToMany<M extends Model>(
     fk?: string
   ) {
     const metadata: RelationsMetadata = {
-      class: clazz.name ? clazz.name : (clazz as any),
+      class: clazz,
       cascade: cascade,
       populate: populate,
     };
@@ -437,7 +437,7 @@ export function oneToMany<M extends Model>(
       prop(),
       relation(key, metadata),
       list([
-        clazz as Constructor<M>,
+        clazz,
         String,
         Number,
         // @ts-expect-error Bigint is not a constructor
@@ -504,7 +504,7 @@ export function manyToOne<M extends Model>(
     fk?: string
   ) {
     const metadata: RelationsMetadata = {
-      class: clazz?.name ? clazz.name : (clazz as any),
+      class: clazz,
       cascade: cascade,
       populate: populate,
     };
@@ -575,7 +575,7 @@ export function manyToMany<M extends Model>(
     fk?: string
   ) {
     const metadata: RelationsMetadata = {
-      class: clazz.name ? clazz.name : (clazz as any),
+      class: clazz,
       cascade: cascade,
       populate: populate,
     };

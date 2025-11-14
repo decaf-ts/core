@@ -52,7 +52,7 @@ export type JoinTableMultipleColumnsOptions = {
 };
 
 export type RelationsMetadata = {
-  class: string | (() => Constructor<any>);
+  class: Constructor<any> | (() => Constructor<any>);
   cascade: CascadeMetadata;
   populate: boolean;
   name?: string;

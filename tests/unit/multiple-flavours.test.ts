@@ -102,16 +102,6 @@ describe("Multiple Flavours", () => {
     expect(meta2).toEqual("2");
     expect(meta3).toEqual("3");
 
-    const obj1 = new Obj1({
-      prop: "test1",
-    });
-    const obj2 = new Obj2({
-      prop: "test2",
-    });
-    const obj3 = new Obj3({
-      prop: "test3",
-    });
-
     expect(f1).toHaveBeenCalledWith(
       "first",
       1,

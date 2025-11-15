@@ -1,15 +1,9 @@
 import {
   Decoration,
-  DecorationKeys,
   DefaultFlavour,
   Metadata,
   uses,
 } from "@decaf-ts/decoration";
-import { TestModel } from "./TestModel";
-import {
-  generateInjectableNameForRepository,
-  Repository,
-} from "../../src/index";
 
 describe("Multiple Decoration Compatibility", () => {
   it("Allows overriding decorations with different flavours", () => {
@@ -95,5 +89,4 @@ describe("Multiple Decoration Compatibility", () => {
     uses("3")(Override2);
     expect(Metadata.flavourOf(Override2)).toEqual("3");
   });
-
 });

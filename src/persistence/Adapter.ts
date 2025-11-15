@@ -1,6 +1,5 @@
 import {
   BaseError,
-  DBKeys,
   InternalError,
   Context,
   OperationKeys,
@@ -15,7 +14,6 @@ import {
   hashObj,
   Model,
   ModelConstructor,
-  ModelRegistry,
 } from "@decaf-ts/decorator-validation";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { RawExecutor } from "../interfaces/RawExecutor";
@@ -46,7 +44,6 @@ Decoration["flavourResolver"] = (obj: object) => {
   try {
     const result = flavourResolver(obj);
     if (result && result !== DefaultFlavour) return result;
-    const x = Adapter.currentFlavour;
     return Adapter.currentFlavour || DefaultFlavour;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e: unknown) {
@@ -783,10 +780,7 @@ export abstract class Adapter<
    * @return {string} The adapter flavor name
    */
   static flavourOf<M extends Model>(model: Constructor<M>): string {
-    return (
-      Metadata.get(model, this.key(PersistenceKeys.ADAPTER)) ||
-      this.current?.flavour
-    );
+    return Metadata.flavourOf(model);
   }
 
   static get currentFlavour() {
@@ -856,33 +850,31 @@ export abstract class Adapter<
    * @param {string} flavour - The adapter flavor to find models for
    * @return An array of model constructors
    */
-  static models<M extends Model>(flavour: string) {
+  static models<M extends Model>(flavour: string): ModelConstructor<M>[] {
     try {
-      const registry = (Model as any).getRegistry() as ModelRegistry<any>;
-      const cache = (
-        registry as unknown as { cache: Record<string, ModelConstructor<any>> }
-      ).cache;
-      const managedModels: ModelConstructor<any>[] = Object.values(cache)
-        .map((m: ModelConstructor<M>) => {
-          let f = Metadata.get(
-            m as ModelConstructor<any>,
-            PersistenceKeys.ADAPTER
-          );
-          if (f && f === flavour) return m;
-          if (!f) {
-            const repo = Metadata.get(
-              m as ModelConstructor<any>,
-              Repo.key(DBKeys.REPOSITORY)
-            );
-            if (!repo) return;
-            const repository = (this._baseRepository as any).forModel(m);
-
-            f = Metadata.get(repository.constructor, PersistenceKeys.ADAPTER);
-            return f;
-          }
-        })
-        .filter((m) => !!m);
-      return managedModels;
+      return Metadata.flavouredAs(flavour) as ModelConstructor<M>[];
+      // const registry = (Model as any).getRegistry() as ModelRegistry<any>;
+      // const cache = (
+      //   registry as unknown as { cache: Record<string, ModelConstructor<any>> }
+      // ).cache;
+      // const managedModels: ModelConstructor<any>[] = Object.values(cache)
+      //   .map((m: ModelConstructor<M>) => {
+      //     let f = Metadata.flavourOf(m);
+      //     if (f && f === flavour) return m;
+      //     if (!f) {
+      //       const repo = Metadata.get(
+      //         m as ModelConstructor<any>,
+      //         Repo.key(DBKeys.REPOSITORY)
+      //       );
+      //       if (!repo) return;
+      //       const repository = (this._baseRepository as any).forModel(m);
+      //
+      //       f = Metadata.flavourOf(repository.constructor);
+      //       return f;
+      //     }
+      //   })
+      //   .filter((m) => !!m);
+      // return managedModels;
     } catch (e: any) {
       throw new InternalError(e);
     }

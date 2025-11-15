@@ -44,7 +44,10 @@ Decoration["flavourResolver"] = (obj: object) => {
   try {
     const result = flavourResolver(obj);
     if (result && result !== DefaultFlavour) return result;
-    return Adapter.currentFlavour || DefaultFlavour;
+    const currentFlavour = Adapter.currentFlavour;
+    const adapter = Adapter.get(currentFlavour);
+    if (adapter?.flavour) return adapter.flavour;
+    return currentFlavour;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e: unknown) {
     return DefaultFlavour;

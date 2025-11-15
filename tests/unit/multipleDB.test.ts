@@ -19,7 +19,7 @@ import { Metadata, uses } from "@decaf-ts/decoration";
 
 jest.setTimeout(50000);
 
-describe("Adapter Integration", () => {
+describe("Multiple dbs of same flavour", () => {
   let adapter1: RamAdapter;
   let adapter2: RamAdapter;
 

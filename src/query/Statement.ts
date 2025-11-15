@@ -203,7 +203,7 @@ export abstract class Statement<Q, M extends Model, R>
   async raw<R>(rawInput: Q): Promise<R> {
     const results = await this.adapter.raw<R>(rawInput);
     if (!this.selectSelector) return results;
-    const pkAttr = Model.pk(new (this.fromSelector as Constructor<M>)());
+    const pkAttr = Model.pk(this.fromSelector);
 
     const processor = function recordProcessor(
       this: Statement<Q, M, R>,

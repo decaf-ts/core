@@ -26,7 +26,6 @@ import { Condition } from "../query/Condition";
 import { WhereOption } from "../query/options";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
 import { getColumnName, getTableName } from "../identity/utils";
-// import { uses } from "../persistence/decorators";
 import { Logger } from "@decaf-ts/logging";
 import { ObserverHandler } from "../persistence/ObserverHandler";
 import { final } from "../utils";
@@ -35,7 +34,12 @@ import {
   InferredAdapterConfig,
   type ObserverFilter,
 } from "../persistence";
-import { Constructor, Metadata, uses } from "@decaf-ts/decoration";
+import {
+  Constructor,
+  DefaultFlavour,
+  Metadata,
+  uses,
+} from "@decaf-ts/decoration";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.
@@ -188,8 +192,12 @@ export class Repository<
     if (clazz) {
       Repository.register(clazz, this, this.adapter.alias);
       if (adapter) {
-        const flavour = Metadata.get(clazz as any, PersistenceKeys.ADAPTER);
-        if (flavour && flavour !== adapter.flavour)
+        const flavour = Metadata.flavourOf(Metadata.constr(clazz));
+        if (
+          flavour &&
+          flavour !== DefaultFlavour &&
+          flavour !== adapter.flavour
+        )
           throw new InternalError("Incompatible flavours");
         uses(adapter.flavour)(clazz);
       }
@@ -962,9 +970,7 @@ export class Repository<
     let repo: R | Constructor<R> | undefined;
 
     const _alias: string | undefined =
-      alias ||
-      Metadata.get(model, PersistenceKeys.ADAPTER) ||
-      Adapter.currentFlavour;
+      alias || Metadata.flavourOf(model) || Adapter.currentFlavour;
     try {
       repo = this.get(model, _alias) as Constructor<R> | R;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -976,7 +982,7 @@ export class Repository<
 
     const flavour: string | undefined =
       alias ||
-      Metadata.get(model, PersistenceKeys.ADAPTER) ||
+      Metadata.flavourOf(model) ||
       (repo && Metadata.get(repo, PersistenceKeys.ADAPTER)) ||
       Adapter.currentFlavour;
     const adapter: Adapter<any, any, any, any> | undefined = flavour

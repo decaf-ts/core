@@ -347,8 +347,6 @@ export function oneToOne<M extends Model>(
   fk?: string
 ) {
   const key = PersistenceKeys.ONE_TO_ONE;
-  // Model.register(clazz as Constructor<M>);
-
   function oneToOneDec(
     clazz: Constructor<M> | (() => Constructor<M>),
     cascade: CascadeMetadata,
@@ -636,17 +634,19 @@ export function noValidateOnCreateUpdate() {
  * @category Property Decorators
  */
 export function relation(relationKey: string, meta: RelationsMetadata) {
-  const key = PersistenceKeys.RELATIONS;
   function relation(relationKey: string, meta: RelationsMetadata) {
     return function relation(obj: any, attr: any) {
       propMetadata(relationKey, meta)(obj, attr);
-      const existing = Metadata.get(obj.constructor, PersistenceKeys.RELATIONS);
-      const relations = existing?.length ? [...existing, attr] : [attr];
-      return propMetadata(PersistenceKeys.RELATIONS, relations)(obj, attr);
+      return propMetadata(
+        Metadata.key(PersistenceKeys.RELATIONS, attr),
+        Object.assign({}, meta, {
+          key: relationKey,
+        })
+      )(obj, attr);
     };
   }
 
-  return Decoration.for(key)
+  return Decoration.for(PersistenceKeys.RELATIONS)
     .define({
       decorator: relation,
       args: [relationKey, meta],

@@ -1141,9 +1141,8 @@ export class Repository<
    */
   static relations<M extends Model>(model: M | Constructor<M>): string[] {
     return (
-      Metadata.get(
-        model instanceof Model ? model.constructor : (model as any),
-        PersistenceKeys.RELATIONS
+      Metadata.relations(
+        model instanceof Model ? (model.constructor as Constructor<M>) : model
       ) || []
     );
   }

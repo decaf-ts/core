@@ -34,7 +34,7 @@ describe("Bulk operations", () => {
   let created: TestBulkModel[];
   let updated: TestBulkModel[];
 
-  it.skip("creates one", async () => {
+  it("creates one", async () => {
     const repo: RamRepository<TestBulkModel> = Repository.forModel<
       TestBulkModel,
       RamRepository<TestBulkModel>

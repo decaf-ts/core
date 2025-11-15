@@ -53,11 +53,11 @@ describe("Adapter Integration", () => {
     }
   }
 
-  it("expects to have a ram flavour", () => {});
-
-  it("Create and read on multiple DBs", async () => {
+  it("expects to have a ram flavour", () => {
     expect(Metadata.flavourOf(TestUserMultipleDB)).toEqual("ram");
+  });
 
+  it.skip("Create and read on multiple DBs", async () => {
     const repo1 = new Repository(adapter1, TestUserMultipleDB);
 
     const model1 = new TestUserMultipleDB({

@@ -1,15 +1,9 @@
 import {
   Decoration,
-  // DecorationKeys,
   DefaultFlavour,
   Metadata,
   uses,
 } from "@decaf-ts/decoration";
-// import { TestModel } from "./TestModel";
-// import {
-//   generateInjectableNameForRepository,
-//   Repository,
-// } from "../../src/index";
 
 describe("Multiple Decoration Compatibility", () => {
   it("Allows overriding decorations with different flavours", () => {
@@ -103,18 +97,4 @@ describe("Multiple Decoration Compatibility", () => {
     expect(Metadata.flavourOf(Override2)).toEqual("3");
     expect(Metadata.flavouredAs("3")).toEqual([Override1, Override2]);
   });
-  //
-  // it("resolves flavour from metadata on constructor", () => {
-  //   const meta1 = Metadata.get(TestModel);
-  //
-  //   expect(meta1[DecorationKeys.FLAVOUR]).toEqual(DefaultFlavour);
-  //   uses("ram")(TestModel);
-  //
-  //   const meta2 = Metadata.get(TestModel);
-  //   expect(meta2[DecorationKeys.FLAVOUR]).toEqual("ram");
-  //   const name = generateInjectableNameForRepository(TestModel as any);
-  //   expect(name).toBe(
-  //     `decaf_ram_adapter_for_${Repository.table(TestModel as any)}`
-  //   );
-  // });
 });

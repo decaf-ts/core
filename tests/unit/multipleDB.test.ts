@@ -57,7 +57,7 @@ describe("Multiple dbs of same flavour", () => {
     expect(Metadata.flavourOf(TestUserMultipleDB)).toEqual("ram");
   });
 
-  it.skip("Create and read on multiple DBs", async () => {
+  it("Create and read on multiple DBs", async () => {
     const repo1 = new Repository(adapter1, TestUserMultipleDB);
 
     const model1 = new TestUserMultipleDB({

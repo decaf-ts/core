@@ -85,6 +85,7 @@ describe("Multiple Flavours", () => {
     }
 
     @uses("3")
+    @model()
     class Obj3 extends Model {
       @decorator("first", 3)
       prop!: string;
@@ -132,5 +133,12 @@ describe("Multiple Flavours", () => {
       "prop",
       undefined
     );
+
+    expect(Metadata.flavourOf(Obj1)).toEqual(DefaultFlavour);
+    expect(Metadata.flavourOf(Obj2)).toEqual("2");
+    expect(Metadata.flavourOf(Obj3)).toEqual("3");
+
+    expect(Metadata.flavouredAs("2")).toEqual([Obj2]);
+    expect(Metadata.flavouredAs("3")).toEqual([Obj3]);
   });
 });

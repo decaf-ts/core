@@ -1,15 +1,15 @@
 import "reflect-metadata";
 import { generateInjectableNameForRepository } from "../../src/repository/utils";
-import { PersistenceKeys } from "../../src/persistence/constants";
 import { Repository } from "../../src/repository/Repository";
 import { TestModel } from "./TestModel";
-import { Metadata } from "@decaf-ts/decoration";
-
-// Group related tests for repository utils
+import {
+  DecorationKeys,
+  DefaultFlavour,
+  Metadata,
+  uses,
+} from "@decaf-ts/decoration";
 
 describe("repository/utils.generateInjectableNameForRepository", () => {
-  const key = PersistenceKeys.ADAPTER;
-
   it("throws InternalError when flavour cannot be resolved", () => {
     expect(() => generateInjectableNameForRepository(TestModel as any)).toThrow(
       /Could not retrieve flavour from model TestModel/
@@ -25,7 +25,13 @@ describe("repository/utils.generateInjectableNameForRepository", () => {
   });
 
   it("resolves flavour from metadata on constructor", () => {
-    Metadata.set(TestModel, key, "ram");
+    const meta1 = Metadata.get(TestModel);
+
+    expect(meta1[DecorationKeys.FLAVOUR]).toEqual(DefaultFlavour);
+    uses("ram")(TestModel);
+
+    const meta2 = Metadata.get(TestModel);
+    expect(meta2[DecorationKeys.FLAVOUR]).toEqual("ram");
     const name = generateInjectableNameForRepository(TestModel as any);
     expect(name).toBe(
       `decaf_ram_adapter_for_${Repository.table(TestModel as any)}`

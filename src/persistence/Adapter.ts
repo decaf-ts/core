@@ -7,7 +7,6 @@ import {
   DefaultRepositoryFlags,
   Contextual,
   BulkCrudOperationKeys,
-  modelToTransient,
 } from "@decaf-ts/db-decorators";
 import { type Observer } from "../interfaces/Observer";
 import {
@@ -29,7 +28,6 @@ import { type EventIds, Migration, type ObserverFilter } from "./types";
 import { ObserverHandler } from "./ObserverHandler";
 import { LoggedClass } from "@decaf-ts/logging";
 import { getColumnName, getTableName } from "../identity/utils";
-import { Repository as Repo } from "@decaf-ts/db-decorators";
 import { AdapterDispatch } from "./types";
 import {
   Decoration,
@@ -420,7 +418,7 @@ export abstract class Adapter<
     transient?: Record<string, any>;
   } {
     const log = this.log.for(this.prepare);
-    const split = modelToTransient(model);
+    const split = model.toTransient();
     const result = Object.entries(split.model).reduce(
       (accum: Record<string, any>, [key, val]) => {
         if (typeof val === "undefined") return accum;
@@ -837,16 +835,6 @@ export abstract class Adapter<
   }
 
   /**
-   * @description Creates a metadata key
-   * @summary Generates a standardized metadata key for persistence-related metadata
-   * @param {string} key - The base key name
-   * @return {string} The formatted metadata key
-   */
-  static key(key: string) {
-    return Repo.key(key);
-  }
-
-  /**
    * @description Gets all models associated with an adapter flavor
    * @summary Retrieves all model constructors that are configured to use a specific adapter flavor
    * @template M - The model type
@@ -856,28 +844,6 @@ export abstract class Adapter<
   static models<M extends Model>(flavour: string): ModelConstructor<M>[] {
     try {
       return Metadata.flavouredAs(flavour) as ModelConstructor<M>[];
-      // const registry = (Model as any).getRegistry() as ModelRegistry<any>;
-      // const cache = (
-      //   registry as unknown as { cache: Record<string, ModelConstructor<any>> }
-      // ).cache;
-      // const managedModels: ModelConstructor<any>[] = Object.values(cache)
-      //   .map((m: ModelConstructor<M>) => {
-      //     let f = Metadata.flavourOf(m);
-      //     if (f && f === flavour) return m;
-      //     if (!f) {
-      //       const repo = Metadata.get(
-      //         m as ModelConstructor<any>,
-      //         Repo.key(DBKeys.REPOSITORY)
-      //       );
-      //       if (!repo) return;
-      //       const repository = (this._baseRepository as any).forModel(m);
-      //
-      //       f = Metadata.flavourOf(repository.constructor);
-      //       return f;
-      //     }
-      //   })
-      //   .filter((m) => !!m);
-      // return managedModels;
     } catch (e: any) {
       throw new InternalError(e);
     }

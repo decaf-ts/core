@@ -280,8 +280,16 @@ export async function createdByOnCreateUpdate<
  */
 export function createdBy() {
   const key = PersistenceKeys.CREATED_BY;
+
+  function createdBy() {
+    return apply(onCreate(createdByOnCreateUpdate), propMetadata(key, {}));
+  }
+
   return Decoration.for(key)
-    .define(onCreate(createdByOnCreateUpdate), propMetadata(key, {}))
+    .define({
+      decorator: createdBy,
+      args: [],
+    })
     .apply();
 }
 
@@ -301,8 +309,14 @@ export function createdBy() {
  */
 export function updatedBy() {
   const key = PersistenceKeys.UPDATED_BY;
+  function updatedBy() {
+    return apply(onUpdate(createdByOnCreateUpdate), propMetadata(key, {}));
+  }
   return Decoration.for(key)
-    .define(onCreateUpdate(createdByOnCreateUpdate), propMetadata(key, {}))
+    .define({
+      decorator: updatedBy,
+      args: [],
+    })
     .apply();
 }
 

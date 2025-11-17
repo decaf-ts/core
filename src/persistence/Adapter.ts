@@ -42,10 +42,24 @@ Decoration["flavourResolver"] = (obj: object) => {
   try {
     const result = flavourResolver(obj);
     if (result && result !== DefaultFlavour) return result;
-    const currentFlavour = Adapter.currentFlavour;
-    const adapter = Adapter.get(currentFlavour);
-    if (adapter?.flavour) return adapter.flavour;
-    return currentFlavour;
+    const targetCtor =
+      typeof obj === "function"
+        ? (obj as Constructor)
+        : ((obj as { constructor?: Constructor })?.constructor as
+            | Constructor
+            | undefined);
+    const registeredFlavour =
+      targetCtor && typeof Metadata["registeredFlavour"] === "function"
+        ? Metadata.registeredFlavour(targetCtor)
+        : undefined;
+    if (registeredFlavour && registeredFlavour !== DefaultFlavour)
+      return registeredFlavour;
+    const currentFlavour = Adapter["_currentFlavour"];
+    if (currentFlavour) {
+      const cachedAdapter = Adapter["_cache"]?.[currentFlavour];
+      if (cachedAdapter?.flavour) return cachedAdapter.flavour;
+      return currentFlavour;
+    }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e: unknown) {
     return DefaultFlavour;

@@ -24,6 +24,7 @@ export * from "./query";
 export * from "./utils";
 //left to last on purpose
 export * from "./persistence";
+export * from "./ram";
 
 /**
  * @description Stores the current package version

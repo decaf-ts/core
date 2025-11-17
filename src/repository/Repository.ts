@@ -36,6 +36,7 @@ import {
 } from "../persistence";
 import {
   Constructor,
+  DecorationKeys,
   DefaultFlavour,
   Metadata,
   uses,
@@ -192,14 +193,21 @@ export class Repository<
     if (clazz) {
       Repository.register(clazz, this, this.adapter.alias);
       if (adapter) {
-        const flavour = Metadata.flavourOf(Metadata.constr(clazz));
-        if (
-          flavour &&
-          flavour !== DefaultFlavour &&
-          flavour !== adapter.flavour
-        )
-          throw new InternalError("Incompatible flavours");
-        uses(adapter.flavour)(clazz);
+        // const flavour = Metadata.flavourOf(clazz);
+        // if (
+        //   flavour &&
+        //   flavour !== DefaultFlavour &&
+        //   flavour !== adapter.flavour
+        // ) {
+        //   this.log.warn(
+        //     `Incompatible flavours detected between adapter (${adapter.flavour}) and model (${flavour})`
+        //   );
+        //   // throw new InternalError("Incompatible flavours");
+        // }
+        const flavour = Metadata.get(clazz, DecorationKeys.FLAVOUR);
+        if (flavour === DefaultFlavour) {
+          uses(adapter.flavour)(clazz);
+        }
       }
     }
     [this.createAll, this.readAll, this.updateAll, this.deleteAll].forEach(

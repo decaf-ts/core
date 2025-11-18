@@ -70,7 +70,7 @@ export class RamStatement<M extends Model, R> extends Statement<
       if (!type)
         throw new QueryError(`type not compatible with sorting: ${type}`);
 
-      switch (type) {
+      switch (type.name) {
         case "string":
         case "String":
           return (

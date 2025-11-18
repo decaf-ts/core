@@ -822,24 +822,24 @@ export function repositoryFromTypeMetadata<M extends Model>(
 
     allowedTypes = (
       Array.isArray(customTypes) ? [...customTypes] : [customTypes]
-    ).map((t) => (typeof t === "function" ? t() : t));
+    ).map((t) => (typeof t === "function" && !(t as any).name ? t() : t));
   } else
     allowedTypes = Metadata.getPropDesignTypes(
       model instanceof Model ? model.constructor : (model as any),
       propertyKey as string
     )?.designTypes;
 
-  const constructorName = allowedTypes?.find(
-    (t) => !commomTypes.includes(`${t}`.toLowerCase())
+  const constructor = allowedTypes?.find(
+    (t) => !commomTypes.includes(`${t.name}`.toLowerCase())
   );
-
-  if (!constructorName)
-    throw new InternalError(
-      `Property key ${propertyKey as string} does not have a valid constructor type`
-    );
-  const constructor: Constructor<M> | undefined = Model.get(constructorName);
-  if (!constructor)
-    throw new InternalError(`No registered model found for ${constructorName}`);
+  //
+  // if (!constructorName)
+  //   throw new InternalError(
+  //     `Property key ${propertyKey as string} does not have a valid constructor type`
+  //   );
+  // const constructor: Constructor<M> | undefined = Model.get(constructorName.name);
+  // if (!constructor)
+  //   throw new InternalError(`No registered model found for ${constructorName}`);
 
   return Repository.forModel(constructor, alias) as any;
 }

@@ -832,14 +832,6 @@ export function repositoryFromTypeMetadata<M extends Model>(
   const constructor = allowedTypes?.find(
     (t) => !commomTypes.includes(`${t.name}`.toLowerCase())
   );
-  //
-  // if (!constructorName)
-  //   throw new InternalError(
-  //     `Property key ${propertyKey as string} does not have a valid constructor type`
-  //   );
-  // const constructor: Constructor<M> | undefined = Model.get(constructorName.name);
-  // if (!constructor)
-  //   throw new InternalError(`No registered model found for ${constructorName}`);
 
   return Repository.forModel(constructor, alias) as any;
 }

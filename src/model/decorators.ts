@@ -54,15 +54,19 @@ import { AuthorizationError } from "../utils";
  * @category Class Decorators
  */
 export function table<OPTS = string>(opts?: OPTS) {
-  return function table(target: any) {
-    const key = PersistenceKeys.TABLE;
-    return Decoration.for(key)
-      .define({
-        decorator: metadata,
-        args: [key, opts || target.name.toLowerCase()],
-      })
-      .apply()(target);
-  };
+  return Decoration.for(PersistenceKeys.TABLE)
+    .define({
+      decorator: function table(opts: OPTS) {
+        return function table(target: any) {
+          return metadata(
+            PersistenceKeys.TABLE,
+            opts || target.name.toLowerCase()
+          )(target);
+        };
+      },
+      args: [opts],
+    })
+    .apply();
 }
 
 /**
@@ -74,15 +78,17 @@ export function table<OPTS = string>(opts?: OPTS) {
  * @category Property Decorators
  */
 export function column<OPTS = string>(columnName?: OPTS) {
-  const key = PersistenceKeys.COLUMN;
-  return Decoration.for(key)
+  return Decoration.for(PersistenceKeys.COLUMN)
     .define({
-      decorator: function column(k, c) {
+      decorator: function column(c) {
         return function column(obj: any, attr: any) {
-          return propMetadata(Metadata.key(k, attr), c || attr)(obj, attr);
+          return propMetadata(
+            Metadata.key(PersistenceKeys.COLUMN, attr),
+            c || attr
+          )(obj, attr);
         };
       },
-      args: [key, columnName],
+      args: [columnName],
     })
     .apply();
 }

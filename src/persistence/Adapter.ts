@@ -432,7 +432,7 @@ export abstract class Adapter<
     transient?: Record<string, any>;
   } {
     const log = this.log.for(this.prepare);
-    const split = model.toTransient();
+    const split = model.segregate();
     const result = Object.entries(split.model).reduce(
       (accum: Record<string, any>, [key, val]) => {
         if (typeof val === "undefined") return accum;

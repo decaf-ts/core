@@ -421,11 +421,14 @@ export abstract class Adapter<
    * @template M - The model type
    * @param {M} model - The model instance to prepare
    * @param pk - The primary key property name
+   * @param args - optional args for subclassing purposes
    * @return The prepared data
    */
   prepare<M extends Model>(
     model: M,
-    pk: keyof M
+    pk: keyof M,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: any[]
   ): {
     record: Record<string, any>;
     id: string;
@@ -473,6 +476,7 @@ export abstract class Adapter<
    * @param pk - The primary key property name
    * @param {string|number|bigint} id - The primary key value
    * @param [transient] - Transient properties to reattach
+   * @param [args] - options args for subclassing purposes
    * @return {M} The reconstructed model instance
    */
   revert<M extends Model>(
@@ -480,7 +484,9 @@ export abstract class Adapter<
     clazz: string | Constructor<M>,
     pk: keyof M,
     id: string | number | bigint,
-    transient?: Record<string, any>
+    transient?: Record<string, any>,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: any[]
   ): M {
     const log = this.log.for(this.revert);
     const ob: Record<string, any> = {};

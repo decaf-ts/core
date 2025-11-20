@@ -7,9 +7,10 @@ import {
   SelectSelector,
 } from "./selectors";
 import { Executor } from "../interfaces";
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import { Model } from "@decaf-ts/decorator-validation";
 import { Condition } from "./Condition";
 import { Paginatable } from "../interfaces/Paginatable";
+import { Constructor } from "@decaf-ts/decoration";
 
 /**
  * @summary GroupBy Option interface

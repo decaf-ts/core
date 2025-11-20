@@ -1,16 +1,3 @@
-import {
-  RamFlags,
-  RawRamQuery,
-  RamStorage,
-  RamRepository,
-  RamConfig,
-} from "./types";
-import { RamStatement } from "./RamStatement";
-import { RamContext } from "./RamContext";
-import { Repository } from "../repository/Repository";
-import { Dispatch } from "../persistence/Dispatch";
-import { Adapter, PersistenceKeys, Sequence } from "../persistence";
-import { SequenceOptions } from "../interfaces";
 import { Lock } from "@decaf-ts/transactional-decorators";
 import { hashObj, Model } from "@decaf-ts/decorator-validation";
 import {
@@ -22,60 +9,77 @@ import {
   onCreate,
   onCreateUpdate,
   DBKeys,
+  Context,
 } from "@decaf-ts/db-decorators";
-import { RamSequence } from "./RamSequence";
-import { createdByOnRamCreateUpdate } from "./handlers";
-import { RamFlavour } from "./constants";
 import {
   Constructor,
   Decoration,
   Metadata,
   propMetadata,
 } from "@decaf-ts/decoration";
+import {
+  RamConfig,
+  RamContext,
+  RamFlags,
+  RamRepository,
+  RamStatement,
+  RamStorage,
+  RawRamQuery,
+} from "../../src/ram/index";
+import {
+  Dispatch,
+  PersistenceKeys,
+  RelationsMetadata,
+  Repo,
+  Repository,
+  Sequence,
+  SequenceOptions,
+  UnsupportedError,
+} from "../../src/index";
+import { Adapter } from "../../src/persistence/Adapter";
+import { DummySequence } from "./DummySequence";
+
 /**
- * @description In-memory adapter for data persistence
- * @summary The RamAdapter provides an in-memory implementation of the persistence layer.
- * It stores data in JavaScript Maps and provides CRUD operations and query capabilities.
- * This adapter is useful for testing, prototyping, and applications that don't require
- * persistent storage across application restarts.
- * @class RamAdapter
+ * @description Sets the created by field on a model during RAM create/update operations
+ * @summary Automatically populates a model field with the UUID from the context during create or update operations.
+ * This function is designed to be used as a handler for RAM operations to track entity creation.
+ * @template M - Type of the model being created/updated
+ * @template R - Type of the repository handling the model
+ * @template V - Type of the relations metadata
+ * @template F - Type of the RAM flags
+ * @template C - Type of the context
+ * @param {R} this - The repository instance
+ * @param {Context<F>} context - The operation context containing user identification
+ * @param {V} data - The relations metadata
+ * @param key - The property key to set with the UUID
+ * @param {M} model - The model instance being created/updated
+ * @return {Promise<void>} A promise that resolves when the field has been set
+ * @function createdByOnRamCreateUpdate
+ * @memberOf module:core
  * @category Ram
- * @example
- * ```typescript
- * // Create a new RAM adapter
- * const adapter = new RamAdapter('myRamAdapter');
- *
- * // Create a repository for a model
- * const userRepo = new (adapter.repository<User>())(User, adapter);
- *
- * // Perform CRUD operations
- * const user = new User({ name: 'John', email: 'john@example.com' });
- * await userRepo.create(user);
- * const retrievedUser = await userRepo.findById(user.id);
- * ```
- * @mermaid
- * sequenceDiagram
- *   participant Client
- *   participant Repository
- *   participant RamAdapter
- *   participant Storage as In-Memory Storage
- *
- *   Client->>Repository: create(model)
- *   Repository->>RamAdapter: create(tableName, id, model)
- *   RamAdapter->>RamAdapter: lock.acquire()
- *   RamAdapter->>Storage: set(id, model)
- *   RamAdapter->>RamAdapter: lock.release()
- *   RamAdapter-->>Repository: model
- *   Repository-->>Client: model
- *
- *   Client->>Repository: findById(id)
- *   Repository->>RamAdapter: read(tableName, id)
- *   RamAdapter->>Storage: get(id)
- *   Storage-->>RamAdapter: model
- *   RamAdapter-->>Repository: model
- *   Repository-->>Client: model
  */
-export class RamAdapter extends Adapter<
+export async function createdByOnDummyCreateUpdate<
+  M extends Model,
+  R extends Repo<M, F, C>,
+  V extends RelationsMetadata,
+  F extends RamFlags,
+  C extends Context<F>,
+>(
+  this: R,
+  context: Context<F>,
+  data: V,
+  key: keyof M,
+  model: M
+): Promise<void> {
+  const uuid: string = "DUMMY_USER_ID";
+  if (!uuid)
+    throw new UnsupportedError(
+      "This adapter does not support user identification"
+    );
+  model[key] = uuid as M[keyof M];
+}
+
+export class DummyAdapter extends Adapter<
   RamConfig,
   RamStorage,
   RawRamQuery<any>,
@@ -83,7 +87,7 @@ export class RamAdapter extends Adapter<
   RamContext
 > {
   constructor(conf: RamConfig = {} as any, alias?: string) {
-    super(conf, RamFlavour, alias);
+    super(conf, "dummy", alias);
   }
 
   /**
@@ -489,7 +493,7 @@ export class RamAdapter extends Adapter<
    * @return {Promise<Sequence>} A promise that resolves to the new sequence instance
    */
   async Sequence(options: SequenceOptions): Promise<Sequence> {
-    return new RamSequence(options, this);
+    return new DummySequence(options, this);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -544,17 +548,17 @@ export class RamAdapter extends Adapter<
     super.decoration();
     const createdByKey = PersistenceKeys.CREATED_BY;
     const updatedByKey = PersistenceKeys.UPDATED_BY;
-    Decoration.flavouredAs(RamFlavour)
+    Decoration.flavouredAs("dummy")
       .for(createdByKey)
       .define(
-        onCreate(createdByOnRamCreateUpdate),
+        onCreate(createdByOnDummyCreateUpdate),
         propMetadata(createdByKey, {})
       )
       .apply();
-    Decoration.flavouredAs(RamFlavour)
+    Decoration.flavouredAs("dummy")
       .for(updatedByKey)
       .define(
-        onCreateUpdate(createdByOnRamCreateUpdate),
+        onCreateUpdate(createdByOnDummyCreateUpdate),
         propMetadata(updatedByKey, {})
       )
       .apply();

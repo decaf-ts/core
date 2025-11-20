@@ -1,5 +1,6 @@
+import { Constructor } from "@decaf-ts/decoration";
 import { CascadeMetadata } from "../repository";
-import { Constructor } from "@decaf-ts/decorator-validation";
+import { PersistenceKeys } from "../persistence/index";
 
 /**
  * Describes join column options.
@@ -52,9 +53,17 @@ export type JoinTableMultipleColumnsOptions = {
 };
 
 export type RelationsMetadata = {
-  class: string | (() => Constructor<any>);
+  class: Constructor<any> | (() => Constructor<any>);
   cascade: CascadeMetadata;
   populate: boolean;
   name?: string;
   joinTable?: JoinTableOptions;
+};
+
+export type ExtendedRelationsMetadata = RelationsMetadata & {
+  key:
+    | PersistenceKeys.ONE_TO_ONE
+    | PersistenceKeys.ONE_TO_MANY
+    | PersistenceKeys.MANY_TO_ONE
+    | PersistenceKeys.MANY_TO_MANY;
 };

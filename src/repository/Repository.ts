@@ -1,10 +1,8 @@
 import {
   BulkCrudOperationKeys,
   Context,
-  DBKeys,
   DefaultSeparator,
   enforceDBDecorators,
-  findPrimaryKey,
   InternalError,
   ValidationError,
   IRepository,
@@ -12,23 +10,22 @@ import {
   Repository as Rep,
   RepositoryFlags,
   wrapMethodWithContext,
+  DBKeys,
 } from "@decaf-ts/db-decorators";
 import { Observable } from "../interfaces/Observable";
 import { type Observer } from "../interfaces/Observer";
 import { Adapter } from "../persistence/Adapter";
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import { Model } from "@decaf-ts/decorator-validation";
 import { PersistenceKeys } from "../persistence/constants";
 import { OrderDirection } from "./constants";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { Queriable } from "../interfaces/Queriable";
-import { Reflection } from "@decaf-ts/reflection";
 import { IndexMetadata } from "./types";
 import { Sequence } from "../persistence/Sequence";
 import { Condition } from "../query/Condition";
 import { WhereOption } from "../query/options";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
 import { getColumnName, getTableName } from "../identity/utils";
-import { uses } from "../persistence/decorators";
 import { Logger } from "@decaf-ts/logging";
 import { ObserverHandler } from "../persistence/ObserverHandler";
 import { final } from "../utils";
@@ -37,6 +34,13 @@ import {
   InferredAdapterConfig,
   type ObserverFilter,
 } from "../persistence";
+import {
+  Constructor,
+  DecorationKeys,
+  DefaultFlavour,
+  Metadata,
+  uses,
+} from "@decaf-ts/decoration";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.
@@ -189,13 +193,21 @@ export class Repository<
     if (clazz) {
       Repository.register(clazz, this, this.adapter.alias);
       if (adapter) {
-        const flavour = Reflect.getMetadata(
-          Adapter.key(PersistenceKeys.ADAPTER),
-          clazz
-        );
-        if (flavour && flavour !== adapter.flavour)
-          throw new InternalError("Incompatible flavours");
-        uses(adapter.flavour)(clazz);
+        // const flavour = Metadata.flavourOf(clazz);
+        // if (
+        //   flavour &&
+        //   flavour !== DefaultFlavour &&
+        //   flavour !== adapter.flavour
+        // ) {
+        //   this.log.warn(
+        //     `Incompatible flavours detected between adapter (${adapter.flavour}) and model (${flavour})`
+        //   );
+        //   // throw new InternalError("Incompatible flavours");
+        // }
+        const flavour = Metadata.get(clazz, DecorationKeys.FLAVOUR);
+        if (flavour === DefaultFlavour) {
+          uses(adapter.flavour)(clazz);
+        }
       }
     }
     [this.createAll, this.readAll, this.updateAll, this.deleteAll].forEach(
@@ -923,8 +935,8 @@ export class Repository<
       table,
       event,
       Array.isArray(id)
-        ? id.map((i) => Sequence.parseValue(this.pkProps.type, i) as string)
-        : (Sequence.parseValue(this.pkProps.type, id) as string),
+        ? id.map((i) => Sequence.parseValue(this.pkProps?.type, i) as string)
+        : (Sequence.parseValue(this.pkProps?.type, id) as string),
       ...args
     );
   }
@@ -966,9 +978,7 @@ export class Repository<
     let repo: R | Constructor<R> | undefined;
 
     const _alias: string | undefined =
-      alias ||
-      Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model) ||
-      Adapter.currentFlavour;
+      alias || Metadata.flavourOf(model) || Adapter.currentFlavour;
     try {
       repo = this.get(model, _alias) as Constructor<R> | R;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -980,9 +990,8 @@ export class Repository<
 
     const flavour: string | undefined =
       alias ||
-      Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), model) ||
-      (repo &&
-        Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), repo)) ||
+      Metadata.flavourOf(model) ||
+      (repo && Metadata.get(repo, PersistenceKeys.ADAPTER)) ||
       Adapter.currentFlavour;
     const adapter: Adapter<any, any, any, any> | undefined = flavour
       ? Adapter.get(flavour)
@@ -1105,12 +1114,9 @@ export class Repository<
    * @throws {InternalError} If no sequence options are defined for the model.
    */
   static getSequenceOptions<M extends Model>(model: M) {
-    const pk = findPrimaryKey(model).id;
-    const metadata = Reflect.getMetadata(
-      Repository.key(DBKeys.ID),
-      model,
-      pk as string
-    );
+    const pkName = Model.pk(model.constructor as any);
+    const key = Metadata.key(DBKeys.ID, pkName);
+    const metadata = Metadata.get(model.constructor as any, key);
     if (!metadata)
       throw new InternalError(
         "No sequence options defined for model. did you use the @pk decorator?"
@@ -1126,21 +1132,15 @@ export class Repository<
    * @return {Record<string, Record<string, IndexMetadata>>} A nested record of property names to index metadata.
    */
   static indexes<M extends Model>(model: M | Constructor<M>) {
-    const indexDecorators = Reflection.getAllPropertyDecorators(
-      model instanceof Model ? model : new model(),
-      DBKeys.REFLECT
+    const indexDecorators = Metadata.get(
+      model instanceof Model ? model.constructor : (model as any),
+      PersistenceKeys.INDEX
     );
-    return Object.entries(indexDecorators || {}).reduce(
-      (accum: Record<string, Record<string, IndexMetadata>>, [k, val]) => {
-        const decs = val.filter((v) => v.key.startsWith(PersistenceKeys.INDEX));
-        if (decs && decs.length) {
-          for (const dec of decs) {
-            const { key, props } = dec;
-            accum[k] = accum[k] || {};
-            accum[k][key] = props as IndexMetadata;
-          }
-        }
-        return accum;
+
+    return Object.keys(indexDecorators || {}).reduce(
+      (acum: Record<string, Record<string, IndexMetadata>>, t: any) => {
+        acum[t] = { [PersistenceKeys.INDEX]: indexDecorators[t] };
+        return acum;
       },
       {}
     );
@@ -1154,19 +1154,11 @@ export class Repository<
    * @return {string[]} An array of property names that are relations.
    */
   static relations<M extends Model>(model: M | Constructor<M>): string[] {
-    const result: string[] = [];
-    let prototype =
-      model instanceof Model
-        ? Object.getPrototypeOf(model)
-        : (model as any).prototype;
-    while (prototype != null) {
-      const props: string[] = prototype[PersistenceKeys.RELATIONS];
-      if (props) {
-        result.push(...props);
-      }
-      prototype = Object.getPrototypeOf(prototype);
-    }
-    return result;
+    return (
+      Metadata.relations(
+        model instanceof Model ? (model.constructor as Constructor<M>) : model
+      ) || []
+    );
   }
 
   /**

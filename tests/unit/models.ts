@@ -4,10 +4,9 @@ import {
   minlength,
   model,
   pattern,
-  prop,
   required,
+  type ModelArg,
 } from "@decaf-ts/decorator-validation";
-import type { ModelArg } from "@decaf-ts/decorator-validation";
 import {
   BaseModel,
   Cascade,
@@ -18,6 +17,7 @@ import {
   pk,
   table,
 } from "../../src/index";
+import { prop } from "@decaf-ts/decoration";
 
 @model()
 export class TestCountryModel extends BaseModel {

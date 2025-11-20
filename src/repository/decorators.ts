@@ -1,9 +1,13 @@
-import { inject, injectable } from "@decaf-ts/injectable-decorators";
+import {
+  Constructor,
+  inject,
+  injectable,
+} from "@decaf-ts/injectable-decorators";
 import { DBKeys, IRepository } from "@decaf-ts/db-decorators";
-import { metadata } from "@decaf-ts/reflection";
-import { Constructor, Model, ModelKeys } from "@decaf-ts/decorator-validation";
+import { Model, ModelKeys } from "@decaf-ts/decorator-validation";
 import { Repository } from "./Repository";
-import { Adapter, PersistenceKeys } from "../persistence";
+import { PersistenceKeys } from "../persistence";
+import { Metadata, metadata } from "@decaf-ts/decoration";
 
 /**
  * @description Repository decorator for model classes.
@@ -44,16 +48,11 @@ export function repository<T extends Model>(
       );
     }
 
-    metadata(Repository.key(DBKeys.REPOSITORY), original.name)(model);
+    metadata(DBKeys.REPOSITORY, original.name)(model);
     flavour =
-      flavour ||
-      Reflect.getMetadata(Adapter.key(PersistenceKeys.ADAPTER), original);
-    Repository.register(
-      model[ModelKeys.ANCHOR as keyof typeof model] || model,
-      original,
-      flavour
-    );
-    return injectable(model[ModelKeys.ANCHOR as keyof typeof model] || model, {
+      flavour || Metadata.get(original.constructor, PersistenceKeys.ADAPTER);
+    Repository.register(Metadata.constr(model), original, flavour);
+    return injectable(Metadata.constr(model), {
       callback: (instance: IRepository<T>) => {
         Object.defineProperty(instance, DBKeys.CLASS, {
           enumerable: false,

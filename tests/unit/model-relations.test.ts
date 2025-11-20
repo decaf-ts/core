@@ -12,15 +12,12 @@ import {
   testUser,
   TestUserModel,
 } from "./models";
-import { Model } from "@decaf-ts/decorator-validation";
 import { NotFoundError } from "@decaf-ts/db-decorators";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { RamRepository } from "../../src/ram/types";
 import { Repository } from "../../src/repository/index";
 import { RamSequenceModel as Seq } from "../../src/ram/model/RamSequenceModel";
 import { Sequence, sequenceNameForModel } from "../../src/index";
-
-Model.setBuilder(Model.fromModel);
 
 jest.setTimeout(500000);
 
@@ -106,6 +103,7 @@ describe(`Complex Database`, function () {
 
         const address = new NoPopulateOnceModel({ country });
         const created = await noPopulateOnceModelRepository.create(address);
+
         expect(created.country).toEqual(noPopulateOnceCurVal + 1);
 
         const read = await noPopulateOnceModelRepository.read(created.id);

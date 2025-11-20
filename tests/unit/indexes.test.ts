@@ -1,8 +1,7 @@
 import { Model, model, required } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
-import { index, pk, Repository, uses } from "../../src";
-
-Model.setBuilder(Model.fromModel);
+import { index, pk, Repository } from "../../src";
+import { uses } from "@decaf-ts/decoration";
 
 describe("Indexes", () => {
   @uses("ram")
@@ -25,23 +24,21 @@ describe("Indexes", () => {
   it("extracts indexes", () => {
     const indexes = Repository.indexes(IndexedModel);
     expect(indexes).toBeDefined();
-    expect(indexes).toEqual(
-      expect.objectContaining({
-        id: {
-          index: {
-            name: undefined,
-            compositions: undefined,
-            directions: ["asc", "desc"],
-          },
+    expect(indexes).toEqual({
+      id: {
+        index: {
+          name: undefined,
+          compositions: undefined,
+          directions: ["asc", "desc"],
         },
-        name: {
-          index: {
-            name: "name_index",
-            compositions: undefined,
-            directions: undefined,
-          },
+      },
+      name: {
+        index: {
+          name: "name_index",
+          compositions: undefined,
+          directions: undefined,
         },
-      })
-    );
+      },
+    });
   });
 });

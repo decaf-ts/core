@@ -1,14 +1,11 @@
 import {
-  Constructor,
   Model,
   ModelConstructor,
-  Validation,
   ValidationKeys,
 } from "@decaf-ts/decorator-validation";
 import { Repo, Repository } from "../repository/Repository";
 import { RelationsMetadata } from "./types";
 import {
-  findPrimaryKey,
   InternalError,
   NotFoundError,
   RepositoryFlags,
@@ -16,6 +13,8 @@ import {
 import { PersistenceKeys } from "../persistence/constants";
 import { Cascade } from "../repository/constants";
 import { Context } from "@decaf-ts/db-decorators";
+import { Metadata } from "@decaf-ts/decoration";
+import { isClass } from "@decaf-ts/logging";
 
 /**
  * @description Creates or updates a model instance
@@ -166,15 +165,12 @@ export async function oneToOneOnCreate<
     return;
   }
 
-  data.class =
-    typeof data.class === "string" ? data.class : (data.class as any)().name;
-
-  const constructor = Model.get(data.class as string);
+  const constructor = isClass(data.class) ? data.class : data.class();
   if (!constructor)
     throw new InternalError(`Could not find model ${data.class}`);
   const repo: Repo<any> = Repository.forModel(constructor, this.adapter.alias);
   const created = await repo.create(propertyValue);
-  const pk = findPrimaryKey(created).id;
+  const pk = Model.pk(created);
   await cacheModelForPopulate(context, model, key, created[pk], created);
   (model as any)[key] = created[pk];
 }
@@ -260,15 +256,15 @@ export async function oneToOneOnUpdate<
     context,
     this.adapter.alias
   );
-  const pk = findPrimaryKey(updated).id;
+  const pk = Model.pk(updated);
   await cacheModelForPopulate(
     context,
     model,
     key,
-    updated[pk] as string,
+    updated[pk as keyof M] as string,
     updated
   );
-  model[key] = updated[pk];
+  model[key] = updated[pk as keyof M];
 }
 
 /**
@@ -434,7 +430,7 @@ export async function oneToManyOnCreate<
     return;
   }
 
-  const pkName = findPrimaryKey(propertyValues[0]).id;
+  const pkName = Model.pk(propertyValues[0]);
 
   const result: Set<string> = new Set();
 
@@ -728,7 +724,11 @@ export async function populate<
         val = await c.get(cacheKey as any);
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: any) {
-        const repo = repositoryFromTypeMetadata(model, propName, alias);
+        const repo = repositoryFromTypeMetadata(
+          model,
+          propName as keyof M,
+          alias
+        );
         if (!repo) throw new InternalError("Could not find repo");
         val = await repo.read(proKeyValue);
       }
@@ -785,16 +785,7 @@ const commomTypes = [
  *
  *   Caller->>repositoryFromTypeMetadata: model, propertyKey
  *
- *   repositoryFromTypeMetadata->>Validation: key(Array.isArray(model[propertyKey]) ? ValidationKeys.LIST : ValidationKeys.TYPE)
- *   Validation-->>repositoryFromTypeMetadata: validationKey
- *
- *   repositoryFromTypeMetadata->>Reflect: getMetadata(validationKey, model, propertyKey)
- *   Reflect-->>repositoryFromTypeMetadata: types
- *
- *   repositoryFromTypeMetadata->>repositoryFromTypeMetadata: determine customTypes based on property type
- *   repositoryFromTypeMetadata->>repositoryFromTypeMetadata: check if types and customTypes exist
- *
- *   repositoryFromTypeMetadata->>repositoryFromTypeMetadata: create allowedTypes array
+ *   repositoryFromTypeMetadata->>repositoryFromTypeMetadata: Get allowedTypes array
  *   repositoryFromTypeMetadata->>repositoryFromTypeMetadata: find constructorName not in commomTypes
  *   repositoryFromTypeMetadata->>repositoryFromTypeMetadata: check if constructorName exists
  *
@@ -808,40 +799,39 @@ const commomTypes = [
  *   repositoryFromTypeMetadata-->>Caller: repo
  */
 export function repositoryFromTypeMetadata<M extends Model>(
-  model: any,
-  propertyKey: string | keyof M,
+  model: M,
+  propertyKey: keyof M,
   alias?: string
 ): Repo<M> {
-  const types = Reflect.getMetadata(
-    Validation.key(
-      Array.isArray(model[propertyKey])
-        ? ValidationKeys.LIST
-        : ValidationKeys.TYPE
-    ),
-    model,
-    propertyKey as string
-  );
-  const customTypes: any = Array.isArray(model[propertyKey])
-    ? types.clazz
-    : types.customTypes;
-  if (!types || !customTypes)
-    throw new InternalError(
-      `Failed to find types decorators for property ${propertyKey as string}`
-    );
+  if (!model) throw new Error("No model was provided to get repository");
+  let allowedTypes;
+  if (Array.isArray(model[propertyKey]) || model[propertyKey] instanceof Set) {
+    const customTypes = Metadata.get(
+      model instanceof Model ? model.constructor : (model as any),
+      Metadata.key(
+        ValidationKeys.REFLECT,
+        propertyKey as string,
+        ValidationKeys.LIST
+      )
+    )?.clazz;
 
-  const allowedTypes: string[] = (
-    Array.isArray(customTypes) ? [...customTypes] : [customTypes]
-  ).map((t) => (typeof t === "function" ? t() : t));
-  const constructorName = allowedTypes.find(
-    (t) => !commomTypes.includes(`${t}`.toLowerCase())
+    if (!customTypes)
+      throw new InternalError(
+        `Failed to find types decorators for property ${propertyKey as string}`
+      );
+
+    allowedTypes = (
+      Array.isArray(customTypes) ? [...customTypes] : [customTypes]
+    ).map((t) => (typeof t === "function" && !(t as any).name ? t() : t));
+  } else
+    allowedTypes = Metadata.getPropDesignTypes(
+      model instanceof Model ? model.constructor : (model as any),
+      propertyKey as string
+    )?.designTypes;
+
+  const constructor = allowedTypes?.find(
+    (t) => !commomTypes.includes(`${t.name}`.toLowerCase())
   );
-  if (!constructorName)
-    throw new InternalError(
-      `Property key ${propertyKey as string} does not have a valid constructor type`
-    );
-  const constructor: Constructor<M> | undefined = Model.get(constructorName);
-  if (!constructor)
-    throw new InternalError(`No registered model found for ${constructorName}`);
 
   return Repository.forModel(constructor, alias) as any;
 }

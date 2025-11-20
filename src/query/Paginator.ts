@@ -1,6 +1,8 @@
 import { PagingError } from "./errors";
 import { Adapter } from "../persistence";
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import { Model } from "@decaf-ts/decorator-validation";
+import { Constructor } from "@decaf-ts/decoration";
+import { LoggedClass } from "@decaf-ts/logging";
 
 /**
  * @description Handles pagination for database queries
@@ -58,7 +60,11 @@ import { Constructor, Model } from "@decaf-ts/decorator-validation";
  *   Adapter-->>Paginator: return results
  *   Paginator-->>Client: return page results
  */
-export abstract class Paginator<M extends Model, R = M[], Q = any> {
+export abstract class Paginator<
+  M extends Model,
+  R = M[],
+  Q = any,
+> extends LoggedClass {
   protected _currentPage!: number;
   protected _totalPages!: number;
   protected _recordCount!: number;
@@ -88,7 +94,9 @@ export abstract class Paginator<M extends Model, R = M[], Q = any> {
     protected readonly query: Q,
     readonly size: number,
     protected readonly clazz: Constructor<M>
-  ) {}
+  ) {
+    super();
+  }
 
   protected abstract prepare(rawStatement: Q): Q;
 

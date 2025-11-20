@@ -1,9 +1,9 @@
 import { InternalError } from "@decaf-ts/db-decorators";
-import { Constructor, sf } from "@decaf-ts/decorator-validation";
-import { Adapter } from "../persistence/Adapter";
+import { sf } from "@decaf-ts/decorator-validation";
 import { PersistenceKeys } from "../persistence/constants";
 import { Model } from "@decaf-ts/decorator-validation";
 import { getTableName } from "../identity/utils";
+import { Constructor, DefaultFlavour, Decoration } from "@decaf-ts/decoration";
 
 /**
  * @description Generates a unique injectable name for a repository.
@@ -26,7 +26,7 @@ import { getTableName } from "../identity/utils";
  *   alt flavour provided
  *     U-->>U: use provided flavour
  *   else flavour not provided
- *     U->>A: Adapter.key(ADAPTER)
+ *     U->>A: ADAPTER
  *     U->>R: getMetadata(key, model|model.ctor)
  *     alt metadata present
  *       R-->>U: flavour
@@ -43,12 +43,10 @@ export function generateInjectableNameForRepository<T extends Model>(
   flavour?: string
 ): string {
   if (!flavour) {
-    const key = Adapter.key(PersistenceKeys.ADAPTER);
-    flavour = Reflect.getMetadata(
-      key,
-      model instanceof Model ? model.constructor : model
+    flavour = Decoration["flavourResolver"](
+      model instanceof Model ? model.constructor : (model as any)
     );
-    if (!flavour)
+    if (!flavour || flavour === DefaultFlavour)
       throw new InternalError(
         `Could not retrieve flavour from model ${model instanceof Model ? model.constructor.name : model.name}`
       );

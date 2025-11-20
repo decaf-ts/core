@@ -1,22 +1,10 @@
-import {
-  minlength,
-  Model,
-  model,
-  required,
-} from "@decaf-ts/decorator-validation";
+import { minlength, model, required } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { NotFoundError } from "@decaf-ts/db-decorators";
 import { RamAdapter } from "../../src/ram/RamAdapter";
-import {
-  BaseModel,
-  pk,
-  uses,
-  Repository,
-  PersistenceKeys,
-} from "../../src/index";
+import { BaseModel, pk, Repository, PersistenceKeys } from "../../src/index";
 import type { RamRepository } from "../../src/ram/types";
-
-Model.setBuilder(Model.fromModel);
+import { uses } from "@decaf-ts/decoration";
 
 jest.setTimeout(50000);
 
@@ -46,7 +34,7 @@ describe("Bulk operations", () => {
   let created: TestBulkModel[];
   let updated: TestBulkModel[];
 
-  it.skip("creates one", async () => {
+  it("creates one", async () => {
     const repo: RamRepository<TestBulkModel> = Repository.forModel<
       TestBulkModel,
       RamRepository<TestBulkModel>

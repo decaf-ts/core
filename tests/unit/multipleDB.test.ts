@@ -2,7 +2,6 @@ import {
   min,
   minlength,
   model,
-  Model,
   ModelArg,
   required,
   type,
@@ -14,28 +13,21 @@ import {
   OrderDirection,
   pk,
   Repository,
-  uses,
 } from "../../src/index";
 import { readonly } from "@decaf-ts/db-decorators";
-
-Model.setBuilder(Model.fromModel);
+import { Metadata, uses } from "@decaf-ts/decoration";
 
 jest.setTimeout(50000);
 
-describe("Adapter Integration", () => {
+describe("Multiple dbs of same flavour", () => {
   let adapter1: RamAdapter;
   let adapter2: RamAdapter;
 
   beforeAll(async () => {
-    // First db
     adapter1 = new RamAdapter({ user: "user1" }, "db1");
     adapter2 = new RamAdapter({ user: "user1" }, "db2");
-
-    // // Second DB
-    // PouchDb.plugin(memoryAdapter);
-    // const db2 = new PouchDb('db2', { adapter: 'memory' });
-    // adapter2 = new PouchAdapter(db2,"db2");
   });
+
   @uses("ram")
   @model()
   class TestUserMultipleDB extends BaseModel {
@@ -53,13 +45,17 @@ describe("Adapter Integration", () => {
 
     @required()
     @readonly()
-    @type([String.name])
+    @type([String])
     sex!: "M" | "F";
 
     constructor(arg?: ModelArg<TestUserMultipleDB>) {
       super(arg);
     }
   }
+
+  it("expects to have a ram flavour", () => {
+    expect(Metadata.flavourOf(TestUserMultipleDB)).toEqual("ram");
+  });
 
   it("Create and read on multiple DBs", async () => {
     const repo1 = new Repository(adapter1, TestUserMultipleDB);

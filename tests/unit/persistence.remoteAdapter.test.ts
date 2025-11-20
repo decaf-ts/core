@@ -6,7 +6,7 @@ import {
   BaseError,
 } from "@decaf-ts/db-decorators";
 import { Adapter, Sequence, SequenceOptions, Statement } from "../../src/index";
-import { Model } from "@decaf-ts/decorator-validation/lib/model";
+import { Model } from "@decaf-ts/decorator-validation";
 
 class DummyContext<F extends RepositoryFlags> extends Context<F> {}
 

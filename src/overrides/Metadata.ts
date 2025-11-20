@@ -1,11 +1,13 @@
 import "@decaf-ts/decoration";
-import type { Constructor, Model } from "@decaf-ts/decorator-validation";
+import type { Model } from "@decaf-ts/decorator-validation";
 import {
   Context,
   OperationKeys,
   RepositoryFlags,
 } from "@decaf-ts/db-decorators";
-import type { Adapter, Migration } from "../persistence/index";
+import type { Adapter, Migration } from "../persistence";
+import type { Constructor } from "@decaf-ts/decoration";
+import type { ExtendedRelationsMetadata } from "../model";
 
 declare module "@decaf-ts/decoration" {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -25,5 +27,32 @@ declare module "@decaf-ts/decoration" {
     >(
       adapter?: A
     ): Constructor<Migration<any, A, CONF, CONN, QUERY, FLAGS, CONTEXT>>[];
+
+    function relations<M extends Model>(
+      m: Constructor<M>
+    ): string[] | undefined;
+    function relations<M extends Model>(
+      m: Constructor<M>,
+      prop: keyof M
+    ): ExtendedRelationsMetadata;
+    function relations<M extends Model>(
+      m: Constructor<M>,
+      prop?: keyof M
+    ): string[] | ExtendedRelationsMetadata | undefined;
+  }
+}
+
+declare module "@decaf-ts/decorator-validation" {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  export namespace Model {
+    function relations<M extends Model>(m: Constructor<M>): string[];
+    function relations<M extends Model>(
+      m: Constructor<M>,
+      prop: keyof M
+    ): ExtendedRelationsMetadata;
+    function relations<M extends Model>(
+      m: Constructor<M>,
+      prop?: keyof M
+    ): string[] | ExtendedRelationsMetadata;
   }
 }

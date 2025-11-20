@@ -1,4 +1,4 @@
-import { type Constructor, Model } from "@decaf-ts/decorator-validation";
+import { Model } from "@decaf-ts/decorator-validation";
 import type { Executor, RawExecutor } from "../interfaces";
 import type {
   FromSelector,
@@ -7,7 +7,7 @@ import type {
   SelectSelector,
 } from "./selectors";
 import { Condition } from "./Condition";
-import { findPrimaryKey, InternalError } from "@decaf-ts/db-decorators";
+import { InternalError } from "@decaf-ts/db-decorators";
 import { final } from "../utils/decorators";
 import type {
   CountOption,
@@ -26,6 +26,7 @@ import { Adapter } from "../persistence";
 import { QueryError } from "./errors";
 import { Logger } from "@decaf-ts/logging";
 import { LoggedClass } from "@decaf-ts/logging";
+import { Constructor } from "@decaf-ts/decoration";
 
 /**
  * @description Base class for database query statements
@@ -202,9 +203,7 @@ export abstract class Statement<Q, M extends Model, R>
   async raw<R>(rawInput: Q): Promise<R> {
     const results = await this.adapter.raw<R>(rawInput);
     if (!this.selectSelector) return results;
-    const pkAttr = findPrimaryKey(
-      new (this.fromSelector as Constructor<M>)()
-    ).id;
+    const pkAttr = Model.pk(this.fromSelector);
 
     const processor = function recordProcessor(
       this: Statement<Q, M, R>,

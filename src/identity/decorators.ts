@@ -1,9 +1,4 @@
-import {
-  Decoration,
-  Model,
-  propMetadata,
-  required,
-} from "@decaf-ts/decorator-validation";
+import { Model, required } from "@decaf-ts/decorator-validation";
 import {
   DefaultSequenceOptions,
   SequenceOptions,
@@ -16,13 +11,18 @@ import {
   readonly,
   RepositoryFlags,
 } from "@decaf-ts/db-decorators";
-import { Repo, Repository } from "../repository/Repository";
+import { Repo } from "../repository/Repository";
 import { index } from "../model/decorators";
 import { sequenceNameForModel } from "./utils";
 import { Sequence } from "../persistence/Sequence";
 import { Context } from "@decaf-ts/db-decorators";
 import { OrderDirection } from "../repository";
-import { apply } from "@decaf-ts/reflection";
+import {
+  apply,
+  Decoration,
+  Metadata,
+  propMetadata,
+} from "@decaf-ts/decoration";
 
 const defaultPkPriority = 60; // Default priority for primary key to run latter than other properties
 
@@ -139,16 +139,16 @@ export function pk(
         : opts.generated || DefaultSequenceOptions.generated,
   }) as SequenceOptions;
 
-  const key = Repository.key(DBKeys.ID);
+  const key = DBKeys.ID;
   function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
     return function pkDec(obj: any, attr: any) {
       return apply(
         index([OrderDirection.ASC, OrderDirection.DSC]),
         required(),
         readonly(),
-        propMetadata(key, options),
-        onCreate(pkOnCreate, options, groupsort),
-        propMetadata(DBKeys.ID, attr)
+        // Model.pk neeeds to get the pk property name from the first property of Metatada[DBKeys.ID] ---> { [DBKeys.ID]: { [attr]:options }}
+        propMetadata(Metadata.key(DBKeys.ID, attr), options),
+        onCreate(pkOnCreate, options, groupsort)
       )(obj, attr);
     };
   }

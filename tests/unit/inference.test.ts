@@ -1,23 +1,21 @@
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { Adapter } from "../../src/index";
-import { RamFlavour } from "../../src/ram/index";
+import { RamFlavour } from "../../src/ram/constants";
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
 const ramAdapter = new RamAdapter();
 
 import { Repository } from "../../src/repository/Repository";
-import { Model } from "@decaf-ts/decorator-validation";
 import { TestModel } from "./TestModel";
-
-Model.setBuilder(Model.fromModel);
 
 describe("Query type inference", () => {
   let created: TestModel[];
 
   const repo = new Repository(ramAdapter, TestModel);
 
+  let models: any[];
   beforeAll(async () => {
-    const models = [1, 2, 3, 4, 5].map(
+    models = [1, 2, 3, 4, 5].map(
       (i) =>
         new TestModel({
           id: "id" + i,
@@ -25,16 +23,20 @@ describe("Query type inference", () => {
           nif: "12345678" + i,
         })
     );
-    created = await repo.createAll(models);
-    expect(created).toBeDefined();
-    expect(Array.isArray(created)).toEqual(true);
-    expect(created.every((el) => el instanceof TestModel)).toEqual(true);
-    expect(created.every((el) => !el.hasErrors())).toEqual(true);
   });
 
   it("infers properly", async () => {
     const keys = ["id"] as const;
-
+    created = await repo.createAll(models);
+    expect(created).toBeDefined();
+    expect(Array.isArray(created)).toEqual(true);
+    expect(created.every((el) => el instanceof TestModel)).toEqual(true);
+    expect(
+      created.every((el) => {
+        const errors = el.hasErrors();
+        return !errors;
+      })
+    ).toEqual(true);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const partialResult = await repo.select(keys).execute();
 

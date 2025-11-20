@@ -5,7 +5,6 @@ const adapter = new RamAdapter();
 import {
   min,
   minlength,
-  Model,
   model,
   required,
   type,
@@ -17,13 +16,11 @@ import {
   index,
   OrderDirection,
   pk,
-  uses,
   Repository,
   Condition,
 } from "../../src/index";
 import { RamRepository } from "../../src/ram/types";
-
-Model.setBuilder(Model.fromModel);
+import { uses } from "@decaf-ts/decoration";
 
 jest.setTimeout(50000);
 
@@ -45,7 +42,7 @@ describe("Queries", () => {
 
     @required()
     @readonly()
-    @type([String.name])
+    @type([String])
     sex!: "M" | "F";
 
     constructor(arg?: ModelArg<TestUser>) {

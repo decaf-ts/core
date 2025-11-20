@@ -1,7 +1,7 @@
-import { Constructor, Model, ModelKeys } from "@decaf-ts/decorator-validation";
-import { InternalError, Repository } from "@decaf-ts/db-decorators";
+import { Model } from "@decaf-ts/decorator-validation";
+import { InternalError } from "@decaf-ts/db-decorators";
 import { PersistenceKeys } from "../persistence/constants";
-import { Adapter } from "../persistence/Adapter";
+import { Constructor, Metadata } from "@decaf-ts/decoration";
 
 /**
  * @description Gets the table name for a model
@@ -20,13 +20,13 @@ export function getTableName<M extends Model>(
 
   if (!obj) throw new InternalError(`Unable to find model ${model}`);
 
-  const metadata = Reflect.getOwnMetadata(
-    Adapter.key(PersistenceKeys.TABLE),
-    obj[ModelKeys.MODEL as unknown as keyof typeof obj] || obj
+  const meta = Metadata.get(
+    model instanceof Model ? model.constructor : (model as any),
+    PersistenceKeys.TABLE
   );
 
-  if (metadata) {
-    return metadata;
+  if (meta) {
+    return meta;
   }
   if (model instanceof Model) {
     return model.constructor.name;
@@ -35,13 +35,12 @@ export function getTableName<M extends Model>(
 }
 
 export function getColumnName<M extends Model>(
-  model: M,
+  model: M | Constructor<M>,
   attribute: string
 ): string {
-  const metadata = Reflect.getMetadata(
-    Repository.key(PersistenceKeys.COLUMN),
-    model,
-    attribute
+  const metadata = Metadata.get(
+    model instanceof Model ? model.constructor : (model as any),
+    Metadata.key(PersistenceKeys.COLUMN, attribute)
   );
   return metadata ? metadata : attribute;
 }

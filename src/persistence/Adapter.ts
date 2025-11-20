@@ -1,6 +1,5 @@
 import {
   BaseError,
-  DBKeys,
   InternalError,
   Context,
   OperationKeys,
@@ -8,17 +7,12 @@ import {
   DefaultRepositoryFlags,
   Contextual,
   BulkCrudOperationKeys,
-  modelToTransient,
 } from "@decaf-ts/db-decorators";
 import { type Observer } from "../interfaces/Observer";
 import {
-  type Constructor,
-  Decoration,
-  DefaultFlavour,
   hashObj,
   Model,
   ModelConstructor,
-  ModelRegistry,
 } from "@decaf-ts/decorator-validation";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { RawExecutor } from "../interfaces/RawExecutor";
@@ -34,29 +28,43 @@ import { type EventIds, Migration, type ObserverFilter } from "./types";
 import { ObserverHandler } from "./ObserverHandler";
 import { LoggedClass } from "@decaf-ts/logging";
 import { getColumnName, getTableName } from "../identity/utils";
-import { Repository as Repo } from "@decaf-ts/db-decorators";
 import { AdapterDispatch } from "./types";
-import { Metadata } from "@decaf-ts/decoration";
+import {
+  Decoration,
+  DefaultFlavour,
+  Metadata,
+  type Constructor,
+} from "@decaf-ts/decoration";
 import { MigrationError } from "./errors";
 
-Decoration.setFlavourResolver((obj: object) => {
+const flavourResolver = Decoration["flavourResolver"].bind(Decoration);
+Decoration["flavourResolver"] = (obj: object) => {
   try {
-    return (
-      Adapter.flavourOf(Model.isModel(obj) ? obj.constructor : (obj as any)) ||
-      Adapter.currentFlavour ||
-      DefaultFlavour
-    );
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  } catch (e: unknown) {
-    // return DefaultFlavour;
-  }
-  try {
-    return Adapter.currentFlavour || DefaultFlavour;
+    const result = flavourResolver(obj);
+    if (result && result !== DefaultFlavour) return result;
+    const targetCtor =
+      typeof obj === "function"
+        ? (obj as Constructor)
+        : ((obj as { constructor?: Constructor })?.constructor as
+            | Constructor
+            | undefined);
+    const registeredFlavour =
+      targetCtor && typeof Metadata["registeredFlavour"] === "function"
+        ? Metadata.registeredFlavour(targetCtor)
+        : undefined;
+    if (registeredFlavour && registeredFlavour !== DefaultFlavour)
+      return registeredFlavour;
+    const currentFlavour = Adapter["_currentFlavour"];
+    if (currentFlavour) {
+      const cachedAdapter = Adapter["_cache"]?.[currentFlavour];
+      if (cachedAdapter?.flavour) return cachedAdapter.flavour;
+      return currentFlavour;
+    }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e: unknown) {
     return DefaultFlavour;
   }
-});
+};
 
 /**
  * @description Abstract Facade class for persistence adapters
@@ -424,7 +432,7 @@ export abstract class Adapter<
     transient?: Record<string, any>;
   } {
     const log = this.log.for(this.prepare);
-    const split = modelToTransient(model);
+    const split = model.toTransient();
     const result = Object.entries(split.model).reduce(
       (accum: Record<string, any>, [key, val]) => {
         if (typeof val === "undefined") return accum;
@@ -787,10 +795,7 @@ export abstract class Adapter<
    * @return {string} The adapter flavor name
    */
   static flavourOf<M extends Model>(model: Constructor<M>): string {
-    return (
-      Reflect.getMetadata(this.key(PersistenceKeys.ADAPTER), model) ||
-      this.current?.flavour
-    );
+    return Metadata.flavourOf(model);
   }
 
   static get currentFlavour() {
@@ -844,52 +849,15 @@ export abstract class Adapter<
   }
 
   /**
-   * @description Creates a metadata key
-   * @summary Generates a standardized metadata key for persistence-related metadata
-   * @param {string} key - The base key name
-   * @return {string} The formatted metadata key
-   */
-  static key(key: string) {
-    return Repo.key(key);
-  }
-
-  /**
    * @description Gets all models associated with an adapter flavor
    * @summary Retrieves all model constructors that are configured to use a specific adapter flavor
    * @template M - The model type
    * @param {string} flavour - The adapter flavor to find models for
    * @return An array of model constructors
    */
-  static models<M extends Model>(flavour: string) {
+  static models<M extends Model>(flavour: string): ModelConstructor<M>[] {
     try {
-      const registry = (Model as any).getRegistry() as ModelRegistry<any>;
-      const cache = (
-        registry as unknown as { cache: Record<string, ModelConstructor<any>> }
-      ).cache;
-      const managedModels: ModelConstructor<any>[] = Object.values(cache)
-        .map((m: ModelConstructor<M>) => {
-          let f = Reflect.getMetadata(
-            Adapter.key(PersistenceKeys.ADAPTER),
-            m as ModelConstructor<any>
-          );
-          if (f && f === flavour) return m;
-          if (!f) {
-            const repo = Reflect.getMetadata(
-              Repo.key(DBKeys.REPOSITORY),
-              m as ModelConstructor<any>
-            );
-            if (!repo) return;
-            const repository = (this._baseRepository as any).forModel(m);
-
-            f = Reflect.getMetadata(
-              Adapter.key(PersistenceKeys.ADAPTER),
-              repository
-            );
-            return f;
-          }
-        })
-        .filter((m) => !!m);
-      return managedModels;
+      return Metadata.flavouredAs(flavour) as ModelConstructor<M>[];
     } catch (e: any) {
       throw new InternalError(e);
     }

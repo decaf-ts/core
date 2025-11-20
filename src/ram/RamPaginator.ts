@@ -1,7 +1,8 @@
 import { RawRamQuery } from "./types";
 import { Paginator } from "../query";
-import { Constructor, Model } from "@decaf-ts/decorator-validation";
+import { Model } from "@decaf-ts/decorator-validation";
 import { Adapter } from "../persistence";
+import { Constructor } from "@decaf-ts/decoration";
 
 /**
  * @description RAM-specific paginator implementation
@@ -69,13 +70,14 @@ export class RamPaginator<M extends Model, R> extends Paginator<
   async page(page: number = 1): Promise<R[]> {
     const statement = this.prepare(this.statement);
     if (!this._recordCount || !this._totalPages) {
-        this._totalPages = this._recordCount = 0;
-        const results: R[] = await this.adapter.raw({ ...statement, limit: undefined }) || [];
-        this._recordCount = results.length;
-        if (this._recordCount > 0) {
-            const size = statement?.limit || this.size;
-            this._totalPages = Math.ceil(this._recordCount / size);
-        }
+      this._totalPages = this._recordCount = 0;
+      const results: R[] =
+        (await this.adapter.raw({ ...statement, limit: undefined })) || [];
+      this._recordCount = results.length;
+      if (this._recordCount > 0) {
+        const size = statement?.limit || this.size;
+        this._totalPages = Math.ceil(this._recordCount / size);
+      }
     }
 
     page = this.validatePage(page);

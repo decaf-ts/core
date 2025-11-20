@@ -1,17 +1,15 @@
 import {
+  Constructor,
   InjectableRegistryImp,
   Injectables,
 } from "@decaf-ts/injectable-decorators";
 import { Repository } from "./Repository";
-import {
-  Constructor,
-  Model,
-  ModelConstructor,
-} from "@decaf-ts/decorator-validation";
+import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { generateInjectableNameForRepository } from "./utils";
 import { PersistenceKeys } from "../persistence/constants";
 import { Adapter } from "../persistence/Adapter";
 import { Logger, Logging } from "@decaf-ts/logging";
+import { Metadata } from "@decaf-ts/decoration";
 
 /**
  * @description Registry for injectable repositories with auto-resolution.
@@ -134,10 +132,9 @@ export class InjectablesRegistry extends InjectableRegistryImp {
       if (!modelCtor) return undefined;
 
       // Resolve flavour from metadata if not provided
-      const metaKey = Adapter.key(PersistenceKeys.ADAPTER);
+      const metaKey = PersistenceKeys.ADAPTER;
       const resolvedFlavour =
-        flavour ||
-        (Reflect.getMetadata(metaKey, modelCtor) as string | undefined);
+        flavour || (Metadata.get(modelCtor, metaKey) as string | undefined);
 
       try {
         // Determine an alias to use: prefer a directly registered adapter; otherwise, if the current adapter
@@ -160,10 +157,10 @@ export class InjectablesRegistry extends InjectableRegistryImp {
         // Otherwise, register the resolved injectable name for later retrieval
         const f =
           resolvedFlavour ||
-          (Reflect.getMetadata(metaKey, (injectable as any).constructor) as
+          (Metadata.get((injectable as any).constructor, metaKey) as
             | string
             | undefined) ||
-          (Reflect.getMetadata(metaKey, modelCtor) as string | undefined);
+          (Metadata.get(modelCtor, metaKey) as string | undefined);
         Injectables.register(
           injectable,
           generateInjectableNameForRepository(

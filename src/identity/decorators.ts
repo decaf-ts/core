@@ -107,54 +107,61 @@ export async function pkOnCreate<
   setPrimaryKeyValue(model, key as string, next);
 }
 
-
 export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
-    return function pkDec(obj: any, attr: any) {
-      prop()(obj, attr)
-      switch (options.type) {
-        case undefined: {
-          const metaType = Metadata.type(obj, attr);
-          if (![Number, String, BigInt].includes(metaType)) throw new Error('Incorrrect option type');
-          options.type = metaType;
-          break;
-        }
-        case String: 
-          options.generated = false;
-          break;
-        case Number: 
-        case BigInt: 
-          options.generated = true;
-          break;
-        case "uuid":
-        case "serial":
-          case "string":
-          break;
-        case "String": 
-          options.type = String;
-          console.warn('Deprecated "String" type in options');
-          break;
-        case "Number": 
-          options.type = Number;
-          console.warn('Deprecated "Number" type in options');
-          break;
-        case "Bigint": 
-          options.type = BigInt;
-          console.warn('Deprecated "BigInt" type in options');
-          break;
-        default: 
-          throw new Error('Unsupported type')
-      }
+  options = Object.assign({}, DefaultSequenceOptions, options, {
+  generated:
+    options.type && typeof options.generated === "undefined"
+      ? true
+      : options.generated || DefaultSequenceOptions.generated,
+  }) as SequenceOptions;
 
-      return apply(
-        index([OrderDirection.ASC, OrderDirection.DSC]),
-        required(),
-        readonly(),
-        // Model.pk neeeds to get the pk property name from the first property of Metatada[DBKeys.ID] ---> { [DBKeys.ID]: { [attr]:options }}
-        propMetadata(Metadata.key(DBKeys.ID, attr), options),
-        onCreate(pkOnCreate, options, groupsort)
-      )(obj, attr);
-    };
-  }
+  return function pkDec(obj: any, attr: any) {
+    prop()(obj, attr);
+    switch (options.type) {
+      case undefined: {
+        const metaType = Metadata.type(obj.constructor, attr);
+        if (![Number.name, String.name, BigInt.name].includes(metaType?.name || metaType))
+          throw new Error("Incorrrect option type");
+        options.type = metaType;
+        break;
+      }
+      case String:
+        options.generated = false;
+        break;
+      case Number:
+      case BigInt:
+        options.generated = true;
+        break;
+      case "uuid":
+      case "serial":
+      case "string":
+        break;
+      case String.name:
+        options.type = String;
+        console.warn('Deprecated "String" type in options');
+        break;
+      case Number.name:
+        options.type = Number;
+        console.warn('Deprecated "Number" type in options');
+        break;
+      case BigInt.name:
+        options.type = BigInt;
+        console.warn('Deprecated "BigInt" type in options');
+        break;
+      default:
+        throw new Error("Unsupported type");
+    }
+
+    return apply(
+      index([OrderDirection.ASC, OrderDirection.DSC]),
+      required(),
+      readonly(),
+      // Model.pk neeeds to get the pk property name from the first property of Metatada[DBKeys.ID] ---> { [DBKeys.ID]: { [attr]:options }}
+      propMetadata(Metadata.key(DBKeys.ID, attr), options),
+      onCreate(pkOnCreate, options, groupsort)
+    )(obj, attr);
+  };
+}
 
 /**
  * @description Primary Key Decorator
@@ -183,7 +190,6 @@ export function pk(
   > = DefaultSequenceOptions
 ) {
   const key = DBKeys.ID;
-  
   return Decoration.for(key)
     .define({
       decorator: pkDec,

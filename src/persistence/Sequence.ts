@@ -1,6 +1,9 @@
 import { Model } from "@decaf-ts/decorator-validation";
 import { sequenceNameForModel } from "../identity/utils";
-import { SequenceOptions } from "../interfaces/SequenceOptions";
+import {
+  SequenceOptions,
+  SequenceOptionsType,
+} from "../interfaces/SequenceOptions";
 import { Logger, Logging } from "@decaf-ts/logging";
 import { UnsupportedError } from "./errors";
 import { Constructor } from "@decaf-ts/decoration";
@@ -115,21 +118,25 @@ export abstract class Sequence {
    * @return {string|number|bigint} The converted value
    */
   static parseValue(
-    type: "Number" | "BigInt" | string | undefined,
+    type: SequenceOptionsType,
     value: string | number | bigint
   ): string | number | bigint {
-    switch (type) {
-      case "Number":
+    const typename = typeof type === 'function' && (type as any)?.name ? (type as any).name : type;
+    switch (typename) {
+      case Number.name:
         return typeof value === "string"
           ? parseInt(value)
           : typeof value === "number"
             ? value
             : BigInt(value);
-      case "BigInt":
+      case BigInt.name:
         return BigInt(value);
+      case "uuid":
+      case "serial":
+      case "string":
       case undefined:
-      case "String":
-        return value;
+      case String.name:
+        return value.toString();
       default:
         throw new UnsupportedError(
           `Unsupported sequence type: ${type} for adapter ${this}`

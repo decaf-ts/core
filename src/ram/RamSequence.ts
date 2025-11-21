@@ -1,6 +1,6 @@
 import { RamSequenceModel } from "./model/RamSequenceModel";
 import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
-import { Sequence } from "../persistence";
+import { Sequence, UnsupportedError } from "../persistence";
 import { SequenceOptions } from "../interfaces";
 import { RamAdapter } from "./RamAdapter";
 import { Repo, Repository } from "../repository";
@@ -100,14 +100,15 @@ export class RamSequence extends Sequence {
       throw new InternalError(
         `Value to increment does not consider the incrementBy setting: ${incrementBy}`
       );
-    switch (type) {
-      case "Number":
+    const typename = typeof type === 'function' && (type as any)?.name ? (type as any).name : type;
+    switch (typename) {
+      case Number.name:
         next = (this.parse(current) as number) + toIncrementBy;
         break;
-      case "BigInt":
+      case BigInt.name:
         next = (this.parse(current) as bigint) + BigInt(toIncrementBy);
         break;
-      case "String":
+      case String.name:
         next = this.parse(current);
         break;
       default:
@@ -161,7 +162,10 @@ export class RamSequence extends Sequence {
     for (let i: number = 1; i <= count; i++) {
       range.push(current + incrementBy * (this.parse(i) as number));
     }
-    if (range[range.length - 1] !== next && this.options.type !== "String")
+    if (this.options.type === 'uuid' || this.options.type === 'serial')
+      throw new UnsupportedError(`type ${this.options.type} is currently not suppported for this adapter`);
+    const typename = typeof this.options.type === 'function' && (this.options.type as any)?.name ? (this.options.type as any).name : this.options.type;
+    if (range[range.length - 1] !== next && typename !== "String")
       throw new InternalError("Miscalculation of range");
     return range;
   }

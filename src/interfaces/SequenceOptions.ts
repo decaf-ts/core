@@ -1,10 +1,28 @@
 /**
+ * @description Type of the sequence configuration options type property
+ * @summary Type of the sequence configuration options type property
+ * @interface SequenceOptionsType
+ * @memberOf module:core
+ */
+export type SequenceOptionsType =
+  | "Number"
+  | "BigInt"
+  | "String"
+  | string
+  | "serial"
+  | "uuid"
+  | StringConstructor
+  | NumberConstructor
+  | BigIntConstructor
+  | undefined;
+
+/**
  * @description Interface for sequence configuration options
  * @summary Defines the configuration options for creating and managing sequences
  * @interface SequenceOptions
  * @memberOf module:core
  */
-export interface SequenceOptions<TYPE= "Number" | "BigInt" | "String" | string | "serial" | "uuid" | StringConstructor | NumberConstructor | BigIntConstructor | undefined> {
+export interface SequenceOptions<TYPE = SequenceOptionsType> {
   /**
    * @description Optional name for the sequence
    * @summary A unique identifier for the sequence

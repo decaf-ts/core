@@ -11,7 +11,7 @@ const ramAdapter = new RamAdapter();
 import { Repository } from "../../src/repository/Repository";
 import { model, Model } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
-import { NotFoundError, OperationKeys } from "@decaf-ts/db-decorators";
+import { Context, NotFoundError, OperationKeys } from "@decaf-ts/db-decorators";
 import { TestModel } from "./TestModel";
 import { Repo } from "../../src";
 import { uses } from "@decaf-ts/decoration";
@@ -53,7 +53,8 @@ describe("Repository", () => {
     expect(mock).toHaveBeenCalledWith(
       Repository.table(TestModel),
       OperationKeys.CREATE,
-      id
+      id,
+      expect.any(Context)
     );
   });
 
@@ -76,13 +77,14 @@ describe("Repository", () => {
 
     expect(updated).toBeDefined();
     expect(updated.equals(created)).toEqual(false);
-    expect(updated.equals(created, "updatedOn", "name", "updatedBy")).toEqual(
+    expect(updated.equals(created, "updatedAt", "name", "updatedBy")).toEqual(
       true
     ); // minus the expected changes
     expect(mock).toHaveBeenCalledWith(
       Repository.table(TestModel),
       OperationKeys.UPDATE,
-      updated.id
+      updated.id,
+      expect.any(Context)
     );
   });
 
@@ -97,7 +99,8 @@ describe("Repository", () => {
     expect(mock).toHaveBeenCalledWith(
       Repository.table(TestModel),
       OperationKeys.DELETE,
-      deleted.id
+      deleted.id,
+      expect.any(Context)
     );
   });
 

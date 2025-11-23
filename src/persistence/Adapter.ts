@@ -470,7 +470,7 @@ export abstract class Adapter<
         const mappedProp: string = Model.columnName(
           model.constructor as Constructor<M>,
           key as keyof M
-        ) as string;
+        );
         if (this.isReserved(mappedProp))
           throw new InternalError(`Property name ${mappedProp} is reserved`);
         accum[mappedProp] = val;
@@ -595,9 +595,8 @@ export abstract class Adapter<
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
     const { log } = this.logCtx(args, this.createAll);
-    log.debug(
-      `Creating ${id.length} entries ${Model.tableName(tableName)} table`
-    );
+    const tableLabel = Model.tableName(tableName);
+    log.debug(`Creating ${id.length} entries ${tableLabel} table`);
     return Promise.all(
       id.map((i, count) => this.create(tableName, i, model[count], ...args))
     );
@@ -631,9 +630,8 @@ export abstract class Adapter<
     ...args: any[]
   ): Promise<Record<string, any>[]> {
     const { log } = this.logCtx(args, this.readAll);
-    log.debug(
-      `Reading ${id.length} entries ${Model.tableName(tableName)} table`
-    );
+    const tableLabel = Model.tableName(tableName);
+    log.debug(`Reading ${id.length} entries ${tableLabel} table`);
     return Promise.all(id.map((i) => this.read(tableName, i, ...args)));
   }
 
@@ -672,9 +670,8 @@ export abstract class Adapter<
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
     const { log } = this.logCtx(args, this.updateAll);
-    log.debug(
-      `Updating ${id.length} entries ${Model.tableName(tableName)} table`
-    );
+    const tableLabel = Model.tableName(tableName);
+    log.debug(`Updating ${id.length} entries ${tableLabel} table`);
     return Promise.all(
       id.map((i, count) => this.update(tableName, i, model[count], ...args))
     );

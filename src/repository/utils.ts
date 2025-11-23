@@ -2,7 +2,6 @@ import { InternalError } from "@decaf-ts/db-decorators";
 import { sf } from "@decaf-ts/decorator-validation";
 import { PersistenceKeys } from "../persistence/constants";
 import { Model } from "@decaf-ts/decorator-validation";
-import { getTableName } from "../identity/utils";
 import { Constructor, DefaultFlavour, Decoration } from "@decaf-ts/decoration";
 
 /**
@@ -51,5 +50,5 @@ export function generateInjectableNameForRepository<T extends Model>(
         `Could not retrieve flavour from model ${model instanceof Model ? model.constructor.name : model.name}`
       );
   }
-  return sf(PersistenceKeys.INJECTABLE, flavour, getTableName(model));
+  return sf(PersistenceKeys.INJECTABLE, flavour, Model.tableName(model));
 }

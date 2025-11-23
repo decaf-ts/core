@@ -163,7 +163,7 @@ export class RamAdapter extends Adapter<
     transient?: Record<string, any>;
   } {
     const ctx = args.pop();
-    const prepared = super.prepare(model, ctx);
+    const prepared = super.prepare(model, ...args, ctx);
     delete prepared.record[
       Model.pk(model.constructor as Constructor<M>) as any
     ];

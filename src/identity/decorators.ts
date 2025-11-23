@@ -11,7 +11,6 @@ import {
   readonly,
 } from "@decaf-ts/db-decorators";
 import { index } from "../model/decorators";
-import { sequenceNameForModel } from "./utils";
 import { Sequence } from "../persistence/Sequence";
 import { OrderDirection } from "../repository";
 import {
@@ -80,15 +79,10 @@ export async function pkOnCreate<
     propertyKey: string,
     value: string | number | bigint
   ) {
-    Object.defineProperty(target, propertyKey, {
-      enumerable: true,
-      writable: false,
-      configurable: true,
-      value: value,
-    });
+    Reflect.set(target, propertyKey, value);
   };
 
-  if (!data.name) data.name = sequenceNameForModel(model, "pk");
+  if (!data.name) data.name = Model.sequenceName(model, "pk");
   let sequence: Sequence;
   try {
     sequence = await this.adapter.Sequence(data);

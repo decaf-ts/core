@@ -10,6 +10,7 @@ import {
   onCreateUpdate,
   DBKeys,
   Context,
+  PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
 import {
   Constructor,
@@ -159,9 +160,11 @@ export class DummyAdapter extends Adapter<
    */
   override prepare<M extends Model>(
     model: M,
-    pk: keyof M
+    pk: keyof M,
+    ...args: [...any[], RamContext]
   ): { record: Record<string, any>; id: string } {
-    const prepared = super.prepare(model, pk);
+    const ctx = args.pop();
+    const prepared = super.prepare(model, ...args, ctx);
     delete prepared.record[pk as string];
     return prepared;
   }
@@ -179,11 +182,12 @@ export class DummyAdapter extends Adapter<
    */
   override revert<M extends Model>(
     obj: Record<string, any>,
-    clazz: string | Constructor<M>,
-    pk: keyof M,
-    id: string | number
+    clazz: Constructor<M>,
+    id: PrimaryKeyType,
+    transient?: Record<string, any>,
+    ...args: [...any[], RamContext]
   ): M {
-    const res = super.revert(obj, clazz, pk, id);
+    const res = super.revert(obj, clazz, id, transient, ...args);
     return res;
   }
 
@@ -423,7 +427,8 @@ export class DummyAdapter extends Adapter<
    *   end
    *   RamAdapter-->>Caller: result
    */
-  async raw<R>(rawInput: RawRamQuery<any>): Promise<R> {
+  async raw<R>(rawInput: RawRamQuery<any>, ...args: [...any[], RamContext]): Promise<R> {
+    const ctx = args.pop();
     const { where, sort, limit, skip, from } = rawInput;
     let { select } = rawInput;
     const collection = this.tableFor(from);
@@ -436,8 +441,9 @@ export class DummyAdapter extends Adapter<
       this.revert(
         r,
         from,
-        id as any,
-        Sequence.parseValue(props.type as any, pk as string) as string
+        Sequence.parseValue(props.type as any, pk as string) as string,
+        undefined,
+        ctx
       )
     );
 

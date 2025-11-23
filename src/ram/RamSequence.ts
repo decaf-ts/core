@@ -115,7 +115,7 @@ export class RamSequence extends Sequence {
     }
     let seq: RamSequenceModel;
     const repo = this.repo.override({
-      ignoredValidationProperties: ["updatedOn"],
+      ignoredValidationProperties: ["updatedAt"],
     });
     try {
       seq = await repo.update(new RamSequenceModel({ id: name, current: next }));

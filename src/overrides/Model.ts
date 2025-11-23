@@ -19,9 +19,30 @@ declare module "@decaf-ts/decorator-validation" {
       model: Constructor<M>
     ): SequenceOptions;
 
-    function tableName<M extends Model<boolean>>(m: Constructor<M> | M): string;
+    /**
+     * @description Generates a sequence name for a model
+     * @summary Creates a standardized sequence name by combining the table name with additional arguments
+     * @template M - Type that extends Model
+     * @param {M | Constructor<M>} model - The model instance or constructor to generate the sequence name for
+     * @param {...string} args - Additional string arguments to append to the sequence name
+     * @return {string} The generated sequence name
+     */
+    function sequenceName<M extends Model>(
+      model: M | Constructor<M>,
+      ...args: string[]
+    ): string;
+    /**
+     * @description Gets the table name for a model
+     * @summary Retrieves the table name associated with a model by checking metadata or falling back to the constructor name
+     * @template M - Type that extends Model
+     * @param {M | Constructor<M>} model - The model instance or constructor to get the table name for
+     * @return {string} The table name for the model
+     */
+    function tableName<M extends Model<boolean>>(
+      model: Constructor<M> | M
+    ): string;
     function columnName<M extends Model<boolean>>(
-      m: Constructor<M> | M,
+      model: Constructor<M> | M,
       prop: keyof M
     ): string;
     function nonValidatableFor<M extends Model<boolean>>(

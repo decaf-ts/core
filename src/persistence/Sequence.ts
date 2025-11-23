@@ -1,5 +1,4 @@
 import { Model } from "@decaf-ts/decorator-validation";
-import { sequenceNameForModel } from "../identity/utils";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { LoggedClass } from "@decaf-ts/logging";
 import { UnsupportedError } from "./errors";
@@ -90,7 +89,7 @@ export abstract class Sequence extends LoggedClass {
    * @return {string} The sequence name for the model's primary key
    */
   static pk<M extends Model>(model: M | Constructor<M>) {
-    return sequenceNameForModel(model, "pk");
+    return Model.sequenceName(model, "pk");
   }
 
   /**

@@ -76,13 +76,41 @@ import { type ExtendedRelationsMetadata } from "../model";
 };
 
 (Model as any).tableName = function <M extends Model>(
-  m: Constructor<M>
+  model: Constructor<M> | M
 ): string {
-  return Metadata.get(m, PersistenceKeys.TABLE);
+  const obj =
+    model instanceof Model ? Model.get(model.constructor.name) : model;
+
+  if (!obj) throw new InternalError(`Unable to find model ${model}`);
+
+  const meta = Metadata.get(
+    model instanceof Model ? model.constructor : (model as any),
+    PersistenceKeys.TABLE
+  );
+
+  if (meta) {
+    return meta;
+  }
+  if (model instanceof Model) {
+    return model.constructor.name;
+  }
+  return model.name;
 };
 
 (Model as any).columnName = function <M extends Model>(
-  m: Constructor<M>
+  model: Constructor<M> | M,
+  attribute: keyof M
 ): string {
-  return Metadata.get(m, PersistenceKeys.COLUMN);
+  const metadata = Metadata.get(
+    model instanceof Model ? model.constructor : (model as any),
+    Metadata.key(PersistenceKeys.COLUMN, attribute as string)
+  );
+  return metadata ? metadata : (attribute as string);
+};
+
+(Model as any).sequenceName = function <M extends Model>(
+  model: M | Constructor<M>,
+  ...args: string[]
+): string {
+  return [Model.tableName(model), ...args].join("_");
 };

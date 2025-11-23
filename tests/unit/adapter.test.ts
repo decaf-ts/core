@@ -2,7 +2,7 @@ import { RamAdapter, RamRepository } from "../../src/ram";
 const adapter = new RamAdapter();
 import { Adapter, repository, Repository } from "../../src";
 import { TestModel } from "./TestModel";
-import { NotFoundError } from "@decaf-ts/db-decorators";
+import { NotFoundError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Model, model } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { Constructor, uses } from "@decaf-ts/decoration";
@@ -36,7 +36,12 @@ describe("Adapter", () => {
       nif: "123456789",
     });
 
-    const { record, id } = adapter.prepare(create, {} as any);
+    const ctx = await adapter.context(
+      OperationKeys.CREATE,
+      {},
+      TestModel
+    );
+    const { record, id } = adapter.prepare(create, ctx);
     expect(record).toMatchObject({
       tst_name: create.name,
       tst_nif: create.nif,
@@ -46,12 +51,17 @@ describe("Adapter", () => {
   });
 
   it("reverts models", async () => {
+    const ctx = await adapter.context(
+      OperationKeys.READ,
+      {},
+      TestModel
+    );
     const reverted = adapter.revert(
       prepared,
       TestModel,
       create.id as string,
       undefined,
-      {} as any
+      ctx
     ) as TestModel;
     expect(reverted).toBeDefined();
     expect(reverted).toBeInstanceOf(TestModel);
@@ -147,7 +157,7 @@ describe("Adapter", () => {
 
       expect(updated).toBeDefined();
       expect(updated.equals(created)).toEqual(false);
-      expect(updated.equals(created, "updatedOn", "name", "updatedBy")).toEqual(
+      expect(updated.equals(created, "updatedAt", "name", "updatedBy")).toEqual(
         true
       ); // minus the expected changes
     });

@@ -25,7 +25,6 @@ import { Sequence } from "../persistence/Sequence";
 import { Condition } from "../query/Condition";
 import { WhereOption } from "../query/options";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
-import { getColumnName, getTableName } from "../identity/utils";
 import { ObserverHandler } from "../persistence/ObserverHandler";
 import { final } from "../utils";
 import {
@@ -334,7 +333,7 @@ export class Repository<
   async create(model: M, ...args: any[]): Promise<M> {
     const { ctx, log } = this.logFor(args, this.create);
     log.debug(
-      `Creating new ${this.class.name} in table ${Model.tableName(this.class)}`
+      `Creating new ${this.class.name} in table ${Repository.table(this.class)}`
     );
     // eslint-disable-next-line prefer-const
     let { record, id, transient } = this.adapter.prepare(model, ctx);
@@ -364,10 +363,10 @@ export class Repository<
     if (!models.length) return models;
     const { ctx, log } = this.logFor(args, this.create);
     log.debug(
-      `Creating ${models.length} new ${this.class.name} in table ${Model.tableName(this.class)}`
+      `Creating ${models.length} new ${this.class.name} in table ${Repository.table(this.class)}`
     );
 
-    const prepared = models.map((m) => this.adapter.prepare(m, this.pk));
+    const prepared = models.map((m) => this.adapter.prepare(m, this.pk, ctx));
     const ids = prepared.map((p) => p.id);
     let records = prepared.map((p) => p.record);
     records = await this.adapter.createAll(
@@ -499,7 +498,7 @@ export class Repository<
   async read(id: PrimaryKeyType, ...args: any[]): Promise<M> {
     const { ctx, log } = this.logFor(args, this.create);
     log.debug(
-      `reading ${this.class.name} from table ${Model.tableName(this.class)} with pk ${this.pk as string}`
+      `reading ${this.class.name} from table ${Repository.table(this.class)} with pk ${this.pk as string}`
     );
 
     const m = await this.adapter.read(this.class, id, ...args);
@@ -550,7 +549,7 @@ export class Repository<
   override async readAll(keys: PrimaryKeyType[], ...args: any[]): Promise<M[]> {
     const { ctx, log } = this.logFor(args, this.create);
     log.debug(
-      `reading ${keys.length} ${this.class.name} in table ${Model.tableName(this.class)}`
+      `reading ${keys.length} ${this.class.name} in table ${Repository.table(this.class)}`
     );
 
     const records = await this.adapter.readAll(this.class, keys, ...args);
@@ -569,9 +568,9 @@ export class Repository<
   async update(model: M, ...args: any[]): Promise<M> {
     const { ctx, log } = this.logFor(args, this.create);
     // eslint-disable-next-line prefer-const
-    let { record, id, transient } = this.adapter.prepare(model, this.pk);
+    let { record, id, transient } = this.adapter.prepare(model, this.pk, ctx);
     log.debug(
-      `updating ${this.class.name} in table ${Model.tableName(this.class)} with id ${id}`
+      `updating ${this.class.name} in table ${Repository.table(this.class)} with id ${id}`
     );
     record = await this.adapter.update(this.class, id, record, ...args);
     return this.adapter.revert<M>(record, this.class, id, transient, ctx);
@@ -638,10 +637,10 @@ export class Repository<
   override async updateAll(models: M[], ...args: any[]): Promise<M[]> {
     const { ctx, log } = this.logFor(args, this.create);
     log.debug(
-      `Updating ${models.length} new ${this.class.name} in table ${Model.tableName(this.class)}`
+      `Updating ${models.length} new ${this.class.name} in table ${Repository.table(this.class)}`
     );
 
-    const records = models.map((m) => this.adapter.prepare(m, this.pk));
+    const records = models.map((m) => this.adapter.prepare(m, this.pk, ctx));
     const updated = await this.adapter.updateAll(
       this.class,
       records.map((r) => r.id),
@@ -774,7 +773,7 @@ export class Repository<
   async delete(id: PrimaryKeyType, ...args: any[]): Promise<M> {
     const { ctx, log } = this.logFor(args, this.create);
     log.debug(
-      `deleting new ${this.class.name} in table ${Model.tableName(this.class)} with pk ${id}`
+      `deleting new ${this.class.name} in table ${Repository.table(this.class)} with pk ${id}`
     );
 
     const m = await this.adapter.delete(this.class, id, ...args);
@@ -827,7 +826,7 @@ export class Repository<
   ): Promise<M[]> {
     const { ctx, log } = this.logFor(args, this.create);
     log.debug(
-      `deleting ${keys.length} ${this.class.name} in table ${Model.tableName(this.class)}`
+      `deleting ${keys.length} ${this.class.name} in table ${Repository.table(this.class)}`
     );
 
     const results = await this.adapter.deleteAll(this.class, keys, ...args);
@@ -1213,7 +1212,7 @@ export class Repository<
    * @return {string} The table name for the model.
    */
   static table<M extends Model>(model: M | Constructor<M>): string {
-    return getTableName(model);
+    return Model.tableName(model);
   }
 
   /**
@@ -1225,7 +1224,7 @@ export class Repository<
    * @return {string} The column name for the attribute.
    */
   static column<M extends Model>(model: M, attribute: string): string {
-    return getColumnName(model, attribute);
+    return Model.columnName(model, attribute as keyof M);
   }
 }
 

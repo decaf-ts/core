@@ -7,7 +7,7 @@ import type {
   SelectSelector,
 } from "./selectors";
 import { Condition } from "./Condition";
-import { InternalError } from "@decaf-ts/db-decorators";
+import { Context, InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { final } from "../utils/decorators";
 import type {
   CountOption,
@@ -197,7 +197,20 @@ export abstract class Statement<
 
   @final()
   async execute(...args: [...any[], ContextOf<A>] | any[]): Promise<R> {
-    const { ctx } = Adapter.logCtx<ContextOf<A>>(args, this.toString());
+    let execArgs = args;
+    if (
+      (!execArgs.length ||
+        !(execArgs[execArgs.length - 1] instanceof Context)) &&
+      this.fromSelector
+    ) {
+      const ctx = await this.adapter.context(
+        OperationKeys.READ,
+        {},
+        this.fromSelector
+      );
+      execArgs = [...execArgs, ctx];
+    }
+    const { ctx } = Adapter.logCtx<ContextOf<A>>(execArgs, this.toString());
     try {
       const query: Q = this.build();
       return (await this.raw(query, ctx)) as R;

@@ -36,7 +36,7 @@ describe("Adapter", () => {
       nif: "123456789",
     });
 
-    const { record, id } = adapter.prepare(create, Model.pk(create));
+    const { record, id } = adapter.prepare(create, {} as any);
     expect(record).toMatchObject({
       tst_name: create.name,
       tst_nif: create.nif,
@@ -49,8 +49,9 @@ describe("Adapter", () => {
     const reverted = adapter.revert(
       prepared,
       TestModel,
-      "id",
-      create.id as string
+      create.id as string,
+      undefined,
+      {} as any
     ) as TestModel;
     expect(reverted).toBeDefined();
     expect(reverted).toBeInstanceOf(TestModel);
@@ -86,13 +87,7 @@ describe("Adapter", () => {
     @repository(Managed2Model)
     @uses("ram")
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    class Managed2ModelRepository extends Repository<
-      Managed2Model,
-      any,
-      any,
-      any,
-      any
-    > {
+    class Managed2ModelRepository extends Repository<Managed2Model, any> {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       create(model: Managed2Model, ...args: any[]): Promise<Managed2Model> {
         throw new Error("Method not implemented.");

@@ -1,22 +1,14 @@
-import { RamAdapter, RamConfig, RamFlags, RamFlavour } from "../../src/ram";
+import { RamAdapter, RamFlavour } from "../../src/ram";
 const adapter = new RamAdapter();
-import { AbsMigration, migration } from "../../src";
+import { AbsMigration, Adapter, migration } from "../../src";
 import { Context } from "@decaf-ts/db-decorators";
-import { Logger, MiniLogger } from "@decaf-ts/logging";
+import { Logger } from "@decaf-ts/logging";
 
 const f1 = jest.fn();
 const f2 = jest.fn();
 
 @migration(RamFlavour, [async () => true])
-class RamMigration extends AbsMigration<
-  RamAdapter,
-  RamConfig,
-  any,
-  any,
-  any,
-  RamFlags,
-  Context<RamFlags>
-> {
+class RamMigration extends AbsMigration<RamAdapter, any> {
   constructor() {
     super();
   }
@@ -47,10 +39,15 @@ describe("Adapter migrations", () => {
   });
 
   it("runs the up migration", async () => {
-    await adapter.migrate();
+    const ctx = await adapter.context(
+      "migration",
+      {},
+      Adapter.models(RamFlavour)
+    );
+    await adapter.migrate(ctx);
     expect(f1).toHaveBeenCalled();
     expect(f2).toHaveBeenCalled();
-    expect(f1).toHaveBeenCalledWith({}, adapter, expect.any(MiniLogger));
-    expect(f2).toHaveBeenCalledWith({}, adapter, expect.any(MiniLogger));
+    expect(f1).toHaveBeenCalledWith({}, adapter, expect.any(Context));
+    expect(f2).toHaveBeenCalledWith({}, adapter, expect.any(Context));
   });
 });

@@ -5,13 +5,13 @@ import {
   Paginator,
   QueryError,
 } from "../query";
-import { RawRamQuery } from "./types";
+import { RamContext, RawRamQuery } from "./types";
 import { Model } from "@decaf-ts/decorator-validation";
 import { RamPaginator } from "./RamPaginator";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Statement } from "../query/Statement";
-import { RamAdapter } from "./RamAdapter";
 import { Metadata } from "@decaf-ts/decoration";
+import { Adapter } from "../persistence/index";
 
 /**
  * @description RAM-specific query statement builder
@@ -40,13 +40,13 @@ import { Metadata } from "@decaf-ts/decoration";
  *   .execute();
  * ```
  */
-export class RamStatement<M extends Model, R> extends Statement<
-  M,
-  RamAdapter,
-  R
-> {
-  constructor(adapter: RamAdapter) {
-    super(adapter as any);
+export class RamStatement<
+  M extends Model,
+  R,
+  A extends Adapter<M, any, RawRamQuery<any>, RamContext>,
+> extends Statement<M, A, R, RawRamQuery<any>> {
+  constructor(adapter: A) {
+    super(adapter);
   }
 
   /**
@@ -111,7 +111,7 @@ export class RamStatement<M extends Model, R> extends Statement<
    * (select, from, where, limit, offset, sort) into the final query structure.
    * @return {RawRamQuery<M>} The constructed RAM query object
    */
-  protected build(): RawRamQuery<M> {
+  protected build(): RawRamQuery<any> {
     const result: RawRamQuery<M> = {
       select: this.selectSelector,
       from: this.fromSelector,
@@ -125,7 +125,7 @@ export class RamStatement<M extends Model, R> extends Statement<
       skip: this.offsetSelector,
     };
     if (this.orderBySelector) result.sort = this.getSort();
-    return result;
+    return result as RawRamQuery<any>;
   }
 
   /**
@@ -135,7 +135,7 @@ export class RamStatement<M extends Model, R> extends Statement<
    * @param {number} size - The page size (number of results per page)
    * @return {Promise<Paginator<M, R, RawRamQuery<M>>>} A promise that resolves to a paginator for the query
    */
-  async paginate(size: number): Promise<Paginator<M, R, RawRamQuery<M>>> {
+  async paginate(size: number): Promise<Paginator<M, R, RawRamQuery<any>>> {
     try {
       const query = this.build();
       return new RamPaginator<M, R>(
@@ -176,7 +176,7 @@ export class RamStatement<M extends Model, R> extends Statement<
    *   end
    *   RamStatement-->>Caller: Return query with where predicate
    */
-  parseCondition<M extends Model>(condition: Condition<M>): RawRamQuery<M> {
+  protected parseCondition(condition: Condition<M>): RawRamQuery<any> {
     return {
       where: (m: Model) => {
         const { attr1, operator, comparison } = condition as unknown as {

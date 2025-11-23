@@ -80,7 +80,7 @@ import {
 export class RamAdapter extends Adapter<
   RamConfig,
   RamStorage,
-  RawRamQuery<any>,
+  RawRamQuery,
   RamContext
 > {
   constructor(conf: RamConfig = {} as any, alias?: string) {
@@ -120,8 +120,8 @@ export class RamAdapter extends Adapter<
     }) as RamFlags;
   }
 
-  protected override Dispatch(): Dispatch<this> {
-    return super.Dispatch();
+  protected override Dispatch(): Dispatch<RamAdapter> {
+    return super.Dispatch() as Dispatch<RamAdapter>;
   }
 
   override Context: Constructor<RamContext> = Context;
@@ -156,7 +156,6 @@ export class RamAdapter extends Adapter<
    */
   override prepare<M extends Model>(
     model: M,
-    pk: keyof M,
     ...args: [...any[], RamContext]
   ): {
     record: Record<string, any>;
@@ -164,8 +163,10 @@ export class RamAdapter extends Adapter<
     transient?: Record<string, any>;
   } {
     const ctx = args.pop();
-    const prepared = super.prepare(model, pk, ctx);
-    delete prepared.record[pk as string];
+    const prepared = super.prepare(model, ctx);
+    delete prepared.record[
+      Model.pk(model.constructor as Constructor<M>) as any
+    ];
     return prepared;
   }
 
@@ -506,8 +507,16 @@ export class RamAdapter extends Adapter<
    * @template M - The model type for the statement
    * @return {RamStatement<M, any>} A new statement builder instance
    */
-  Statement<M extends Model<boolean>>(): RamStatement<M, any> {
-    return new RamStatement<M, RamAdapter>(this as any);
+  Statement<M extends Model<boolean>>(): RamStatement<
+    M,
+    any,
+    Adapter<any, any, RawRamQuery<M>, RamContext>
+  > {
+    return new RamStatement<
+      M,
+      any,
+      Adapter<any, any, RawRamQuery<M>, RamContext>
+    >(this);
   }
 
   /**

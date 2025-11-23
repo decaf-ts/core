@@ -337,7 +337,7 @@ export class Repository<
       `Creating new ${this.class.name} in table ${Model.tableName(this.class)}`
     );
     // eslint-disable-next-line prefer-const
-    let { record, id, transient } = this.adapter.prepare(model, this.pk);
+    let { record, id, transient } = this.adapter.prepare(model, ctx);
     record = await this.adapter.create(this.class, id, record, ...args);
     return this.adapter.revert<M>(record, this.class, id, transient, ctx);
   }

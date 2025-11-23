@@ -1,8 +1,8 @@
 import { Model } from "@decaf-ts/decorator-validation";
 import { Repository } from "../repository";
 import { Context, RepositoryFlags } from "@decaf-ts/db-decorators";
-import { RamAdapter } from "./RamAdapter";
 import { Constructor } from "@decaf-ts/decoration";
+import { Adapter } from "../persistence";
 
 /**
  * @description In-memory storage structure for the RAM adapter
@@ -30,7 +30,7 @@ export type RamStorage = Map<string, Map<string | number, any>>;
  * @memberOf module:core
  * @category Ram
  */
-export type RawRamQuery<M extends Model> = {
+export type RawRamQuery<M extends Model = any> = {
   select: undefined | (keyof M)[];
   from: Constructor<M>;
   where: (el: M) => boolean;
@@ -52,7 +52,10 @@ export interface RamFlags extends RepositoryFlags {
   UUID: string;
 }
 
-export type RamRepository<M extends Model<boolean>> = Repository<M, RamAdapter>;
+export type RamRepository<M extends Model<boolean>> = Repository<
+  M,
+  Adapter<RamConfig, RamStorage, RawRamQuery<any>, RamContext>
+>;
 
 export type RamContext = Context<RamFlags>;
 

@@ -11,7 +11,6 @@ import {
 import { type Observer } from "../interfaces/Observer";
 import {
   hashObj,
-  model,
   Model,
   ModelConstructor,
 } from "@decaf-ts/decorator-validation";
@@ -314,15 +313,21 @@ export abstract class Adapter<
    * @template M - The model type
    * @return {Statement} A statement builder for the model
    */
-  abstract Statement<M extends Model>(): Statement<M, this, any>;
+  abstract Statement<M extends Model>(): Statement<
+    M,
+    Adapter<CONF, CONN, QUERY, CONTEXT>,
+    any
+  >;
 
   /**
    * @description Creates a new dispatch instance
    * @summary Factory method that creates a dispatch instance for this adapter
    * @return {Dispatch} A new dispatch instance
    */
-  protected Dispatch(): Dispatch<this> {
-    return new Adapter._baseDispatch() as Dispatch<this>;
+  protected Dispatch(): Dispatch<Adapter<CONF, CONN, QUERY, CONTEXT>> {
+    return new Adapter._baseDispatch() as Dispatch<
+      Adapter<CONF, CONN, QUERY, CONTEXT>
+    >;
   }
 
   /**
@@ -381,21 +386,22 @@ export abstract class Adapter<
    * @return {Promise<F>} The complete set of flags
    */
   protected async flags<M extends Model>(
-    operation: OperationKeys,
-    model: Constructor<M>,
+    operation: OperationKeys | string,
+    model: Constructor<M> | Constructor<M>[],
     flags: Partial<FlagsOf<CONTEXT>>,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<FlagsOf<CONTEXT>> {
     return Object.assign({}, DefaultRepositoryFlags, flags, {
-      affectedTables: Model.tableName(model),
+      affectedTables: (Array.isArray(model) ? model : [model]).map(
+        Model.tableName
+      ),
       writeOperation: operation !== OperationKeys.READ,
       timestamp: new Date(),
       operation: operation,
-      ignoredValidationProperties: Metadata.validationExceptions(
-        model,
-        operation
-      ),
+      ignoredValidationProperties: Array.isArray(model)
+        ? []
+        : Metadata.validationExceptions(model, operation as any),
       logger: flags.logger || Logging.for(this.toString()),
     }) as FlagsOf<CONTEXT>;
   }
@@ -425,14 +431,15 @@ export abstract class Adapter<
       | OperationKeys.CREATE
       | OperationKeys.READ
       | OperationKeys.UPDATE
-      | OperationKeys.DELETE,
+      | OperationKeys.DELETE
+      | string,
     overrides: Partial<FlagsOf<CONTEXT>>,
-    model: Constructor<M>,
+    model: Constructor<M> | Constructor<M>[],
     ...args: any[]
   ): Promise<CONTEXT> {
     const log = this.log.for(this.context);
     log.debug(
-      `Creating new context for ${operation} operation on ${model.name} model with flag overrides: ${JSON.stringify(overrides)}`
+      `Creating new context for ${operation} operation on ${Array.isArray(model) ? model.map((m) => m.name) : model.name} model with flag overrides: ${JSON.stringify(overrides)}`
     );
     const flags = await this.flags(operation, model, overrides, ...args);
     return new this.Context().accumulate(flags) as unknown as CONTEXT;
@@ -455,7 +462,7 @@ export abstract class Adapter<
     id: string;
     transient?: Record<string, any>;
   } {
-    const { log } = Adapter.logCtx(args, this.prepare);
+    const { log } = this.logCtx(args, this.prepare);
     const split = model.segregate();
     const result = Object.entries(split.model).reduce(
       (accum: Record<string, any>, [key, val]) => {
@@ -511,7 +518,7 @@ export abstract class Adapter<
     transient?: Record<string, any>,
     ...args: [...any[], CONTEXT]
   ): M {
-    const { log, ctx } = Adapter.logCtx(args, this.revert);
+    const { log, ctx } = this.logCtx(args, this.revert);
     const ob: Record<string, any> = {};
     const pk = Model.pk(clazz);
     ob[pk as string] = id;
@@ -587,7 +594,7 @@ export abstract class Adapter<
   ): Promise<Record<string, any>[]> {
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
-    const { log } = Adapter.logCtx(args, this.createAll);
+    const { log } = this.logCtx(args, this.createAll);
     log.debug(
       `Creating ${id.length} entries ${Model.tableName(tableName)} table`
     );
@@ -623,7 +630,7 @@ export abstract class Adapter<
     id: PrimaryKeyType[],
     ...args: any[]
   ): Promise<Record<string, any>[]> {
-    const { log } = Adapter.logCtx(args, this.readAll);
+    const { log } = this.logCtx(args, this.readAll);
     log.debug(
       `Reading ${id.length} entries ${Model.tableName(tableName)} table`
     );
@@ -664,7 +671,7 @@ export abstract class Adapter<
   ): Promise<Record<string, any>[]> {
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
-    const { log } = Adapter.logCtx(args, this.updateAll);
+    const { log } = this.logCtx(args, this.updateAll);
     log.debug(
       `Updating ${id.length} entries ${Model.tableName(tableName)} table`
     );
@@ -888,31 +895,22 @@ export abstract class Adapter<
 
   static decoration(): void {}
 
-  static logCtx<CONTEXT extends Context<any>>(
+  static override logCtx<CONTEXT extends Context<any>>(
     this: any,
     args: any[],
     method: string
   ): { ctx: CONTEXT; log: LoggerOf<CONTEXT> };
-  static logCtx<CONTEXT extends Context<any>>(
+  static override logCtx<CONTEXT extends Context<any>>(
     this: any,
     args: any[],
     method: (...args: any[]) => any
   ): { ctx: CONTEXT; log: LoggerOf<CONTEXT> };
-  static logCtx<CONTEXT extends Context<any>>(
+  static override logCtx<CONTEXT extends Context<any>>(
     this: any,
     args: any[],
     method: ((...args: any[]) => any) | string
   ): { ctx: CONTEXT; log: LoggerOf<CONTEXT> } {
-    if (args.length < 1) throw new InternalError("No context provided");
-    const ctx = args[args.length - 1] as CONTEXT;
-    if (!(ctx instanceof Context))
-      throw new InternalError("No context provided");
-
-    const log = (this ? ctx.logger.for(this) : ctx.logger) as LoggerOf<CONTEXT>;
-    return {
-      ctx: ctx,
-      log: method ? (log.for(method) as LoggerOf<CONTEXT>) : log,
-    };
+    return super.logCtx<CONTEXT>(args, method as any);
   }
 
   protected proxies?: Record<string, typeof this>;
@@ -976,11 +974,18 @@ export abstract class Adapter<
     return this as unknown as CONN;
   }
 
+  async migrate(...args: [...any[], CONTEXT]): Promise<void>;
   async migrate(
-    migrations: Constructor<Migration<any, any>>[] = this.migrations(),
+    migrations:
+      | Constructor<Migration<any, any>>[]
+      | CONTEXT = this.migrations(),
     ...args: [...any[], CONTEXT]
-  ) {
-    const ctx: CONTEXT = args.pop();
+  ): Promise<void> {
+    if (migrations instanceof Context) {
+      args = [migrations as unknown as CONTEXT];
+      migrations = this.migrations();
+    }
+    const { ctx } = Adapter.logCtx<CONTEXT>(args, this.migrate);
     const qr = await this.getQueryRunner();
     for (const migration of migrations) {
       try {

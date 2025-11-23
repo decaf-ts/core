@@ -1,5 +1,5 @@
 import { Constructor, Metadata } from "@decaf-ts/decoration";
-import { Model } from "@decaf-ts/decorator-validation";
+import { columnName, Model } from "@decaf-ts/decorator-validation";
 import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Adapter, type Migration, PersistenceKeys } from "../persistence/index";
 import { type ExtendedRelationsMetadata } from "../model";
@@ -73,4 +73,16 @@ import { type ExtendedRelationsMetadata } from "../model";
   prop?: keyof M
 ): string[] | ExtendedRelationsMetadata {
   return Metadata.relations(m, prop) || [];
+};
+
+(Model as any).tableName = function <M extends Model>(
+  m: Constructor<M>
+): string {
+  return Metadata.get(m, PersistenceKeys.TABLE);
+};
+
+(Model as any).columnName = function <M extends Model>(
+  m: Constructor<M>
+): string {
+  return Metadata.get(m, PersistenceKeys.COLUMN);
 };

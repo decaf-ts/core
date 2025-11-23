@@ -153,7 +153,7 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
         apply: async (target: any, thisArg: A, argArray: any[]) => {
           const [tableName, ids] = argArray;
           const result = await target.apply(thisArg, argArray);
-          const { ctx, log } = thisArg["getLogAndCtx"](argArray, target);
+          const { ctx, log } = thisArg["logCtx"](argArray, target);
 
           this.updateObservers(
             tableName,
@@ -242,7 +242,7 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
         );
       return;
     }
-    const { log } = this.adapter["getLogAndCtx"](args, this.updateObservers);
+    const { log } = Adapter.logCtx<ContextOf<A>>(args, this.updateObservers);
     try {
       log.debug(
         `Dispatching ${event} from table ${table} for ${event} with id: ${JSON.stringify(id)}`

@@ -144,10 +144,7 @@ export class ObserverHandler
     id: EventIds,
     ...args: [...any[], Context]
   ): Promise<void> {
-    const { log } = Adapter["getLogAndCtx"]<Context>(
-      args,
-      this.updateObservers
-    );
+    const { log } = Adapter.logCtx<Context>(args, this.updateObservers);
     const table = Model.tableName(model);
     const results = await Promise.allSettled(
       this.observers

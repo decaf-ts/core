@@ -41,8 +41,8 @@ import { Metadata } from "@decaf-ts/decoration";
  * ```
  */
 export class RamStatement<M extends Model, R> extends Statement<
-  RawRamQuery<M>,
   M,
+  RamAdapter,
   R
 > {
   constructor(adapter: RamAdapter) {

@@ -13,5 +13,5 @@ export interface RawExecutor<Q> {
    * @param {Q} rawInput - The raw query to execute
    * @return {Promise<R>} A promise that resolves to the result of type R
    */
-  raw<R>(rawInput: Q): Promise<R>;
+  raw<R>(rawInput: Q, ...args: any[]): Promise<R>;
 }

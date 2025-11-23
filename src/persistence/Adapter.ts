@@ -10,8 +10,8 @@ import {
 } from "@decaf-ts/db-decorators";
 import { type Observer } from "../interfaces/Observer";
 import {
-  async,
   hashObj,
+  model,
   Model,
   ModelConstructor,
 } from "@decaf-ts/decorator-validation";
@@ -33,15 +33,16 @@ import {
   type ObserverFilter,
 } from "./types";
 import { ObserverHandler } from "./ObserverHandler";
-import { Impersonatable, LoggedClass, Logging } from "@decaf-ts/logging";
+import { Impersonatable, Logging } from "@decaf-ts/logging";
 import { AdapterDispatch } from "./types";
 import {
   Decoration,
   DefaultFlavour,
   Metadata,
-  type Constructor, method,
+  type Constructor,
 } from "@decaf-ts/decoration";
 import { MigrationError } from "./errors";
+import { ContextualLoggedClass } from "../utils/ContextualLoggedClass";
 
 const flavourResolver = Decoration["flavourResolver"].bind(Decoration);
 Decoration["flavourResolver"] = (obj: object) => {
@@ -71,6 +72,9 @@ Decoration["flavourResolver"] = (obj: object) => {
     return DefaultFlavour;
   }
 };
+
+export type AdapterSubClass<A> =
+  A extends Adapter<any, any, any, any> ? A : never;
 
 /**
  * @description Abstract Facade class for persistence adapters
@@ -170,7 +174,7 @@ export abstract class Adapter<
     QUERY,
     CONTEXT extends Context<any> = Context,
   >
-  extends LoggedClass
+  extends ContextualLoggedClass<CONTEXT>
   implements
     RawExecutor<QUERY>,
     Contextual<CONTEXT>,
@@ -193,7 +197,7 @@ export abstract class Adapter<
         CONTEXT,
       ]
     >,
-    Impersonatable<[]>,
+    Impersonatable<any, [Partial<CONF>, ...any[]]>,
     ErrorParser
 {
   private static _currentFlavour: string;
@@ -434,17 +438,6 @@ export abstract class Adapter<
     return new this.Context().accumulate(flags) as unknown as CONTEXT;
   }
 
-
-
-  getLogAndCtx(args: any[], obj: string): { ctx: CONTEXT; log: LoggerOf<CONTEXT>;
-  getLogAndCtx(args: any[], obj?: (...args: any[]) => any): { ctx: CONTEXT; log: LoggerOf<CONTEXT>;
-  getLogAndCtx(args: any[], obj?: (...args: any[]) => any | string): {
-    ctx: CONTEXT;
-    log: LoggerOf<CONTEXT>
-  } {
-    return Adapter.getLogAndCtx.call(this, args, method);
-  }
-
   /**
    * @description Prepares a model for persistence
    * @summary Converts a model instance into a format suitable for database storage,
@@ -462,7 +455,7 @@ export abstract class Adapter<
     id: string;
     transient?: Record<string, any>;
   } {
-    const { log } = this.getLogAndCtx(args, this.prepare);
+    const { log } = Adapter.logCtx(args, this.prepare);
     const split = model.segregate();
     const result = Object.entries(split.model).reduce(
       (accum: Record<string, any>, [key, val]) => {
@@ -514,11 +507,11 @@ export abstract class Adapter<
   revert<M extends Model>(
     obj: Record<string, any>,
     clazz: Constructor<M>,
-    id: string | number | bigint,
+    id: PrimaryKeyType,
     transient?: Record<string, any>,
     ...args: [...any[], CONTEXT]
   ): M {
-    const { log, ctx } = this.getLogAndCtx(args, this.revert);
+    const { log, ctx } = Adapter.logCtx(args, this.revert);
     const ob: Record<string, any> = {};
     const pk = Model.pk(clazz);
     ob[pk as string] = id;
@@ -594,7 +587,7 @@ export abstract class Adapter<
   ): Promise<Record<string, any>[]> {
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
-    const { log } = this.getLogAndCtx(args, this.createAll);
+    const { log } = Adapter.logCtx(args, this.createAll);
     log.debug(
       `Creating ${id.length} entries ${Model.tableName(tableName)} table`
     );
@@ -630,7 +623,7 @@ export abstract class Adapter<
     id: PrimaryKeyType[],
     ...args: any[]
   ): Promise<Record<string, any>[]> {
-    const { log } = this.getLogAndCtx(args, this.readAll);
+    const { log } = Adapter.logCtx(args, this.readAll);
     log.debug(
       `Reading ${id.length} entries ${Model.tableName(tableName)} table`
     );
@@ -671,7 +664,7 @@ export abstract class Adapter<
   ): Promise<Record<string, any>[]> {
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
-    const { log } = this.getLogAndCtx(args, this.updateAll);
+    const { log } = Adapter.logCtx(args, this.updateAll);
     log.debug(
       `Updating ${id.length} entries ${Model.tableName(tableName)} table`
     );
@@ -707,7 +700,7 @@ export abstract class Adapter<
     id: PrimaryKeyType[],
     ...args: any[]
   ): Promise<Record<string, any>[]> {
-    const { log } = this.getLogAndCtx(args, this.deleteAll);
+    const { log } = Adapter.logCtx(args, this.deleteAll);
     log.verbose(`Deleting ${id.length} entries from ${tableName} table`);
     return Promise.all(id.map((i) => this.delete(tableName, i, ...args)));
   }
@@ -787,7 +780,7 @@ export abstract class Adapter<
       throw new InternalError(
         "ObserverHandler not initialized. Did you register any observables?"
       );
-    const { log } = this.getLogAndCtx(args, this.updateObservers);
+    const { log } = Adapter.logCtx(args, this.updateObservers);
 
     log.verbose(
       `Updating ${this.observerHandler.count()} observers for adapter ${this.alias}: Event: `
@@ -895,9 +888,21 @@ export abstract class Adapter<
 
   static decoration(): void {}
 
-  static getLogAndCtx<CONTEXT extends Context<any>>(this: any, args: any[], method: string): {ctx: CONTEXT; log: LoggerOf<CONTEXT>};
-  static getLogAndCtx<CONTEXT extends Context<any>>(this: any, args: any[], method: (...args: any[]) => any): {ctx: CONTEXT; log: LoggerOf<CONTEXT>};
-  static getLogAndCtx<CONTEXT extends Context<any>>(this: any, args: any[], method: ((...args: any[]) => any) | string): {ctx: CONTEXT; log: LoggerOf<CONTEXT>} {
+  static logCtx<CONTEXT extends Context<any>>(
+    this: any,
+    args: any[],
+    method: string
+  ): { ctx: CONTEXT; log: LoggerOf<CONTEXT> };
+  static logCtx<CONTEXT extends Context<any>>(
+    this: any,
+    args: any[],
+    method: (...args: any[]) => any
+  ): { ctx: CONTEXT; log: LoggerOf<CONTEXT> };
+  static logCtx<CONTEXT extends Context<any>>(
+    this: any,
+    args: any[],
+    method: ((...args: any[]) => any) | string
+  ): { ctx: CONTEXT; log: LoggerOf<CONTEXT> } {
     if (args.length < 1) throw new InternalError("No context provided");
     const ctx = args[args.length - 1] as CONTEXT;
     if (!(ctx instanceof Context))
@@ -906,7 +911,7 @@ export abstract class Adapter<
     const log = (this ? ctx.logger.for(this) : ctx.logger) as LoggerOf<CONTEXT>;
     return {
       ctx: ctx,
-      log: method ? log.for(method) as LoggerOf<CONTEXT> : log,
+      log: method ? (log.for(method) as LoggerOf<CONTEXT>) : log,
     };
   }
 
@@ -934,7 +939,7 @@ export abstract class Adapter<
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  for(config: Partial<CONF>, ...args: any[]): typeof this {
+  for(config: Partial<CONF>, ...args: any[]): this {
     if (!this.proxies) this.proxies = {};
     const key = `${this.alias} - ${hashObj(config)}`;
     if (key in this.proxies) return this.proxies[key] as typeof this;
@@ -960,7 +965,7 @@ export abstract class Adapter<
       },
     });
     this.proxies[key] = proxy;
-    return proxy;
+    return proxy as typeof this;
   }
 
   migrations() {

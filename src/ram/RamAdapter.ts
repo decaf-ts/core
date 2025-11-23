@@ -33,6 +33,7 @@ import {
   Metadata,
   propMetadata,
 } from "@decaf-ts/decoration";
+
 /**
  * @description In-memory adapter for data persistence
  * @summary The RamAdapter provides an in-memory implementation of the persistence layer.
@@ -119,7 +120,7 @@ export class RamAdapter extends Adapter<
     }) as RamFlags;
   }
 
-  protected override Dispatch(): Dispatch {
+  protected override Dispatch(): Dispatch<this> {
     return super.Dispatch();
   }
 
@@ -174,15 +175,14 @@ export class RamAdapter extends Adapter<
    * This method is the inverse of the prepare method.
    * @template M - The model type to revert to
    * @param {Record<string, any>} obj - The stored record
-   * @param {string | Constructor<M>} clazz - The model class or name
-   * @param pk - The primary key property name
-   * @param {string | number} id - The primary key value
+   * @param {Constructor<M>} clazz - The model class or name
+   * @param {PrimaryKeyType} id - The primary key value
    * @return {M} The reconstructed model instance
    */
   override revert<M extends Model>(
     obj: Record<string, any>,
-    clazz: string | Constructor<M>,
-    id: string | number,
+    clazz: Constructor<M>,
+    id: PrimaryKeyType,
     transient?: Record<string, any>,
     ...args: [...any[], RamContext]
   ): M {
@@ -195,7 +195,7 @@ export class RamAdapter extends Adapter<
    * @summary Stores a new record in the specified table with the given ID.
    * This method acquires a lock to ensure thread safety, creates the table if it doesn't exist,
    * checks for conflicts, and stores the model.
-   * @param {string} tableName - The name of the table to store the record in
+   * @param {string} clazz - The name of the table to store the record in
    * @param {string | number} id - The unique identifier for the record
    * @param {Record<string, any>} model - The record data to store
    * @return {Promise<Record<string, any>>} A promise that resolves to the stored record
@@ -230,11 +230,14 @@ export class RamAdapter extends Adapter<
     log.debug(`creating record in table ${tableName} with id ${id}`);
     await this.lock.acquire();
     if (!this.client.has(tableName)) this.client.set(tableName, new Map());
-    if (this.client.get(tableName) && this.client.get(tableName)?.has(id))
+    if (
+      this.client.get(tableName) &&
+      this.client.get(tableName)?.has(id as any)
+    )
       throw new ConflictError(
         `Record with id ${id} already exists in table ${tableName}`
       );
-    this.client.get(tableName)?.set(id, model);
+    this.client.get(tableName)?.set(id as any, model);
     this.lock.release();
     return model;
   }
@@ -243,8 +246,8 @@ export class RamAdapter extends Adapter<
    * @description Retrieves a record from in-memory storage
    * @summary Fetches a record with the specified ID from the given table.
    * This method checks if the table and record exist and throws appropriate errors if not.
-   * @param {string} tableName - The name of the table to retrieve from
-   * @param {string | number} id - The unique identifier of the record to retrieve
+   * @param {Constructor} clazz - The name of the table to retrieve from
+   * @param {PrimaryKeyType} id - The unique identifier of the record to retrieve
    * @return {Promise<Record<string, any>>} A promise that resolves to the retrieved record
    * @mermaid
    * sequenceDiagram
@@ -272,11 +275,11 @@ export class RamAdapter extends Adapter<
     const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.client.get(tableName)?.has(id))
+    if (!this.client.get(tableName)?.has(id as any))
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
-    return this.client.get(tableName)?.get(id);
+    return this.client.get(tableName)?.get(id as any);
   }
 
   /**
@@ -314,18 +317,18 @@ export class RamAdapter extends Adapter<
     model: Record<string, any>,
     ...args: any[]
   ): Promise<Record<string, any>> {
-    const { log } = this.getLogAndCtx(args, this.create);
+    const { log } = Adapter.logCtx(args, this.create);
     const tableName = Model.tableName(clazz);
     log.debug(`updating record in table ${tableName} with id ${id}`);
 
     await this.lock.acquire();
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.client.get(tableName)?.has(id))
+    if (!this.client.get(tableName)?.has(id as any))
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
-    this.client.get(tableName)?.set(id, model);
+    this.client.get(tableName)?.set(id as any, model);
     this.lock.release();
     return model;
   }
@@ -362,22 +365,22 @@ export class RamAdapter extends Adapter<
    */
   async delete<M extends Model>(
     clazz: Constructor<M>,
-    id: PrimaryKeyType
+    id: PrimaryKeyType,
+    ...args: any[]
   ): Promise<Record<string, any>> {
-    const { log } = this.getLogAndCtx(args, this.create);
-    log.debug(
-      `deleting record from table ${Model.tableName(this.class)} with pk ${id}`
-    );
+    const { log } = Adapter.logCtx(args, this.create);
+    const tableName = Model.tableName(clazz);
+    log.debug(`deleting record from table ${tableName} with pk ${id}`);
 
     await this.lock.acquire();
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.client.get(tableName)?.has(id))
+    if (!this.client.get(tableName)?.has(id as string))
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
-    const natived = this.client.get(tableName)?.get(id);
-    this.client.get(tableName)?.delete(id);
+    const natived = this.client.get(tableName)?.get(id as string);
+    this.client.get(tableName)?.delete(id as string);
     this.lock.release();
     return natived;
   }
@@ -442,10 +445,8 @@ export class RamAdapter extends Adapter<
    *   RamAdapter-->>Caller: result
    */
   async raw<R>(rawInput: RawRamQuery<any>, ...args: any[]): Promise<R> {
-    const { ctx, log } = this.getLogAndCtx(args, this.raw);
-    log.debug(
-      `performing query on table ${Model.tableName(this.class)}: ${JSON.stringify(rawInput)}`
-    );
+    const { ctx, log } = Adapter.logCtx(args, this.raw);
+    log.debug(`performing raw query: ${JSON.stringify(rawInput)}`);
 
     const { where, sort, limit, skip, from } = rawInput;
     let { select } = rawInput;
@@ -506,7 +507,7 @@ export class RamAdapter extends Adapter<
    * @return {RamStatement<M, any>} A new statement builder instance
    */
   Statement<M extends Model<boolean>>(): RamStatement<M, any> {
-    return new RamStatement<M, any>(this as any);
+    return new RamStatement<M, RamAdapter>(this as any);
   }
 
   /**

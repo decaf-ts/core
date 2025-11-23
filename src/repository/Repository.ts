@@ -228,11 +228,11 @@ export class Repository<
     );
   }
 
-  protected logAndCtx(
+  protected logFor(
     args: any[],
-    method?: (...args: any[]) => any
+    method: (...args: any[]) => any
   ): { ctx: ContextOf<A>; log: any } {
-    return Adapter["getLogAndCtx"]<ContextOf<A>>(args, method);
+    return Adapter.logCtx<ContextOf<A>>(args, method as any);
   }
 
   /**
@@ -332,7 +332,7 @@ export class Repository<
    * @return {Promise<M>} The created model with updated properties.
    */
   async create(model: M, ...args: any[]): Promise<M> {
-    const { ctx, log } = this.logAndCtx(args, this.create);
+    const { ctx, log } = this.logFor(args, this.create);
     log.debug(
       `Creating new ${this.class.name} in table ${Model.tableName(this.class)}`
     );
@@ -362,7 +362,7 @@ export class Repository<
    */
   override async createAll(models: M[], ...args: any[]): Promise<M[]> {
     if (!models.length) return models;
-    const { ctx, log } = this.logAndCtx(args, this.create);
+    const { ctx, log } = this.logFor(args, this.create);
     log.debug(
       `Creating ${models.length} new ${this.class.name} in table ${Model.tableName(this.class)}`
     );
@@ -497,7 +497,7 @@ export class Repository<
    * @return {Promise<M>} The retrieved model instance.
    */
   async read(id: PrimaryKeyType, ...args: any[]): Promise<M> {
-    const { ctx, log } = this.logAndCtx(args, this.create);
+    const { ctx, log } = this.logFor(args, this.create);
     log.debug(
       `reading ${this.class.name} from table ${Model.tableName(this.class)} with pk ${this.pk as string}`
     );
@@ -548,7 +548,7 @@ export class Repository<
    * @return {Promise<M[]>} The retrieved model instances.
    */
   override async readAll(keys: PrimaryKeyType[], ...args: any[]): Promise<M[]> {
-    const { ctx, log } = this.logAndCtx(args, this.create);
+    const { ctx, log } = this.logFor(args, this.create);
     log.debug(
       `reading ${keys.length} ${this.class.name} in table ${Model.tableName(this.class)}`
     );
@@ -567,7 +567,7 @@ export class Repository<
    * @return {Promise<M>} The updated model with refreshed properties.
    */
   async update(model: M, ...args: any[]): Promise<M> {
-    const { ctx, log } = this.logAndCtx(args, this.create);
+    const { ctx, log } = this.logFor(args, this.create);
     // eslint-disable-next-line prefer-const
     let { record, id, transient } = this.adapter.prepare(model, this.pk);
     log.debug(
@@ -636,7 +636,7 @@ export class Repository<
    * @return {Promise<M[]>} The updated models with refreshed properties.
    */
   override async updateAll(models: M[], ...args: any[]): Promise<M[]> {
-    const { ctx, log } = this.logAndCtx(args, this.create);
+    const { ctx, log } = this.logFor(args, this.create);
     log.debug(
       `Updating ${models.length} new ${this.class.name} in table ${Model.tableName(this.class)}`
     );
@@ -772,7 +772,7 @@ export class Repository<
    * @return {Promise<M>} The deleted model instance.
    */
   async delete(id: PrimaryKeyType, ...args: any[]): Promise<M> {
-    const { ctx, log } = this.logAndCtx(args, this.create);
+    const { ctx, log } = this.logFor(args, this.create);
     log.debug(
       `deleting new ${this.class.name} in table ${Model.tableName(this.class)} with pk ${id}`
     );
@@ -825,7 +825,7 @@ export class Repository<
     keys: PrimaryKeyType[],
     ...args: any[]
   ): Promise<M[]> {
-    const { ctx, log } = this.logAndCtx(args, this.create);
+    const { ctx, log } = this.logFor(args, this.create);
     log.debug(
       `deleting ${keys.length} ${this.class.name} in table ${Model.tableName(this.class)}`
     );
@@ -973,7 +973,7 @@ export class Repository<
       throw new InternalError(
         "ObserverHandler not initialized. Did you register any observables?"
       );
-    const { log } = this.adapter["getLogAndCtx"](args, this.updateObservers);
+    const { log } = this.adapter["logCtx"](args, this.updateObservers);
     log.verbose(
       `Updating ${this.observerHandler.count()} observers for ${this}`
     );

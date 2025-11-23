@@ -197,7 +197,7 @@ export abstract class Statement<
 
   @final()
   async execute(...args: [...any[], ContextOf<A>] | any[]): Promise<R> {
-    const { ctx } = this.adapter["getLogAndCtx"](args, this.toString());
+    const { ctx } = Adapter.logCtx<ContextOf<A>>(args, this.toString());
     try {
       const query: Q = this.build();
       return (await this.raw(query, ctx)) as R;
@@ -212,15 +212,16 @@ export abstract class Statement<
     const pkAttr = Model.pk(this.fromSelector);
 
     const processor = function recordProcessor(
-      this: Statement<Q, M, R>,
+      this: Statement<M, A, R, Q>,
       r: any
     ) {
       const id = r[pkAttr];
       return this.adapter.revert(
         r,
         this.fromSelector as Constructor<any>,
-        pkAttr,
-        id
+        id,
+        undefined,
+        ctx
       ) as any;
     }.bind(this as any);
 

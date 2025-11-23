@@ -22,7 +22,7 @@ import type {
 } from "./options";
 import { Paginatable } from "../interfaces/Paginatable";
 import { Paginator } from "./Paginator";
-import { Adapter } from "../persistence";
+import { Adapter, ContextOf } from "../persistence";
 import { QueryError } from "./errors";
 import { Logger } from "@decaf-ts/logging";
 import { LoggedClass } from "@decaf-ts/logging";
@@ -79,7 +79,12 @@ import { Constructor } from "@decaf-ts/decoration";
  *   Adapter-->>Statement: return processed results
  *   Statement-->>Client: return final results
  */
-export abstract class Statement<Q, M extends Model, R>
+export abstract class Statement<
+    M extends Model,
+    A extends Adapter<any, any, any, any>,
+    R,
+    Q = A extends Adapter<any, any, infer Q, any> ? Q : never,
+  >
   extends LoggedClass
   implements Executor<R>, RawExecutor<Q>, Paginatable<M, R, Q>
 {
@@ -95,7 +100,7 @@ export abstract class Statement<Q, M extends Model, R>
   protected limitSelector?: number;
   protected offsetSelector?: number;
 
-  protected constructor(protected adapter: Adapter<any, any, Q, any, any>) {
+  protected constructor(protected adapter: Adapter<any, any, Q, any>) {
     super();
   }
 
@@ -191,17 +196,18 @@ export abstract class Statement<Q, M extends Model, R>
   }
 
   @final()
-  async execute(): Promise<R> {
+  async execute(...args: [...any[], ContextOf<A>] | any[]): Promise<R> {
+    const { ctx } = this.adapter["getLogAndCtx"](args, this.toString());
     try {
       const query: Q = this.build();
-      return (await this.raw(query)) as R;
+      return (await this.raw(query, ctx)) as R;
     } catch (e: unknown) {
       throw new InternalError(e as Error);
     }
   }
 
-  async raw<R>(rawInput: Q): Promise<R> {
-    const results = await this.adapter.raw<R>(rawInput);
+  async raw<R>(rawInput: Q, ctx: ContextOf<A>): Promise<R> {
+    const results = await this.adapter.raw<R>(rawInput, ctx);
     if (!this.selectSelector) return results;
     const pkAttr = Model.pk(this.fromSelector);
 
@@ -225,4 +231,8 @@ export abstract class Statement<Q, M extends Model, R>
   protected abstract build(): Q;
   protected abstract parseCondition(condition: Condition<M>, ...args: any[]): Q;
   abstract paginate(size: number): Promise<Paginator<M, R, Q>>;
+
+  override toString() {
+    return `${this.adapter.flavour} statement`;
+  }
 }

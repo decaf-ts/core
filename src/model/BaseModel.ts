@@ -12,15 +12,15 @@ import { createdAt, updatedAt } from "./decorators";
  * class User extends BaseModel {
  *   @required()
  *   username!: string;
- *   
+ *
  *   @email()
  *   email!: string;
- *   
+ *
  *   constructor(data?: ModelArg<User>) {
  *     super(data);
  *   }
  * }
- * 
+ *
  * const user = new User({ username: 'john', email: 'john@example.com' });
  * ```
  */
@@ -30,14 +30,14 @@ export abstract class BaseModel extends Model {
    * @summary Automatically set to the current date and time when the model is created
    */
   @createdAt()
-  createdOn!: Date;
+  createdAt!: Date;
 
   /**
    * @description Last update timestamp for the model
    * @summary Automatically updated to the current date and time whenever the model is modified
    */
   @updatedAt()
-  updatedOn!: Date;
+  updatedAt!: Date;
 
   protected constructor(arg?: ModelArg<BaseModel>) {
     super(arg);

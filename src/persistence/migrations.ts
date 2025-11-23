@@ -1,14 +1,11 @@
-import { Migration } from "./types";
+import { ContextOf, Migration } from "./types";
 import { Adapter } from "./Adapter";
-import {
-  Context,
-  InternalError,
-  RepositoryFlags,
-} from "@decaf-ts/db-decorators";
-import { LoggedClass, Logger } from "@decaf-ts/logging";
+import { Context, InternalError } from "@decaf-ts/db-decorators";
+import { LoggedClass } from "@decaf-ts/logging";
 import { PersistenceKeys } from "./constants";
 import { Decoration, Metadata, metadata } from "@decaf-ts/decoration";
 import { MigrationRuleError } from "./errors";
+import { Model } from "@decaf-ts/decorator-validation";
 
 export function prefixMethod(
   obj: any,
@@ -38,17 +35,15 @@ export function prefixMethod(
   obj[name] = wrapped;
 }
 
+export type ConnectionForAdapter<A extends Adapter<any, any, any, any>> =
+  A extends Adapter<any, any, infer CONN, any> ? CONN : never;
+
 export abstract class AbsMigration<
-    A extends Adapter<CONF, CONN, QUERY, FLAGS, CONTEXT>,
-    CONF,
-    CONN,
-    QUERY,
-    QUERYRUNNER = CONN,
-    FLAGS extends RepositoryFlags = RepositoryFlags,
-    CONTEXT extends Context<FLAGS> = Context<FLAGS>,
+    A extends Adapter<any, any, any, any>,
+    QUERYRUNNER = ConnectionForAdapter<A>,
   >
   extends LoggedClass
-  implements Migration<QUERYRUNNER, A, CONF, CONN, QUERY, FLAGS, CONTEXT>
+  implements Migration<QUERYRUNNER, A>
 {
   transaction = true;
 
@@ -73,26 +68,16 @@ export abstract class AbsMigration<
     return Adapter.get(flavour) as A;
   }
 
-  protected abstract getQueryRunner(conn: CONN): QUERYRUNNER;
+  protected abstract getQueryRunner(conn: ConnectionForAdapter<A>): QUERYRUNNER;
 
-  private async enforceRules(qr: QUERYRUNNER, adapter: A, l: Logger) {
-    const rules: MigrationRule<
-      A,
-      CONF,
-      CONN,
-      QUERY,
-      QUERYRUNNER,
-      FLAGS,
-      CONTEXT
-    >[] = Metadata.get(
+  private async enforceRules(qr: QUERYRUNNER, adapter: A, ctx: ContextOf<A>) {
+    const rules: MigrationRule<any, any>[] = Metadata.get(
       this.constructor as any,
       PersistenceKeys.MIGRATION
     )?.rules;
     if (!rules || !rules.length) return true;
-    let log: Logger;
     for (const rule of rules) {
-      log = l.for(rule);
-      const result = await rule(qr, adapter, log);
+      const result = await rule(qr, adapter, ctx);
       if (!result) return false;
     }
     return true;
@@ -100,9 +85,9 @@ export abstract class AbsMigration<
 
   private prefix(name: string) {
     return async function preffix(
-      this: AbsMigration<A, CONF, CONN, QUERY, QUERYRUNNER, FLAGS, CONTEXT>,
+      this: AbsMigration<A, QUERYRUNNER>,
       qrOrAdapter: QUERYRUNNER | A
-    ): Promise<[QUERYRUNNER, A, Logger]> {
+    ): Promise<[QUERYRUNNER, A, ContextOf<A>]> {
       let qr: QUERYRUNNER;
       if (qrOrAdapter instanceof Adapter) {
         qr = this.getQueryRunner(qrOrAdapter.client);
@@ -110,30 +95,36 @@ export abstract class AbsMigration<
         qr = qrOrAdapter;
         qrOrAdapter = this.adapter;
       }
-      const log = this.log.for(name);
-      const allowed = await this.enforceRules(qr, qrOrAdapter as A, log);
+      const ctx = await Context.args<any, ContextOf<A>>(
+        "migration",
+        Model as any,
+        [name],
+        qrOrAdapter
+      );
+      const allowed = await this.enforceRules(
+        qr,
+        qrOrAdapter as A,
+        ctx.context
+      );
       if (!allowed) {
-        log.verbose(`Skipping migration ${this.constructor.name} due to rules`);
+        ctx.context.logger.verbose(
+          `Skipping migration ${this.constructor.name} due to rules`
+        );
         throw new MigrationRuleError("Migration skipped for rule enforcement");
       }
-      return [qr, qrOrAdapter, log];
+      return [qr, qrOrAdapter, ctx.context];
     }.bind(this);
   }
 
-  abstract down(qr: QUERYRUNNER, adapter: A, log: Logger): Promise<void>;
+  abstract down(qr: QUERYRUNNER, adapter: A, ctx: ContextOf<A>): Promise<void>;
 
-  abstract up(qr: QUERYRUNNER, adapter: A, log: Logger): Promise<void>;
+  abstract up(qr: QUERYRUNNER, adapter: A, ctx: ContextOf<A>): Promise<void>;
 }
 
 export type MigrationRule<
-  A extends Adapter<CONF, CONN, QUERY, FLAGS, CONTEXT> = any,
-  CONF = any,
-  CONN = any,
-  QUERY = any,
-  QUERYRUNNER = CONN,
-  FLAGS extends RepositoryFlags = RepositoryFlags,
-  CONTEXT extends Context<FLAGS> = Context<FLAGS>,
-> = (qr: QUERYRUNNER, adapter: A, log: Logger) => Promise<boolean>;
+  A extends Adapter<any, any, any, any> = any,
+  QUERYRUNNER = ConnectionForAdapter<A>,
+> = (qr: QUERYRUNNER, adapter: A, ctx: ContextOf<A>) => Promise<boolean>;
 
 export type MigrationMetadata = {
   flavour: string;

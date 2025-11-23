@@ -1,9 +1,8 @@
 import { Model } from "@decaf-ts/decorator-validation";
-import { Repo } from "../repository";
 import { RelationsMetadata } from "../model";
-import { RamFlags } from "./types";
-import { Context } from "@decaf-ts/db-decorators";
+import { RamRepository } from "./types";
 import { UnsupportedError } from "../persistence";
+import { RamContext } from "./types";
 
 /**
  * @description Sets the created by field on a model during RAM create/update operations
@@ -26,14 +25,11 @@ import { UnsupportedError } from "../persistence";
  */
 export async function createdByOnRamCreateUpdate<
   M extends Model,
-  R extends Repo<M, F, C>,
-  V extends RelationsMetadata,
-  F extends RamFlags,
-  C extends Context<F>,
+  R extends RamRepository<M>,
 >(
   this: R,
-  context: Context<F>,
-  data: V,
+  context: RamContext,
+  data: RelationsMetadata,
   key: keyof M,
   model: M
 ): Promise<void> {

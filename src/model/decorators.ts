@@ -1,13 +1,11 @@
 import {
   afterAny,
   ConflictError,
-  Context,
   onCreate,
   onCreateUpdate,
   onDelete,
   onUpdate,
   OperationKeys,
-  RepositoryFlags,
   timestamp,
 } from "@decaf-ts/db-decorators";
 import {
@@ -24,7 +22,7 @@ import {
 import { PersistenceKeys } from "../persistence/constants";
 import { CascadeMetadata, IndexMetadata } from "../repository/types";
 import { DefaultCascade, OrderDirection } from "../repository/constants";
-import { list, Model, type } from "@decaf-ts/decorator-validation";
+import { async, list, Model, type } from "@decaf-ts/decorator-validation";
 
 import { Repo } from "../repository/Repository";
 import { Condition } from "../query/Condition";
@@ -44,6 +42,7 @@ import {
   populate as pop,
 } from "./construction";
 import { AuthorizationError } from "../utils";
+import { ContextOf } from "../persistence/types";
 
 /**
  * @description Specifies the database table name for a model
@@ -186,16 +185,10 @@ export function index(
  * @function uniqueOnCreateUpdate
  * @memberOf module:core
  */
-export async function uniqueOnCreateUpdate<
-  M extends Model,
-  R extends Repo<M, F, C>,
-  V extends object,
-  F extends RepositoryFlags,
-  C extends Context<F>,
->(
+export async function uniqueOnCreateUpdate<M extends Model, R extends Repo<M>>(
   this: R,
-  context: Context<F>,
-  data: V,
+  context: ContextOf<R>,
+  data: object,
   key: keyof M,
   model: M
 ): Promise<void> {
@@ -227,7 +220,11 @@ export async function uniqueOnCreateUpdate<
 export function unique() {
   const key = PersistenceKeys.UNIQUE;
   return Decoration.for(key)
-    .define(onCreateUpdate(uniqueOnCreateUpdate), propMetadata(key, {}))
+    .define(
+      async(),
+      onCreateUpdate(uniqueOnCreateUpdate),
+      propMetadata(key, {})
+    )
     .apply();
 }
 
@@ -250,16 +247,13 @@ export function unique() {
  */
 export async function createdByOnCreateUpdate<
   M extends Model,
-  R extends Repo<M, F, C>,
-  V extends RelationsMetadata,
-  F extends RepositoryFlags,
-  C extends Context<F>,
+  R extends Repo<M>,
 >(
   this: R,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  context: Context<F>,
+  context: ContextOf<R>,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  data: V,
+  data: RelationsMetadata,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   key: keyof M,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

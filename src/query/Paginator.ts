@@ -90,7 +90,7 @@ export abstract class Paginator<
   }
 
   protected constructor(
-    protected readonly adapter: Adapter<any, any, Q, any, any>,
+    protected readonly adapter: Adapter<any, any, Q, any>,
     protected readonly query: Q,
     readonly size: number,
     protected readonly clazz: Constructor<M>

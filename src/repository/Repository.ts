@@ -8,9 +8,9 @@ import {
   IRepository,
   OperationKeys,
   Repository as Rep,
-  RepositoryFlags,
   wrapMethodWithContext,
-  DBKeys,
+  reduceErrorsToPrint,
+  PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
 import { Observable } from "../interfaces/Observable";
 import { type Observer } from "../interfaces/Observer";
@@ -26,11 +26,12 @@ import { Condition } from "../query/Condition";
 import { WhereOption } from "../query/options";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
 import { getColumnName, getTableName } from "../identity/utils";
-import { Logger } from "@decaf-ts/logging";
 import { ObserverHandler } from "../persistence/ObserverHandler";
 import { final } from "../utils";
 import {
+  ContextOf,
   EventIds,
+  FlagsOf,
   InferredAdapterConfig,
   type ObserverFilter,
 } from "../persistence";
@@ -41,6 +42,7 @@ import {
   Metadata,
   uses,
 } from "@decaf-ts/decoration";
+import { Logger } from "@decaf-ts/logging";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.
@@ -53,13 +55,7 @@ import {
  * @typedef Repo
  * @memberOf module:core
  */
-export type Repo<
-  M extends Model<boolean>,
-  F extends RepositoryFlags = any,
-  C extends Context<F> = any,
-  Q = any,
-  A extends Adapter<any, any, Q, F, C> = any,
-> = Repository<M, Q, A, F, C>;
+export type Repo<M extends Model<boolean>> = Repository<M, any>;
 
 /**
  * @description Core repository implementation for database operations on models on a table by table way.
@@ -116,13 +112,22 @@ export type Repo<
  */
 export class Repository<
     M extends Model<boolean>,
-    Q,
-    A extends Adapter<any, any, Q, F, C>,
-    F extends RepositoryFlags = RepositoryFlags,
-    C extends Context<F> = Context<F>,
+    A extends Adapter<any, any, any, any>,
   >
-  extends Rep<M, F, C>
-  implements Observable, Observer, Queriable<M>, IRepository<M, F, C>
+  extends Rep<M, ContextOf<A>>
+  implements
+    Observable<[Observer, ObserverFilter]>,
+    Observer<
+      [
+        Constructor<M>,
+        OperationKeys | BulkCrudOperationKeys | string,
+        EventIds,
+        ...any[],
+        ContextOf<A>,
+      ]
+    >,
+    Queriable<M>,
+    IRepository<M, ContextOf<A>>
 {
   private static _cache: Record<
     string,
@@ -135,7 +140,7 @@ export class Repository<
 
   private readonly _adapter!: A;
   private _tableName!: string;
-  protected _overrides?: Partial<F>;
+  protected _overrides?: Partial<FlagsOf<A>>;
 
   private logger!: Logger;
 
@@ -223,16 +228,21 @@ export class Repository<
     );
   }
 
+  protected logAndCtx(
+    args: any[],
+    method?: (...args: any[]) => any
+  ): { ctx: ContextOf<A>; log: any } {
+    return Adapter["getLogAndCtx"]<ContextOf<A>>(args, method);
+  }
+
   /**
    * @description Creates a proxy with overridden repository flags.
    * @summary Returns a proxy of this repository with the specified flags overridden.
    * @param {Partial<F>} flags - The flags to override.
    * @return {Repository} A proxy of this repository with overridden flags.
    */
-  override(flags: Partial<F>): Repository<M, Q, A, F, C> {
-    this.log
-      .for(this.override)
-      .debug(`Overriding repository flags with ${JSON.stringify(flags)}`);
+  override(flags: Partial<FlagsOf<A>>): Repository<M, A> {
+    //  TODO return typeof this
     return new Proxy(this, {
       get: (target: typeof this, p: string | symbol, receiver: any) => {
         const result = Reflect.get(target, p, receiver);
@@ -255,10 +265,7 @@ export class Repository<
    *
    * @return A new instance of the Repository class with the specified adapter and arguments.
    */
-  for(
-    conf: Partial<InferredAdapterConfig<A>>,
-    ...args: any[]
-  ): Repository<M, Q, A, F, C> {
+  for(conf: Partial<InferredAdapterConfig<A>>, ...args: any[]): typeof this {
     return new Proxy(this, {
       get: (target: any, p: string | symbol, receiver: any) => {
         if (p === "adapter") {
@@ -290,8 +297,8 @@ export class Repository<
   protected override async createPrefix(
     model: M,
     ...args: any[]
-  ): Promise<[M, ...any[]]> {
-    const contextArgs = await Context.args<M, C, F>(
+  ): Promise<[M, ...any[], ContextOf<A>]> {
+    const contextArgs = await Context.args<M, ContextOf<A>>(
       OperationKeys.CREATE,
       this.class,
       args,
@@ -299,7 +306,7 @@ export class Repository<
       this._overrides || {}
     );
     model = new this.class(model);
-    await enforceDBDecorators(
+    await enforceDBDecorators<M, Repository<M, A>, any>(
       this,
       contextArgs.context,
       model,
@@ -325,18 +332,14 @@ export class Repository<
    * @return {Promise<M>} The created model with updated properties.
    */
   async create(model: M, ...args: any[]): Promise<M> {
+    const { ctx, log } = this.logAndCtx(args, this.create);
+    log.debug(
+      `Creating new ${this.class.name} in table ${Model.tableName(this.class)}`
+    );
     // eslint-disable-next-line prefer-const
     let { record, id, transient } = this.adapter.prepare(model, this.pk);
-    record = await this.adapter.create(this.tableName, id, record, ...args);
-    let c: C | undefined = undefined;
-    if (args.length) c = args[args.length - 1] as C;
-    return this.adapter.revert<M>(
-      record,
-      this.class,
-      this.pk,
-      id,
-      c && c.get("rebuildWithTransient") ? transient : undefined
-    );
+    record = await this.adapter.create(this.class, id, record, ...args);
+    return this.adapter.revert<M>(record, this.class, id, transient, ctx);
   }
 
   /**
@@ -346,7 +349,7 @@ export class Repository<
    * @param {C} context - The operation context.
    * @return {Promise<M>} The processed model.
    */
-  override async createSuffix(model: M, context: C): Promise<M> {
+  override async createSuffix(model: M, context: ContextOf<A>): Promise<M> {
     return super.createSuffix(model, context);
   }
 
@@ -359,17 +362,28 @@ export class Repository<
    */
   override async createAll(models: M[], ...args: any[]): Promise<M[]> {
     if (!models.length) return models;
+    const { ctx, log } = this.logAndCtx(args, this.create);
+    log.debug(
+      `Creating ${models.length} new ${this.class.name} in table ${Model.tableName(this.class)}`
+    );
+
     const prepared = models.map((m) => this.adapter.prepare(m, this.pk));
     const ids = prepared.map((p) => p.id);
     let records = prepared.map((p) => p.record);
     records = await this.adapter.createAll(
-      this.tableName,
-      ids as (string | number)[],
+      this.class,
+      ids as PrimaryKeyType[],
       records,
       ...args
     );
     return records.map((r, i) =>
-      this.adapter.revert(r, this.class, this.pk, ids[i] as string | number)
+      this.adapter.revert(
+        r,
+        this.class,
+        ids[i],
+        ctx.get("rebuildWithTransient") ? prepared[i].transient : undefined,
+        ctx
+      )
     );
   }
 
@@ -381,8 +395,11 @@ export class Repository<
    * @return The prepared models and context arguments.
    * @throws {ValidationError} If any model fails validation.
    */
-  protected override async createAllPrefix(models: M[], ...args: any[]) {
-    const contextArgs = await Context.args(
+  protected override async createAllPrefix(
+    models: M[],
+    ...args: any[]
+  ): Promise<[M[], ...any[], ContextOf<A>]> {
+    const contextArgs = await Context.args<M, ContextOf<A>>(
       OperationKeys.CREATE,
       this.class,
       args,
@@ -418,7 +435,7 @@ export class Repository<
           ) as M[keyof M];
         }
 
-        await enforceDBDecorators(
+        await enforceDBDecorators<M, Repository<M, A>, any>(
           this,
           contextArgs.context,
           m,
@@ -436,14 +453,7 @@ export class Repository<
       models.map((m) => Promise.resolve(m.hasErrors(...ignoredProps)))
     );
 
-    const errorMessages = errors.reduce((accum: string | undefined, e, i) => {
-      if (e)
-        accum =
-          typeof accum === "string"
-            ? accum + `\n - ${i}: ${e.toString()}`
-            : ` - ${i}: ${e.toString()}`;
-      return accum;
-    }, undefined);
+    const errorMessages = reduceErrorsToPrint(errors);
 
     if (errorMessages) throw new ValidationError(errorMessages);
     return [models, ...contextArgs.args];
@@ -456,8 +466,11 @@ export class Repository<
    * @param {...any[]} args - Additional arguments.
    * @return The key and context arguments.
    */
-  protected override async readPrefix(key: string, ...args: any[]) {
-    const contextArgs = await Context.args(
+  protected override async readPrefix(
+    key: PrimaryKeyType,
+    ...args: any[]
+  ): Promise<[PrimaryKeyType, ...any[], ContextOf<A>]> {
+    const contextArgs = await Context.args<M, ContextOf<A>>(
       OperationKeys.READ,
       this.class,
       args,
@@ -466,7 +479,7 @@ export class Repository<
     );
     const model: M = new this.class();
     model[this.pk] = key as M[keyof M];
-    await enforceDBDecorators(
+    await enforceDBDecorators<M, Repository<M, A>, any>(
       this,
       contextArgs.context,
       model,
@@ -479,13 +492,18 @@ export class Repository<
   /**
    * @description Reads a model from the database by ID.
    * @summary Retrieves a model instance from the database using its primary key.
-   * @param {string|number|bigint} id - The primary key of the model to read.
+   * @param {PrimaryKeyType} id - The primary key of the model to read.
    * @param {...any[]} args - Additional arguments.
    * @return {Promise<M>} The retrieved model instance.
    */
-  async read(id: string | number | bigint, ...args: any[]): Promise<M> {
-    const m = await this.adapter.read(this.tableName, id, ...args);
-    return this.adapter.revert<M>(m, this.class, this.pk, id);
+  async read(id: PrimaryKeyType, ...args: any[]): Promise<M> {
+    const { ctx, log } = this.logAndCtx(args, this.create);
+    log.debug(
+      `reading ${this.class.name} from table ${Model.tableName(this.class)} with pk ${this.pk as string}`
+    );
+
+    const m = await this.adapter.read(this.class, id, ...args);
+    return this.adapter.revert<M>(m, this.class, id, undefined, ctx);
   }
 
   /**
@@ -496,10 +514,10 @@ export class Repository<
    * @return The keys and context arguments.
    */
   protected override async readAllPrefix(
-    keys: string[] | number[],
+    keys: PrimaryKeyType[],
     ...args: any[]
-  ) {
-    const contextArgs = await Context.args(
+  ): Promise<[PrimaryKeyType[], ...any[], ContextOf<A>]> {
+    const contextArgs = await Context.args<M, ContextOf<A>>(
       OperationKeys.READ,
       this.class,
       args,
@@ -510,7 +528,7 @@ export class Repository<
       keys.map(async (k) => {
         const m = new this.class();
         m[this.pk] = k as M[keyof M];
-        return enforceDBDecorators(
+        return enforceDBDecorators<M, Repository<M, A>, any>(
           this,
           contextArgs.context,
           m,
@@ -529,13 +547,15 @@ export class Repository<
    * @param {...any[]} args - Additional arguments.
    * @return {Promise<M[]>} The retrieved model instances.
    */
-  override async readAll(
-    keys: string[] | number[],
-    ...args: any[]
-  ): Promise<M[]> {
-    const records = await this.adapter.readAll(this.tableName, keys, ...args);
+  override async readAll(keys: PrimaryKeyType[], ...args: any[]): Promise<M[]> {
+    const { ctx, log } = this.logAndCtx(args, this.create);
+    log.debug(
+      `reading ${keys.length} ${this.class.name} in table ${Model.tableName(this.class)}`
+    );
+
+    const records = await this.adapter.readAll(this.class, keys, ...args);
     return records.map((r, i) =>
-      this.adapter.revert(r, this.class, this.pk, keys[i])
+      this.adapter.revert(r, this.class, keys[i], undefined, ctx)
     );
   }
 
@@ -547,10 +567,14 @@ export class Repository<
    * @return {Promise<M>} The updated model with refreshed properties.
    */
   async update(model: M, ...args: any[]): Promise<M> {
+    const { ctx, log } = this.logAndCtx(args, this.create);
     // eslint-disable-next-line prefer-const
     let { record, id, transient } = this.adapter.prepare(model, this.pk);
-    record = await this.adapter.update(this.tableName, id, record, ...args);
-    return this.adapter.revert<M>(record, this.class, this.pk, id, transient);
+    log.debug(
+      `updating ${this.class.name} in table ${Model.tableName(this.class)} with id ${id}`
+    );
+    record = await this.adapter.update(this.class, id, record, ...args);
+    return this.adapter.revert<M>(record, this.class, id, transient, ctx);
   }
 
   /**
@@ -565,7 +589,7 @@ export class Repository<
   protected override async updatePrefix(
     model: M,
     ...args: any[]
-  ): Promise<[M, ...args: any[]]> {
+  ): Promise<[M, ...args: any[], ContextOf<A>]> {
     const contextArgs = await Context.args(
       OperationKeys.UPDATE,
       this.class,
@@ -579,7 +603,7 @@ export class Repository<
         `No value for the Id is defined under the property ${this.pk as string}`
       );
     const oldModel = await this.read(pk, ...contextArgs.args);
-    model = this.merge(oldModel, model);
+    model = Model.merge(oldModel, model, this.class);
     await enforceDBDecorators(
       this,
       contextArgs.context,
@@ -612,15 +636,26 @@ export class Repository<
    * @return {Promise<M[]>} The updated models with refreshed properties.
    */
   override async updateAll(models: M[], ...args: any[]): Promise<M[]> {
+    const { ctx, log } = this.logAndCtx(args, this.create);
+    log.debug(
+      `Updating ${models.length} new ${this.class.name} in table ${Model.tableName(this.class)}`
+    );
+
     const records = models.map((m) => this.adapter.prepare(m, this.pk));
     const updated = await this.adapter.updateAll(
-      this.tableName,
+      this.class,
       records.map((r) => r.id),
       records.map((r) => r.record),
       ...args
     );
     return updated.map((u, i) =>
-      this.adapter.revert(u, this.class, this.pk, records[i].id)
+      this.adapter.revert(
+        u,
+        this.class,
+        records[i].id,
+        ctx.get("rebuildWithTransient") ? records[i].transient : undefined,
+        ctx
+      )
     );
   }
 
@@ -636,8 +671,8 @@ export class Repository<
   protected override async updateAllPrefix(
     models: M[],
     ...args: any[]
-  ): Promise<any[]> {
-    const contextArgs = await Context.args(
+  ): Promise<[M[], ...args: any[], ContextOf<A>]> {
+    const contextArgs = await Context.args<M, ContextOf<A>>(
       OperationKeys.UPDATE,
       this.class,
       args,
@@ -651,7 +686,7 @@ export class Repository<
     });
     const oldModels = await this.readAll(ids, ...contextArgs.args);
     models = models.map((m, i) => {
-      m = this.merge(oldModels[i], m);
+      m = Model.merge(oldModels[i], m, this.class);
       if (Repository.getMetadata(oldModels[i])) {
         if (!Repository.getMetadata(m))
           Repository.setMetadata(m, Repository.getMetadata(oldModels[i]));
@@ -660,7 +695,7 @@ export class Repository<
     });
     await Promise.all(
       models.map((m, i) =>
-        enforceDBDecorators(
+        enforceDBDecorators<M, Repository<M, A>, any>(
           this,
           contextArgs.context,
           m,
@@ -707,8 +742,11 @@ export class Repository<
    * @param {...any[]} args - Additional arguments.
    * @return The key and context arguments.
    */
-  protected override async deletePrefix(key: any, ...args: any[]) {
-    const contextArgs = await Context.args(
+  protected override async deletePrefix(
+    key: PrimaryKeyType,
+    ...args: any[]
+  ): Promise<[PrimaryKeyType, ...any[], ContextOf<A>]> {
+    const contextArgs = await Context.args<M, ContextOf<A>>(
       OperationKeys.DELETE,
       this.class,
       args,
@@ -716,7 +754,7 @@ export class Repository<
       this._overrides || {}
     );
     const model = await this.read(key, ...contextArgs.args);
-    await enforceDBDecorators(
+    await enforceDBDecorators<M, Repository<M, A>, any>(
       this,
       contextArgs.context,
       model,
@@ -733,9 +771,14 @@ export class Repository<
    * @param {...any[]} args - Additional arguments.
    * @return {Promise<M>} The deleted model instance.
    */
-  async delete(id: string | number | bigint, ...args: any[]): Promise<M> {
-    const m = await this.adapter.delete(this.tableName, id, ...args);
-    return this.adapter.revert<M>(m, this.class, this.pk, id);
+  async delete(id: PrimaryKeyType, ...args: any[]): Promise<M> {
+    const { ctx, log } = this.logAndCtx(args, this.create);
+    log.debug(
+      `deleting new ${this.class.name} in table ${Model.tableName(this.class)} with pk ${id}`
+    );
+
+    const m = await this.adapter.delete(this.class, id, ...args);
+    return this.adapter.revert<M>(m, this.class, id, undefined, ctx);
   }
 
   /**
@@ -746,10 +789,10 @@ export class Repository<
    * @return The keys and context arguments.
    */
   protected override async deleteAllPrefix(
-    keys: string[] | number[],
+    keys: PrimaryKeyType[],
     ...args: any[]
-  ) {
-    const contextArgs = await Context.args(
+  ): Promise<[PrimaryKeyType[], ...any[], ContextOf<A>]> {
+    const contextArgs = await Context.args<M, ContextOf<A>>(
       OperationKeys.DELETE,
       this.class,
       args,
@@ -759,7 +802,7 @@ export class Repository<
     const models = await this.readAll(keys, ...contextArgs.args);
     await Promise.all(
       models.map(async (m) => {
-        return enforceDBDecorators(
+        return enforceDBDecorators<M, Repository<M, A>, any>(
           this,
           contextArgs.context,
           m,
@@ -779,12 +822,17 @@ export class Repository<
    * @return {Promise<M[]>} The deleted model instances.
    */
   override async deleteAll(
-    keys: string[] | number[],
+    keys: PrimaryKeyType[],
     ...args: any[]
   ): Promise<M[]> {
-    const results = await this.adapter.deleteAll(this.tableName, keys, ...args);
+    const { ctx, log } = this.logAndCtx(args, this.create);
+    log.debug(
+      `deleting ${keys.length} ${this.class.name} in table ${Model.tableName(this.class)}`
+    );
+
+    const results = await this.adapter.deleteAll(this.class, keys, ...args);
     return results.map((r, i) =>
-      this.adapter.revert(r, this.class, this.pk, keys[i])
+      this.adapter.revert(r, this.class, keys[i], undefined, ctx)
     );
   }
   /**
@@ -916,23 +964,21 @@ export class Repository<
    * @throws {InternalError} If the observer handler is not initialized.
    */
   async updateObservers(
-    table: string,
+    table: Constructor<M>,
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds,
-    ...args: any[]
+    ...args: [...any[], ContextOf<A>]
   ): Promise<void> {
     if (!this.observerHandler)
       throw new InternalError(
         "ObserverHandler not initialized. Did you register any observables?"
       );
-    this.log
-      .for(this.updateObservers)
-      .verbose(
-        `Updating ${this.observerHandler.count()} observers for ${this}`
-      );
+    const { log } = this.adapter["getLogAndCtx"](args, this.updateObservers);
+    log.verbose(
+      `Updating ${this.observerHandler.count()} observers for ${this}`
+    );
     await this.observerHandler.updateObservers(
-      this.log,
-      table,
+      this.class,
       event,
       Array.isArray(id)
         ? id.map((i) => Sequence.parseValue(this.pkProps?.type, i) as string)
@@ -951,10 +997,10 @@ export class Repository<
    * @return {Promise<void>} A promise that resolves when all observers have been notified.
    */
   async refresh(
-    table: string,
+    table: Constructor<M>,
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds,
-    ...args: any[]
+    ...args: [...any[], ContextOf<A>]
   ) {
     return this.updateObservers(table, event, id, ...args);
   }
@@ -1114,9 +1160,7 @@ export class Repository<
    * @throws {InternalError} If no sequence options are defined for the model.
    */
   static getSequenceOptions<M extends Model>(model: M) {
-    const pkName = Model.pk(model.constructor as any);
-    const key = Metadata.key(DBKeys.ID, pkName);
-    const metadata = Metadata.get(model.constructor as any, key);
+    const metadata: SequenceOptions = Model.pkProps(model.constructor as any);
     if (!metadata)
       throw new InternalError(
         "No sequence options defined for model. did you use the @pk decorator?"

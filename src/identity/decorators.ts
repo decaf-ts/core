@@ -9,13 +9,10 @@ import {
   InternalError,
   onCreate,
   readonly,
-  RepositoryFlags,
 } from "@decaf-ts/db-decorators";
-import { Repo } from "../repository/Repository";
 import { index } from "../model/decorators";
 import { sequenceNameForModel } from "./utils";
 import { Sequence } from "../persistence/Sequence";
-import { Context } from "@decaf-ts/db-decorators";
 import { OrderDirection } from "../repository";
 import {
   apply,
@@ -23,7 +20,8 @@ import {
   Metadata,
   propMetadata,
 } from "@decaf-ts/decoration";
-
+import { ContextOf } from "../persistence/types";
+import { Repository } from "../repository/Repository";
 const defaultPkPriority = 60; // Default priority for primary key to run latter than other properties
 
 /**
@@ -64,13 +62,11 @@ const defaultPkPriority = 60; // Default priority for primary key to run latter 
  */
 export async function pkOnCreate<
   M extends Model,
-  R extends Repo<M, F, C>,
+  R extends Repository<M, any>,
   V extends SequenceOptions,
-  F extends RepositoryFlags,
-  C extends Context<F>,
 >(
   this: R,
-  context: Context<F>,
+  context: ContextOf<R>,
   data: V,
   key: keyof M,
   model: M

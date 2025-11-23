@@ -1,11 +1,6 @@
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { Model } from "@decaf-ts/decorator-validation";
-import {
-  Context,
-  InternalError,
-  OperationKeys,
-  RepositoryFlags,
-} from "@decaf-ts/db-decorators";
+import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Adapter, type Migration, PersistenceKeys } from "../persistence/index";
 import { type ExtendedRelationsMetadata } from "../model";
 
@@ -46,15 +41,8 @@ import { type ExtendedRelationsMetadata } from "../model";
 }.bind(Model);
 
 (Metadata as any).migrationsFor = function <
-  A extends Adapter<CONF, CONN, QUERY, FLAGS, CONTEXT>,
-  CONF,
-  CONN,
-  QUERY,
-  FLAGS extends RepositoryFlags = RepositoryFlags,
-  CONTEXT extends Context<FLAGS> = Context<FLAGS>,
->(
-  adapter?: A
-): Constructor<Migration<any, A, CONF, CONN, QUERY, FLAGS, CONTEXT>>[] {
+  A extends Adapter<any, any, any, any>,
+>(adapter?: A): Constructor<Migration<any, A>>[] {
   adapter = adapter ?? (Adapter.current as A);
   if (!adapter) throw new InternalError(`Could not get adapter for migrations`);
   const migrations = Metadata["innerGet"](
@@ -62,9 +50,7 @@ import { type ExtendedRelationsMetadata } from "../model";
     adapter.alias
   );
   return migrations.map(
-    (m: {
-      class: Constructor<Migration<any, A, CONF, CONN, QUERY, FLAGS, CONTEXT>>;
-    }) => m.class
+    (m: { class: Constructor<Migration<any, A>> }) => m.class
   );
 }.bind(Metadata);
 

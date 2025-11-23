@@ -52,22 +52,9 @@ export interface RamFlags extends RepositoryFlags {
   UUID: string;
 }
 
-/**
- * @description Type definition for RAM-specific repository
- * @summary A specialized repository type for working with models in the RAM adapter.
- * It combines the model type with RAM-specific query, adapter, flags, and context types.
- * @template M - The model type managed by the repository
- * @typedef {Repository<M, RawRamQuery<any>, RamAdapter, RamFlags, Context<RamFlags>>} RamRepository
- * @memberOf module:core
- * @category Ram
- */
-export type RamRepository<M extends Model<true | false>> = Repository<
-  M,
-  RawRamQuery<any>,
-  RamAdapter,
-  RamFlags,
-  Context<RamFlags>
->;
+export type RamRepository<M extends Model<boolean>> = Repository<M, RamAdapter>;
+
+export type RamContext = Context<RamFlags>;
 
 export type RamConfig = {
   user: string;

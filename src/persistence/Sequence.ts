@@ -1,7 +1,7 @@
 import { Model } from "@decaf-ts/decorator-validation";
 import { sequenceNameForModel } from "../identity/utils";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
-import { Logger, Logging } from "@decaf-ts/logging";
+import { LoggedClass } from "@decaf-ts/logging";
 import { UnsupportedError } from "./errors";
 import { Constructor } from "@decaf-ts/decoration";
 
@@ -51,28 +51,14 @@ import { Constructor } from "@decaf-ts/decoration";
  * const nextId = await sequence.next();
  * ```
  */
-export abstract class Sequence {
-  /**
-   * @description Logger instance for this sequence
-   * @summary Lazily initialized logger for the sequence instance
-   */
-  private logger!: Logger;
-
-  /**
-   * @description Accessor for the logger instance
-   * @summary Gets or initializes the logger for this sequence
-   * @return {Logger} The logger instance
-   */
-  protected get log(): Logger {
-    if (!this.logger) this.logger = Logging.for(this as any);
-    return this.logger;
-  }
-
+export abstract class Sequence extends LoggedClass {
   /**
    * @description Creates a new sequence instance
    * @summary Protected constructor that initializes the sequence with the provided options
    */
-  protected constructor(protected readonly options: SequenceOptions) {}
+  protected constructor(protected readonly options: SequenceOptions) {
+    super();
+  }
 
   /**
    * @description Gets the next value in the sequence

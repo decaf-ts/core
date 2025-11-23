@@ -7,24 +7,27 @@ import { Observer } from "./Observer";
  * @interface Observable
  * @memberOf module:core
  */
-export interface Observable {
+export interface Observable<
+  REGISTRATION extends [Observer, ...any[]] = [Observer],
+  ARGS extends any[] = any[],
+> {
   /**
    * @description Registers an observer to receive notifications
    * @summary Adds an observer to the list of observers that will be notified of state changes
-   * @param {Observer} observer - The observer to register
-   * @param {...any[]} args - Additional arguments to pass to the observer
+   * @template REGISTRATION - The type of the registration arguments for the observer
+   * @param {...REGISTRATION} args - @{link Observer} and additional arguments
    * @return {void}
    */
-  observe(observer: Observer, ...args: any[]): void;
+  observe(...args: REGISTRATION): void;
 
   /**
    * @description Unregisters an observer from receiving notifications
    * @summary Removes an observer from the list of observers that will be notified of state changes
-   * @param {Observer} observer - The observer to unregister
-   * @param {...any[]} args - Additional arguments to help identify the observer
+   * @template REGISTRATION - The type of the registration arguments for the observer
+   * @param {...REGISTRATION} args - @{link Observer} and additional arguments
    * @return {void}
    */
-  unObserve(observer: Observer, ...args: any[]): void;
+  unObserve(...args: REGISTRATION): void;
 
   /**
    * @description Notifies all registered observers of a state change
@@ -32,5 +35,5 @@ export interface Observable {
    * @param {...any[]} args - Arguments to pass to the observers' update methods
    * @return {Promise<void>} A promise that resolves when all observers have been updated
    */
-  updateObservers(...args: any[]): Promise<void>;
+  updateObservers(...args: ARGS): Promise<void>;
 }

@@ -2,11 +2,10 @@ import {
   RamFlags,
   RawRamQuery,
   RamStorage,
-  RamRepository,
   RamConfig,
+  RamContext,
 } from "./types";
 import { RamStatement } from "./RamStatement";
-import { RamContext } from "./RamContext";
 import { Repository } from "../repository/Repository";
 import { Dispatch } from "../persistence/Dispatch";
 import { Adapter, PersistenceKeys, Sequence } from "../persistence";
@@ -22,6 +21,8 @@ import {
   onCreate,
   onCreateUpdate,
   DBKeys,
+  Context,
+  PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
 import { RamSequence } from "./RamSequence";
 import { createdByOnRamCreateUpdate } from "./handlers";
@@ -79,7 +80,6 @@ export class RamAdapter extends Adapter<
   RamConfig,
   RamStorage,
   RawRamQuery<any>,
-  RamFlags,
   RamContext
 > {
   constructor(conf: RamConfig = {} as any, alias?: string) {
@@ -93,10 +93,10 @@ export class RamAdapter extends Adapter<
    * @template M - The model type for the repository
    * @return {Constructor<RamRepository<M>>} A constructor for creating RAM repositories
    */
-  override repository<M extends Model<boolean>>(): Constructor<
-    RamRepository<M>
-  > {
-    return super.repository<M>() as Constructor<RamRepository<M>>;
+  override repository<
+    R extends Repository<any, Adapter<any, any, any, any>>,
+  >(): Constructor<R> {
+    return super.repository<R>() as unknown as Constructor<R>;
   }
 
   /**
@@ -123,7 +123,7 @@ export class RamAdapter extends Adapter<
     return super.Dispatch();
   }
 
-  override Context = RamContext;
+  override Context: Constructor<RamContext> = Context;
 
   private indexes: Record<
     string,
@@ -155,9 +155,15 @@ export class RamAdapter extends Adapter<
    */
   override prepare<M extends Model>(
     model: M,
-    pk: keyof M
-  ): { record: Record<string, any>; id: string } {
-    const prepared = super.prepare(model, pk);
+    pk: keyof M,
+    ...args: [...any[], RamContext]
+  ): {
+    record: Record<string, any>;
+    id: string;
+    transient?: Record<string, any>;
+  } {
+    const ctx = args.pop();
+    const prepared = super.prepare(model, pk, ctx);
     delete prepared.record[pk as string];
     return prepared;
   }
@@ -176,10 +182,11 @@ export class RamAdapter extends Adapter<
   override revert<M extends Model>(
     obj: Record<string, any>,
     clazz: string | Constructor<M>,
-    pk: keyof M,
-    id: string | number
+    id: string | number,
+    transient?: Record<string, any>,
+    ...args: [...any[], RamContext]
   ): M {
-    const res = super.revert(obj, clazz, pk, id);
+    const res = super.revert(obj, clazz, id, transient, ...args);
     return res;
   }
 
@@ -212,11 +219,15 @@ export class RamAdapter extends Adapter<
    *   RamAdapter->>RamAdapter: lock.release()
    *   RamAdapter-->>Caller: model
    */
-  async create(
-    tableName: string,
-    id: string | number,
-    model: Record<string, any>
+  async create<M extends Model>(
+    clazz: Constructor<M>,
+    id: PrimaryKeyType,
+    model: Record<string, any>,
+    ctx: RamContext
   ): Promise<Record<string, any>> {
+    const log = ctx.logger.for(this.create);
+    const tableName = Model.tableName(clazz);
+    log.debug(`creating record in table ${tableName} with id ${id}`);
     await this.lock.acquire();
     if (!this.client.has(tableName)) this.client.set(tableName, new Map());
     if (this.client.get(tableName) && this.client.get(tableName)?.has(id))
@@ -254,10 +265,11 @@ export class RamAdapter extends Adapter<
    *   Storage-->>RamAdapter: record
    *   RamAdapter-->>Caller: record
    */
-  async read(
-    tableName: string,
-    id: string | number
+  async read<M extends Model>(
+    clazz: Constructor<M>,
+    id: PrimaryKeyType
   ): Promise<Record<string, any>> {
+    const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
     if (!this.client.get(tableName)?.has(id))
@@ -296,11 +308,16 @@ export class RamAdapter extends Adapter<
    *   RamAdapter->>RamAdapter: lock.release()
    *   RamAdapter-->>Caller: model
    */
-  async update(
-    tableName: string,
-    id: string | number,
-    model: Record<string, any>
+  async update<M extends Model>(
+    clazz: Constructor<M>,
+    id: PrimaryKeyType,
+    model: Record<string, any>,
+    ...args: any[]
   ): Promise<Record<string, any>> {
+    const { log } = this.getLogAndCtx(args, this.create);
+    const tableName = Model.tableName(clazz);
+    log.debug(`updating record in table ${tableName} with id ${id}`);
+
     await this.lock.acquire();
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
@@ -343,10 +360,15 @@ export class RamAdapter extends Adapter<
    *   RamAdapter->>RamAdapter: lock.release()
    *   RamAdapter-->>Caller: record
    */
-  async delete(
-    tableName: string,
-    id: string | number
+  async delete<M extends Model>(
+    clazz: Constructor<M>,
+    id: PrimaryKeyType
   ): Promise<Record<string, any>> {
+    const { log } = this.getLogAndCtx(args, this.create);
+    log.debug(
+      `deleting record from table ${Model.tableName(this.class)} with pk ${id}`
+    );
+
     await this.lock.acquire();
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
@@ -371,7 +393,7 @@ export class RamAdapter extends Adapter<
    */
   protected tableFor<M extends Model>(from: string | Constructor<M>) {
     if (typeof from === "string") from = Model.get(from) as Constructor<M>;
-    const table = Repository.table(from);
+    const table = Model.tableName(from);
     if (!this.client.has(table)) this.client.set(table, new Map());
     return this.client.get(table);
   }
@@ -419,21 +441,27 @@ export class RamAdapter extends Adapter<
    *   end
    *   RamAdapter-->>Caller: result
    */
-  async raw<R>(rawInput: RawRamQuery<any>): Promise<R> {
+  async raw<R>(rawInput: RawRamQuery<any>, ...args: any[]): Promise<R> {
+    const { ctx, log } = this.getLogAndCtx(args, this.raw);
+    log.debug(
+      `performing query on table ${Model.tableName(this.class)}: ${JSON.stringify(rawInput)}`
+    );
+
     const { where, sort, limit, skip, from } = rawInput;
     let { select } = rawInput;
     const collection = this.tableFor(from);
     if (!collection)
       throw new InternalError(`Table ${from} not found in RamAdapter`);
     const id = Model.pk(from);
-    const props = Metadata.get(from, Metadata.key(DBKeys.ID, id));
+    const props = Metadata.get(from, Metadata.key(DBKeys.ID, id as string));
 
     let result: any[] = Array.from(collection.entries()).map(([pk, r]) =>
       this.revert(
         r,
         from,
-        id as any,
-        Sequence.parseValue(props.type as any, pk as string) as string
+        Sequence.parseValue(props.type as any, pk as string) as string,
+        undefined,
+        ctx
       )
     );
 

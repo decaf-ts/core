@@ -18,15 +18,13 @@ declare module "@decaf-ts/decoration" {
     ): string[];
 
     function migrationsFor<
-      A extends Adapter<CONF, CONN, QUERY, FLAGS, CONTEXT>,
+      A extends Adapter<CONF, CONN, QUERY, CONTEXT>,
       CONF,
       CONN,
       QUERY,
       FLAGS extends RepositoryFlags = RepositoryFlags,
       CONTEXT extends Context<FLAGS> = Context<FLAGS>,
-    >(
-      adapter?: A
-    ): Constructor<Migration<any, A, CONF, CONN, QUERY, FLAGS, CONTEXT>>[];
+    >(adapter?: A): Constructor<Migration<any, A>>[];
 
     function relations<M extends Model>(
       m: Constructor<M>

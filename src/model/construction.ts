@@ -15,6 +15,7 @@ import { Cascade } from "../repository/constants";
 import { Context } from "@decaf-ts/db-decorators";
 import { Metadata } from "@decaf-ts/decoration";
 import { isClass } from "@decaf-ts/logging";
+import { ContextOf } from "../persistence/types";
 
 /**
  * @description Creates or updates a model instance
@@ -64,7 +65,7 @@ export async function createOrUpdate<
   model: M,
   context: Context<F>,
   alias?: string,
-  repository?: Repo<M, F, Context<F>>
+  repository?: Repo<M>
 ): Promise<M> {
   if (!repository) {
     const constructor = Model.get(model.constructor.name);
@@ -75,7 +76,7 @@ export async function createOrUpdate<
       alias
     );
   }
-  if (typeof model[repository.pk] === "undefined")
+  if (typeof model[Model.pk(repository.class)] === "undefined")
     return repository.create(model, context);
   else {
     try {
@@ -137,16 +138,10 @@ export async function createOrUpdate<
  *
  *   oneToOneOnCreate-->>Caller: void
  */
-export async function oneToOneOnCreate<
-  M extends Model,
-  R extends Repo<M, F, C>,
-  V extends RelationsMetadata,
-  F extends RepositoryFlags,
-  C extends Context<F>,
->(
+export async function oneToOneOnCreate<M extends Model, R extends Repo<M>>(
   this: R,
-  context: Context<F>,
-  data: V,
+  context: ContextOf<R>,
+  data: RelationsMetadata,
   key: keyof M,
   model: M
 ): Promise<void> {
@@ -222,16 +217,10 @@ export async function oneToOneOnCreate<
  *
  *   oneToOneOnUpdate-->>Caller: void
  */
-export async function oneToOneOnUpdate<
-  M extends Model,
-  R extends Repo<M, F, C>,
-  V extends RelationsMetadata,
-  F extends RepositoryFlags,
-  C extends Context<F>,
->(
+export async function oneToOneOnUpdate<M extends Model, R extends Repo<M>>(
   this: R,
-  context: Context<F>,
-  data: V,
+  context: ContextOf<R>,
+  data: RelationsMetadata,
   key: keyof M,
   model: M
 ): Promise<void> {
@@ -308,16 +297,10 @@ export async function oneToOneOnUpdate<
  *   oneToOneOnDelete->>cacheModelForPopulate: context, model, key, deleted[innerRepo.pk], deleted
  *   oneToOneOnDelete-->>Caller: void
  */
-export async function oneToOneOnDelete<
-  M extends Model,
-  R extends Repo<M, F, C>,
-  V extends RelationsMetadata,
-  F extends RepositoryFlags,
-  C extends Context<F>,
->(
+export async function oneToOneOnDelete<M extends Model, R extends Repo<M>>(
   this: R,
-  context: Context<F>,
-  data: V,
+  context: ContextOf<R>,
+  data: RelationsMetadata,
   key: keyof M,
   model: M
 ): Promise<void> {
@@ -399,16 +382,10 @@ export async function oneToOneOnDelete<
  *
  *   oneToManyOnCreate-->>Caller: void
  */
-export async function oneToManyOnCreate<
-  M extends Model,
-  R extends Repo<M, F, C>,
-  V extends RelationsMetadata,
-  F extends RepositoryFlags,
-  C extends Context<F>,
->(
+export async function oneToManyOnCreate<M extends Model, R extends Repo<M>>(
   this: R,
-  context: Context<F>,
-  data: V,
+  context: ContextOf<R>,
+  data: RelationsMetadata,
   key: keyof M,
   model: M
 ): Promise<void> {
@@ -475,16 +452,10 @@ export async function oneToManyOnCreate<
  *
  *   oneToManyOnUpdate-->>Caller: void
  */
-export async function oneToManyOnUpdate<
-  M extends Model,
-  R extends Repo<M, F, C>,
-  V extends RelationsMetadata,
-  F extends RepositoryFlags,
-  C extends Context<F>,
->(
+export async function oneToManyOnUpdate<M extends Model, R extends Repo<M>>(
   this: R,
-  context: Context<F>,
-  data: V,
+  context: ContextOf<R>,
+  data: RelationsMetadata,
   key: keyof M,
   model: M
 ): Promise<void> {
@@ -546,16 +517,10 @@ export async function oneToManyOnUpdate<
  *   oneToManyOnDelete->>oneToManyOnDelete: set model[key] = [...uniqueValues]
  *   oneToManyOnDelete-->>Caller: void
  */
-export async function oneToManyOnDelete<
-  M extends Model,
-  R extends Repo<M, F, C>,
-  V extends RelationsMetadata,
-  F extends RepositoryFlags,
-  C extends Context<F>,
->(
+export async function oneToManyOnDelete<M extends Model, R extends Repo<M>>(
   this: R,
-  context: Context<F>,
-  data: V,
+  context: ContextOf<R>,
+  data: RelationsMetadata,
   key: keyof M,
   model: M
 ): Promise<void> {
@@ -575,7 +540,7 @@ export async function oneToManyOnDelete<
 
   const uniqueValues = new Set([
     ...(isInstantiated
-      ? values.map((v: Record<string, any>) => v[repo.pk as string])
+      ? values.map((v: Record<string, any>) => v[repo["pk"] as string])
       : values),
   ]);
 
@@ -690,16 +655,10 @@ export async function cacheModelForPopulate<
  *   populate->>populate: set model[key] = isArr ? res : res[0]
  *   populate-->>Caller: void
  */
-export async function populate<
-  M extends Model,
-  R extends Repo<M, F, C>,
-  V extends RelationsMetadata,
-  F extends RepositoryFlags,
-  C extends Context<F>,
->(
+export async function populate<M extends Model, R extends Repo<M>>(
   this: R,
-  context: Context<F>,
-  data: V,
+  context: ContextOf<R>,
+  data: RelationsMetadata,
   key: keyof M,
   model: M
 ): Promise<void> {
@@ -709,7 +668,7 @@ export async function populate<
   if (typeof nested === "undefined" || (isArr && nested.length === 0)) return;
 
   async function fetchPopulateValues(
-    c: Context<F>,
+    c: ContextOf<R>,
     model: M,
     propName: string,
     propKeyValues: any[],

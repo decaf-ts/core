@@ -92,7 +92,7 @@ export async function pkOnCreate<
     );
   }
 
-  const next = await sequence.next();
+  const next = await sequence.next(context);
   setPrimaryKeyValue(model, key as string, next);
 }
 

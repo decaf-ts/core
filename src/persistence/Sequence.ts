@@ -1,8 +1,13 @@
 import { Model } from "@decaf-ts/decorator-validation";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
-import { LoggedClass } from "@decaf-ts/logging";
 import { UnsupportedError } from "./errors";
 import { Constructor } from "@decaf-ts/decoration";
+import { PrimaryKeyType } from "@decaf-ts/db-decorators";
+import {
+  ContextualLoggedClass,
+  MaybeContextualArg,
+} from "../utils/ContextualLoggedClass";
+import { Adapter } from "./Adapter";
 
 /**
  * @description Abstract base class for sequence generation
@@ -50,12 +55,15 @@ import { Constructor } from "@decaf-ts/decoration";
  * const nextId = await sequence.next();
  * ```
  */
-export abstract class Sequence extends LoggedClass {
+export abstract class Sequence extends ContextualLoggedClass<any> {
   /**
    * @description Creates a new sequence instance
    * @summary Protected constructor that initializes the sequence with the provided options
    */
-  protected constructor(protected readonly options: SequenceOptions) {
+  protected constructor(
+    protected readonly options: SequenceOptions,
+    protected readonly adapter: Adapter<any, any, any>
+  ) {
     super();
   }
 
@@ -64,14 +72,18 @@ export abstract class Sequence extends LoggedClass {
    * @summary Retrieves the next value from the sequence, incrementing it in the process
    * @return A promise that resolves to the next value in the sequence
    */
-  abstract next(): Promise<string | number | bigint>;
+  abstract next(...args: MaybeContextualArg<any>): Promise<PrimaryKeyType>;
 
   /**
    * @description Gets the current value of the sequence
    * @summary Retrieves the current value of the sequence without incrementing it
    * @return A promise that resolves to the current value in the sequence
    */
-  abstract current(): Promise<string | number | bigint>;
+  abstract current(...args: MaybeContextualArg<any>): Promise<PrimaryKeyType>;
+
+  protected parse(value: string | number | bigint): string | number | bigint {
+    return Sequence.parseValue(this.options.type, value);
+  }
 
   /**
    * @description Gets a range of sequential values
@@ -79,7 +91,10 @@ export abstract class Sequence extends LoggedClass {
    * @param {number} count - The number of sequential values to retrieve
    * @return A promise that resolves to an array of sequential values
    */
-  abstract range(count: number): Promise<(number | string | bigint)[]>;
+  abstract range(
+    count: number,
+    ...argz: MaybeContextualArg<any>
+  ): Promise<(number | string | bigint)[]>;
 
   /**
    * @description Gets the primary key sequence name for a model

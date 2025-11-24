@@ -1,9 +1,15 @@
 import { RamSequenceModel } from "./model/RamSequenceModel";
-import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
+import {
+  Context,
+  InternalError,
+  NotFoundError,
+  OperationKeys,
+} from "@decaf-ts/db-decorators";
 import { Sequence } from "../persistence";
 import { SequenceOptions } from "../interfaces";
 import { RamAdapter } from "./RamAdapter";
 import { Repo, Repository } from "../repository";
+import { ContextualArgs, MaybeContextualArg } from "../utils/index";
 
 /**
  * @description RAM-specific sequence implementation
@@ -35,7 +41,7 @@ export class RamSequence extends Sequence {
   protected repo: Repo<RamSequenceModel>;
 
   constructor(options: SequenceOptions, adapter: RamAdapter) {
-    super(options);
+    super(options, adapter);
     this.repo = Repository.forModel(RamSequenceModel, adapter.alias);
   }
 
@@ -45,10 +51,22 @@ export class RamSequence extends Sequence {
    * doesn't exist yet, it returns the configured starting value.
    * @return A promise that resolves to the current sequence value
    */
-  async current(): Promise<string | number | bigint> {
+  async current(
+    ...args: MaybeContextualArg<any>
+  ): Promise<string | number | bigint> {
+    const contextArgs = await Context.args<any, any>(
+      OperationKeys.READ,
+      RamSequenceModel,
+      args,
+      this.adapter
+    );
+    const ctx = contextArgs.context;
     const { name, startWith } = this.options;
     try {
-      const sequence: RamSequenceModel = await this.repo.read(name as string);
+      const sequence: RamSequenceModel = await this.repo.read(
+        name as string,
+        ctx
+      );
       return this.parse(sequence.current as string | number);
     } catch (e: any) {
       if (e instanceof NotFoundError) {
@@ -71,17 +89,6 @@ export class RamSequence extends Sequence {
   }
 
   /**
-   * @description Parses a value according to the sequence type
-   * @summary Converts a value to the appropriate type for the sequence (string, number, or bigint)
-   * using the base Sequence class's parseValue method.
-   * @param {string | number | bigint} value - The value to parse
-   * @return {string | number | bigint} The parsed value in the correct type
-   */
-  private parse(value: string | number | bigint): string | number | bigint {
-    return Sequence.parseValue(this.options.type, value);
-  }
-
-  /**
    * @description Increments the sequence value
    * @summary Increases the current sequence value by the specified amount and persists
    * the new value to storage. This method handles both numeric and BigInt sequence types.
@@ -91,7 +98,8 @@ export class RamSequence extends Sequence {
    */
   private async increment(
     current: string | number | bigint,
-    count?: number
+    count: number | undefined,
+    ctx: Context<any>
   ): Promise<string | number | bigint> {
     const { type, incrementBy, name } = this.options;
     let next: string | number | bigint;
@@ -118,12 +126,18 @@ export class RamSequence extends Sequence {
       ignoredValidationProperties: ["updatedAt"],
     });
     try {
-      seq = await repo.update(new RamSequenceModel({ id: name, current: next }));
+      seq = await repo.update(
+        new RamSequenceModel({ id: name, current: next }),
+        ctx
+      );
     } catch (e: any) {
       if (!(e instanceof NotFoundError)) {
         throw e;
       }
-      seq = await repo.create(new RamSequenceModel({ id: name, current: next }));
+      seq = await repo.create(
+        new RamSequenceModel({ id: name, current: next }),
+        ctx
+      );
     }
 
     return seq.current as string | number | bigint;
@@ -135,9 +149,18 @@ export class RamSequence extends Sequence {
    * configured increment amount. This is the main method used to get a new sequential value.
    * @return A promise that resolves to the next value in the sequence
    */
-  async next(): Promise<number | string | bigint> {
-    const current = await this.current();
-    return this.increment(current);
+  async next(
+    ...argz: MaybeContextualArg<any>
+  ): Promise<number | string | bigint> {
+    const contextArgs = await Context.args(
+      OperationKeys.UPDATE,
+      RamSequenceModel,
+      argz,
+      this.adapter
+    );
+    const { context, args } = contextArgs;
+    const current = await this.current(...args);
+    return this.increment(current, undefined, context);
   }
 
   /**
@@ -148,14 +171,25 @@ export class RamSequence extends Sequence {
    * @param {number} count - The number of sequential values to generate
    * @return A promise that resolves to an array of sequential values
    */
-  async range(count: number): Promise<(number | string | bigint)[]> {
-    const current = (await this.current()) as number;
+  async range(
+    count: number,
+    ...argz: MaybeContextualArg<any>
+  ): Promise<(number | string | bigint)[]> {
+    const contextArgs = await Context.args(
+      OperationKeys.UPDATE,
+      RamSequenceModel,
+      argz,
+      this.adapter
+    );
+    const { context, args } = contextArgs;
+    const current = (await this.current(...args)) as number;
     const incrementBy = this.parse(
       this.options.incrementBy as number
     ) as number;
     const next: string | number | bigint = await this.increment(
       current,
-      (this.parse(count) as number) * incrementBy
+      (this.parse(count) as number) * incrementBy,
+      context
     );
     const range: (number | string | bigint)[] = [];
     for (let i: number = 1; i <= count; i++) {

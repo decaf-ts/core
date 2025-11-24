@@ -16,7 +16,6 @@ import {
 } from "@decaf-ts/decorator-validation";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { RawExecutor } from "../interfaces/RawExecutor";
-import { Observable } from "../interfaces/Observable";
 import { PersistenceKeys } from "./constants";
 import type { Repository } from "../repository/Repository";
 import { Sequence } from "./Sequence";

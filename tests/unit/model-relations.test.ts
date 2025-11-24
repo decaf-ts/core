@@ -12,7 +12,7 @@ import {
   testUser,
   TestUserModel,
 } from "./models";
-import { NotFoundError } from "@decaf-ts/db-decorators";
+import { Context, NotFoundError } from "@decaf-ts/db-decorators";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { RamRepository } from "../../src/ram/types";
 import { Repository } from "../../src/repository/index";
@@ -91,6 +91,8 @@ describe(`Complex Database`, function () {
           incrementBy: 1,
           cycle: false,
         });
+
+        const ctx = new Context();
 
         const noPopulateOnceCurVal = (await sequenceModel.current()) as number;
 

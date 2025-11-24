@@ -363,7 +363,7 @@ export class Repository<
       `Creating ${models.length} new ${this.class.name} in table ${Model.tableName(this.class)}`
     );
 
-    const prepared = models.map((m) => this.adapter.prepare(m, this.pk, ctx));
+    const prepared = models.map((m) => this.adapter.prepare(m, ctx));
     const ids = prepared.map((p) => p.id);
     let records = prepared.map((p) => p.record);
     records = await this.adapter.createAll(
@@ -410,7 +410,9 @@ export class Repository<
     let ids: (string | number | bigint | undefined)[] = [];
     if (opts.type) {
       if (!opts.name) opts.name = Sequence.pk(models[0]);
-      ids = await (await this.adapter.Sequence(opts)).range(models.length);
+      ids = await (
+        await this.adapter.Sequence(opts)
+      ).range(models.length, ...contextArgs.args);
     } else {
       ids = models.map((m, i) => {
         if (typeof m[this.pk] === "undefined")
@@ -580,7 +582,7 @@ export class Repository<
   ): Promise<M> {
     const { ctxArgs, log, ctx } = this.logCtx(args, this.create);
     // eslint-disable-next-line prefer-const
-    let { record, id, transient } = this.adapter.prepare(model, this.pk, ctx);
+    let { record, id, transient } = this.adapter.prepare(model, ctx);
     log.debug(
       `updating ${this.class.name} in table ${Model.tableName(this.class)} with id ${id}`
     );
@@ -657,7 +659,7 @@ export class Repository<
       `Updating ${models.length} new ${this.class.name} in table ${Model.tableName(this.class)}`
     );
 
-    const records = models.map((m) => this.adapter.prepare(m, this.pk, ctx));
+    const records = models.map((m) => this.adapter.prepare(m, ctx));
     const updated = await this.adapter.updateAll(
       this.class,
       records.map((r) => r.id),

@@ -471,7 +471,7 @@ export abstract class Adapter<
       );
       Object.defineProperty(result, PersistenceKeys.METADATA, {
         enumerable: false,
-        writable: false,
+        writable: true,
         configurable: true,
         value: (model as any)[PersistenceKeys.METADATA],
       });
@@ -538,8 +538,8 @@ export abstract class Adapter<
       );
       Object.defineProperty(result, PersistenceKeys.METADATA, {
         enumerable: false,
-        configurable: false,
-        writable: false,
+        configurable: true,
+        writable: true,
         value: metadata,
       });
     }

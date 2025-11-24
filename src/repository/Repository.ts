@@ -497,12 +497,12 @@ export class Repository<
     id: PrimaryKeyType,
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<M> {
-    const { ctx, log } = this.logCtx(args, this.create);
+    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
     log.debug(
       `reading ${this.class.name} from table ${Model.tableName(this.class)} with pk ${this.pk as string}`
     );
 
-    const m = await this.adapter.read(this.class, id, ...args);
+    const m = await this.adapter.read(this.class, id, ...ctxArgs);
     return this.adapter.revert<M>(m, this.class, id, undefined, ctx);
   }
 
@@ -1132,6 +1132,7 @@ export class Repository<
     this._cache[name] = repo as any;
   }
 
+  // TODO why do we need this?
   /**
    * @description Sets metadata on a model instance.
    * @summary Attaches metadata to a model instance using a non-enumerable property.

@@ -4,7 +4,6 @@ import {
   BulkCrudOperationKeys,
 } from "@decaf-ts/db-decorators";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
-import { Metadata, method } from "@decaf-ts/decoration";
 import { Observer } from "../interfaces";
 import { Adapter } from "./Adapter";
 import { UnsupportedError } from "./errors";

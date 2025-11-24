@@ -45,7 +45,6 @@ import {
   ContextualArgs,
   ContextualizedArgs,
   ContextualLoggedClass,
-  MaybeContextualArg,
 } from "../utils/ContextualLoggedClass";
 
 const flavourResolver = Decoration["flavourResolver"].bind(Decoration);
@@ -183,13 +182,12 @@ export abstract class Adapter<
     RawExecutor<QUERY>,
     Contextual<CONTEXT>,
     Observable<
-      [Observer, ObserverFilter],
+      [Observer, ObserverFilter?],
       [
         Constructor,
         OperationKeys | BulkCrudOperationKeys | string,
         EventIds,
-        ...any[],
-        CONTEXT,
+        ...ContextualArgs<CONTEXT>
       ]
     >,
     Observer<
@@ -197,8 +195,7 @@ export abstract class Adapter<
         Constructor,
         OperationKeys | BulkCrudOperationKeys | string,
         EventIds,
-        ...any[],
-        CONTEXT,
+        ...ContextualArgs<CONTEXT>
       ]
     >,
     Impersonatable<any, [Partial<CONF>, ...any[]]>,
@@ -576,7 +573,7 @@ export abstract class Adapter<
     clazz: Constructor<M>,
     id: PrimaryKeyType,
     model: Record<string, any>,
-    ...args: MaybeContextualArg<CONTEXT>
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>>;
 
   /**
@@ -592,7 +589,7 @@ export abstract class Adapter<
     tableName: Constructor<M>,
     id: PrimaryKeyType[],
     model: Record<string, any>[],
-    ...args: MaybeContextualArg<CONTEXT>
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
@@ -615,7 +612,7 @@ export abstract class Adapter<
   abstract read<M extends Model>(
     tableName: Constructor<M>,
     id: PrimaryKeyType,
-    ...args: MaybeContextualArg<CONTEXT>
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>>;
 
   /**
@@ -629,7 +626,7 @@ export abstract class Adapter<
   async readAll<M extends Model>(
     tableName: Constructor<M>,
     id: PrimaryKeyType[],
-    ...args: MaybeContextualArg<CONTEXT>
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
     const { log, ctxArgs } = this.logCtx(args, this.readAll);
     const tableLabel = Model.tableName(tableName);
@@ -651,7 +648,7 @@ export abstract class Adapter<
     tableName: Constructor<M>,
     id: PrimaryKeyType,
     model: Record<string, any>,
-    ...args: MaybeContextualArg<CONTEXT>
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>>;
 
   /**
@@ -667,7 +664,7 @@ export abstract class Adapter<
     tableName: Constructor<M>,
     id: PrimaryKeyType[],
     model: Record<string, any>[],
-    ...args: MaybeContextualArg<CONTEXT>
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
@@ -690,7 +687,7 @@ export abstract class Adapter<
   abstract delete<M extends Model>(
     tableName: Constructor<M>,
     id: PrimaryKeyType,
-    ...args: MaybeContextualArg<CONTEXT>
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>>;
 
   /**
@@ -704,9 +701,10 @@ export abstract class Adapter<
   async deleteAll<M extends Model>(
     tableName: Constructor<M>,
     id: PrimaryKeyType[],
-    ...args: MaybeContextualArg<CONTEXT>
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
-    const { log, ctxArgs } = Adapter.logCtx(args, this.deleteAll);
+    const { log, ctxArgs } =
+      Adapter.logCtx<CONTEXT, ContextualArgs<CONTEXT>>(args, this.deleteAll);
     log.verbose(`Deleting ${id.length} entries from ${tableName} table`);
     return Promise.all(id.map((i) => this.delete(tableName, i, ...ctxArgs)));
   }
@@ -722,7 +720,7 @@ export abstract class Adapter<
    */
   abstract raw<R>(
     rawInput: QUERY,
-    ...args: MaybeContextualArg<CONTEXT>
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<R>;
 
   /**
@@ -782,13 +780,14 @@ export abstract class Adapter<
     table: Constructor<M>,
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds,
-    ...args: MaybeContextualArg<CONTEXT>
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<void> {
     if (!this.observerHandler)
       throw new InternalError(
         "ObserverHandler not initialized. Did you register any observables?"
       );
-    const { log, ctxArgs } = Adapter.logCtx(args, this.updateObservers);
+    const { log, ctxArgs } =
+      Adapter.logCtx<CONTEXT, ContextualArgs<CONTEXT>>(args, this.updateObservers);
 
     log.verbose(
       `Updating ${this.observerHandler.count()} observers for adapter ${this.alias}: Event: `
@@ -809,7 +808,7 @@ export abstract class Adapter<
     table: Constructor<M>,
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds,
-    ...args: MaybeContextualArg<CONTEXT>
+    ...args: ContextualArgs<CONTEXT>
   ) {
     return this.updateObservers(table, event, id, ...args);
   }

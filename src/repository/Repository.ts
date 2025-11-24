@@ -1007,8 +1007,17 @@ export class Repository<
       table,
       event,
       Array.isArray(id)
-        ? id.map((i) => Sequence.parseValue(this.pkProps?.type, i) as string)
-        : (Sequence.parseValue(this.pkProps?.type, id) as string),
+        ? id.map(
+            (i) =>
+              Sequence.parseValue(
+                Model.sequenceFor(this.class).type,
+                i
+              ) as string
+          )
+        : (Sequence.parseValue(
+            Model.sequenceFor(this.class).type,
+            id
+          ) as string),
       ...ctxArgs
     );
   }
@@ -1027,7 +1036,7 @@ export class Repository<
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds,
     ...args: MaybeContextualArg<ContextOf<A>>
-  ) {
+  ): Promise<void> {
     return this.updateObservers(table, event, id, ...args);
   }
 

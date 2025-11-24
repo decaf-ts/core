@@ -638,10 +638,6 @@ export class Repository<
       );
       if (errors) throw new ValidationError(errors.toString());
     }
-    if (Repository.getMetadata(oldModel)) {
-      if (!Repository.getMetadata(model))
-        Repository.setMetadata(model, Repository.getMetadata(oldModel));
-    }
     return [model, ...contextArgs.args];
   }
 
@@ -710,10 +706,6 @@ export class Repository<
     const oldModels = await this.readAll(ids, ...contextArgs.args);
     models = models.map((m, i) => {
       m = Model.merge(oldModels[i], m, this.class);
-      if (Repository.getMetadata(oldModels[i])) {
-        if (!Repository.getMetadata(m))
-          Repository.setMetadata(m, Repository.getMetadata(oldModels[i]));
-      }
       return m;
     });
     if (shouldRunHandlers)
@@ -751,13 +743,6 @@ export class Repository<
 
       if (errorMessages) throw new ValidationError(errorMessages);
     }
-
-    models.forEach((m, i) => {
-      if (Repository.getMetadata(oldModels[i])) {
-        if (!Repository.getMetadata(m))
-          Repository.setMetadata(m, Repository.getMetadata(oldModels[i]));
-      }
-    });
     return [models, ...contextArgs.args];
   }
 
@@ -1156,52 +1141,6 @@ export class Repository<
         throw new InternalError(`${name} already has a registered instance`);
     }
     this._cache[name] = repo as any;
-  }
-
-  // TODO why do we need this?
-  /**
-   * @description Sets metadata on a model instance.
-   * @summary Attaches metadata to a model instance using a non-enumerable property.
-   * @template M - The model type that extends Model.
-   * @param {M} model - The model instance.
-   * @param {any} metadata - The metadata to attach to the model.
-   */
-  static setMetadata<M extends Model>(model: M, metadata: any) {
-    Object.defineProperty(model, PersistenceKeys.METADATA, {
-      enumerable: false,
-      configurable: true,
-      writable: false,
-      value: metadata,
-    });
-  }
-
-  /**
-   * @description Gets metadata from a model instance.
-   * @summary Retrieves previously attached metadata from a model instance.
-   * @template M - The model type that extends Model.
-   * @param {M} model - The model instance.
-   * @return {any} The metadata or undefined if not found.
-   */
-  static getMetadata<M extends Model>(model: M) {
-    const descriptor = Object.getOwnPropertyDescriptor(
-      model,
-      PersistenceKeys.METADATA
-    );
-    return descriptor ? descriptor.value : undefined;
-  }
-
-  /**
-   * @description Removes metadata from a model instance.
-   * @summary Deletes the metadata property from a model instance.
-   * @template M - The model type that extends Model.
-   * @param {M} model - The model instance.
-   */
-  static removeMetadata<M extends Model>(model: M) {
-    const descriptor = Object.getOwnPropertyDescriptor(
-      model,
-      PersistenceKeys.METADATA
-    );
-    if (descriptor) delete (model as any)[PersistenceKeys.METADATA];
   }
 }
 

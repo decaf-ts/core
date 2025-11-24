@@ -233,12 +233,12 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
    * @return {Promise<void>} A promise that resolves when all observers have been notified
    */
   async updateObservers(
-    model: Constructor<any>,
+    model: Constructor<any> | string,
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds,
     ...args: [...any, ContextOf<A>]
   ): Promise<void> {
-    const table = Model.tableName(model);
+    const table = typeof model === "string" ? model : Model.tableName(model);
     const { log, ctxArgs } = this.logCtx(args, this.updateObservers);
     if (!this.adapter) {
       log.verbose(

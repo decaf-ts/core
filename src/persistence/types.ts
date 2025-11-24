@@ -12,10 +12,11 @@ import {
   RepositoryFlags,
 } from "@decaf-ts/db-decorators";
 import { Adapter } from "./Adapter";
-import { Observable } from "../interfaces/index";
+import { Observable, type Observer } from "../interfaces/index";
 import { Logger } from "@decaf-ts/logging";
 import { Constructor } from "@decaf-ts/decoration";
 import { Model } from "@decaf-ts/decorator-validation";
+import { ContextualArgs } from "../utils/index";
 
 export type ContextOf<
   OBJ extends IRepository<any, any> | Adapter<any, any, any, any>,
@@ -64,6 +65,25 @@ export type FlagsOf<
         ? FlagsOfAdapter<OBJ>
         : never;
 
+export type PersistenceObservable<CONTEXT extends Context<any>> = Observable<
+  [Observer, ObserverFilter?],
+  [
+    Constructor | string,
+    OperationKeys | BulkCrudOperationKeys | string,
+    EventIds,
+    ...ContextualArgs<CONTEXT>,
+  ]
+>;
+
+export type PersistenceObserver<CONTEXT extends Context<any>> = Observer<
+  [
+    Constructor | string,
+    OperationKeys | BulkCrudOperationKeys | string,
+    EventIds,
+    ...ContextualArgs<CONTEXT>,
+  ]
+>;
+
 /**
  * @description Type representing possible ID formats for database events
  * @summary A union type that defines the possible formats for event identifiers in the persistence layer.
@@ -101,23 +121,14 @@ export type InferredAdapterConfig<A> =
   A extends Adapter<infer CONF, any, any> ? CONF : never;
 
 export interface AdapterDispatch<A extends Adapter<any, any, any, any>>
-  extends Observable<
-    [A],
-    [
-      Constructor,
-      OperationKeys | BulkCrudOperationKeys | string,
-      EventIds,
-      ...any[],
-      ContextOf<A>,
-    ]
-  > {
+  extends PersistenceObservable<ContextOf<A>> {
   close(): Promise<void>;
 
   updateObservers<M extends Model>(
-    table: Constructor<M>,
+    table: Constructor<M> | string,
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds,
-    ...args: [...any[], ContextOf<A>]
+    ...args: ContextualArgs<ContextOf<A>>
   ): Promise<void>;
 }
 

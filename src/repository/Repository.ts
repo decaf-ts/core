@@ -12,7 +12,6 @@ import {
   reduceErrorsToPrint,
   PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
-import { Observable } from "../interfaces/Observable";
 import { type Observer } from "../interfaces/Observer";
 import { Adapter } from "../persistence/Adapter";
 import { Model } from "@decaf-ts/decorator-validation";
@@ -32,6 +31,8 @@ import {
   FlagsOf,
   InferredAdapterConfig,
   type ObserverFilter,
+  PersistenceObservable,
+  PersistenceObserver,
 } from "../persistence";
 import {
   Constructor,
@@ -118,16 +119,8 @@ export class Repository<
   >
   extends Rep<M, ContextOf<A>>
   implements
-    Observable<[Observer, ObserverFilter]>,
-    Observer<
-      [
-        Constructor<M>,
-        OperationKeys | BulkCrudOperationKeys | string,
-        EventIds,
-        ...any[],
-        ContextOf<A>,
-      ]
-    >,
+    PersistenceObservable<ContextOf<A>>,
+    PersistenceObserver<ContextOf<A>>,
     Queriable<M>,
     IRepository<M, ContextOf<A>>
 {

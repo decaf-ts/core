@@ -1,5 +1,5 @@
-import { Observable, Observer } from "../interfaces";
-import { EventIds, ObserverFilter } from "./types";
+import { Observer } from "../interfaces";
+import { EventIds, ObserverFilter, PersistenceObservable } from "./types";
 import {
   BulkCrudOperationKeys,
   Context,
@@ -9,7 +9,7 @@ import {
 import { Model } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
 import { Adapter } from "./Adapter";
-import { MaybeContextualArg } from "../utils/ContextualLoggedClass";
+import { ContextualArgs } from "../utils/ContextualLoggedClass";
 
 /**
  * @description Manages a collection of observers for database events
@@ -40,19 +40,7 @@ import { MaybeContextualArg } from "../utils/ContextualLoggedClass";
  * handler.unObserve(myObserver);
  * ```
  */
-export class ObserverHandler
-  implements
-    Observable<
-      [Observer, ObserverFilter],
-      [
-        Constructor,
-        OperationKeys | BulkCrudOperationKeys | string,
-        EventIds,
-        ...any[],
-        Context,
-      ]
-    >
-{
+export class ObserverHandler implements PersistenceObservable<any> {
   /**
    * @description Collection of registered observers
    * @summary Array of observer objects along with their optional filters
@@ -140,10 +128,10 @@ export class ObserverHandler
    *   ObserverHandler-->>Client: Return
    */
   async updateObservers<M extends Model>(
-    model: Constructor<M>,
+    model: Constructor<M> | string,
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds,
-    ...args: MaybeContextualArg<any>
+    ...args: ContextualArgs<any>
   ): Promise<void> {
     const { log, ctxArgs } = Adapter.logCtx<Context>(
       args,

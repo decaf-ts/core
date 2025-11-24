@@ -29,6 +29,8 @@ import {
   FlagsOf,
   Migration,
   type ObserverFilter,
+  PersistenceObservable,
+  PersistenceObserver,
   PreparedModel,
 } from "./types";
 import { ObserverHandler } from "./ObserverHandler";
@@ -181,23 +183,8 @@ export abstract class Adapter<
   implements
     RawExecutor<QUERY>,
     Contextual<CONTEXT>,
-    Observable<
-      [Observer, ObserverFilter?],
-      [
-        Constructor,
-        OperationKeys | BulkCrudOperationKeys | string,
-        EventIds,
-        ...ContextualArgs<CONTEXT>
-      ]
-    >,
-    Observer<
-      [
-        Constructor,
-        OperationKeys | BulkCrudOperationKeys | string,
-        EventIds,
-        ...ContextualArgs<CONTEXT>
-      ]
-    >,
+    PersistenceObservable<CONTEXT>,
+    PersistenceObserver<CONTEXT>,
     Impersonatable<any, [Partial<CONF>, ...any[]]>,
     ErrorParser
 {
@@ -703,8 +690,10 @@ export abstract class Adapter<
     id: PrimaryKeyType[],
     ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
-    const { log, ctxArgs } =
-      Adapter.logCtx<CONTEXT, ContextualArgs<CONTEXT>>(args, this.deleteAll);
+    const { log, ctxArgs } = Adapter.logCtx<CONTEXT, ContextualArgs<CONTEXT>>(
+      args,
+      this.deleteAll
+    );
     log.verbose(`Deleting ${id.length} entries from ${tableName} table`);
     return Promise.all(id.map((i) => this.delete(tableName, i, ...ctxArgs)));
   }
@@ -777,7 +766,7 @@ export abstract class Adapter<
    * @return {Promise<void>} A promise that resolves when all observers have been notified
    */
   async updateObservers<M extends Model>(
-    table: Constructor<M>,
+    table: Constructor<M> | string,
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds,
     ...args: ContextualArgs<CONTEXT>
@@ -786,8 +775,10 @@ export abstract class Adapter<
       throw new InternalError(
         "ObserverHandler not initialized. Did you register any observables?"
       );
-    const { log, ctxArgs } =
-      Adapter.logCtx<CONTEXT, ContextualArgs<CONTEXT>>(args, this.updateObservers);
+    const { log, ctxArgs } = Adapter.logCtx<CONTEXT, ContextualArgs<CONTEXT>>(
+      args,
+      this.updateObservers
+    );
 
     log.verbose(
       `Updating ${this.observerHandler.count()} observers for adapter ${this.alias}: Event: `
@@ -805,7 +796,7 @@ export abstract class Adapter<
    * @return {Promise<void>} A promise that resolves when the refresh is complete
    */
   async refresh<M extends Model>(
-    table: Constructor<M>,
+    table: Constructor<M> | string,
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds,
     ...args: ContextualArgs<CONTEXT>

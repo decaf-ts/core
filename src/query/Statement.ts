@@ -22,11 +22,15 @@ import type {
 } from "./options";
 import { Paginatable } from "../interfaces/Paginatable";
 import { Paginator } from "./Paginator";
-import { Adapter, ContextOf } from "../persistence";
+import { Adapter, type ContextOf } from "../persistence";
 import { QueryError } from "./errors";
 import { Logger } from "@decaf-ts/logging";
-import { LoggedClass } from "@decaf-ts/logging";
 import { Constructor } from "@decaf-ts/decoration";
+import {
+  type ContextualArgs,
+  ContextualLoggedClass,
+  type MaybeContextualArg,
+} from "../utils/index";
 
 /**
  * @description Base class for database query statements
@@ -85,7 +89,7 @@ export abstract class Statement<
     R,
     Q = A extends Adapter<any, any, infer Q, any> ? Q : never,
   >
-  extends LoggedClass
+  extends ContextualLoggedClass<ContextOf<A>>
   implements Executor<R>, RawExecutor<Q>, Paginatable<M, R, Q>
 {
   protected readonly selectSelector?: SelectSelector<M>[];
@@ -196,7 +200,7 @@ export abstract class Statement<
   }
 
   @final()
-  async execute(...args: [...any[], ContextOf<A>] | any[]): Promise<R> {
+  async execute(...args: MaybeContextualArg<ContextOf<A>>): Promise<R> {
     let execArgs = args;
     if (
       (!execArgs.length ||
@@ -219,8 +223,9 @@ export abstract class Statement<
     }
   }
 
-  async raw<R>(rawInput: Q, ctx: ContextOf<A>): Promise<R> {
-    const results = await this.adapter.raw<R>(rawInput, ctx);
+  async raw<R>(rawInput: Q, ...args: ContextualArgs<ContextOf<A>>): Promise<R> {
+    const { ctx, ctxArgs } = this.logCtx(args, this.raw);
+    const results = await this.adapter.raw<R>(rawInput, ...ctxArgs);
     if (!this.selectSelector) return results;
     const pkAttr = Model.pk(this.fromSelector);
 
@@ -244,7 +249,10 @@ export abstract class Statement<
 
   protected abstract build(): Q;
   protected abstract parseCondition(condition: Condition<M>, ...args: any[]): Q;
-  abstract paginate(size: number): Promise<Paginator<M, R, Q>>;
+  abstract paginate(
+    size: number,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<Paginator<M, R, Q>>;
 
   override toString() {
     return `${this.adapter.flavour} statement`;

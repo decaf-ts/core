@@ -3,7 +3,8 @@ import { Paginator } from "../query";
 import { Model } from "@decaf-ts/decorator-validation";
 import { Adapter } from "../persistence";
 import { Constructor } from "@decaf-ts/decoration";
-import { OperationKeys } from "@decaf-ts/db-decorators";
+import { Context, OperationKeys } from "@decaf-ts/db-decorators";
+import { MaybeContextualArg } from "../utils/index";
 
 /**
  * @description RAM-specific paginator implementation
@@ -68,18 +69,20 @@ export class RamPaginator<M extends Model, R> extends Paginator<
    * @param {number} [page=1] - The page number to retrieve (1-based)
    * @return {Promise<R[]>} A promise that resolves to an array of results for the requested page
    */
-  async page(page: number = 1): Promise<R[]> {
+  async page(page: number = 1, ...args: MaybeContextualArg<any>): Promise<R[]> {
+    const contextArgs = await Context.args<M, any>(
+      OperationKeys.READ,
+      this.clazz,
+      args,
+      this.adapter
+    );
     const statement = this.prepare(this.statement);
     if (!this._recordCount || !this._totalPages) {
       this._totalPages = this._recordCount = 0;
       const results: R[] =
         (await this.adapter.raw(
           { ...statement, limit: undefined },
-          await this.adapter.context(
-            OperationKeys.READ,
-            {},
-            this.clazz
-          )
+          contextArgs.context
         )) || [];
       this._recordCount = results.length;
       if (this._recordCount > 0) {

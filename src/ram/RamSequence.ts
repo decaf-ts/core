@@ -9,7 +9,7 @@ import { Sequence } from "../persistence";
 import { SequenceOptions } from "../interfaces";
 import { RamAdapter } from "./RamAdapter";
 import { Repo, Repository } from "../repository";
-import { ContextualArgs, MaybeContextualArg } from "../utils/index";
+import { MaybeContextualArg } from "../utils/index";
 
 /**
  * @description RAM-specific sequence implementation

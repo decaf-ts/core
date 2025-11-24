@@ -1,8 +1,15 @@
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { Model } from "@decaf-ts/decorator-validation";
 import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
-import { Adapter, type Migration, PersistenceKeys } from "../persistence/index";
+import {
+  Adapter,
+  type Migration,
+  PersistenceKeys,
+  UnsupportedError,
+} from "../persistence/index";
 import { type ExtendedRelationsMetadata } from "../model";
+import { SequenceOptions } from "../interfaces/index";
+import { IndexMetadata } from "../repository/index";
 
 (Metadata as any).validationExceptions = function <M extends Model>(
   this: Metadata,
@@ -69,10 +76,15 @@ import { type ExtendedRelationsMetadata } from "../model";
 }.bind(Metadata);
 
 (Model as any).relations = function <M extends Model>(
-  m: Constructor<M>,
+  m: Constructor<M> | M,
   prop?: keyof M
 ): string[] | ExtendedRelationsMetadata {
-  return Metadata.relations(m, prop) || [];
+  return (
+    Metadata.relations(
+      m instanceof Model ? (m.constructor as Constructor<M>) : m,
+      prop
+    ) || []
+  );
 };
 
 (Model as any).tableName = function <M extends Model>(
@@ -113,4 +125,36 @@ import { type ExtendedRelationsMetadata } from "../model";
   ...args: string[]
 ): string {
   return [Model.tableName(model), ...args].join("_");
+};
+
+(Model as any).sequenceFor = function sequenceFor<M extends Model<boolean>>(
+  model: Constructor<M> | M,
+  property?: keyof M
+): SequenceOptions {
+  if (property) throw new UnsupportedError("not currently supported");
+  const metadata: SequenceOptions = Model.pkProps(
+    model instanceof Model ? (model.constructor as any) : model
+  );
+  if (!metadata)
+    throw new InternalError(
+      "No sequence options defined for model. did you use the @pk decorator?"
+    );
+  return metadata as SequenceOptions;
+};
+
+(Model as any).indexes = function indexes<M extends Model>(
+  model: M | Constructor<M>
+): Record<string, Record<string, IndexMetadata>> {
+  const indexDecorators = Metadata.get(
+    model instanceof Model ? model.constructor : (model as any),
+    PersistenceKeys.INDEX
+  );
+
+  return Object.keys(indexDecorators || {}).reduce(
+    (acum: Record<string, Record<string, IndexMetadata>>, t: any) => {
+      acum[t] = { [PersistenceKeys.INDEX]: indexDecorators[t] };
+      return acum;
+    },
+    {}
+  );
 };

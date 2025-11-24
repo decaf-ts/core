@@ -22,7 +22,7 @@ describe("Indexes", () => {
   }
 
   it("extracts indexes", () => {
-    const indexes = Repository.indexes(IndexedModel);
+    const indexes = Model.indexes(IndexedModel);
     expect(indexes).toBeDefined();
     expect(indexes).toEqual({
       id: {

@@ -2,11 +2,57 @@ import { Constructor } from "@decaf-ts/decoration";
 import { OperationKeys } from "@decaf-ts/db-decorators";
 import "@decaf-ts/decorator-validation";
 import { ModelErrorDefinition } from "@decaf-ts/decorator-validation";
-import { SequenceOptions } from "../interfaces/index";
+import { SequenceOptions } from "../interfaces/SequenceOptions";
+import type { ExtendedRelationsMetadata } from "../model/types";
+import { IndexMetadata } from "../repository/types";
 
 declare module "@decaf-ts/decorator-validation" {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   export namespace Model {
+    /**
+     * @description Gets all relation properties defined on a model.
+     * @summary Retrieves the names of all properties marked as relations in the model hierarchy.
+     * @template M - The model type that extends Model.
+     * @param {M | Constructor<M>} model - The model instance or constructor.
+     * @return {string[]} An array of property names that are relations.
+     */
+    function relations<M extends Model>(m: Constructor<M> | M): string[];
+
+    /**
+     * @description Gets all relation properties defined on a model.
+     * @summary Retrieves the names of all properties marked as relations in the model hierarchy.
+     * @template M - The model type that extends Model.
+     * @param {M | Constructor<M>} model - The model instance or constructor.
+     * @return {string[]} An array of property names that are relations.
+     */
+    function relations<M extends Model>(
+      m: Constructor<M> | M,
+      prop: keyof M
+    ): ExtendedRelationsMetadata;
+
+    /**
+     * @description Gets all relation properties defined on a model.
+     * @summary Retrieves the names of all properties marked as relations in the model hierarchy.
+     * @template M - The model type that extends Model.
+     * @param {M | Constructor<M>} model - The model instance or constructor.
+     * @return {string[]} An array of property names that are relations.
+     */
+    function relations<M extends Model>(
+      m: Constructor<M> | M,
+      prop?: keyof M
+    ): string[] | ExtendedRelationsMetadata;
+
+    /**
+     * @description Gets all indexes defined on a model.
+     * @summary Retrieves all index metadata from a model's property decorators.
+     * @template M - The model type that extends Model.
+     * @param {M | Constructor<M>} model - The model instance or constructor.
+     * @return {Record<string, Record<string, IndexMetadata>>} A nested record of property names to index metadata.
+     */
+    function indexes<M extends Model>(
+      model: M | Constructor<M>
+    ): Record<string, Record<string, IndexMetadata>>;
+
     /**
      * @description Gets sequence options for a model's primary key.
      * @summary Retrieves the sequence configuration for a model's primary key from metadata.
@@ -15,8 +61,9 @@ declare module "@decaf-ts/decorator-validation" {
      * @return {SequenceOptions} The sequence options for the model's primary key.
      * @throws {InternalError} If no sequence options are defined for the model.
      */
-    function pkProps<M extends Model<boolean>>(
-      model: Constructor<M>
+    function sequenceFor<M extends Model<boolean>>(
+      model: Constructor<M> | M,
+      property?: keyof M
     ): SequenceOptions;
 
     /**

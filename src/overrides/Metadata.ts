@@ -39,18 +39,3 @@ declare module "@decaf-ts/decoration" {
     ): string[] | ExtendedRelationsMetadata | undefined;
   }
 }
-
-declare module "@decaf-ts/decorator-validation" {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
-  export namespace Model {
-    function relations<M extends Model>(m: Constructor<M>): string[];
-    function relations<M extends Model>(
-      m: Constructor<M>,
-      prop: keyof M
-    ): ExtendedRelationsMetadata;
-    function relations<M extends Model>(
-      m: Constructor<M>,
-      prop?: keyof M
-    ): string[] | ExtendedRelationsMetadata;
-  }
-}

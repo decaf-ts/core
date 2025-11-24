@@ -20,7 +20,6 @@ import { PersistenceKeys } from "../persistence/constants";
 import { OrderDirection } from "./constants";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { Queriable } from "../interfaces/Queriable";
-import { IndexMetadata } from "./types";
 import { Sequence } from "../persistence/Sequence";
 import { Condition } from "../query/Condition";
 import { WhereOption } from "../query/options";
@@ -43,7 +42,6 @@ import {
 } from "@decaf-ts/decoration";
 import { Logger } from "@decaf-ts/logging";
 import {
-  ContextualArgs,
   ContextualizedArgs,
   MaybeContextualArg,
 } from "../utils/ContextualLoggedClass";
@@ -190,6 +188,7 @@ export class Repository<
    * @description Primary key properties for this repository's model.
    * @summary Gets the sequence options containing primary key information.
    * @return {SequenceOptions} The primary key properties.
+   * @deprecated for Model.sequenceFor(class)
    */
   protected override get pkProps(): SequenceOptions {
     return super.pkProps;
@@ -202,17 +201,6 @@ export class Repository<
     if (clazz) {
       Repository.register(clazz, this, this.adapter.alias);
       if (adapter) {
-        // const flavour = Metadata.flavourOf(clazz);
-        // if (
-        //   flavour &&
-        //   flavour !== DefaultFlavour &&
-        //   flavour !== adapter.flavour
-        // ) {
-        //   this.log.warn(
-        //     `Incompatible flavours detected between adapter (${adapter.flavour}) and model (${flavour})`
-        //   );
-        //   // throw new InternalError("Incompatible flavours");
-        // }
         const flavour = Metadata.get(clazz, DecorationKeys.FLAVOUR);
         if (flavour === DefaultFlavour) {
           uses(adapter.flavour)(clazz);
@@ -245,8 +233,7 @@ export class Repository<
    * @param {Partial<F>} flags - The flags to override.
    * @return {Repository} A proxy of this repository with overridden flags.
    */
-  override(flags: Partial<FlagsOf<A>>): Repository<M, A> {
-    //  TODO return typeof this
+  override(flags: Partial<FlagsOf<A>>): this {
     return new Proxy(this, {
       get: (target: typeof this, p: string | symbol, receiver: any) => {
         const result = Reflect.get(target, p, receiver);
@@ -269,7 +256,7 @@ export class Repository<
    *
    * @return A new instance of the Repository class with the specified adapter and arguments.
    */
-  for(conf: Partial<InferredAdapterConfig<A>>, ...args: any[]): typeof this {
+  for(conf: Partial<InferredAdapterConfig<A>>, ...args: any[]): this {
     return new Proxy(this, {
       get: (target: any, p: string | symbol, receiver: any) => {
         if (p === "adapter") {
@@ -335,7 +322,10 @@ export class Repository<
    * @param {...any[]} args - Additional arguments.
    * @return {Promise<M>} The created model with updated properties.
    */
-  async create(model: M, ...args: any[]): Promise<M> {
+  async create(
+    model: M,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<M> {
     const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
     log.debug(
       `Creating new ${this.class.name} in table ${Model.tableName(this.class)}`
@@ -414,7 +404,7 @@ export class Repository<
       this._overrides || {}
     );
     if (!models.length) return [models, ...contextArgs.args];
-    const opts = Repository.getSequenceOptions(models[0]);
+    const opts = Model.sequenceFor(models[0]);
     let ids: (string | number | bigint | undefined)[] = [];
     if (opts.type) {
       if (!opts.name) opts.name = Sequence.pk(models[0]);
@@ -632,7 +622,7 @@ export class Repository<
     const errors = await Promise.resolve(
       model.hasErrors(
         oldModel,
-        ...Repository.relations(this.class),
+        ...Model.relations(this.class),
         ...(contextArgs.context.get("ignoredValidationProperties") || [])
       )
     );
@@ -689,7 +679,7 @@ export class Repository<
    */
   protected override async updateAllPrefix(
     models: M[],
-    ...args: any[]
+    ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<[M[], ...args: any[], ContextOf<A>]> {
     const contextArgs = await Context.args<M, ContextOf<A>>(
       OperationKeys.UPDATE,
@@ -763,7 +753,7 @@ export class Repository<
    */
   protected override async deletePrefix(
     key: PrimaryKeyType,
-    ...args: any[]
+    ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<[PrimaryKeyType, ...any[], ContextOf<A>]> {
     const contextArgs = await Context.args<M, ContextOf<A>>(
       OperationKeys.DELETE,
@@ -1014,7 +1004,7 @@ export class Repository<
       `Updating ${this.observerHandler.count()} observers for ${this}`
     );
     await this.observerHandler.updateObservers(
-      this.class,
+      table,
       event,
       Array.isArray(id)
         ? id.map((i) => Sequence.parseValue(this.pkProps?.type, i) as string)
@@ -1185,60 +1175,6 @@ export class Repository<
       PersistenceKeys.METADATA
     );
     if (descriptor) delete (model as any)[PersistenceKeys.METADATA];
-  }
-
-  /**
-   * @description Gets sequence options for a model's primary key.
-   * @summary Retrieves the sequence configuration for a model's primary key from metadata.
-   * @template M - The model type that extends Model.
-   * @param {M} model - The model instance.
-   * @return {SequenceOptions} The sequence options for the model's primary key.
-   * @throws {InternalError} If no sequence options are defined for the model.
-   */
-  static getSequenceOptions<M extends Model>(model: M) {
-    const metadata: SequenceOptions = Model.pkProps(model.constructor as any);
-    if (!metadata)
-      throw new InternalError(
-        "No sequence options defined for model. did you use the @pk decorator?"
-      );
-    return metadata as SequenceOptions;
-  }
-
-  /**
-   * @description Gets all indexes defined on a model.
-   * @summary Retrieves all index metadata from a model's property decorators.
-   * @template M - The model type that extends Model.
-   * @param {M | Constructor<M>} model - The model instance or constructor.
-   * @return {Record<string, Record<string, IndexMetadata>>} A nested record of property names to index metadata.
-   */
-  static indexes<M extends Model>(model: M | Constructor<M>) {
-    const indexDecorators = Metadata.get(
-      model instanceof Model ? model.constructor : (model as any),
-      PersistenceKeys.INDEX
-    );
-
-    return Object.keys(indexDecorators || {}).reduce(
-      (acum: Record<string, Record<string, IndexMetadata>>, t: any) => {
-        acum[t] = { [PersistenceKeys.INDEX]: indexDecorators[t] };
-        return acum;
-      },
-      {}
-    );
-  }
-
-  /**
-   * @description Gets all relation properties defined on a model.
-   * @summary Retrieves the names of all properties marked as relations in the model hierarchy.
-   * @template M - The model type that extends Model.
-   * @param {M | Constructor<M>} model - The model instance or constructor.
-   * @return {string[]} An array of property names that are relations.
-   */
-  static relations<M extends Model>(model: M | Constructor<M>): string[] {
-    return (
-      Metadata.relations(
-        model instanceof Model ? (model.constructor as Constructor<M>) : model
-      ) || []
-    );
   }
 }
 

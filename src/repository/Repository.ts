@@ -734,14 +734,7 @@ export class Repository<
         )
       );
 
-      const errorMessages = errors.reduce((accum: string | undefined, e, i) => {
-        if (e)
-          accum =
-            typeof accum === "string"
-              ? accum + `\n - ${i}: ${e.toString()}`
-              : ` - ${i}: ${e.toString()}`;
-        return accum;
-      }, undefined);
+      const errorMessages = reduceErrorsToPrint(errors);
 
       if (errorMessages) throw new ValidationError(errorMessages);
     }

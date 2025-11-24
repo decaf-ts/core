@@ -91,9 +91,10 @@ export type EventIds =
  * @memberOf module:core
  */
 export type ObserverFilter = (
-  table: string,
+  table: string | Constructor,
   event: OperationKeys | BulkCrudOperationKeys | string,
-  id: EventIds
+  id: EventIds,
+  ...args: [...any[], Context<any>]
 ) => boolean;
 
 export type InferredAdapterConfig<A> =
@@ -128,3 +129,9 @@ export interface Migration<QUERYRUNNER, A extends Adapter<any, any, any, any>> {
 
 export type RepositoryFor<A extends Adapter<any, any, any, any>> =
   A extends Adapter<any, any, any, any> ? ReturnType<A["repository"]> : never;
+
+export type PreparedModel = {
+  record: Record<string, any>;
+  id: string;
+  transient?: Record<string, any>;
+};

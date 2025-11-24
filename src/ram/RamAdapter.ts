@@ -271,7 +271,9 @@ export class RamAdapter extends Adapter<
    */
   async read<M extends Model>(
     clazz: Constructor<M>,
-    id: PrimaryKeyType
+    id: PrimaryKeyType,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ctx: RamContext
   ): Promise<Record<string, any>> {
     const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))
@@ -316,9 +318,9 @@ export class RamAdapter extends Adapter<
     clazz: Constructor<M>,
     id: PrimaryKeyType,
     model: Record<string, any>,
-    ...args: any[]
+    ctx: RamContext
   ): Promise<Record<string, any>> {
-    const { log } = Adapter.logCtx(args, this.create);
+    const log = ctx.logger.for(this.update);
     const tableName = Model.tableName(clazz);
     log.debug(`updating record in table ${tableName} with id ${id}`);
 
@@ -367,9 +369,9 @@ export class RamAdapter extends Adapter<
   async delete<M extends Model>(
     clazz: Constructor<M>,
     id: PrimaryKeyType,
-    ...args: any[]
+    ctx: RamContext
   ): Promise<Record<string, any>> {
-    const { log } = Adapter.logCtx(args, this.create);
+    const log = ctx.logger.for(this.delete);
     const tableName = Model.tableName(clazz);
     log.debug(`deleting record from table ${tableName} with pk ${id}`);
 
@@ -445,8 +447,8 @@ export class RamAdapter extends Adapter<
    *   end
    *   RamAdapter-->>Caller: result
    */
-  async raw<R>(rawInput: RawRamQuery<any>, ...args: any[]): Promise<R> {
-    const { ctx, log } = Adapter.logCtx(args, this.raw);
+  async raw<R>(rawInput: RawRamQuery<any>, ctx: RamContext): Promise<R> {
+    const log = ctx.logger.for(this.raw);
     log.debug(`performing raw query: ${JSON.stringify(rawInput)}`);
 
     const { where, sort, limit, skip, from } = rawInput;

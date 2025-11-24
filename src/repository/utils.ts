@@ -33,7 +33,7 @@ import { Constructor, DefaultFlavour, Decoration } from "@decaf-ts/decoration";
  *       U-->>C: throw InternalError
  *     end
  *   end
- *   U->>S: sf(INJECTABLE, flavour, Repository.table(model))
+ *   U->>S: sf(INJECTABLE, flavour, Model.tableName(model))
  *   S-->>C: token string
  * @memberOf module:core
  */

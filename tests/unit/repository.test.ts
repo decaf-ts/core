@@ -51,9 +51,10 @@ describe("Repository", () => {
 
     expect(created).toBeDefined();
     expect(mock).toHaveBeenCalledWith(
-      Repository.table(TestModel),
+      TestModel,
       OperationKeys.CREATE,
       id,
+      expect.any(Object),
       expect.any(Context)
     );
   });
@@ -81,9 +82,10 @@ describe("Repository", () => {
       true
     ); // minus the expected changes
     expect(mock).toHaveBeenCalledWith(
-      Repository.table(TestModel),
+      TestModel,
       OperationKeys.UPDATE,
       updated.id,
+      expect.any(Object),
       expect.any(Context)
     );
   });
@@ -97,9 +99,10 @@ describe("Repository", () => {
       NotFoundError
     );
     expect(mock).toHaveBeenCalledWith(
-      Repository.table(TestModel),
+      TestModel,
       OperationKeys.DELETE,
       deleted.id,
+      expect.any(Object),
       expect.any(Context)
     );
   });
@@ -151,7 +154,6 @@ describe("Repository", () => {
       @uses("ram")
       class DedicatedTestModelRepo extends Repository<
         DedicatedTestModel,
-        any,
         Adapter<any, any, any, any>
       > {
         constructor(adapter: Adapter<any, any, any, any>) {

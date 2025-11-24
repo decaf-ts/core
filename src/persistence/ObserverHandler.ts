@@ -9,6 +9,7 @@ import {
 import { Model } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
 import { Adapter } from "./Adapter";
+import { MaybeContextualArg } from "../utils/ContextualLoggedClass";
 
 /**
  * @description Manages a collection of observers for database events
@@ -142,17 +143,19 @@ export class ObserverHandler
     model: Constructor<M>,
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds,
-    ...args: [...any[], Context]
+    ...args: MaybeContextualArg<any>
   ): Promise<void> {
-    const { log } = Adapter.logCtx<Context>(args, this.updateObservers);
-    const table = Model.tableName(model);
+    const { log, ctxArgs } = Adapter.logCtx<Context>(
+      args,
+      this.updateObservers
+    );
     const results = await Promise.allSettled(
       this.observers
         .filter((o) => {
           const { filter } = o;
           if (!filter) return true;
           try {
-            return filter(table, event, id);
+            return filter(model, event, id, ...ctxArgs);
           } catch (e: unknown) {
             log.error(
               `Failed to filter observer ${o.observer.toString()}: ${e}`
@@ -161,7 +164,7 @@ export class ObserverHandler
           }
         })
         .map((o) => {
-          o.observer.refresh(table, event, id, ...args);
+          o.observer.refresh(model, event, id, ...ctxArgs);
         })
     );
     results.forEach((result, i) => {

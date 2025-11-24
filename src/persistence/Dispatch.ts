@@ -4,12 +4,16 @@ import {
   BulkCrudOperationKeys,
 } from "@decaf-ts/db-decorators";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
+import { Metadata, method } from "@decaf-ts/decoration";
 import { Observer } from "../interfaces";
 import { Adapter } from "./Adapter";
 import { UnsupportedError } from "./errors";
-import { AdapterDispatch, ContextOf, EventIds } from "./types";
-import { LoggedClass } from "@decaf-ts/logging";
+import { AdapterDispatch, ContextOf, EventIds, LoggerOf } from "./types";
 import { Constructor } from "@decaf-ts/decoration";
+import {
+  ContextualArgs,
+  ContextualLoggedClass,
+} from "../utils/ContextualLoggedClass";
 
 /**
  * @description Dispatches database operation events to observers
@@ -38,7 +42,7 @@ import { Constructor } from "@decaf-ts/decoration";
  * ```
  */
 export class Dispatch<A extends Adapter<any, any, any, any>>
-  extends LoggedClass
+  extends ContextualLoggedClass<LoggerOf<A>>
   implements AdapterDispatch<A>
 {
   /**
@@ -117,22 +121,22 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
         BulkCrudOperationKeys.UPDATE_ALL,
         BulkCrudOperationKeys.DELETE_ALL,
       ] as (keyof Adapter<any, any, any, any>)[]
-    ).forEach((method) => {
-      if (!adapter[method])
+    ).forEach((toWrap) => {
+      if (!adapter[toWrap])
         throw new InternalError(
-          `Method ${method} not found in ${adapter.alias} adapter to bind Observables Dispatch`
+          `Method ${toWrap} not found in ${adapter.alias} adapter to bind Observables Dispatch`
         );
 
-      let descriptor = Object.getOwnPropertyDescriptor(adapter, method);
+      let descriptor = Object.getOwnPropertyDescriptor(adapter, toWrap);
       let proto: any = adapter;
       while (!descriptor && proto !== Object.prototype) {
         proto = Object.getPrototypeOf(proto);
-        descriptor = Object.getOwnPropertyDescriptor(proto, method);
+        descriptor = Object.getOwnPropertyDescriptor(proto, toWrap);
       }
 
       if (!descriptor || !descriptor.writable) {
         this.log.error(
-          `Could not find method ${method} to bind Observables Dispatch`
+          `Could not find method ${toWrap} to bind Observables Dispatch`
         );
         return;
       }
@@ -148,28 +152,30 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
             return method;
         }
       }
+
       // @ts-expect-error because there are read only properties
-      adapter[method] = new Proxy(adapter[method], {
+      adapter[toWrap] = new Proxy(adapter[toWrap], {
         apply: async (target: any, thisArg: A, argArray: any[]) => {
+          const { log, ctxArgs } = thisArg["logCtx"](argArray, target);
           const [tableName, ids] = argArray;
-          const result = await target.apply(thisArg, argArray);
-          const { ctx, log } = thisArg["logCtx"](argArray, target);
+          const result = await target.apply(thisArg, ctxArgs);
 
           this.updateObservers(
             tableName,
-            bulkToSingle(method),
+            bulkToSingle(toWrap),
             ids as EventIds,
-            ctx
+            result,
+            ...(ctxArgs.slice(argArray.length) as ContextualArgs<ContextOf<A>>)
           )
             .then(() => {
               log.verbose(
-                `Observer refresh dispatched by ${method} for ${tableName}`
+                `Observer refresh dispatched by ${toWrap} for ${tableName}`
               );
               log.debug(`pks: ${ids}`);
             })
             .catch((e: unknown) =>
               log.error(
-                `Failed to dispatch observer refresh for ${method} on ${tableName}: ${e}`
+                `Failed to dispatch observer refresh for ${toWrap} on ${tableName}: ${e}`
               )
             );
           return result;
@@ -234,20 +240,18 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
     ...args: [...any, ContextOf<A>]
   ): Promise<void> {
     const table = Model.tableName(model);
+    const { log, ctxArgs } = this.logCtx(args, this.updateObservers);
     if (!this.adapter) {
-      this.log
-        .for(this.updateObservers)
-        .verbose(
-          `No adapter observed for dispatch; skipping observer update for ${table}:${event}`
-        );
+      log.verbose(
+        `No adapter observed for dispatch; skipping observer update for ${table}:${event}`
+      );
       return;
     }
-    const { log } = Adapter.logCtx<ContextOf<A>>(args, this.updateObservers);
     try {
       log.debug(
         `Dispatching ${event} from table ${table} for ${event} with id: ${JSON.stringify(id)}`
       );
-      await this.adapter.refresh(model, event, id, ...args);
+      await this.adapter.refresh(model, event, id, ...ctxArgs);
     } catch (e: unknown) {
       throw new InternalError(`Failed to refresh dispatch: ${e}`);
     }

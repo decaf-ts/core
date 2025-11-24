@@ -379,7 +379,7 @@ export class DummyAdapter extends Adapter<
    */
   protected tableFor<M extends Model>(from: string | Constructor<M>) {
     if (typeof from === "string") from = Model.get(from) as Constructor<M>;
-    const table = Repository.table(from);
+    const table = Model.tableName(from);
     if (!this.client.has(table)) this.client.set(table, new Map());
     return this.client.get(table);
   }
@@ -427,7 +427,10 @@ export class DummyAdapter extends Adapter<
    *   end
    *   RamAdapter-->>Caller: result
    */
-  async raw<R>(rawInput: RawRamQuery<any>, ...args: [...any[], RamContext]): Promise<R> {
+  async raw<R>(
+    rawInput: RawRamQuery<any>,
+    ...args: [...any[], RamContext]
+  ): Promise<R> {
     const ctx = args.pop();
     const { where, sort, limit, skip, from } = rawInput;
     let { select } = rawInput;

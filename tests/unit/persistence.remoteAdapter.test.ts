@@ -4,9 +4,11 @@ import {
   Context,
   InternalError,
   BaseError,
+  PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
 import { Adapter, Sequence, SequenceOptions, Statement } from "../../src/index";
 import { Model } from "@decaf-ts/decorator-validation";
+import { Constructor } from "@decaf-ts/decoration";
 
 class DummyContext<F extends RepositoryFlags> extends Context<F> {}
 
@@ -18,25 +20,24 @@ class TestRemoteAdapter extends Adapter<
   Cfg,
   { connected: boolean },
   any,
-  F,
   DummyContext<F>
 > {
-  Statement<M extends Model>(): Statement<any, M, any> {
+  Statement<M extends Model>(): Statement<M, any, any, any> {
     throw new Error("Method not implemented.");
   }
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  parseError(err: Error): BaseError {
+  parseError<E extends BaseError>(err: Error): E {
     throw new Error("Method not implemented.");
   }
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   Sequence(options: SequenceOptions): Promise<Sequence> {
     throw new Error("Method not implemented.");
   }
-  create(
+  create<M>(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    tableName: string,
+    tableName: Constructor<M>,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    id: string | number,
+    id: PrimaryKeyType,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     model: Record<string, any>,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -44,9 +45,9 @@ class TestRemoteAdapter extends Adapter<
   ): Promise<Record<string, any>> {
     throw new Error("Method not implemented.");
   }
-  read(
+  read<M>(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    tableName: string,
+    tableName: Constructor<M>,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     id: string | number | bigint,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -54,9 +55,9 @@ class TestRemoteAdapter extends Adapter<
   ): Promise<Record<string, any>> {
     throw new Error("Method not implemented.");
   }
-  update(
+  update<M>(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    tableName: string,
+    tableName: Constructor<M>,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     id: string | number,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -66,9 +67,9 @@ class TestRemoteAdapter extends Adapter<
   ): Promise<Record<string, any>> {
     throw new Error("Method not implemented.");
   }
-  delete(
+  delete<M>(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    tableName: string,
+    tableName: Constructor<M>,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     id: string | number | bigint,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

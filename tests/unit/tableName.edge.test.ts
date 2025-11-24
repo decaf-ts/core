@@ -19,8 +19,8 @@ describe("TableName edge case", () => {
       }
     }
 
-    expect(Repository.table(Named)).toEqual("tst_named");
-    expect(Repository.table(new Named({ name: "tst_other" }))).toEqual(
+    expect(Model.tableName(Named)).toEqual("tst_named");
+    expect(Model.tableName(new Named({ name: "tst_other" }))).toEqual(
       "tst_named"
     );
   });

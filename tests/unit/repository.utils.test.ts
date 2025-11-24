@@ -1,6 +1,5 @@
 import "reflect-metadata";
 import { generateInjectableNameForRepository } from "../../src/repository/utils";
-import { Repository } from "../../src/repository/Repository";
 import { TestModel } from "./TestModel";
 import {
   DecorationKeys,
@@ -8,6 +7,7 @@ import {
   Metadata,
   uses,
 } from "@decaf-ts/decoration";
+import { Model } from "@decaf-ts/decorator-validation";
 
 describe("repository/utils.generateInjectableNameForRepository", () => {
   it("throws InternalError when flavour cannot be resolved", () => {
@@ -20,7 +20,7 @@ describe("repository/utils.generateInjectableNameForRepository", () => {
     const name = generateInjectableNameForRepository(TestModel as any, "ram");
     // expected: decaf_{flavour}_adapter_for_{table}
     expect(name).toBe(
-      `decaf_ram_adapter_for_${Repository.table(TestModel as any)}`
+      `decaf_ram_adapter_for_${Model.tableName(TestModel as any)}`
     );
   });
 
@@ -34,7 +34,7 @@ describe("repository/utils.generateInjectableNameForRepository", () => {
     expect(meta2[DecorationKeys.FLAVOUR]).toEqual("ram");
     const name = generateInjectableNameForRepository(TestModel as any);
     expect(name).toBe(
-      `decaf_ram_adapter_for_${Repository.table(TestModel as any)}`
+      `decaf_ram_adapter_for_${Model.tableName(TestModel as any)}`
     );
   });
 

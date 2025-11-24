@@ -23,7 +23,7 @@ describe("repository/decorators", () => {
 
   it("acts as a class decorator to register and define DBKeys.CLASS", () => {
     @repository(TestModel, "ram")
-    class TestRepo extends Repository<TestModel> {}
+    class TestRepo extends Repository<TestModel, RamAdapter> {}
 
     const adapter = new RamAdapter();
     const repo = new TestRepo(adapter as any, TestModel);

@@ -296,21 +296,27 @@ export class Repository<
       this.adapter,
       this._overrides || {}
     );
+    const shouldRunHandlers =
+      contextArgs.context.get("ignoreHandlers") !== false;
+    const shouldValidate = !contextArgs.context.get("ignoreValidation");
     model = new this.class(model);
-    await enforceDBDecorators<M, Repository<M, A>, any>(
-      this,
-      contextArgs.context,
-      model,
-      OperationKeys.CREATE,
-      OperationKeys.ON
-    );
+    if (shouldRunHandlers)
+      await enforceDBDecorators<M, Repository<M, A>, any>(
+        this,
+        contextArgs.context,
+        model,
+        OperationKeys.CREATE,
+        OperationKeys.ON
+      );
 
-    const errors = await Promise.resolve(
-      model.hasErrors(
-        ...(contextArgs.context.get("ignoredValidationProperties") || [])
-      )
-    );
-    if (errors) throw new ValidationError(errors.toString());
+    if (shouldValidate) {
+      const errors = await Promise.resolve(
+        model.hasErrors(
+          ...(contextArgs.context.get("ignoredValidationProperties") || [])
+        )
+      );
+      if (errors) throw new ValidationError(errors.toString());
+    }
 
     return [model, ...contextArgs.args];
   }
@@ -403,6 +409,9 @@ export class Repository<
       this.adapter,
       this._overrides || {}
     );
+    const shouldRunHandlers =
+      contextArgs.context.get("ignoreHandlers") !== false;
+    const shouldValidate = !contextArgs.context.get("ignoreValidation");
     if (!models.length) return [models, ...contextArgs.args];
     const opts = Model.sequenceFor(models[0]);
     let ids: (string | number | bigint | undefined)[] = [];
@@ -432,27 +441,30 @@ export class Repository<
           ) as M[keyof M];
         }
 
-        await enforceDBDecorators<M, Repository<M, A>, any>(
-          this,
-          contextArgs.context,
-          m,
-          OperationKeys.CREATE,
-          OperationKeys.ON
-        );
+        if (shouldRunHandlers)
+          await enforceDBDecorators<M, Repository<M, A>, any>(
+            this,
+            contextArgs.context,
+            m,
+            OperationKeys.CREATE,
+            OperationKeys.ON
+          );
         return m;
       })
     );
 
-    const ignoredProps =
-      contextArgs.context.get("ignoredValidationProperties") || [];
+    if (shouldValidate) {
+      const ignoredProps =
+        contextArgs.context.get("ignoredValidationProperties") || [];
 
-    const errors = await Promise.all(
-      models.map((m) => Promise.resolve(m.hasErrors(...ignoredProps)))
-    );
+      const errors = await Promise.all(
+        models.map((m) => Promise.resolve(m.hasErrors(...ignoredProps)))
+      );
 
-    const errorMessages = reduceErrorsToPrint(errors);
+      const errorMessages = reduceErrorsToPrint(errors);
 
-    if (errorMessages) throw new ValidationError(errorMessages);
+      if (errorMessages) throw new ValidationError(errorMessages);
+    }
     return [models, ...contextArgs.args];
   }
 
@@ -603,6 +615,9 @@ export class Repository<
       this.adapter,
       this._overrides || {}
     );
+    const shouldRunHandlers =
+      contextArgs.context.get("ignoreHandlers") !== false;
+    const shouldValidate = !contextArgs.context.get("ignoreValidation");
     const pk = model[this.pk] as string;
     if (!pk)
       throw new InternalError(
@@ -610,23 +625,26 @@ export class Repository<
       );
     const oldModel = await this.read(pk, ...contextArgs.args);
     model = Model.merge(oldModel, model, this.class);
-    await enforceDBDecorators(
-      this,
-      contextArgs.context,
-      model,
-      OperationKeys.UPDATE,
-      OperationKeys.ON,
-      oldModel
-    );
+    if (shouldRunHandlers)
+      await enforceDBDecorators(
+        this,
+        contextArgs.context,
+        model,
+        OperationKeys.UPDATE,
+        OperationKeys.ON,
+        oldModel
+      );
 
-    const errors = await Promise.resolve(
-      model.hasErrors(
-        oldModel,
-        ...Model.relations(this.class),
-        ...(contextArgs.context.get("ignoredValidationProperties") || [])
-      )
-    );
-    if (errors) throw new ValidationError(errors.toString());
+    if (shouldValidate) {
+      const errors = await Promise.resolve(
+        model.hasErrors(
+          oldModel,
+          ...Model.relations(this.class),
+          ...(contextArgs.context.get("ignoredValidationProperties") || [])
+        )
+      );
+      if (errors) throw new ValidationError(errors.toString());
+    }
     if (Repository.getMetadata(oldModel)) {
       if (!Repository.getMetadata(model))
         Repository.setMetadata(model, Repository.getMetadata(oldModel));
@@ -688,6 +706,9 @@ export class Repository<
       this.adapter,
       this._overrides || {}
     );
+    const shouldRunHandlers =
+      contextArgs.context.get("ignoreHandlers") !== false;
+    const shouldValidate = !contextArgs.context.get("ignoreValidation");
     const ids = models.map((m) => {
       const id = m[this.pk] as string;
       if (!id) throw new InternalError("missing id on update operation");
@@ -702,38 +723,41 @@ export class Repository<
       }
       return m;
     });
-    await Promise.all(
-      models.map((m, i) =>
-        enforceDBDecorators<M, Repository<M, A>, any>(
-          this,
-          contextArgs.context,
-          m,
-          OperationKeys.UPDATE,
-          OperationKeys.ON,
-          oldModels[i]
+    if (shouldRunHandlers)
+      await Promise.all(
+        models.map((m, i) =>
+          enforceDBDecorators<M, Repository<M, A>, any>(
+            this,
+            contextArgs.context,
+            m,
+            OperationKeys.UPDATE,
+            OperationKeys.ON,
+            oldModels[i]
+          )
         )
-      )
-    );
+      );
 
-    const ignoredProps =
-      contextArgs.context.get("ignoredValidationProperties") || [];
+    if (shouldValidate) {
+      const ignoredProps =
+        contextArgs.context.get("ignoredValidationProperties") || [];
 
-    const errors = await Promise.all(
-      models.map((m, i) =>
-        Promise.resolve(m.hasErrors(oldModels[i], m, ...ignoredProps))
-      )
-    );
+      const errors = await Promise.all(
+        models.map((m, i) =>
+          Promise.resolve(m.hasErrors(oldModels[i], m, ...ignoredProps))
+        )
+      );
 
-    const errorMessages = errors.reduce((accum: string | undefined, e, i) => {
-      if (e)
-        accum =
-          typeof accum === "string"
-            ? accum + `\n - ${i}: ${e.toString()}`
-            : ` - ${i}: ${e.toString()}`;
-      return accum;
-    }, undefined);
+      const errorMessages = errors.reduce((accum: string | undefined, e, i) => {
+        if (e)
+          accum =
+            typeof accum === "string"
+              ? accum + `\n - ${i}: ${e.toString()}`
+              : ` - ${i}: ${e.toString()}`;
+        return accum;
+      }, undefined);
 
-    if (errorMessages) throw new ValidationError(errorMessages);
+      if (errorMessages) throw new ValidationError(errorMessages);
+    }
 
     models.forEach((m, i) => {
       if (Repository.getMetadata(oldModels[i])) {
@@ -990,7 +1014,7 @@ export class Repository<
    * @throws {InternalError} If the observer handler is not initialized.
    */
   async updateObservers(
-    table: Constructor<M>,
+    table: Constructor<M> | string,
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds,
     ...args: MaybeContextualArg<ContextOf<A>>

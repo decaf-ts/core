@@ -1,6 +1,6 @@
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { Model } from "@decaf-ts/decorator-validation";
-import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
+import { DBKeys, InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import {
   Adapter,
   type Migration,
@@ -9,7 +9,9 @@ import {
 } from "../persistence/index";
 import { type ExtendedRelationsMetadata } from "../model";
 import { SequenceOptions } from "../interfaces/index";
-import { IndexMetadata } from "../repository/index";
+import { IndexMetadata, Repository } from "../repository/index";
+import { Injectables } from "@decaf-ts/injectable-decorators";
+import { Service } from "../utils/index";
 
 (Metadata as any).validationExceptions = function <M extends Model>(
   this: Metadata,
@@ -157,4 +159,23 @@ import { IndexMetadata } from "../repository/index";
     },
     {}
   );
+};
+
+(Injectables as any).services = function <S extends Service>(): Record<
+  string,
+  Constructor<S>
+> {
+  return Metadata["innerGet"](Symbol.for(PersistenceKeys.SERVICE)) as Record<
+    string,
+    Constructor<S>
+  >;
+};
+
+(Injectables as any).repositories = function <
+  R extends Repository<any, any>,
+>(): Record<string, Constructor<R>> {
+  return Metadata["innerGet"](Symbol.for(DBKeys.REPOSITORY)) as Record<
+    string,
+    Constructor<R>
+  >;
 };

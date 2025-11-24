@@ -8,7 +8,7 @@ import type {
 } from "./selectors";
 import { Condition } from "./Condition";
 import { Context, InternalError, OperationKeys } from "@decaf-ts/db-decorators";
-import { final } from "../utils/decorators";
+import { final } from "@decaf-ts/logging";
 import type {
   CountOption,
   DistinctOption,

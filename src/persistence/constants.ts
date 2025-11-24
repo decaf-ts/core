@@ -18,6 +18,7 @@ export enum PersistenceKeys {
   /** @description Template for injectable adapter names */
   INJECTABLE = "decaf_{0}_adapter_for_{1}",
 
+  SERVICE = "service",
   /** @description Key for table name metadata */
   TABLE = "table",
 

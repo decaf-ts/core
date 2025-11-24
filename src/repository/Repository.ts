@@ -25,7 +25,7 @@ import { Condition } from "../query/Condition";
 import { WhereOption } from "../query/options";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
 import { ObserverHandler } from "../persistence/ObserverHandler";
-import { final } from "../utils";
+import { final } from "@decaf-ts/logging";
 import {
   ContextOf,
   EventIds,

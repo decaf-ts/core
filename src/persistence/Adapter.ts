@@ -22,7 +22,7 @@ import type { Repository } from "../repository/Repository";
 import { Sequence } from "./Sequence";
 import { ErrorParser } from "../interfaces";
 import { Statement } from "../query/Statement";
-import { final } from "../utils";
+import { final } from "@decaf-ts/logging";
 import type { Dispatch } from "./Dispatch";
 import {
   type EventIds,

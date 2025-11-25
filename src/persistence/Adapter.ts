@@ -21,7 +21,7 @@ import type { Repository } from "../repository/Repository";
 import { Sequence } from "./Sequence";
 import { ErrorParser } from "../interfaces";
 import { Statement } from "../query/Statement";
-import { final } from "@decaf-ts/logging";
+import { final, Logger } from "@decaf-ts/logging";
 import type { Dispatch } from "./Dispatch";
 import {
   type EventIds,
@@ -381,6 +381,10 @@ export abstract class Adapter<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<FlagsOf<CONTEXT>> {
+    let log = (flags.logger || Logging.for(this.toString())) as Logger;
+    if (flags.correlationId)
+      log = log.for({ correlationId: flags.correlationId });
+
     return Object.assign({}, DefaultRepositoryFlags, flags, {
       affectedTables: (Array.isArray(model) ? model : [model]).map(
         Model.tableName
@@ -391,7 +395,7 @@ export abstract class Adapter<
       ignoredValidationProperties: Array.isArray(model)
         ? []
         : Metadata.validationExceptions(model, operation as any),
-      logger: flags.logger || Logging.for(this.toString()),
+      logger: log,
     }) as FlagsOf<CONTEXT>;
   }
 
@@ -437,6 +441,7 @@ export abstract class Adapter<
   /**
    * @description Prepares a model for persistence
    * @summary Converts a model instance into a format suitable for database storage,
+   * handling column mapping and separating transient properties
    * handling column mapping and separating transient properties
    * @template M - The model type
    * @param {M} model - The model instance to prepare

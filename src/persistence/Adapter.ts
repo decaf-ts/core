@@ -891,7 +891,7 @@ export abstract class Adapter<
   static decoration(): void {}
 
   /**
-   * @description
+   * @description retrieves the context from args and returns it, the logger and the args (with context at the end)
    * @summary NOTE: if the last argument was a context, this removes the context from the arg list
    * @param args
    * @param method

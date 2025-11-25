@@ -32,7 +32,6 @@ import {
   PersistenceKeys,
   RelationsMetadata,
   Repo,
-  Repository,
   Sequence,
   SequenceOptions,
   UnsupportedError,

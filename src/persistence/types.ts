@@ -99,17 +99,6 @@ export type EventIds =
   | number[]
   | bigint[];
 
-/**
- * @description Function type for filtering observer notifications
- * @summary A function type that defines a predicate used to determine whether an observer should be notified
- * about a specific database event. The filter examines the table name, event type, and affected IDs.
- * @param {string} table - The name of the database table where the event occurred
- * @param {(OperationKeys|BulkCrudOperationKeys|string)} event - The type of operation that triggered the event
- * @param {EventIds} id - The identifier(s) of the affected record(s)
- * @return {boolean} True if the observer should be notified, false otherwise
- * @typedef {Function} ObserverFilter
- * @memberOf module:core
- */
 export type ObserverFilter = (
   table: string | Constructor,
   event: OperationKeys | BulkCrudOperationKeys | string,

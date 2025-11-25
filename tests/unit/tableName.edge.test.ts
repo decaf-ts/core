@@ -4,7 +4,7 @@ import {
   ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
-import { Repository, table } from "../../src/index";
+import { table } from "../../src/index";
 
 describe("TableName edge case", () => {
   it("handles modes with name property", () => {

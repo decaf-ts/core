@@ -3,7 +3,7 @@ import { Adapter } from "../persistence";
 import { Model } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
 import { LoggedClass } from "@decaf-ts/logging";
-import { ContextualArgs, MaybeContextualArg } from "../utils/index";
+import { MaybeContextualArg } from "../utils/index";
 
 /**
  * @description Handles pagination for database queries

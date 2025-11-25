@@ -12,5 +12,5 @@ export interface Executor<R> {
    * @template R - The type of result returned by the execute method
    * @return {Promise<R>} A promise that resolves to the result of type R
    */
-  execute(): Promise<R>;
+  execute(...args: any[]): Promise<R>;
 }

@@ -358,7 +358,7 @@ export class Repository<
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<M[]> {
     if (!models.length) return models;
-    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
+    const { ctx, log, ctxArgs } = this.logCtx(args, this.createAll);
     log.debug(
       `Creating ${models.length} new ${this.class.name} in table ${Model.tableName(this.class)}`
     );
@@ -504,7 +504,7 @@ export class Repository<
     id: PrimaryKeyType,
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<M> {
-    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
+    const { ctx, log, ctxArgs } = this.logCtx(args, this.read);
     log.debug(
       `reading ${this.class.name} from table ${Model.tableName(this.class)} with pk ${this.pk as string}`
     );
@@ -558,7 +558,7 @@ export class Repository<
     keys: PrimaryKeyType[],
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<M[]> {
-    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
+    const { ctx, log, ctxArgs } = this.logCtx(args, this.readAll);
     log.debug(
       `reading ${keys.length} ${this.class.name} in table ${Model.tableName(this.class)}`
     );
@@ -580,7 +580,7 @@ export class Repository<
     model: M,
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<M> {
-    const { ctxArgs, log, ctx } = this.logCtx(args, this.create);
+    const { ctxArgs, log, ctx } = this.logCtx(args, this.update);
     // eslint-disable-next-line prefer-const
     let { record, id, transient } = this.adapter.prepare(model, ctx);
     log.debug(
@@ -654,7 +654,7 @@ export class Repository<
     models: M[],
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<M[]> {
-    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
+    const { ctx, log, ctxArgs } = this.logCtx(args, this.updateAll);
     log.debug(
       `Updating ${models.length} new ${this.class.name} in table ${Model.tableName(this.class)}`
     );
@@ -781,7 +781,7 @@ export class Repository<
     id: PrimaryKeyType,
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<M> {
-    const { ctx, log, ctxArgs } = this.logCtx(args, this.create);
+    const { ctx, log, ctxArgs } = this.logCtx(args, this.delete);
     log.debug(
       `deleting new ${this.class.name} in table ${Model.tableName(this.class)} with pk ${id}`
     );

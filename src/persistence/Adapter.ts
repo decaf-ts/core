@@ -572,7 +572,7 @@ export abstract class Adapter<
    * @return A promise that resolves to an array of created records
    */
   async createAll<M extends Model>(
-    tableName: Constructor<M>,
+    clazz: Constructor<M>,
     id: PrimaryKeyType[],
     model: Record<string, any>[],
     ...args: ContextualArgs<CONTEXT>
@@ -580,10 +580,10 @@ export abstract class Adapter<
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
     const { log, ctxArgs } = this.logCtx(args, this.createAll);
-    const tableLabel = Model.tableName(tableName);
+    const tableLabel = Model.tableName(clazz);
     log.debug(`Creating ${id.length} entries ${tableLabel} table`);
     return Promise.all(
-      id.map((i, count) => this.create(tableName, i, model[count], ...ctxArgs))
+      id.map((i, count) => this.create(clazz, i, model[count], ...ctxArgs))
     );
   }
 
@@ -610,14 +610,14 @@ export abstract class Adapter<
    * @return A promise that resolves to an array of retrieved records
    */
   async readAll<M extends Model>(
-    tableName: Constructor<M>,
+    clazz: Constructor<M>,
     id: PrimaryKeyType[],
     ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
     const { log, ctxArgs } = this.logCtx(args, this.readAll);
-    const tableLabel = Model.tableName(tableName);
-    log.debug(`Reading ${id.length} entries ${tableLabel} table`);
-    return Promise.all(id.map((i) => this.read(tableName, i, ...ctxArgs)));
+    const tableName = Model.tableName(clazz);
+    log.debug(`Reading ${id.length} entries ${tableName} table`);
+    return Promise.all(id.map((i) => this.read(clazz, i, ...ctxArgs)));
   }
 
   /**
@@ -631,7 +631,7 @@ export abstract class Adapter<
    * @return A promise that resolves to the updated record
    */
   abstract update<M extends Model>(
-    tableName: Constructor<M>,
+    clazz: Constructor<M>,
     id: PrimaryKeyType,
     model: Record<string, any>,
     ...args: ContextualArgs<CONTEXT>
@@ -647,7 +647,7 @@ export abstract class Adapter<
    * @return A promise that resolves to an array of updated records
    */
   async updateAll<M extends Model>(
-    tableName: Constructor<M>,
+    clazz: Constructor<M>,
     id: PrimaryKeyType[],
     model: Record<string, any>[],
     ...args: ContextualArgs<CONTEXT>
@@ -655,10 +655,10 @@ export abstract class Adapter<
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
     const { log, ctxArgs } = this.logCtx(args, this.updateAll);
-    const tableLabel = Model.tableName(tableName);
+    const tableLabel = Model.tableName(clazz);
     log.debug(`Updating ${id.length} entries ${tableLabel} table`);
     return Promise.all(
-      id.map((i, count) => this.update(tableName, i, model[count], ...ctxArgs))
+      id.map((i, count) => this.update(clazz, i, model[count], ...ctxArgs))
     );
   }
 
@@ -885,6 +885,12 @@ export abstract class Adapter<
 
   static decoration(): void {}
 
+  /**
+   * @description
+   * @summary NOTE: if the last argument was a context, this removes the context from the arg list
+   * @param args
+   * @param method
+   */
   static override logCtx<
     CONTEXT extends Context<any>,
     ARGS extends any[] = any[],

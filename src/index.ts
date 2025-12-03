@@ -22,6 +22,7 @@ export * from "./interfaces";
 export * from "./model";
 export * from "./query";
 export * from "./utils";
+export * from "./services";
 //left to last on purpose
 export * from "./persistence";
 export * from "./ram";

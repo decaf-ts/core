@@ -2,7 +2,7 @@ import { InternalError } from "@decaf-ts/db-decorators";
 import { final, Logging } from "@decaf-ts/logging";
 import { Constructor } from "@decaf-ts/decoration";
 import { Injectables } from "@decaf-ts/injectable-decorators";
-import { ContextualLoggedClass } from "./ContextualLoggedClass";
+import { ContextualLoggedClass } from "../utils/ContextualLoggedClass";
 
 export abstract class Service extends ContextualLoggedClass<any> {
   protected constructor(readonly name?: string) {

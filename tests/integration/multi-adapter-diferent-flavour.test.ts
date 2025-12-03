@@ -1,0 +1,93 @@
+import { RamAdapter, RamFlavour } from "../../src/ram/index";
+RamAdapter.decoration();
+import { Adapter, createdBy, pk, Repository } from "../../src/index";
+Adapter.setCurrent(RamFlavour);
+
+import { Metadata, uses } from "@decaf-ts/decoration";
+import {
+  Model,
+  model,
+  type ModelArg,
+  required,
+} from "@decaf-ts/decorator-validation";
+import { DummyAdapter } from "./DummyAdapter";
+DummyAdapter.decoration();
+
+@uses(RamFlavour)
+@model()
+class Model1 extends Model {
+  @pk({ type: "Number", generated: true })
+  id1!: number;
+
+  @required()
+  name1!: string;
+
+  @createdBy()
+  owner1!: string;
+
+  constructor(arg?: ModelArg<Model1>) {
+    super(arg);
+  }
+}
+@uses("dummy")
+@model()
+class Model2 extends Model {
+  @pk({ type: "Number", generated: true })
+  id2!: number;
+
+  @required()
+  name2!: string;
+
+  @createdBy()
+  owner2!: string;
+
+  constructor(arg?: ModelArg<Model2>) {
+    super(arg);
+  }
+}
+
+describe("Multi Adapter full test", () => {
+  let ram1: RamAdapter;
+  let ram2: DummyAdapter;
+
+  it("displays the correct decoration for model1", () => {
+    const meta1 = Metadata.get(Model1);
+    const meta2 = Metadata.get(Model2);
+    //
+    // expect(meta1.operations.owner1.on.create.handlers.Model1.owner1);
+    // console.log(meta1);
+  });
+
+  it("initializes adapters correctly", () => {
+    ram1 = new RamAdapter();
+    ram2 = new DummyAdapter();
+  });
+
+  it("Reads default flavour correclty", async () => {
+    const repo1 = Repository.forModel(Model1);
+    expect(repo1).toBeDefined();
+    expect(repo1["adapter"]).toBeInstanceOf(RamAdapter);
+    const repo2 = Repository.forModel(Model2);
+    expect(repo2).toBeDefined();
+    expect(repo2["adapter"]).toBeInstanceOf(DummyAdapter);
+    const created1 = await repo1.create(
+      new Model1({
+        name1: "test1",
+      })
+    );
+
+    expect(created1).toBeDefined();
+    expect(created1.hasErrors()).toBeUndefined();
+    expect(created1.owner1).toEqual(expect.any(String));
+
+    const created2 = await repo2.create(
+      new Model2({
+        name2: "test2",
+      })
+    );
+
+    expect(created2).toBeDefined();
+    expect(created2.hasErrors()).toBeUndefined();
+    expect(created2.owner2).toEqual(expect.any(String));
+  });
+});

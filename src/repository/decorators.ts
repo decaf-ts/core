@@ -42,10 +42,7 @@ export function repository<T extends Model>(
 ): any {
   return ((original: any, propertyKey?: any) => {
     if (propertyKey) {
-      return inject(model[ModelKeys.ANCHOR as keyof typeof model] || model)(
-        original,
-        propertyKey
-      );
+      return inject(Metadata.constr(model))(original, propertyKey);
     }
 
     Metadata.set(

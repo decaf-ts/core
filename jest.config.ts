@@ -6,6 +6,7 @@ const config: Config.InitialOptions = {
   transform: { "^.+\\.ts?$": "ts-jest" },
   testEnvironment: "node",
   testRegex: "/tests/.*\\.(test|spec)\\.(ts|tsx)$",
+  transformIgnorePatterns: ["node_modules/(uuid)/.*"],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
   coverageDirectory: "./workdocs/reports/coverage",
   collectCoverage: false,

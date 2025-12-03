@@ -398,7 +398,24 @@ export abstract class Adapter<
       logger: log,
     }) as FlagsOf<CONTEXT>;
   }
+  uuid() {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+      /[xy]/g,
+      function (c) {
+        const r = (Math.random() * 16) | 0,
+          v = c == "x" ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      }
+    );
+  }
 
+  serial() {
+    throw new InternalError(
+      `Serial numbers are not supported by ${this.flavour} adapter. 
+      Please implement this method in your adapter if you need to support serial numbers.
+      Otherwise, use a different primary key strategy.`
+    );
+  }
   /**
    * @description The context constructor for this adapter
    * @summary Reference to the context class constructor used by this adapter

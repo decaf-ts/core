@@ -1,5 +1,6 @@
 import { RamSequenceModel } from "./model/RamSequenceModel";
 import {
+  ConflictError,
   Context,
   InternalError,
   NotFoundError,
@@ -118,6 +119,12 @@ export class RamSequence extends Sequence {
       case "String":
         next = this.parse(current);
         break;
+      case "serial":
+        next = Date.now().toString();
+        break;
+      case "uuid":
+        next = "uuid";
+        break;
       default:
         throw new InternalError("Should never happen");
     }
@@ -134,10 +141,15 @@ export class RamSequence extends Sequence {
       if (!(e instanceof NotFoundError)) {
         throw e;
       }
-      seq = await repo.create(
-        new RamSequenceModel({ id: name, current: next }),
-        ctx
-      );
+      try {
+        seq = await repo.create(
+          new RamSequenceModel({ id: name, current: next }),
+          ctx
+        );
+      } catch (e: unknown) {
+        if (!(e instanceof ConflictError) || type !== "uuid") throw e;
+        return this.increment(current, count, ctx); // retries uuids in case of conflict
+      }
     }
 
     return seq.current as string | number | bigint;

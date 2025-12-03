@@ -12,7 +12,7 @@ import {
   ContextualArgs,
   ContextualizedArgs,
   MaybeContextualArg,
-} from "./ContextualLoggedClass";
+} from "../utils/ContextualLoggedClass";
 import { FlagsOf, LoggerOf } from "../persistence/index";
 
 export abstract class Service<C extends Context<any> = any>

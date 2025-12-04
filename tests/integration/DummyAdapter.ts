@@ -11,6 +11,8 @@ import {
   DBKeys,
   PrimaryKeyType,
   ContextOfRepository,
+  Context,
+  RepositoryFlags,
 } from "@decaf-ts/db-decorators";
 import {
   Constructor,
@@ -31,6 +33,7 @@ import {
 import {
   ContextualArgs,
   Dispatch,
+  FlagsOf,
   PersistenceKeys,
   RelationsMetadata,
   Repo,
@@ -79,6 +82,38 @@ export async function createdByOnDummyCreateUpdate<
   model[key] = uuid as M[keyof M];
 }
 
+export type TransactionalFlags = RepositoryFlags & {
+  lock: Lock;
+  isLocked: boolean;
+};
+
+export class TransactionalContext<
+  F extends TransactionalFlags = TransactionalFlags,
+> extends Context<F> {
+  constructor() {
+    super();
+  }
+
+  async acquire() {
+    if (this.isLocked) return;
+    await this.lock.acquire();
+    this.cache["isLocked"] = true;
+  }
+
+  release() {
+    this.lock.release();
+    this.cache["isLocked"] = false;
+  }
+
+  protected get lock(): Lock {
+    return this.get("lock");
+  }
+
+  protected get isLocked(): boolean {
+    return this.get("isLocked");
+  }
+}
+
 export class DummyAdapter extends Adapter<
   RamConfig,
   RamStorage,
@@ -99,7 +134,7 @@ export class DummyAdapter extends Adapter<
    * @template M - The model type for the repository
    * @return {Constructor<RamRepository<M>>} A constructor for creating RAM repositories
    */
-  // @ts-ignore
+  // @ts-expect-error testitng
   override repository(): Constructor<
     Repository<
       any,
@@ -131,6 +166,8 @@ export class DummyAdapter extends Adapter<
   ): Promise<RamFlags> {
     return Object.assign(await super.flags(operation, model, flags), {
       UUID: this.config.user || "" + Date.now(),
+      lock: this.lock,
+      isLocked: false,
     }) as RamFlags;
   }
 
@@ -144,6 +181,30 @@ export class DummyAdapter extends Adapter<
   > = {};
 
   private lock = new Lock();
+
+  protected readonly Context: Constructor<TransactionalContext> =
+    TransactionalContext;
+
+  async context<M extends Model>(
+    operation:
+      | OperationKeys.CREATE
+      | OperationKeys.READ
+      | OperationKeys.UPDATE
+      | OperationKeys.DELETE
+      | string,
+    overrides: Partial<FlagsOf<TransactionalContext>>,
+    model: Constructor<M> | Constructor<M>[],
+    ...args
+  ): Promise<TransactionalContext> {
+    const ctx = (await super.context(
+      operation,
+      overrides,
+      model,
+      ...args
+    )) as TransactionalContext;
+    await ctx.acquire();
+    return ctx;
+  }
 
   /**
    * @description Indexes models in the RAM adapter
@@ -168,12 +229,13 @@ export class DummyAdapter extends Adapter<
    */
   override prepare<M extends Model>(
     model: M,
-    pk: keyof M,
     ...args: [...any[], RamContext]
   ): { record: Record<string, any>; id: string } {
-    const ctx = args.pop();
+    const { log, ctx } = this.logCtx(args, this.create);
     const prepared = super.prepare(model, ...args, ctx);
-    delete prepared.record[pk as string];
+    delete prepared.record[
+      Model.pk(model.constructor as Constructor) as string
+    ];
     return prepared;
   }
 
@@ -195,7 +257,8 @@ export class DummyAdapter extends Adapter<
     transient?: Record<string, any>,
     ...args: [...any[], RamContext]
   ): M {
-    const res = super.revert(obj, clazz, id, transient, ...args);
+    const { log, ctx, ctxArgs } = this.logCtx(args, this.revert);
+    const res = super.revert(obj, clazz, id, transient, ...ctxArgs);
     return res;
   }
 
@@ -235,7 +298,6 @@ export class DummyAdapter extends Adapter<
     ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
     const { log, ctx } = this.logCtx(args, this.create);
-    await this.lock.acquire();
     const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName)) this.client.set(tableName, new Map());
     if (
@@ -246,7 +308,6 @@ export class DummyAdapter extends Adapter<
         `Record with id ${id} already exists in table ${tableName}`
       );
     this.client.get(tableName)?.set(id as string, model);
-    this.lock.release();
     return model;
   }
 
@@ -282,7 +343,6 @@ export class DummyAdapter extends Adapter<
     ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
     const { log, ctx } = this.logCtx(args, this.create);
-    await this.lock.acquire();
     const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
@@ -329,7 +389,6 @@ export class DummyAdapter extends Adapter<
     ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
     const { log, ctx } = this.logCtx(args, this.create);
-    await this.lock.acquire();
     const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
@@ -338,7 +397,6 @@ export class DummyAdapter extends Adapter<
         `Record with id ${id} not found in table ${tableName}`
       );
     this.client.get(tableName)?.set(id as string, model);
-    this.lock.release();
     return model;
   }
 
@@ -378,7 +436,6 @@ export class DummyAdapter extends Adapter<
     ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
     const { log, ctx } = this.logCtx(args, this.create);
-    await this.lock.acquire();
     const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
@@ -388,7 +445,6 @@ export class DummyAdapter extends Adapter<
       );
     const natived = this.client.get(tableName)?.get(id as string);
     this.client.get(tableName)?.delete(id as string);
-    this.lock.release();
     return natived;
   }
 

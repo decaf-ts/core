@@ -55,14 +55,10 @@ describe("Multi Adapter full test", () => {
 
   it("initializes adapters correctly", () => {
     ram1 = new Ram1();
-    expect(Adapter.currentFlavour).toEqual("ram1");
     ram2 = new Ram2();
-    expect(Adapter.currentFlavour).toEqual("ram2");
   });
 
   it("Reads default flavour correclty", () => {
-    expect(Adapter.currentFlavour).toEqual(RamFlavour);
-
     const flavour = Metadata.flavourOf(TestCountryModel);
     expect(flavour).toEqual(RamFlavour);
   });

@@ -143,9 +143,7 @@ export abstract class Service<C extends Context<any> = any>
           | OperationKeys.READ
           | OperationKeys.UPDATE
           | OperationKeys.DELETE
-          | string,
-        overrides: Partial<FlagsOf<Context<any>>>,
-        ...args
+          | string
       ): Promise<Context<any>> {
         return new Context().accumulate(
           Object.assign({}, DefaultRepositoryFlags, {
@@ -189,7 +187,7 @@ export abstract class ClientBasedService<
 
   @final()
   async boot(...args: MaybeContextualArg<C>) {
-    const { log, ctxArgs } = await this.logCtx(args, this.boot);
+    const { log, ctxArgs } = await this.logCtx(args, this.boot, true);
     log.verbose(`Initializing ${this.toString()}...`);
     const { config, client } = await this.initialize(...ctxArgs);
     this._config = config;

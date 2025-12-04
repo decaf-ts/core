@@ -63,7 +63,7 @@ describe("Multi Adapter full test", () => {
     ram2 = new DummyAdapter();
   });
 
-  it("Reads default flavour correclty", async () => {
+  it("Reads default flavour correctly", async () => {
     const repo1 = Repository.forModel(Model1);
     expect(repo1).toBeDefined();
     expect(repo1["adapter"]).toBeInstanceOf(RamAdapter);
@@ -88,6 +88,6 @@ describe("Multi Adapter full test", () => {
 
     expect(created2).toBeDefined();
     expect(created2.hasErrors()).toBeUndefined();
-    expect(created2.owner2).toEqual(expect.any(String));
+    expect(created2.owner2).toEqual("DUMMY_USER_ID");
   });
 });

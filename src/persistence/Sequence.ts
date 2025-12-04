@@ -16,6 +16,7 @@ import {
 import { Adapter } from "./Adapter";
 import { Repo, Repository } from "../repository/Repository";
 import { SequenceModel } from "../model/SequenceModel";
+import { Serial, UUID } from "./generators";
 
 /**
  * @description Abstract base class for sequence generation
@@ -149,10 +150,10 @@ export class Sequence extends ContextualLoggedClass<any> {
         next = this.parse(current);
         break;
       case "serial":
-        next = Date.now().toString();
+        next = Serial.instance.generate(current as string);
         break;
       case "uuid":
-        next = "uuid";
+        next = UUID.instance.generate(current as string);
         break;
       default:
         throw new InternalError("Should never happen");
@@ -278,11 +279,9 @@ export class Sequence extends ContextualLoggedClass<any> {
         return BigInt(value);
       case undefined:
       case "String":
-        return value;
       case "uuid":
-        return value;
       case "serial":
-        return parseInt(value as string);
+        return value;
       default:
         throw new UnsupportedError(
           `Unsupported sequence type: ${type} for adapter ${this}`

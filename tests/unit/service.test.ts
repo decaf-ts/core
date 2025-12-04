@@ -12,7 +12,7 @@ describe("services", () => {
     async initialize(
       ...args: ContextualArgs<any>
     ): Promise<{ config: object; client: object }> {
-      const { log, ctx } = await this.logCtx(args, this.initialize);
+      const { log } = await this.logCtx(args, this.initialize);
       log.info(`Initializing ${this}...`);
       return {
         config: {},

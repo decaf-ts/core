@@ -1,5 +1,3 @@
-import { padEnd } from "@decaf-ts/logging";
-
 export interface Generator<OUT extends string | number = string> {
   generate(prev?: OUT): OUT;
 }

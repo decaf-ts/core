@@ -1,5 +1,5 @@
 import { RamAdapter, RamFlavour } from "../../src/ram/index";
-import { Adapter, BaseModel, pk } from "../../src/index";
+import { BaseModel, pk } from "../../src/index";
 import { Metadata, uses } from "@decaf-ts/decoration";
 import { TestCountryModel } from "../unit/models";
 import {
@@ -24,6 +24,7 @@ class Ram2 extends RamAdapter {
 
 @uses("ram1")
 @model()
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 class Model1 extends Model {
   @pk()
   id!: number;
@@ -37,6 +38,7 @@ class Model1 extends Model {
 }
 @uses("ram2")
 @model()
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 class Model2 extends Model {
   @pk()
   id!: number;
@@ -50,7 +52,9 @@ class Model2 extends Model {
 }
 
 describe("Multi Adapter full test", () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let ram1: RamAdapter;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let ram2: RamAdapter;
 
   it("initializes adapters correctly", () => {

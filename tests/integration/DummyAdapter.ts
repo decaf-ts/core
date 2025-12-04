@@ -225,7 +225,7 @@ export class DummyAdapter extends Adapter<
     model: M,
     ...args: [...any[], RamContext]
   ): { record: Record<string, any>; id: string } {
-    const { log, ctx } = this.logCtx(args, this.create);
+    const { ctx } = this.logCtx(args, this.create);
     const prepared = super.prepare(model, ...args, ctx);
     delete prepared.record[
       Model.pk(model.constructor as Constructor) as string
@@ -251,7 +251,7 @@ export class DummyAdapter extends Adapter<
     transient?: Record<string, any>,
     ...args: [...any[], RamContext]
   ): M {
-    const { log, ctx, ctxArgs } = this.logCtx(args, this.revert);
+    const { ctxArgs } = this.logCtx(args, this.revert);
     const res = super.revert(obj, clazz, id, transient, ...ctxArgs);
     return res;
   }
@@ -289,9 +289,9 @@ export class DummyAdapter extends Adapter<
     clazz: Constructor<M>,
     id: PrimaryKeyType,
     model: Record<string, any>,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
-    const { log, ctx } = this.logCtx(args, this.create);
     const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName)) this.client.set(tableName, new Map());
     if (
@@ -336,6 +336,7 @@ export class DummyAdapter extends Adapter<
     id: PrimaryKeyType,
     ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { log, ctx } = this.logCtx(args, this.create);
     const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))
@@ -382,6 +383,7 @@ export class DummyAdapter extends Adapter<
     model: Record<string, any>,
     ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { log, ctx } = this.logCtx(args, this.create);
     const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))
@@ -429,6 +431,7 @@ export class DummyAdapter extends Adapter<
     id: PrimaryKeyType,
     ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { log, ctx } = this.logCtx(args, this.create);
     const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))

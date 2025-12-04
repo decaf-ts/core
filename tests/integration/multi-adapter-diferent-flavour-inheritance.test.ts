@@ -60,11 +60,15 @@ class Model2 extends Base2 {
 }
 
 describe("Multi Adapter full test with inheritance (explicit @uses in base class)", () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let ram1: RamAdapter;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let ram2: DummyAdapter;
 
   it("displays the correct decoration for model1", () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const meta1 = Metadata.get(Model1);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const meta2 = Metadata.get(Model2);
     //
     // expect(meta1.operations.owner1.on.create.handlers.Model1.owner1);

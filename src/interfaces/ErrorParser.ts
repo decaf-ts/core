@@ -11,7 +11,7 @@ export interface ErrorParser {
    * @description Parses a generic Error into a BaseError
    * @summary Converts a standard Error object into a more specific BaseError type
    * @param {Error} error - The error to be parsed
-   * @return {BaseError} The parsed error as a BaseError instance
+   * @return {E} The parsed error as a BaseError instance
    */
-  parseError(error: Error): BaseError;
+  parseError<E extends BaseError>(error: Error): E;
 }

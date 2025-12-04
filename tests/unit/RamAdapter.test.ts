@@ -52,7 +52,7 @@ describe("Ram Adapter Integration", () => {
 
     expect(updated).toBeDefined();
     expect(updated.equals(created)).toEqual(false);
-    expect(updated.equals(created, "updatedOn", "name", "updatedBy")).toEqual(
+    expect(updated.equals(created, "updatedAt", "name", "updatedBy")).toEqual(
       true
     ); // minus the expected changes
   });

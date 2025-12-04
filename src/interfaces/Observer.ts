@@ -4,12 +4,12 @@
  * @interface Observer
  * @memberOf module:core
  */
-export interface Observer {
+export interface Observer<ARGS extends any[] = any[]> {
   /**
    * @description Updates the observer with new state information
    * @summary Called by an Observable when its state changes, allowing the Observer to react to those changes
    * @param {...any[]} args - Arguments containing state information from the Observable
    * @return {Promise<void>} A promise that resolves when the observer has processed the update
    */
-  refresh(...args: any[]): Promise<void>;
+  refresh(...args: ARGS): Promise<void>;
 }

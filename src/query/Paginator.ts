@@ -3,6 +3,7 @@ import { Adapter } from "../persistence";
 import { Model } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
 import { LoggedClass } from "@decaf-ts/logging";
+import { MaybeContextualArg } from "../utils/index";
 
 /**
  * @description Handles pagination for database queries
@@ -90,7 +91,7 @@ export abstract class Paginator<
   }
 
   protected constructor(
-    protected readonly adapter: Adapter<any, any, Q, any, any>,
+    protected readonly adapter: Adapter<any, any, Q, any>,
     protected readonly query: Q,
     readonly size: number,
     protected readonly clazz: Constructor<M>
@@ -100,12 +101,12 @@ export abstract class Paginator<
 
   protected abstract prepare(rawStatement: Q): Q;
 
-  async next() {
-    return this.page(this.current + 1);
+  async next(...args: MaybeContextualArg<any>) {
+    return this.page(this.current + 1, ...args);
   }
 
-  async previous() {
-    return this.page(this.current - 1);
+  async previous(...args: MaybeContextualArg<any>) {
+    return this.page(this.current - 1, ...args);
   }
 
   protected validatePage(page: number) {
@@ -120,5 +121,5 @@ export abstract class Paginator<
     return page;
   }
 
-  abstract page(page?: number): Promise<R[]>;
+  abstract page(page?: number, ...args: MaybeContextualArg<any>): Promise<R[]>;
 }

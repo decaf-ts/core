@@ -1,12 +1,16 @@
 import { Model } from "@decaf-ts/decorator-validation";
-import { sequenceNameForModel } from "../identity/utils";
 import {
   SequenceOptions,
   SequenceOptionsType,
 } from "../interfaces/SequenceOptions";
-import { Logger, Logging } from "@decaf-ts/logging";
 import { UnsupportedError } from "./errors";
 import { Constructor } from "@decaf-ts/decoration";
+import { PrimaryKeyType } from "@decaf-ts/db-decorators";
+import {
+  ContextualLoggedClass,
+  MaybeContextualArg,
+} from "../utils/ContextualLoggedClass";
+import { Adapter } from "./Adapter";
 
 /**
  * @description Abstract base class for sequence generation
@@ -54,42 +58,35 @@ import { Constructor } from "@decaf-ts/decoration";
  * const nextId = await sequence.next();
  * ```
  */
-export abstract class Sequence {
-  /**
-   * @description Logger instance for this sequence
-   * @summary Lazily initialized logger for the sequence instance
-   */
-  private logger!: Logger;
-
-  /**
-   * @description Accessor for the logger instance
-   * @summary Gets or initializes the logger for this sequence
-   * @return {Logger} The logger instance
-   */
-  protected get log(): Logger {
-    if (!this.logger) this.logger = Logging.for(this as any);
-    return this.logger;
-  }
-
+export abstract class Sequence extends ContextualLoggedClass<any> {
   /**
    * @description Creates a new sequence instance
    * @summary Protected constructor that initializes the sequence with the provided options
    */
-  protected constructor(protected readonly options: SequenceOptions) {}
+  protected constructor(
+    protected readonly options: SequenceOptions,
+    protected readonly adapter: Adapter<any, any, any>
+  ) {
+    super();
+  }
 
   /**
    * @description Gets the next value in the sequence
    * @summary Retrieves the next value from the sequence, incrementing it in the process
    * @return A promise that resolves to the next value in the sequence
    */
-  abstract next(): Promise<string | number | bigint>;
+  abstract next(...args: MaybeContextualArg<any>): Promise<PrimaryKeyType>;
 
   /**
    * @description Gets the current value of the sequence
    * @summary Retrieves the current value of the sequence without incrementing it
    * @return A promise that resolves to the current value in the sequence
    */
-  abstract current(): Promise<string | number | bigint>;
+  abstract current(...args: MaybeContextualArg<any>): Promise<PrimaryKeyType>;
+
+  protected parse(value: string | number | bigint): string | number | bigint {
+    return Sequence.parseValue(this.options.type, value);
+  }
 
   /**
    * @description Gets a range of sequential values
@@ -97,7 +94,10 @@ export abstract class Sequence {
    * @param {number} count - The number of sequential values to retrieve
    * @return A promise that resolves to an array of sequential values
    */
-  abstract range(count: number): Promise<(number | string | bigint)[]>;
+  abstract range(
+    count: number,
+    ...argz: MaybeContextualArg<any>
+  ): Promise<(number | string | bigint)[]>;
 
   /**
    * @description Gets the primary key sequence name for a model
@@ -107,7 +107,7 @@ export abstract class Sequence {
    * @return {string} The sequence name for the model's primary key
    */
   static pk<M extends Model>(model: M | Constructor<M>) {
-    return sequenceNameForModel(model, "pk");
+    return Model.sequenceName(model, "pk");
   }
 
   /**
@@ -121,7 +121,10 @@ export abstract class Sequence {
     type: SequenceOptionsType,
     value: string | number | bigint
   ): string | number | bigint {
-    const typename = typeof type === 'function' && (type as any)?.name ? (type as any).name : type;
+    const typename =
+      typeof type === "function" && (type as any)?.name
+        ? (type as any).name
+        : type;
     switch (typename) {
       case Number.name:
         return typeof value === "string"

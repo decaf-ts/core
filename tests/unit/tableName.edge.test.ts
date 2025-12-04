@@ -4,7 +4,7 @@ import {
   ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
-import { Repository, table } from "../../src/index";
+import { table } from "../../src/index";
 
 describe("TableName edge case", () => {
   it("handles modes with name property", () => {
@@ -19,8 +19,8 @@ describe("TableName edge case", () => {
       }
     }
 
-    expect(Repository.table(Named)).toEqual("tst_named");
-    expect(Repository.table(new Named({ name: "tst_other" }))).toEqual(
+    expect(Model.tableName(Named)).toEqual("tst_named");
+    expect(Model.tableName(new Named({ name: "tst_other" }))).toEqual(
       "tst_named"
     );
   });

@@ -18,15 +18,13 @@ declare module "@decaf-ts/decoration" {
     ): string[];
 
     function migrationsFor<
-      A extends Adapter<CONF, CONN, QUERY, FLAGS, CONTEXT>,
+      A extends Adapter<CONF, CONN, QUERY, CONTEXT>,
       CONF,
       CONN,
       QUERY,
       FLAGS extends RepositoryFlags = RepositoryFlags,
       CONTEXT extends Context<FLAGS> = Context<FLAGS>,
-    >(
-      adapter?: A
-    ): Constructor<Migration<any, A, CONF, CONN, QUERY, FLAGS, CONTEXT>>[];
+    >(adapter?: A): Constructor<Migration<any, A>>[];
 
     function relations<M extends Model>(
       m: Constructor<M>
@@ -39,20 +37,5 @@ declare module "@decaf-ts/decoration" {
       m: Constructor<M>,
       prop?: keyof M
     ): string[] | ExtendedRelationsMetadata | undefined;
-  }
-}
-
-declare module "@decaf-ts/decorator-validation" {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
-  export namespace Model {
-    function relations<M extends Model>(m: Constructor<M>): string[];
-    function relations<M extends Model>(
-      m: Constructor<M>,
-      prop: keyof M
-    ): ExtendedRelationsMetadata;
-    function relations<M extends Model>(
-      m: Constructor<M>,
-      prop?: keyof M
-    ): string[] | ExtendedRelationsMetadata;
   }
 }

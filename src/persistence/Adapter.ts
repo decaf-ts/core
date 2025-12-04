@@ -3,10 +3,10 @@ import {
   InternalError,
   Context,
   OperationKeys,
-  RepositoryFlags,
   DefaultRepositoryFlags,
   Contextual,
   BulkCrudOperationKeys,
+  PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
 import { type Observer } from "../interfaces/Observer";
 import {
@@ -16,18 +16,24 @@ import {
 } from "@decaf-ts/decorator-validation";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { RawExecutor } from "../interfaces/RawExecutor";
-import { Observable } from "../interfaces/Observable";
 import { PersistenceKeys } from "./constants";
 import type { Repository } from "../repository/Repository";
 import { Sequence } from "./Sequence";
 import { ErrorParser } from "../interfaces";
 import { Statement } from "../query/Statement";
-import { final } from "../utils";
+import { final, Logger } from "@decaf-ts/logging";
 import type { Dispatch } from "./Dispatch";
-import { type EventIds, Migration, type ObserverFilter } from "./types";
+import {
+  type EventIds,
+  FlagsOf,
+  Migration,
+  type ObserverFilter,
+  PersistenceObservable,
+  PersistenceObserver,
+  PreparedModel,
+} from "./types";
 import { ObserverHandler } from "./ObserverHandler";
-import { LoggedClass } from "@decaf-ts/logging";
-import { getColumnName, getTableName } from "../identity/utils";
+import { Impersonatable, Logging } from "@decaf-ts/logging";
 import { AdapterDispatch } from "./types";
 import {
   Decoration,
@@ -36,6 +42,11 @@ import {
   type Constructor,
 } from "@decaf-ts/decoration";
 import { MigrationError } from "./errors";
+import {
+  ContextualArgs,
+  ContextualizedArgs,
+  ContextualLoggedClass,
+} from "../utils/ContextualLoggedClass";
 
 const flavourResolver = Decoration["flavourResolver"].bind(Decoration);
 Decoration["flavourResolver"] = (obj: object) => {
@@ -65,6 +76,9 @@ Decoration["flavourResolver"] = (obj: object) => {
     return DefaultFlavour;
   }
 };
+
+export type AdapterSubClass<A> =
+  A extends Adapter<any, any, any, any> ? A : never;
 
 /**
  * @description Abstract Facade class for persistence adapters
@@ -162,25 +176,25 @@ export abstract class Adapter<
     CONF,
     CONN,
     QUERY,
-    FLAGS extends RepositoryFlags = RepositoryFlags,
-    CONTEXT extends Context<FLAGS> = Context<FLAGS>,
+    CONTEXT extends Context<any> = Context,
   >
-  extends LoggedClass
+  extends ContextualLoggedClass<CONTEXT>
   implements
     RawExecutor<QUERY>,
-    Contextual<FLAGS, CONTEXT>,
-    Observable,
-    Observer,
+    Contextual<CONTEXT>,
+    PersistenceObservable<CONTEXT>,
+    PersistenceObserver<CONTEXT>,
+    Impersonatable<any, [Partial<CONF>, ...any[]]>,
     ErrorParser
 {
   private static _currentFlavour: string;
-  private static _cache: Record<string, Adapter<any, any, any, any, any>> = {};
-  private static _baseRepository: Constructor<
-    Repository<any, any, any, any, any>
+  private static _cache: Record<string, Adapter<any, any, any, any>> = {};
+  private static _baseRepository: Constructor<Repository<any, any>>;
+  private static _baseDispatch: Constructor<
+    Dispatch<Adapter<any, any, any, any>>
   >;
-  private static _baseDispatch: Constructor<Dispatch>;
 
-  protected dispatch?: AdapterDispatch;
+  protected dispatch?: AdapterDispatch<typeof this>;
 
   protected readonly observerHandler?: ObserverHandler;
 
@@ -209,22 +223,16 @@ export abstract class Adapter<
    * @description Gets the repository constructor for this adapter
    * @summary Returns the constructor for creating repositories that work with this adapter
    * @template M - The model type
-   * @return {Constructor<Repository<M, QUERY, Adapter<CONF, CONN, QUERY, FLAGS, CONTEXT>, FLAGS, CONTEXT>>} The repository constructor
+   * @return {Constructor<Repository<any, Adapter<CONF, CONN, QUERY, CONTEXT>>>} The repository constructor
    */
-  repository<M extends Model<boolean>>(): Constructor<
-    Repository<
-      M,
-      QUERY,
-      Adapter<CONF, CONN, QUERY, FLAGS, CONTEXT>,
-      FLAGS,
-      CONTEXT
-    >
-  > {
+  repository<
+    R extends Repository<any, Adapter<CONF, CONN, QUERY, CONTEXT>>,
+  >(): Constructor<R> {
     if (!Adapter._baseRepository)
       throw new InternalError(
         `This should be overridden when necessary. Otherwise it will be replaced lazily`
       );
-    return Adapter._baseRepository;
+    return Adapter._baseRepository as Constructor<R>;
   }
 
   @final()
@@ -293,15 +301,21 @@ export abstract class Adapter<
    * @template M - The model type
    * @return {Statement} A statement builder for the model
    */
-  abstract Statement<M extends Model>(): Statement<QUERY, M, any>;
+  abstract Statement<M extends Model>(): Statement<
+    M,
+    Adapter<CONF, CONN, QUERY, CONTEXT>,
+    any
+  >;
 
   /**
    * @description Creates a new dispatch instance
    * @summary Factory method that creates a dispatch instance for this adapter
    * @return {Dispatch} A new dispatch instance
    */
-  protected Dispatch(): Dispatch {
-    return new Adapter._baseDispatch();
+  protected Dispatch(): Dispatch<Adapter<CONF, CONN, QUERY, CONTEXT>> {
+    return new Adapter._baseDispatch() as Dispatch<
+      Adapter<CONF, CONN, QUERY, CONTEXT>
+    >;
   }
 
   /**
@@ -327,9 +341,10 @@ export abstract class Adapter<
    * @description Parses a database error into a standardized error
    * @summary Converts database-specific errors into standardized application errors
    * @param {Error} err - The original database error
+   * @param args
    * @return {BaseError} A standardized error
    */
-  abstract parseError(err: Error): BaseError;
+  abstract parseError<E extends BaseError>(err: Error, ...args: any[]): E;
 
   /**
    * @description Initializes the adapter
@@ -360,29 +375,37 @@ export abstract class Adapter<
    * @return {Promise<F>} The complete set of flags
    */
   protected async flags<M extends Model>(
-    operation: OperationKeys,
-    model: Constructor<M>,
-    flags: Partial<FLAGS>,
+    operation: OperationKeys | string,
+    model: Constructor<M> | Constructor<M>[],
+    flags: Partial<FlagsOf<CONTEXT>>,
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
-  ): Promise<FLAGS> {
+  ): Promise<FlagsOf<CONTEXT>> {
+    let log = (flags.logger || Logging.for(this.toString())) as Logger;
+    if (flags.correlationId)
+      log = log.for({ correlationId: flags.correlationId });
+
     return Object.assign({}, DefaultRepositoryFlags, flags, {
-      affectedTables: getTableName(model),
+      affectedTables: (Array.isArray(model) ? model : [model]).map(
+        Model.tableName
+      ),
       writeOperation: operation !== OperationKeys.READ,
       timestamp: new Date(),
       operation: operation,
-      ignoredValidationProperties: Metadata.validationExceptions(
-        model,
-        operation
-      ),
-    }) as FLAGS;
+      ignoredValidationProperties: Array.isArray(model)
+        ? []
+        : Metadata.validationExceptions(model, operation as any),
+      logger: log,
+    }) as FlagsOf<CONTEXT>;
   }
 
   /**
    * @description The context constructor for this adapter
    * @summary Reference to the context class constructor used by this adapter
    */
-  protected Context = Context<FLAGS>;
+  protected readonly Context: Constructor<CONTEXT> = Context<
+    FlagsOf<CONTEXT>
+  > as unknown as Constructor<CONTEXT>;
 
   /**
    * @description Creates a context for a database operation
@@ -401,14 +424,15 @@ export abstract class Adapter<
       | OperationKeys.CREATE
       | OperationKeys.READ
       | OperationKeys.UPDATE
-      | OperationKeys.DELETE,
-    overrides: Partial<FLAGS>,
-    model: Constructor<M>,
+      | OperationKeys.DELETE
+      | string,
+    overrides: Partial<FlagsOf<CONTEXT>>,
+    model: Constructor<M> | Constructor<M>[],
     ...args: any[]
   ): Promise<CONTEXT> {
     const log = this.log.for(this.context);
     log.debug(
-      `Creating new context for ${operation} operation on ${model.name} model with flag overrides: ${JSON.stringify(overrides)}`
+      `Creating new context for ${operation} operation on ${Array.isArray(model) ? model.map((m) => m.name) : model.name} model with flag overrides: ${JSON.stringify(overrides)}`
     );
     const flags = await this.flags(operation, model, overrides, ...args);
     return new this.Context().accumulate(flags) as unknown as CONTEXT;
@@ -418,25 +442,25 @@ export abstract class Adapter<
    * @description Prepares a model for persistence
    * @summary Converts a model instance into a format suitable for database storage,
    * handling column mapping and separating transient properties
+   * handling column mapping and separating transient properties
    * @template M - The model type
    * @param {M} model - The model instance to prepare
-   * @param pk - The primary key property name
+   * @param args - optional args for subclassing purposes
    * @return The prepared data
    */
   prepare<M extends Model>(
     model: M,
-    pk: keyof M
-  ): {
-    record: Record<string, any>;
-    id: string;
-    transient?: Record<string, any>;
-  } {
-    const log = this.log.for(this.prepare);
-    const split = model.toTransient();
+    ...args: ContextualArgs<CONTEXT>
+  ): PreparedModel {
+    const { log } = this.logCtx(args, this.prepare);
+    const split = model.segregate();
     const result = Object.entries(split.model).reduce(
       (accum: Record<string, any>, [key, val]) => {
         if (typeof val === "undefined") return accum;
-        const mappedProp = getColumnName(model, key);
+        const mappedProp: string = Model.columnName(
+          model.constructor as Constructor<M>,
+          key as keyof M
+        );
         if (this.isReserved(mappedProp))
           throw new InternalError(`Property name ${mappedProp} is reserved`);
         accum[mappedProp] = val;
@@ -445,12 +469,13 @@ export abstract class Adapter<
       {}
     );
     if ((model as any)[PersistenceKeys.METADATA]) {
+      // TODO movo to couchdb
       log.silly(
         `Passing along persistence metadata for ${(model as any)[PersistenceKeys.METADATA]}`
       );
       Object.defineProperty(result, PersistenceKeys.METADATA, {
         enumerable: false,
-        writable: false,
+        writable: true,
         configurable: true,
         value: (model as any)[PersistenceKeys.METADATA],
       });
@@ -458,7 +483,7 @@ export abstract class Adapter<
 
     return {
       record: result,
-      id: model[pk] as string,
+      id: model[Model.pk(model.constructor as Constructor<M>)] as string,
       transient: split.transient,
     };
   }
@@ -469,34 +494,35 @@ export abstract class Adapter<
    * and reattaching transient properties
    * @template M - The model type
    * @param obj - The database record
-   * @param {string|Constructor<M>} clazz - The model class or name
+   * @param {Constructor<M>} clazz - The model class or name
    * @param pk - The primary key property name
    * @param {string|number|bigint} id - The primary key value
    * @param [transient] - Transient properties to reattach
+   * @param [args] - options args for subclassing purposes
    * @return {M} The reconstructed model instance
    */
   revert<M extends Model>(
     obj: Record<string, any>,
-    clazz: string | Constructor<M>,
-    pk: keyof M,
-    id: string | number | bigint,
-    transient?: Record<string, any>
+    clazz: Constructor<M>,
+    id: PrimaryKeyType,
+    transient?: Record<string, any>,
+    ...args: ContextualArgs<CONTEXT>
   ): M {
-    const log = this.log.for(this.revert);
+    const { log, ctx } = this.logCtx(args, this.revert);
     const ob: Record<string, any> = {};
+    const pk = Model.pk(clazz);
     ob[pk as string] = id;
-    const m = (
-      typeof clazz === "string" ? Model.build(ob, clazz) : new clazz(ob)
-    ) as M;
+    const m = new clazz(ob) as M;
     log.silly(`Rebuilding model ${m.constructor.name} id ${id}`);
-    const metadata = obj[PersistenceKeys.METADATA];
+    const metadata = obj[PersistenceKeys.METADATA]; // TODO move to couchdb
     const result = Object.keys(m).reduce((accum: M, key) => {
       if (key === pk) return accum;
-      (accum as Record<string, any>)[key] = obj[getColumnName(accum, key)];
+      (accum as Record<string, any>)[key] =
+        obj[Model.columnName(clazz, key as keyof M)];
       return accum;
     }, m);
 
-    if (transient) {
+    if (ctx.get("rebuildWithTransient") && transient) {
       log.verbose(
         `re-adding transient properties: ${Object.keys(transient).join(", ")}`
       );
@@ -510,13 +536,14 @@ export abstract class Adapter<
     }
 
     if (metadata) {
+      // TODO move to couchdb
       log.silly(
         `Passing along ${this.flavour} persistence metadata for ${m.constructor.name} id ${id}: ${metadata}`
       );
       Object.defineProperty(result, PersistenceKeys.METADATA, {
         enumerable: false,
-        configurable: false,
-        writable: false,
+        configurable: true,
+        writable: true,
         value: metadata,
       });
     }
@@ -527,17 +554,17 @@ export abstract class Adapter<
   /**
    * @description Creates a new record in the database
    * @summary Inserts a new record with the given ID and data into the specified table
-   * @param {string} tableName - The name of the table to insert into
-   * @param {string|number} id - The identifier for the new record
+   * @param {string} clazz - The name of the table to insert into
+   * @param {PrimaryKeyType} id - The identifier for the new record
    * @param model - The data to insert
    * @param {any[]} args - Additional arguments specific to the adapter implementation
    * @return A promise that resolves to the created record
    */
-  abstract create(
-    tableName: string,
-    id: string | number,
+  abstract create<M extends Model>(
+    clazz: Constructor<M>,
+    id: PrimaryKeyType,
     model: Record<string, any>,
-    ...args: any[]
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>>;
 
   /**
@@ -549,19 +576,19 @@ export abstract class Adapter<
    * @param {...any[]} args - Additional arguments specific to the adapter implementation
    * @return A promise that resolves to an array of created records
    */
-  async createAll(
-    tableName: string,
-    id: (string | number)[],
+  async createAll<M extends Model>(
+    clazz: Constructor<M>,
+    id: PrimaryKeyType[],
     model: Record<string, any>[],
-    ...args: any[]
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
-    const log = this.log.for(this.createAll);
-    log.verbose(`Creating ${id.length} entries ${tableName} table`);
-    log.debug(`pks: ${id}`);
+    const { log, ctxArgs } = this.logCtx(args, this.createAll);
+    const tableLabel = Model.tableName(clazz);
+    log.debug(`Creating ${id.length} entries ${tableLabel} table`);
     return Promise.all(
-      id.map((i, count) => this.create(tableName, i, model[count], ...args))
+      id.map((i, count) => this.create(clazz, i, model[count], ...ctxArgs))
     );
   }
 
@@ -573,10 +600,10 @@ export abstract class Adapter<
    * @param {...any[]} args - Additional arguments specific to the adapter implementation
    * @return A promise that resolves to the retrieved record
    */
-  abstract read(
-    tableName: string,
-    id: string | number | bigint,
-    ...args: any[]
+  abstract read<M extends Model>(
+    tableName: Constructor<M>,
+    id: PrimaryKeyType,
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>>;
 
   /**
@@ -587,55 +614,56 @@ export abstract class Adapter<
    * @param {...any[]} args - Additional arguments specific to the adapter implementation
    * @return A promise that resolves to an array of retrieved records
    */
-  async readAll(
-    tableName: string,
-    id: (string | number | bigint)[],
-    ...args: any[]
+  async readAll<M extends Model>(
+    clazz: Constructor<M>,
+    id: PrimaryKeyType[],
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
-    const log = this.log.for(this.readAll);
-    log.verbose(`Reading ${id.length} entries ${tableName} table`);
-    log.debug(`pks: ${id}`);
-    return Promise.all(id.map((i) => this.read(tableName, i, ...args)));
+    const { log, ctxArgs } = this.logCtx(args, this.readAll);
+    const tableName = Model.tableName(clazz);
+    log.debug(`Reading ${id.length} entries ${tableName} table`);
+    return Promise.all(id.map((i) => this.read(clazz, i, ...ctxArgs)));
   }
 
   /**
    * @description Updates a record in the database
    * @summary Modifies an existing record with the given ID in the specified table
-   * @param {string} tableName - The name of the table to update
-   * @param {string|number} id - The identifier of the record to update
+   * @template M - The model type
+   * @param {Constructor<M>} tableName - The name of the table to update
+   * @param {PrimaryKeyType} id - The identifier of the record to update
    * @param  model - The new data for the record
    * @param {...any[]} args - Additional arguments specific to the adapter implementation
    * @return A promise that resolves to the updated record
    */
-  abstract update(
-    tableName: string,
-    id: string | number,
+  abstract update<M extends Model>(
+    clazz: Constructor<M>,
+    id: PrimaryKeyType,
     model: Record<string, any>,
-    ...args: any[]
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>>;
 
   /**
    * @description Updates multiple records in the database
    * @summary Modifies multiple existing records with the given IDs in the specified table
-   * @param {string} tableName - The name of the table to update
+   * @param {Constructor<M>} tableName - The name of the table to update
    * @param {string[]|number[]} id - The identifiers of the records to update
    * @param model - The new data for each record
    * @param {...any[]} args - Additional arguments specific to the adapter implementation
    * @return A promise that resolves to an array of updated records
    */
-  async updateAll(
-    tableName: string,
-    id: string[] | number[],
+  async updateAll<M extends Model>(
+    clazz: Constructor<M>,
+    id: PrimaryKeyType[],
     model: Record<string, any>[],
-    ...args: any[]
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
-    const log = this.log.for(this.updateAll);
-    log.verbose(`Updating ${id.length} entries ${tableName} table`);
-    log.debug(`pks: ${id}`);
+    const { log, ctxArgs } = this.logCtx(args, this.updateAll);
+    const tableLabel = Model.tableName(clazz);
+    log.debug(`Updating ${id.length} entries ${tableLabel} table`);
     return Promise.all(
-      id.map((i, count) => this.update(tableName, i, model[count], ...args))
+      id.map((i, count) => this.update(clazz, i, model[count], ...ctxArgs))
     );
   }
 
@@ -647,10 +675,10 @@ export abstract class Adapter<
    * @param {...any[]} args - Additional arguments specific to the adapter implementation
    * @return A promise that resolves to the deleted record
    */
-  abstract delete(
-    tableName: string,
-    id: string | number | bigint,
-    ...args: any[]
+  abstract delete<M extends Model>(
+    tableName: Constructor<M>,
+    id: PrimaryKeyType,
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>>;
 
   /**
@@ -661,15 +689,17 @@ export abstract class Adapter<
    * @param {...any[]} args - Additional arguments specific to the adapter implementation
    * @return A promise that resolves to an array of deleted records
    */
-  async deleteAll(
-    tableName: string,
-    id: (string | number | bigint)[],
-    ...args: any[]
+  async deleteAll<M extends Model>(
+    tableName: Constructor<M>,
+    id: PrimaryKeyType[],
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
-    const log = this.log.for(this.createAll);
-    log.verbose(`Deleting ${id.length} entries ${tableName} table`);
-    log.debug(`pks: ${id}`);
-    return Promise.all(id.map((i) => this.delete(tableName, i, ...args)));
+    const { log, ctxArgs } = Adapter.logCtx<CONTEXT, ContextualArgs<CONTEXT>>(
+      args,
+      this.deleteAll
+    );
+    log.verbose(`Deleting ${id.length} entries from ${tableName} table`);
+    return Promise.all(id.map((i) => this.delete(tableName, i, ...ctxArgs)));
   }
 
   /**
@@ -681,7 +711,10 @@ export abstract class Adapter<
    * @param {...any[]} args - Additional arguments specific to the adapter implementation
    * @return {Promise<R>} A promise that resolves to the query result
    */
-  abstract raw<R>(rawInput: QUERY, ...args: any[]): Promise<R>;
+  abstract raw<R>(
+    rawInput: QUERY,
+    ...args: ContextualArgs<CONTEXT>
+  ): Promise<R>;
 
   /**
    * @description Registers an observer for database events
@@ -699,11 +732,10 @@ export abstract class Adapter<
         writable: false,
       });
     this.observerHandler!.observe(observer, filter);
-    this.log
-      .for(this.observe)
-      .verbose(`Registering new observer ${observer.toString()}`);
+    const log = this.log.for(this.observe);
+    log.verbose(`Registering new observer ${observer.toString()}`);
     if (!this.dispatch) {
-      this.log.for(this.observe).info(`Creating dispatch for ${this.alias}`);
+      log.info(`Creating dispatch for ${this.alias}`);
       this.dispatch = this.Dispatch();
       this.dispatch.observe(this);
     }
@@ -737,27 +769,25 @@ export abstract class Adapter<
    * @param {...any[]} args - Additional arguments to pass to the observers
    * @return {Promise<void>} A promise that resolves when all observers have been notified
    */
-  async updateObservers(
-    table: string,
+  async updateObservers<M extends Model>(
+    table: Constructor<M> | string,
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds,
-    ...args: any[]
+    ...args: ContextualArgs<CONTEXT>
   ): Promise<void> {
     if (!this.observerHandler)
       throw new InternalError(
         "ObserverHandler not initialized. Did you register any observables?"
       );
-    const log = this.log.for(this.updateObservers);
+    const { log, ctxArgs } = Adapter.logCtx<CONTEXT, ContextualArgs<CONTEXT>>(
+      args,
+      this.updateObservers
+    );
+
     log.verbose(
-      `Updating ${this.observerHandler.count()} observers for adapter ${this.alias}`
+      `Updating ${this.observerHandler.count()} observers for adapter ${this.alias}: Event: `
     );
-    await this.observerHandler.updateObservers(
-      this.log,
-      table,
-      event,
-      id,
-      ...args
-    );
+    await this.observerHandler.updateObservers(table, event, id, ...ctxArgs);
   }
 
   /**
@@ -769,11 +799,11 @@ export abstract class Adapter<
    * @param {...any[]} args - Additional arguments related to the event
    * @return {Promise<void>} A promise that resolves when the refresh is complete
    */
-  async refresh(
-    table: string,
+  async refresh<M extends Model>(
+    table: Constructor<M> | string,
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds,
-    ...args: any[]
+    ...args: ContextualArgs<CONTEXT>
   ) {
     return this.updateObservers(table, event, id, ...args);
   }
@@ -783,8 +813,8 @@ export abstract class Adapter<
    * @summary Returns a human-readable string identifying this adapter
    * @return {string} A string representation of the adapter
    */
-  override toString() {
-    return `${this.flavour} persistence Adapter`;
+  override toString(): string {
+    return `${this.flavour} adapter`;
   }
 
   /**
@@ -821,20 +851,15 @@ export abstract class Adapter<
    * @template CONF - The database driver config
    * @template CONN - The database driver instance
    * @template QUERY - The query type
-   * @template CCONTEXT - The context type
-   * @template FLAGS - The repository flags type
+   * @template CONTEXT - The context type
    * @param {string} flavour - The flavor name of the adapter to retrieve
-   * @return {Adapter<CONF, CONN, QUERY, CONTEXT, FLAGS> | undefined} The adapter instance or undefined if not found
+   * @return {Adapter<CONF, CONN, QUERY, CONTEXT> | undefined} The adapter instance or undefined if not found
    */
-  static get<
-    CONF,
-    CONN,
-    QUERY,
-    CONTEXT extends Context<FLAGS>,
-    FLAGS extends RepositoryFlags,
-  >(flavour?: any): Adapter<CONF, CONN, QUERY, FLAGS, CONTEXT> | undefined {
+  static get<A extends Adapter<any, any, any, any>>(
+    flavour?: any
+  ): A | undefined {
     if (!flavour) return Adapter.get(this._currentFlavour);
-    if (flavour in this._cache) return this._cache[flavour];
+    if (flavour in this._cache) return this._cache[flavour] as A;
     throw new InternalError(`No Adapter registered under ${flavour}.`);
   }
 
@@ -865,6 +890,35 @@ export abstract class Adapter<
 
   static decoration(): void {}
 
+  /**
+   * @description retrieves the context from args and returns it, the logger and the args (with context at the end)
+   * @summary NOTE: if the last argument was a context, this removes the context from the arg list
+   * @param args
+   * @param method
+   */
+  static override logCtx<
+    CONTEXT extends Context<any>,
+    ARGS extends any[] = any[],
+  >(this: any, args: ARGS, method: string): ContextualizedArgs<CONTEXT, ARGS>;
+  static override logCtx<
+    CONTEXT extends Context<any>,
+    ARGS extends any[] = any[],
+  >(
+    this: any,
+    args: ARGS,
+    method: (...args: any[]) => any
+  ): ContextualizedArgs<CONTEXT, ARGS>;
+  static override logCtx<
+    CONTEXT extends Context<any>,
+    ARGS extends any[] = any[],
+  >(
+    this: any,
+    args: ARGS,
+    method: ((...args: any[]) => any) | string
+  ): ContextualizedArgs<CONTEXT, ARGS> {
+    return super.logCtx<CONTEXT, ARGS>(args, method as any);
+  }
+
   protected proxies?: Record<string, typeof this>;
 
   /**
@@ -889,7 +943,7 @@ export abstract class Adapter<
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  for(config: Partial<CONF>, ...args: any[]): typeof this {
+  for(config: Partial<CONF>, ...args: any[]): this {
     if (!this.proxies) this.proxies = {};
     const key = `${this.alias} - ${hashObj(config)}`;
     if (key in this.proxies) return this.proxies[key] as typeof this;
@@ -915,23 +969,35 @@ export abstract class Adapter<
       },
     });
     this.proxies[key] = proxy;
-    return proxy;
+    return proxy as typeof this;
   }
 
   migrations() {
     return Metadata.migrationsFor(this);
   }
 
+  protected async getQueryRunner(): Promise<CONN> {
+    return this as unknown as CONN;
+  }
+
+  async migrate(...args: [...any[], CONTEXT]): Promise<void>;
   async migrate(
-    migrations: Constructor<
-      Migration<any, any, any, any, any>
-    >[] = this.migrations()
-  ) {
+    migrations:
+      | Constructor<Migration<any, any>>[]
+      | CONTEXT = this.migrations(),
+    ...args: [...any[], CONTEXT]
+  ): Promise<void> {
+    if (migrations instanceof Context) {
+      args = [migrations as unknown as CONTEXT];
+      migrations = this.migrations();
+    }
+    const { ctx } = Adapter.logCtx<CONTEXT>(args, this.migrate);
+    const qr = await this.getQueryRunner();
     for (const migration of migrations) {
       try {
         const m = new migration();
-        await m.up(this as any, this, this.log);
-        await m.down(this as any, this, this.log);
+        await m.up(qr, this, ctx);
+        await m.down(qr, this, ctx);
       } catch (e: unknown) {
         throw new MigrationError(e as Error);
       }

@@ -7,8 +7,8 @@ import type {
   SelectSelector,
 } from "./selectors";
 import { Condition } from "./Condition";
-import { InternalError } from "@decaf-ts/db-decorators";
-import { final } from "../utils/decorators";
+import { Context, InternalError, OperationKeys } from "@decaf-ts/db-decorators";
+import { final } from "@decaf-ts/logging";
 import type {
   CountOption,
   DistinctOption,
@@ -22,11 +22,15 @@ import type {
 } from "./options";
 import { Paginatable } from "../interfaces/Paginatable";
 import { Paginator } from "./Paginator";
-import { Adapter } from "../persistence";
+import { Adapter, type ContextOf } from "../persistence";
 import { QueryError } from "./errors";
 import { Logger } from "@decaf-ts/logging";
-import { LoggedClass } from "@decaf-ts/logging";
 import { Constructor } from "@decaf-ts/decoration";
+import {
+  type ContextualArgs,
+  ContextualLoggedClass,
+  type MaybeContextualArg,
+} from "../utils/index";
 
 /**
  * @description Base class for database query statements
@@ -79,8 +83,13 @@ import { Constructor } from "@decaf-ts/decoration";
  *   Adapter-->>Statement: return processed results
  *   Statement-->>Client: return final results
  */
-export abstract class Statement<Q, M extends Model, R>
-  extends LoggedClass
+export abstract class Statement<
+    M extends Model,
+    A extends Adapter<any, any, any, any>,
+    R,
+    Q = A extends Adapter<any, any, infer Q, any> ? Q : never,
+  >
+  extends ContextualLoggedClass<ContextOf<A>>
   implements Executor<R>, RawExecutor<Q>, Paginatable<M, R, Q>
 {
   protected readonly selectSelector?: SelectSelector<M>[];
@@ -95,7 +104,7 @@ export abstract class Statement<Q, M extends Model, R>
   protected limitSelector?: number;
   protected offsetSelector?: number;
 
-  protected constructor(protected adapter: Adapter<any, any, Q, any, any>) {
+  protected constructor(protected adapter: Adapter<any, any, Q, any>) {
     super();
   }
 
@@ -191,30 +200,46 @@ export abstract class Statement<Q, M extends Model, R>
   }
 
   @final()
-  async execute(): Promise<R> {
+  async execute(...args: MaybeContextualArg<ContextOf<A>>): Promise<R> {
+    let execArgs = args;
+    if (
+      (!execArgs.length ||
+        !(execArgs[execArgs.length - 1] instanceof Context)) &&
+      this.fromSelector
+    ) {
+      const ctx = await this.adapter.context(
+        OperationKeys.READ,
+        {},
+        this.fromSelector
+      );
+      execArgs = [...execArgs, ctx];
+    }
+    const { ctx } = Adapter.logCtx<ContextOf<A>>(execArgs, this.toString());
     try {
       const query: Q = this.build();
-      return (await this.raw(query)) as R;
+      return (await this.raw(query, ctx)) as R;
     } catch (e: unknown) {
       throw new InternalError(e as Error);
     }
   }
 
-  async raw<R>(rawInput: Q): Promise<R> {
-    const results = await this.adapter.raw<R>(rawInput);
+  async raw<R>(rawInput: Q, ...args: ContextualArgs<ContextOf<A>>): Promise<R> {
+    const { ctx, ctxArgs } = this.logCtx(args, this.raw);
+    const results = await this.adapter.raw<R>(rawInput, ...ctxArgs);
     if (!this.selectSelector) return results;
     const pkAttr = Model.pk(this.fromSelector);
 
     const processor = function recordProcessor(
-      this: Statement<Q, M, R>,
+      this: Statement<M, A, R, Q>,
       r: any
     ) {
       const id = r[pkAttr];
       return this.adapter.revert(
         r,
         this.fromSelector as Constructor<any>,
-        pkAttr,
-        id
+        id,
+        undefined,
+        ctx
       ) as any;
     }.bind(this as any);
 
@@ -224,5 +249,12 @@ export abstract class Statement<Q, M extends Model, R>
 
   protected abstract build(): Q;
   protected abstract parseCondition(condition: Condition<M>, ...args: any[]): Q;
-  abstract paginate(size: number): Promise<Paginator<M, R, Q>>;
+  abstract paginate(
+    size: number,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<Paginator<M, R, Q>>;
+
+  override toString() {
+    return `${this.adapter.flavour} statement`;
+  }
 }

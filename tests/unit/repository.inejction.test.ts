@@ -28,7 +28,7 @@ describe("repository injection", () => {
     }
 
     @repository(RepoInjectionModel)
-    class Repo extends Repository<RepoInjectionModel, any, any, any, any> {
+    class Repo extends Repository<RepoInjectionModel, any> {
       constructor(adapter?: any) {
         super(adapter, RepoInjectionModel);
       }

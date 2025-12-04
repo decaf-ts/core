@@ -1,8 +1,8 @@
 import { Model } from "@decaf-ts/decorator-validation";
 import { Repository } from "../repository";
 import { Context, RepositoryFlags } from "@decaf-ts/db-decorators";
-import { RamAdapter } from "./RamAdapter";
 import { Constructor } from "@decaf-ts/decoration";
+import { Adapter } from "../persistence";
 
 /**
  * @description In-memory storage structure for the RAM adapter
@@ -30,7 +30,7 @@ export type RamStorage = Map<string, Map<string | number, any>>;
  * @memberOf module:core
  * @category Ram
  */
-export type RawRamQuery<M extends Model> = {
+export type RawRamQuery<M extends Model = any> = {
   select: undefined | (keyof M)[];
   from: Constructor<M>;
   where: (el: M) => boolean;
@@ -52,22 +52,12 @@ export interface RamFlags extends RepositoryFlags {
   UUID: string;
 }
 
-/**
- * @description Type definition for RAM-specific repository
- * @summary A specialized repository type for working with models in the RAM adapter.
- * It combines the model type with RAM-specific query, adapter, flags, and context types.
- * @template M - The model type managed by the repository
- * @typedef {Repository<M, RawRamQuery<any>, RamAdapter, RamFlags, Context<RamFlags>>} RamRepository
- * @memberOf module:core
- * @category Ram
- */
-export type RamRepository<M extends Model<true | false>> = Repository<
+export type RamRepository<M extends Model<boolean>> = Repository<
   M,
-  RawRamQuery<any>,
-  RamAdapter,
-  RamFlags,
-  Context<RamFlags>
+  Adapter<RamConfig, RamStorage, RawRamQuery<any>, RamContext>
 >;
+
+export type RamContext = Context<RamFlags>;
 
 export type RamConfig = {
   user: string;

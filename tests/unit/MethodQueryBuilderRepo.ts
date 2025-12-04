@@ -70,13 +70,7 @@ export class TestUserModel extends BaseModel {
 }
 
 @repository(TestUserModel)
-export class MethodQueryBuilderRepo extends Repository<
-  TestUserModel,
-  any,
-  any,
-  any,
-  any
-> {
+export class MethodQueryBuilderRepo extends Repository<TestUserModel, any> {
   constructor(adapter?: any) {
     super(ramAdapter, TestUserModel);
   }

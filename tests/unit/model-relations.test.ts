@@ -17,7 +17,8 @@ import { RamAdapter } from "../../src/ram/RamAdapter";
 import { RamRepository } from "../../src/ram/types";
 import { Repository } from "../../src/repository/index";
 import { RamSequenceModel as Seq } from "../../src/ram/model/RamSequenceModel";
-import { Sequence, sequenceNameForModel } from "../../src/index";
+import { Sequence } from "../../src/index";
+import { Model } from "@decaf-ts/decorator-validation";
 
 jest.setTimeout(500000);
 
@@ -76,7 +77,7 @@ describe(`Complex Database`, function () {
       let updated: TestAddressModel;
       it("Ensure no population when populate is disabled in a one-to-one relation", async () => {
         const sequenceModel = await adapter.Sequence({
-          name: sequenceNameForModel(NoPopulateOnceModel, "pk"),
+          name: Model.sequenceName(NoPopulateOnceModel, "pk"),
           type: "Number",
           startWith: 0,
           incrementBy: 1,
@@ -84,7 +85,7 @@ describe(`Complex Database`, function () {
         });
 
         const sequenceCountry = await adapter.Sequence({
-          name: sequenceNameForModel(TestDummyCountry, "pk"),
+          name: Model.sequenceName(TestDummyCountry, "pk"),
           type: "Number",
           startWith: 0,
           incrementBy: 1,

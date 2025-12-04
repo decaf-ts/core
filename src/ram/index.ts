@@ -6,7 +6,6 @@ RamAdapter.decoration();
 export * from "./model";
 export * from "./constants";
 export * from "./handlers";
-export * from "./RamContext";
 export * from "./RamPaginator";
 export * from "./RamStatement";
 export * from "./RamSequence";

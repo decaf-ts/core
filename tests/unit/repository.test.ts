@@ -11,7 +11,7 @@ const ramAdapter = new RamAdapter();
 import { Repository } from "../../src/repository/Repository";
 import { model, Model } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
-import { NotFoundError, OperationKeys } from "@decaf-ts/db-decorators";
+import { Context, NotFoundError, OperationKeys } from "@decaf-ts/db-decorators";
 import { TestModel } from "./TestModel";
 import { Repo } from "../../src";
 import { uses } from "@decaf-ts/decoration";
@@ -51,9 +51,11 @@ describe("Repository", () => {
 
     expect(created).toBeDefined();
     expect(mock).toHaveBeenCalledWith(
-      Repository.table(TestModel),
+      TestModel,
       OperationKeys.CREATE,
-      id
+      id,
+      expect.any(Object),
+      expect.any(Context)
     );
   });
 
@@ -76,13 +78,15 @@ describe("Repository", () => {
 
     expect(updated).toBeDefined();
     expect(updated.equals(created)).toEqual(false);
-    expect(updated.equals(created, "updatedOn", "name", "updatedBy")).toEqual(
+    expect(updated.equals(created, "updatedAt", "name", "updatedBy")).toEqual(
       true
     ); // minus the expected changes
     expect(mock).toHaveBeenCalledWith(
-      Repository.table(TestModel),
+      TestModel,
       OperationKeys.UPDATE,
-      updated.id
+      updated.id,
+      expect.any(Object),
+      expect.any(Context)
     );
   });
 
@@ -95,9 +99,11 @@ describe("Repository", () => {
       NotFoundError
     );
     expect(mock).toHaveBeenCalledWith(
-      Repository.table(TestModel),
+      TestModel,
       OperationKeys.DELETE,
-      deleted.id
+      deleted.id,
+      expect.any(Object),
+      expect.any(Context)
     );
   });
 
@@ -148,7 +154,6 @@ describe("Repository", () => {
       @uses("ram")
       class DedicatedTestModelRepo extends Repository<
         DedicatedTestModel,
-        any,
         Adapter<any, any, any, any>
       > {
         constructor(adapter: Adapter<any, any, any, any>) {

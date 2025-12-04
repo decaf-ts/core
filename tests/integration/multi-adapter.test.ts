@@ -11,7 +11,9 @@ import {
 } from "@decaf-ts/decorator-validation";
 
 describe("Multi Adapter Integration", () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let ram: RamAdapter;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let dummy: DummyAdapter;
 
   beforeAll(() => {});

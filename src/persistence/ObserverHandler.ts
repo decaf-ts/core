@@ -1,11 +1,15 @@
-import { Observable, Observer } from "../interfaces";
-import { EventIds, ObserverFilter } from "./types";
+import { Observer } from "../interfaces";
+import { EventIds, ObserverFilter, PersistenceObservable } from "./types";
 import {
   BulkCrudOperationKeys,
+  Context,
   InternalError,
   OperationKeys,
 } from "@decaf-ts/db-decorators";
-import { Logger } from "@decaf-ts/logging";
+import { Model } from "@decaf-ts/decorator-validation";
+import { Constructor } from "@decaf-ts/decoration";
+import { Adapter } from "./Adapter";
+import { ContextualArgs } from "../utils/ContextualLoggedClass";
 
 /**
  * @description Manages a collection of observers for database events
@@ -36,7 +40,7 @@ import { Logger } from "@decaf-ts/logging";
  * handler.unObserve(myObserver);
  * ```
  */
-export class ObserverHandler implements Observable {
+export class ObserverHandler implements PersistenceObservable<any> {
   /**
    * @description Collection of registered observers
    * @summary Array of observer objects along with their optional filters
@@ -83,7 +87,6 @@ export class ObserverHandler implements Observable {
   /**
    * @description Notifies all relevant observers about a database event
    * @summary Filters observers based on their filter functions and calls refresh on each matching observer
-   * @param {Logger} log - Logger for recording notification activities
    * @param {string} table - The name of the table where the event occurred
    * @param {OperationKeys|BulkCrudOperationKeys|string} event - The type of operation that occurred
    * @param {EventIds} id - The identifier(s) of the affected record(s)
@@ -124,20 +127,23 @@ export class ObserverHandler implements Observable {
    *
    *   ObserverHandler-->>Client: Return
    */
-  async updateObservers(
-    log: Logger,
-    table: string,
+  async updateObservers<M extends Model>(
+    model: Constructor<M> | string,
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds,
-    ...args: any[]
+    ...args: ContextualArgs<any>
   ): Promise<void> {
+    const { log, ctxArgs } = Adapter.logCtx<Context>(
+      args,
+      this.updateObservers
+    );
     const results = await Promise.allSettled(
       this.observers
         .filter((o) => {
           const { filter } = o;
           if (!filter) return true;
           try {
-            return filter(table, event, id);
+            return filter(model, event, id, ...ctxArgs);
           } catch (e: unknown) {
             log.error(
               `Failed to filter observer ${o.observer.toString()}: ${e}`
@@ -146,7 +152,7 @@ export class ObserverHandler implements Observable {
           }
         })
         .map((o) => {
-          o.observer.refresh(table, event, id, ...args);
+          o.observer.refresh(model, event, id, ...ctxArgs);
         })
     );
     results.forEach((result, i) => {

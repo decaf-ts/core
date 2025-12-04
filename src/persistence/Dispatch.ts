@@ -3,12 +3,16 @@ import {
   OperationKeys,
   BulkCrudOperationKeys,
 } from "@decaf-ts/db-decorators";
-import { ModelConstructor } from "@decaf-ts/decorator-validation";
+import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Observer } from "../interfaces";
 import { Adapter } from "./Adapter";
 import { UnsupportedError } from "./errors";
-import { AdapterDispatch, EventIds } from "./types";
-import { LoggedClass } from "@decaf-ts/logging";
+import { AdapterDispatch, ContextOf, EventIds, LoggerOf } from "./types";
+import { Constructor } from "@decaf-ts/decoration";
+import {
+  ContextualArgs,
+  ContextualLoggedClass,
+} from "../utils/ContextualLoggedClass";
 
 /**
  * @description Dispatches database operation events to observers
@@ -36,12 +40,15 @@ import { LoggedClass } from "@decaf-ts/logging";
  * dispatch.unObserve(adapter);
  * ```
  */
-export class Dispatch extends LoggedClass implements AdapterDispatch {
+export class Dispatch<A extends Adapter<any, any, any, any>>
+  extends ContextualLoggedClass<LoggerOf<A>>
+  implements AdapterDispatch<A>
+{
   /**
    * @description The adapter being observed
    * @summary Reference to the database adapter whose operations are being monitored
    */
-  protected adapter?: Adapter<any, any, any, any, any>;
+  protected adapter?: A;
 
   /**
    * @description List of model constructors
@@ -98,9 +105,9 @@ export class Dispatch extends LoggedClass implements AdapterDispatch {
       // Gracefully skip initialization when no adapter is observed yet.
       // Some tests or setups may construct a Dispatch before calling observe().
       // Instead of throwing, we no-op so that later observe() can proceed.
-      this.log.verbose(
-        `No adapter observed for dispatch; skipping initialization`
-      );
+      this.log
+        .for(this.initialize)
+        .verbose(`No adapter observed for dispatch; skipping initialization`);
       return;
     }
     const adapter = this.adapter as Adapter<any, any, any, any>;
@@ -113,22 +120,22 @@ export class Dispatch extends LoggedClass implements AdapterDispatch {
         BulkCrudOperationKeys.UPDATE_ALL,
         BulkCrudOperationKeys.DELETE_ALL,
       ] as (keyof Adapter<any, any, any, any>)[]
-    ).forEach((method) => {
-      if (!adapter[method])
+    ).forEach((toWrap) => {
+      if (!adapter[toWrap])
         throw new InternalError(
-          `Method ${method} not found in ${adapter.alias} adapter to bind Observables Dispatch`
+          `Method ${toWrap} not found in ${adapter.alias} adapter to bind Observables Dispatch`
         );
 
-      let descriptor = Object.getOwnPropertyDescriptor(adapter, method);
+      let descriptor = Object.getOwnPropertyDescriptor(adapter, toWrap);
       let proto: any = adapter;
       while (!descriptor && proto !== Object.prototype) {
         proto = Object.getPrototypeOf(proto);
-        descriptor = Object.getOwnPropertyDescriptor(proto, method);
+        descriptor = Object.getOwnPropertyDescriptor(proto, toWrap);
       }
 
       if (!descriptor || !descriptor.writable) {
         this.log.error(
-          `Could not find method ${method} to bind Observables Dispatch`
+          `Could not find method ${toWrap} to bind Observables Dispatch`
         );
         return;
       }
@@ -144,21 +151,30 @@ export class Dispatch extends LoggedClass implements AdapterDispatch {
             return method;
         }
       }
+
       // @ts-expect-error because there are read only properties
-      adapter[method] = new Proxy(adapter[method], {
-        apply: async (target: any, thisArg, argArray: any[]) => {
+      adapter[toWrap] = new Proxy(adapter[toWrap], {
+        apply: async (target: any, thisArg: A, argArray: any[]) => {
+          const { log, ctxArgs } = thisArg["logCtx"](argArray, target);
           const [tableName, ids] = argArray;
-          const result = await target.apply(thisArg, argArray);
-          this.updateObservers(tableName, bulkToSingle(method), ids as EventIds)
+          const result = await target.apply(thisArg, ctxArgs);
+
+          this.updateObservers(
+            tableName,
+            bulkToSingle(toWrap),
+            ids as EventIds,
+            result,
+            ...(ctxArgs.slice(argArray.length) as ContextualArgs<ContextOf<A>>)
+          )
             .then(() => {
-              this.log.verbose(
-                `Observer refresh dispatched by ${method} for ${tableName}`
+              log.verbose(
+                `Observer refresh dispatched by ${toWrap} for ${tableName}`
               );
-              this.log.debug(`pks: ${ids}`);
+              log.debug(`pks: ${ids}`);
             })
             .catch((e: unknown) =>
-              this.log.error(
-                `Failed to dispatch observer refresh for ${method} on ${tableName}: ${e}`
+              log.error(
+                `Failed to dispatch observer refresh for ${toWrap} on ${tableName}: ${e}`
               )
             );
           return result;
@@ -182,7 +198,7 @@ export class Dispatch extends LoggedClass implements AdapterDispatch {
    * @param {Adapter<any, any, any, any>} observer - The adapter to observe
    * @return {void}
    */
-  observe(observer: Adapter<any, any, any, any>): void {
+  observe(observer: A): void {
     if (!(observer instanceof Adapter))
       throw new UnsupportedError("Only Adapters can be observed by dispatch");
     this.adapter = observer;
@@ -217,18 +233,24 @@ export class Dispatch extends LoggedClass implements AdapterDispatch {
    * @return {Promise<void>} A promise that resolves when all observers have been notified
    */
   async updateObservers(
-    table: string,
+    model: Constructor<any> | string,
     event: OperationKeys | BulkCrudOperationKeys | string,
-    id: EventIds
+    id: EventIds,
+    ...args: [...any, ContextOf<A>]
   ): Promise<void> {
+    const table = typeof model === "string" ? model : Model.tableName(model);
+    const { log, ctxArgs } = this.logCtx(args, this.updateObservers);
     if (!this.adapter) {
-      this.log.verbose(
+      log.verbose(
         `No adapter observed for dispatch; skipping observer update for ${table}:${event}`
       );
       return;
     }
     try {
-      await this.adapter.refresh(table, event, id);
+      log.debug(
+        `Dispatching ${event} from table ${table} for ${event} with id: ${JSON.stringify(id)}`
+      );
+      await this.adapter.refresh(model, event, id, ...ctxArgs);
     } catch (e: unknown) {
       throw new InternalError(`Failed to refresh dispatch: ${e}`);
     }

@@ -18,7 +18,7 @@ import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { RawExecutor } from "../interfaces/RawExecutor";
 import { PersistenceKeys } from "./constants";
 import type { Repository } from "../repository/Repository";
-import { Sequence } from "./Sequence";
+import type { Sequence } from "./Sequence";
 import { ErrorParser } from "../interfaces";
 import { Statement } from "../query/Statement";
 import { final, Logger } from "@decaf-ts/logging";
@@ -190,6 +190,7 @@ export abstract class Adapter<
   private static _currentFlavour: string;
   private static _cache: Record<string, Adapter<any, any, any, any>> = {};
   private static _baseRepository: Constructor<Repository<any, any>>;
+  private static _baseSequence: Constructor<Sequence>;
   private static _baseDispatch: Constructor<
     Dispatch<Adapter<any, any, any, any>>
   >;
@@ -361,7 +362,9 @@ export abstract class Adapter<
    * @param {SequenceOptions} options - Configuration options for the sequence
    * @return {Promise<Sequence>} A promise that resolves to a new sequence instance
    */
-  abstract Sequence(options: SequenceOptions): Promise<Sequence>;
+  async Sequence(options: SequenceOptions): Promise<Sequence> {
+    return new Adapter._baseSequence(options, this);
+  }
 
   /**
    * @description Creates repository flags for an operation
@@ -398,24 +401,7 @@ export abstract class Adapter<
       logger: log,
     }) as FlagsOf<CONTEXT>;
   }
-  uuid() {
-    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
-      /[xy]/g,
-      function (c) {
-        const r = (Math.random() * 16) | 0,
-          v = c == "x" ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-      }
-    );
-  }
 
-  serial() {
-    throw new InternalError(
-      `Serial numbers are not supported by ${this.flavour} adapter. 
-      Please implement this method in your adapter if you need to support serial numbers.
-      Otherwise, use a different primary key strategy.`
-    );
-  }
   /**
    * @description The context constructor for this adapter
    * @summary Reference to the context class constructor used by this adapter

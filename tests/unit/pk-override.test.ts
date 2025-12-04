@@ -1,26 +1,25 @@
-import { uses } from "@decaf-ts/decoration";
+import { uses, Decoration } from "@decaf-ts/decoration";
 import { Model, ModelArg, model } from "@decaf-ts/decorator-validation";
-import { Decoration } from "@decaf-ts/decoration";
 import { DBKeys, SequenceOptions } from "@decaf-ts/db-decorators";
-import { pk } from "../../src/identity";
+import { pk } from "../../src/identity/decorators";
+
+const CustomFlavour = "pk-override-test";
+let captured: SequenceOptions[] = [];
+
+Decoration.flavouredAs(CustomFlavour)
+  .for(DBKeys.ID)
+  .define({
+    decorator: function pkOverride(options: SequenceOptions) {
+      return function pkOverrideDecorator(target: any, prop: any) {
+        captured.push({ ...(options as Record<string, unknown>) } as any);
+        return target && prop ? undefined : undefined;
+      };
+    },
+  } as any)
+  .apply();
 
 describe("pk decoration overrides", () => {
-  const CustomFlavour = "pk-override-test";
-  let captured: SequenceOptions[] = [];
-
-  beforeAll(() => {
-    Decoration.flavouredAs(CustomFlavour)
-      .for(DBKeys.ID)
-      .define({
-        decorator: function pkOverride(options: SequenceOptions) {
-          return function pkOverrideDecorator(target: any, prop: any) {
-            captured.push({ ...(options as Record<string, unknown>) } as any);
-            return target && prop ? undefined : undefined;
-          };
-        },
-      } as any)
-      .apply();
-  });
+  beforeAll(() => {});
 
   beforeEach(() => {
     captured = [];

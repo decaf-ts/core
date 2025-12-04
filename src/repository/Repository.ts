@@ -19,7 +19,6 @@ import { PersistenceKeys } from "../persistence/constants";
 import { OrderDirection } from "./constants";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { Queriable } from "../interfaces/Queriable";
-import { Sequence } from "../persistence/Sequence";
 import { Condition } from "../query/Condition";
 import { WhereOption } from "../query/options";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
@@ -33,7 +32,7 @@ import {
   type ObserverFilter,
   PersistenceObservable,
   PersistenceObserver,
-} from "../persistence";
+} from "../persistence/types";
 import {
   Constructor,
   DecorationKeys,
@@ -409,7 +408,7 @@ export class Repository<
     const opts = Model.sequenceFor(models[0]);
     let ids: (string | number | bigint | undefined)[] = [];
     if (opts.type) {
-      if (!opts.name) opts.name = Sequence.pk(models[0]);
+      if (!opts.name) opts.name = Model.sequenceName(models[0], "pk");
       ids = await (
         await this.adapter.Sequence(opts)
       ).range(models.length, ...contextArgs.args);
@@ -1006,12 +1005,12 @@ export class Repository<
       Array.isArray(id)
         ? id.map(
             (i) =>
-              Sequence.parseValue(
+              (Adapter["_baseSequence"] as any).parseValue(
                 Model.sequenceFor(this.class).type,
                 i
               ) as string
           )
-        : (Sequence.parseValue(
+        : ((Adapter["_baseSequence"] as any).parseValue(
             Model.sequenceFor(this.class).type,
             id
           ) as string),

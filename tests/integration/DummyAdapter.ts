@@ -24,8 +24,6 @@ import {
   RamConfig,
   RamContext,
   RamFlags,
-  RamRepository,
-  RamSequence,
   RamStatement,
   RamStorage,
   RawRamQuery,
@@ -39,7 +37,6 @@ import {
   Repo,
   Repository,
   Sequence,
-  SequenceOptions,
   UnsupportedError,
 } from "../../src/index";
 import { Adapter } from "../../src/persistence/Adapter";
@@ -120,9 +117,6 @@ export class DummyAdapter extends Adapter<
   RawRamQuery<any>,
   RamContext
 > {
-  async Sequence(options: SequenceOptions): Promise<RamSequence> {
-    return new RamSequence(options, this as any);
-  }
   constructor(conf: RamConfig = {} as any, alias?: string) {
     super(conf, "dummy", alias);
   }

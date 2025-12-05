@@ -6,7 +6,7 @@ import {
   InternalError,
   IRepository,
   OperationKeys,
-  PrimaryKeyType,
+  type PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
 import { final, Logger, Logging } from "@decaf-ts/logging";
 import { Constructor } from "@decaf-ts/decoration";
@@ -16,7 +16,7 @@ import { ContextualArgs, ContextualizedArgs } from "./ContextualLoggedClass";
 import { FlagsOf, LoggerOf } from "../persistence/index";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Repository } from "../repository/Repository";
-import { create } from "./decorators";
+import { create, del, read, update } from "./decorators";
 
 export abstract class Service<C extends Context<any> = any>
   implements Contextual<C>
@@ -262,6 +262,7 @@ export class ModelService<
     return this.repo.create(model, ...ctxArgs);
   }
 
+  @create()
   async createAll(
     models: M[],
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -270,6 +271,7 @@ export class ModelService<
     return this.repo.createAll(models, ...ctxArgs);
   }
 
+  @del()
   async delete(
     key: PrimaryKeyType,
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -278,6 +280,7 @@ export class ModelService<
     return this.repo.delete(key, ...ctxArgs);
   }
 
+  @del()
   async deleteAll(
     keys: PrimaryKeyType[],
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -286,6 +289,7 @@ export class ModelService<
     return this.repo.deleteAll(keys, ...ctxArgs);
   }
 
+  @read()
   async read(
     key: PrimaryKeyType,
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -294,6 +298,7 @@ export class ModelService<
     return this.repo.read(key, ...ctxArgs);
   }
 
+  @read()
   async readAll(
     keys: PrimaryKeyType[],
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -302,6 +307,7 @@ export class ModelService<
     return this.repo.readAll(keys, ...ctxArgs);
   }
 
+  @update()
   async update(
     model: M,
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -310,6 +316,7 @@ export class ModelService<
     return this.repo.update(model, ...ctxArgs);
   }
 
+  @update()
   async updateAll(models: M[], ...args: any[]): Promise<M[]> {
     const { ctxArgs } = await this.logCtx(args, this.updateAll, true);
     return this.repo.updateAll(models, ...ctxArgs);

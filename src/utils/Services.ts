@@ -16,7 +16,7 @@ import { ContextualArgs, ContextualizedArgs } from "./ContextualLoggedClass";
 import { FlagsOf, LoggerOf } from "../persistence/index";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Repository } from "../repository/Repository";
-import { create, del, read, update, service } from "./decorators";
+import { create, del, read, service, update } from "./decorators";
 
 export abstract class Service<C extends Context<any> = any>
   implements Contextual<C>
@@ -222,6 +222,8 @@ export abstract class ClientBasedService<
   }
 }
 
+export type ArrayMode = "one" | "many";
+
 export class ModelService<
     M extends Model<boolean>,
     R extends Repository<M, any> = Repository<M, any>,
@@ -305,6 +307,18 @@ export class ModelService<
   ): Promise<M[]> {
     const { ctxArgs } = await this.logCtx(args, this.readAll, true);
     return this.repo.readAll(keys, ...ctxArgs);
+  }
+
+  @read()
+  async query<M, R extends ArrayMode = "one">(
+    methodName: string,
+    ...args: unknown[]
+  ): Promise<R extends "one" ? M : M[]> {
+    const method = (this.repo as any)?.[methodName];
+    if (typeof method !== "function")
+      throw new Error(`Method "${methodName}" is not implemented`);
+
+    return method.apply(this.repo, args);
   }
 
   @update()

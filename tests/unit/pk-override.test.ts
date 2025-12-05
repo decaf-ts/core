@@ -1,7 +1,8 @@
 import { uses, Decoration } from "@decaf-ts/decoration";
 import { Model, ModelArg, model } from "@decaf-ts/decorator-validation";
-import { DBKeys, SequenceOptions } from "@decaf-ts/db-decorators";
+import { DBKeys } from "@decaf-ts/db-decorators";
 import { pk } from "../../src/identity/decorators";
+import { SequenceOptions } from "../../src/interfaces";
 
 const CustomFlavour = "pk-override-test";
 let captured: SequenceOptions[] = [];
@@ -11,7 +12,7 @@ Decoration.flavouredAs(CustomFlavour)
   .define({
     decorator: function pkOverride(options: SequenceOptions) {
       return function pkOverrideDecorator(target: any, prop: any) {
-        captured.push({ ...(options as Record<string, unknown>) } as any);
+        captured.push({ ...options } as any);
         return target && prop ? undefined : undefined;
       };
     },

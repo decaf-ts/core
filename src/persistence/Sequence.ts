@@ -1,7 +1,7 @@
 import { Model } from "@decaf-ts/decorator-validation";
 import {
   SequenceOptions,
-  SequenceOptionsType,
+  // SequenceOptionsType,
 } from "../interfaces/SequenceOptions";
 import { UnsupportedError } from "./errors";
 import { Constructor } from "@decaf-ts/decoration";

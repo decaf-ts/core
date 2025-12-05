@@ -4,7 +4,7 @@ import {
   injectable,
 } from "@decaf-ts/injectable-decorators";
 import { DBKeys, IRepository } from "@decaf-ts/db-decorators";
-import { Model, ModelKeys } from "@decaf-ts/decorator-validation";
+import { Model } from "@decaf-ts/decorator-validation";
 import { Repository } from "./Repository";
 import { Adapter, PersistenceKeys } from "../persistence";
 import { Metadata, metadata } from "@decaf-ts/decoration";
@@ -42,10 +42,7 @@ export function repository<T extends Model>(
 ): any {
   return ((original: any, propertyKey?: any) => {
     if (propertyKey) {
-      return inject(model[ModelKeys.ANCHOR as keyof typeof model] || model)(
-        original,
-        propertyKey
-      );
+      return inject(Metadata.constr(model))(original, propertyKey);
     }
 
     Metadata.set(

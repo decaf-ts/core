@@ -1,0 +1,101 @@
+import { RamAdapter, RamFlavour } from "../../src/ram/index";
+import { BaseModel, pk } from "../../src/index";
+import { Metadata, uses } from "@decaf-ts/decoration";
+import { TestCountryModel } from "../unit/models";
+import {
+  Model,
+  model,
+  type ModelArg,
+  pattern,
+  required,
+} from "@decaf-ts/decorator-validation";
+
+class Ram1 extends RamAdapter {
+  constructor() {
+    super({} as any, "ram1");
+  }
+}
+
+class Ram2 extends RamAdapter {
+  constructor() {
+    super({} as any, "ram2");
+  }
+}
+
+@uses("ram1")
+@model()
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+class Model1 extends Model {
+  @pk()
+  id!: number;
+
+  @required()
+  name!: string;
+
+  constructor(arg?: ModelArg<Model1>) {
+    super(arg);
+  }
+}
+@uses("ram2")
+@model()
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+class Model2 extends Model {
+  @pk()
+  id!: number;
+
+  @required()
+  name!: string;
+
+  constructor(arg?: ModelArg<Model2>) {
+    super(arg);
+  }
+}
+
+describe("Multi Adapter full test", () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  let ram1: RamAdapter;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  let ram2: RamAdapter;
+
+  it("initializes adapters correctly", () => {
+    ram1 = new Ram1();
+    ram2 = new Ram2();
+  });
+
+  it("Reads default flavour correclty", () => {
+    const flavour = Metadata.flavourOf(TestCountryModel);
+    expect(flavour).toEqual(RamFlavour);
+  });
+
+  it("Correctly allows overriding that value", () => {
+    uses("dummy")(TestCountryModel);
+    const flavour = Metadata.flavourOf(TestCountryModel);
+    expect(flavour).toEqual("dummy");
+  });
+
+  it("Correctly allows overriding that value in the class", () => {
+    @uses("dummy")
+    @model()
+    class TestCountryModel2 extends BaseModel {
+      @pk({ type: "Number" })
+      id!: number;
+
+      @required()
+      name!: string;
+
+      @required()
+      countryCode!: string;
+
+      @required()
+      @pattern(/[a-z]{2}(?:_[A-Z]{2})?/g)
+      locale!: string;
+
+      constructor(m?: ModelArg<TestCountryModel>) {
+        super(m);
+      }
+    }
+
+    const flavour = Metadata.flavourOf(TestCountryModel2);
+    expect(flavour).toEqual("dummy");
+  });
+});

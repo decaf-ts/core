@@ -1,6 +1,6 @@
 import {
   Context,
-  type ContextOfRepository,
+  ContextOfRepository,
   Contextual,
   DefaultRepositoryFlags,
   InternalError,
@@ -8,19 +8,17 @@ import {
   OperationKeys,
   PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
-import { final, Logger, Logging } from "@decaf-ts/logging";
+import { final, Logging, Logger } from "@decaf-ts/logging";
 import { Constructor } from "@decaf-ts/decoration";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import {
   ContextualArgs,
   ContextualizedArgs,
-  type MaybeContextualArg,
+  MaybeContextualArg,
 } from "./ContextualLoggedClass";
-import { FlagsOf, LoggerOf } from "../persistence";
+import { FlagsOf, LoggerOf } from "../persistence/index";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Repository } from "../repository/Repository";
-import { service } from "./decorators";
-import { create, del, read, update } from "../services";
 
 export abstract class Service<C extends Context<any> = any>
   implements Contextual<C>
@@ -257,7 +255,6 @@ export class ModelService<
     }) as this;
   }
 
-  @create()
   async create(
     model: M,
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -274,7 +271,6 @@ export class ModelService<
     return this.repo.createAll(models, ...ctxArgs);
   }
 
-  @del()
   async delete(
     key: PrimaryKeyType,
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -283,7 +279,6 @@ export class ModelService<
     return this.repo.delete(key, ...ctxArgs);
   }
 
-  @del()
   async deleteAll(
     keys: PrimaryKeyType[],
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -292,7 +287,6 @@ export class ModelService<
     return this.repo.deleteAll(keys, ...ctxArgs);
   }
 
-  @read()
   async read(
     key: PrimaryKeyType,
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -301,7 +295,6 @@ export class ModelService<
     return this.repo.read(key, ...ctxArgs);
   }
 
-  @read()
   async readAll(
     keys: PrimaryKeyType[],
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -310,7 +303,6 @@ export class ModelService<
     return this.repo.readAll(keys, ...ctxArgs);
   }
 
-  @update()
   async update(
     model: M,
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -319,7 +311,6 @@ export class ModelService<
     return this.repo.update(model, ...ctxArgs);
   }
 
-  @update()
   async updateAll(models: M[], ...args: any[]): Promise<M[]> {
     const { ctxArgs } = await this.logCtx(args, this.updateAll, true);
     return this.repo.updateAll(models, ...ctxArgs);
@@ -337,24 +328,6 @@ export class ModelService<
       {},
       this.class
     )) as ContextualizedArgs<ContextOfRepository<R>, ARGS>;
-  }
-
-  static getX<M extends Model<boolean>, S extends ModelService<M>>(
-    name: string | symbol | Constructor<M>
-  ): S {
-    if (!name) throw new InternalError(`No name provided`);
-
-    const alias =
-      typeof name === "string"
-        ? name
-        : typeof name === "symbol"
-          ? name.toString()
-          : name.name;
-
-    const injectable = Service.get(alias);
-    if (injectable) return injectable as S;
-
-    throw new InternalError(`No ModelService found for ${alias}`);
   }
 
   static forModel<M extends Model<boolean>, S extends ModelService<M>>(
@@ -380,7 +353,8 @@ export class ModelService<
     if (instance instanceof ModelService) return instance as S;
 
     const Base = this as Constructor;
-    @service(_alias)
+
+    // @service(_alias)
     class DecoratedService extends Base {
       constructor() {
         super(model);

@@ -252,7 +252,7 @@ export class ModelService<
     this.repo = Repository.forModel(clazz);
   }
 
-  static get<M extends Model<boolean>, S extends ModelService<M>>(
+  static getService<M extends Model<boolean>, S extends ModelService<M>>(
     name: string | symbol | Constructor<M>
   ): S {
     if (!name) throw new InternalError(`No name provided`);

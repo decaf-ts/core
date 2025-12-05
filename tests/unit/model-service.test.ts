@@ -132,28 +132,28 @@ describe("Model Services", () => {
       expect(service).toBeInstanceOf(ModelService);
       expect(new service.class()).toBeInstanceOf(TestNameModel);
 
-      const serviceInj = ModelService.get(TestNameModel);
+      const serviceInj = ModelService.getService(TestNameModel);
       expect(serviceInj).toBeDefined();
       expect(serviceInj).toBeInstanceOf(ModelService);
     });
 
     it("should get injectable properly", async () => {
       Injectables.setRegistry(new InjectableRegistryImp());
-      expect(() => ModelService.get(TestNameModel)).toThrow(
+      expect(() => ModelService.getService(TestNameModel)).toThrow(
         "No ModelService found for alias TestNameModelService"
       );
 
       ModelService.forModel(TestNameModel);
-      const s1 = ModelService.get(TestNameModel);
+      const s1 = ModelService.getService(TestNameModel);
       expect(s1).toBeDefined();
       expect(s1).toBeInstanceOf(ModelService);
 
       Injectables.setRegistry(new InjectableRegistryImp());
-      expect(() => ModelService.get(TestNameModel)).toThrow(
+      expect(() => ModelService.getService(TestNameModel)).toThrow(
         "No ModelService found for alias TestNameModelService"
       );
       ModelService.forModel(TestNameModel);
-      const s2 = ModelService.get("TestNameModelService");
+      const s2 = ModelService.getService("TestNameModelService");
       expect(s2).toBeDefined();
       expect(s2).toBeInstanceOf(ModelService);
     });

@@ -1,14 +1,5 @@
 import { RamAdapter, RamFlavour } from "../../src/ram";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const adapter = new RamAdapter();
-import {
-  column,
-  ModelService,
-  pk,
-  Repo,
-  repository,
-  table,
-} from "../../src/index";
+import { column, ModelService, pk, Repo, repository, table } from "../../src";
 import { service } from "../../src/utils/decorators";
 import { NotFoundError } from "@decaf-ts/db-decorators";
 import {
@@ -20,6 +11,12 @@ import {
 } from "@decaf-ts/decorator-validation";
 import { IdentifiedBaseModel } from "./IdentifiedBaseModel";
 import { uses } from "@decaf-ts/decoration";
+import {
+  InjectableRegistryImp,
+  Injectables,
+} from "@decaf-ts/injectable-decorators";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const adapter = new RamAdapter();
 
 @uses(RamFlavour)
 @table("tst_user")
@@ -110,5 +107,55 @@ describe("Model Services", () => {
     expect(deleted).toBeDefined();
 
     await expect(obj.service.read(created.id)).rejects.toThrow(NotFoundError);
+  });
+
+  describe("Static Methods", () => {
+    @uses(RamFlavour)
+    @table("tst_name")
+    @model()
+    class TestNameModel extends IdentifiedBaseModel {
+      @pk({ type: "Number", generated: true })
+      id!: number;
+
+      @column("tst_name")
+      @required()
+      name!: string;
+
+      constructor(arg?: ModelArg<TestNameModel>) {
+        super(arg);
+      }
+    }
+
+    it("should create a ModelService instance", async () => {
+      const service = ModelService.forModel(TestNameModel);
+      expect(service).toBeDefined();
+      expect(service).toBeInstanceOf(ModelService);
+      expect(new service.class()).toBeInstanceOf(TestNameModel);
+
+      const serviceInj = ModelService.get(TestNameModel);
+      expect(serviceInj).toBeDefined();
+      expect(serviceInj).toBeInstanceOf(ModelService);
+    });
+
+    it("should get injectable properly", async () => {
+      Injectables.setRegistry(new InjectableRegistryImp());
+      expect(() => ModelService.get(TestNameModel)).toThrow(
+        "No ModelService found for alias TestNameModelService"
+      );
+
+      ModelService.forModel(TestNameModel);
+      const s1 = ModelService.get(TestNameModel);
+      expect(s1).toBeDefined();
+      expect(s1).toBeInstanceOf(ModelService);
+
+      Injectables.setRegistry(new InjectableRegistryImp());
+      expect(() => ModelService.get(TestNameModel)).toThrow(
+        "No ModelService found for alias TestNameModelService"
+      );
+      ModelService.forModel(TestNameModel);
+      const s2 = ModelService.get("TestNameModelService");
+      expect(s2).toBeDefined();
+      expect(s2).toBeInstanceOf(ModelService);
+    });
   });
 });

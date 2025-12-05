@@ -224,6 +224,15 @@ export abstract class ClientBasedService<
 
 export type ArrayMode = "one" | "many";
 
+const resolveAlias = (
+  alias: string | symbol | Constructor<Model<any>>
+): string => {
+  if (typeof alias === "string")
+    return alias.endsWith("Service") ? alias : `${alias}Service`;
+  if (typeof alias === "symbol") return alias.toString();
+  return `${alias.name}Service`;
+};
+
 export class ModelService<
     M extends Model<boolean>,
     R extends Repository<M, any> = Repository<M, any>,
@@ -241,6 +250,22 @@ export class ModelService<
   constructor(private readonly clazz: Constructor<M>) {
     super();
     this.repo = Repository.forModel(clazz);
+  }
+
+  static get<M extends Model<boolean>, S extends ModelService<M>>(
+    name: string | symbol | Constructor<M>
+  ): S {
+    if (!name) throw new InternalError(`No name provided`);
+
+    const alias = resolveAlias(name);
+    try {
+      const injectable = Service.get(alias);
+      if (injectable) return injectable as S;
+    } catch (e: unknown) {
+      // ignore
+    }
+
+    throw new InternalError(`No ModelService found for alias ${alias}`);
   }
 
   for(conf: any, ...args: any[]): this {
@@ -356,12 +381,7 @@ export class ModelService<
     alias?: string | symbol
   ): S {
     let instance: S | undefined;
-    alias =
-      typeof alias === "string"
-        ? alias
-        : typeof alias === "symbol"
-          ? alias.toString()
-          : model.name;
+    alias = resolveAlias(alias || model);
 
     try {
       instance = ModelService.get(alias) as S;

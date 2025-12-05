@@ -1,6 +1,6 @@
 import { Constructor } from "@decaf-ts/decoration";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
-import { Service } from "./Services";
+import { Service } from "../utils/Services";
 import { service } from "../utils/decorators";
 import { Repository } from "../repository/Repository";
 import { create, del, read, update } from "./decorators";

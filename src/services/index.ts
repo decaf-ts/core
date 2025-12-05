@@ -1,3 +1,3 @@
 export * from "./decorators";
-export * from "./Services";
+export * from "../utils/Services";
 export * from "./ModelService";

@@ -1,6 +1,6 @@
 import {
   Context,
-  ContextOfRepository,
+  type ContextOfRepository,
   Contextual,
   DefaultRepositoryFlags,
   InternalError,
@@ -8,17 +8,15 @@ import {
   OperationKeys,
   PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
-import { final, Logging, Logger } from "@decaf-ts/logging";
+import { final, Logger, Logging } from "@decaf-ts/logging";
 import { Constructor } from "@decaf-ts/decoration";
 import { Injectables } from "@decaf-ts/injectable-decorators";
-import {
-  ContextualArgs,
-  ContextualizedArgs,
-  MaybeContextualArg,
-} from "./ContextualLoggedClass";
+import type { MaybeContextualArg } from "./ContextualLoggedClass";
+import { ContextualArgs, ContextualizedArgs } from "./ContextualLoggedClass";
 import { FlagsOf, LoggerOf } from "../persistence/index";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Repository } from "../repository/Repository";
+import { create } from "./decorators";
 
 export abstract class Service<C extends Context<any> = any>
   implements Contextual<C>
@@ -255,6 +253,7 @@ export class ModelService<
     }) as this;
   }
 
+  @create()
   async create(
     model: M,
     ...args: MaybeContextualArg<ContextOfRepository<R>>

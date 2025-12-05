@@ -47,7 +47,7 @@ describe("OperationGuard decorators", () => {
 
     it("should pass through read-decorated method query", async () => {
       await expect(service.query("byName", "test")).rejects.toThrow(
-        "Not implemented"
+        'Method "byName" is not implemented'
       );
     });
   });
@@ -94,8 +94,8 @@ describe("OperationGuard decorators", () => {
       );
     });
 
-    it("should throw on read (findOne) when READ is blocked", async () => {
-      expect(() => service.findOne("id-1")).toThrow(
+    it("should throw on read when READ is blocked", async () => {
+      expect(() => service.read("id-1")).toThrow(
         `Operation "read" is blocked by @BlockOperations for ${FullyBlockedProduct.name}.`
       );
     });
@@ -171,7 +171,9 @@ describe("OperationGuard decorators", () => {
 
     it("should pass through read-decorated method query", async () => {
       const service = ModelService.forModel(PartiallyBlockedProduct);
-      await expect(service.query("x")).rejects.toThrow("Not implemented");
+      await expect(service.query("x")).rejects.toThrow(
+        'Method "x" is not implemented'
+      );
     });
 
     it("should pass through extra @read()-decorated method and reach method body", async () => {
@@ -212,7 +214,9 @@ describe("OperationGuard decorators", () => {
 
     it("should pass through read-decorated method query", async () => {
       const service = ModelService.forModel(OpenProduct);
-      await expect(service.query("x")).rejects.toThrow("Not implemented");
+      await expect(service.query("x")).rejects.toThrow(
+        `Method "x" is not implemented`
+      );
     });
 
     it("should allow extra @read()-decorated method and reach its body", async () => {

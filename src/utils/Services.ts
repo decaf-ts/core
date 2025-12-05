@@ -16,7 +16,7 @@ import { ContextualArgs, ContextualizedArgs } from "./ContextualLoggedClass";
 import { FlagsOf, LoggerOf } from "../persistence/index";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Repository } from "../repository/Repository";
-import { create, del, read, update } from "./decorators";
+import { create, del, read, update, service } from "./decorators";
 
 export abstract class Service<C extends Context<any> = any>
   implements Contextual<C>
@@ -342,7 +342,7 @@ export class ModelService<
     alias?: string | symbol
   ): S {
     let instance: S | undefined;
-    const _alias: string =
+    alias =
       typeof alias === "string"
         ? alias
         : typeof alias === "symbol"
@@ -350,7 +350,7 @@ export class ModelService<
           : model.name;
 
     try {
-      instance = ModelService.get(_alias) as S;
+      instance = ModelService.get(alias) as S;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: any) {
       instance = undefined;
@@ -359,8 +359,7 @@ export class ModelService<
     if (instance instanceof ModelService) return instance as S;
 
     const Base = this as Constructor;
-
-    // @service(_alias)
+    @service(alias)
     class DecoratedService extends Base {
       constructor() {
         super(model);

@@ -11,7 +11,7 @@ import { type ExtendedRelationsMetadata } from "../model";
 import { SequenceOptions } from "../interfaces/index";
 import { IndexMetadata, Repository } from "../repository/index";
 import { Injectables } from "@decaf-ts/injectable-decorators";
-import { Service } from "../utils/index";
+import { Service } from "../utils/Services";
 
 (Metadata as any).validationExceptions = function <M extends Model>(
   this: Metadata,

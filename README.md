@@ -4,6 +4,8 @@
 
 Decaf Core provides the foundational building blocks for the Decaf TypeScript ecosystem: strongly-typed models, repository pattern, pluggable persistence adapters, a composable query DSL, and pagination/observer utilities. With decorators and an injectable registry, it wires models to repositories and adapters so you can build data access that is framework-agnostic yet fully typed.
 
+> Release docs refreshed on 2025-11-26. See [workdocs/reports/RELEASE_NOTES.md](./workdocs/reports/RELEASE_NOTES.md) for ticket summaries.
+
 ![Licence](https://img.shields.io/github/license/decaf-ts/core.svg?style=plastic)
 ![GitHub language count](https://img.shields.io/github/languages/count/decaf-ts/core?style=plastic)
 ![GitHub top language](https://img.shields.io/github/languages/top/decaf-ts/core?style=plastic)
@@ -27,7 +29,7 @@ Decaf Core provides the foundational building blocks for the Decaf TypeScript ec
 
 Documentation [here](https://decaf-ts.github.io/injectable-decorators/), Test results [here](https://decaf-ts.github.io/injectable-decorators/workdocs/reports/html/test-report.html) and Coverage [here](https://decaf-ts.github.io/injectable-decorators/workdocs/reports/coverage/lcov-report/index.html)
 
-Minimal size: 14.9 KB kb gzipped
+Minimal size: 15.8 KB kb gzipped
 
 
 # Core Package — Detailed Description
@@ -357,6 +359,9 @@ async function injectablesExample() {
   - strategy;
   - builder;
   - etc;
+
+## Release Documentation Hooks
+Stay aligned with the automated release pipeline by reviewing [Release Notes](./workdocs/reports/RELEASE_NOTES.md) and [Dependencies](./workdocs/reports/DEPENDENCIES.md) after trying these recipes (updated on 2025-11-26).
 
 
 ### Related

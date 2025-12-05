@@ -9,8 +9,10 @@ import {
   onCreate,
   onCreateUpdate,
   DBKeys,
-  Context,
   PrimaryKeyType,
+  ContextOfRepository,
+  Context,
+  RepositoryFlags,
 } from "@decaf-ts/db-decorators";
 import {
   Constructor,
@@ -22,22 +24,22 @@ import {
   RamConfig,
   RamContext,
   RamFlags,
-  RamRepository,
   RamStatement,
   RamStorage,
   RawRamQuery,
 } from "../../src/ram/index";
 import {
+  ContextualArgs,
   Dispatch,
+  FlagsOf,
   PersistenceKeys,
   RelationsMetadata,
   Repo,
+  Repository,
   Sequence,
-  SequenceOptions,
   UnsupportedError,
 } from "../../src/index";
 import { Adapter } from "../../src/persistence/Adapter";
-import { DummySequence } from "./DummySequence";
 
 /**
  * @description Sets the created by field on a model during RAM create/update operations
@@ -60,13 +62,11 @@ import { DummySequence } from "./DummySequence";
  */
 export async function createdByOnDummyCreateUpdate<
   M extends Model,
-  R extends Repo<M, F, C>,
+  R extends Repo<M>,
   V extends RelationsMetadata,
-  F extends RamFlags,
-  C extends Context<F>,
 >(
   this: R,
-  context: Context<F>,
+  context: ContextOfRepository<R>,
   data: V,
   key: keyof M,
   model: M
@@ -79,11 +79,42 @@ export async function createdByOnDummyCreateUpdate<
   model[key] = uuid as M[keyof M];
 }
 
+export type TransactionalFlags = RepositoryFlags & {
+  lock: Lock;
+  isLocked: boolean;
+};
+
+export class TransactionalContext<
+  F extends TransactionalFlags = TransactionalFlags,
+> extends Context<F> {
+  constructor() {
+    super();
+  }
+
+  async acquire() {
+    if (this.isLocked) return;
+    await this.lock.acquire();
+    this.cache["isLocked"] = true;
+  }
+
+  release() {
+    this.lock.release();
+    this.cache["isLocked"] = false;
+  }
+
+  protected get lock(): Lock {
+    return this.get("lock");
+  }
+
+  protected get isLocked(): boolean {
+    return this.get("isLocked");
+  }
+}
+
 export class DummyAdapter extends Adapter<
   RamConfig,
   RamStorage,
   RawRamQuery<any>,
-  RamFlags,
   RamContext
 > {
   constructor(conf: RamConfig = {} as any, alias?: string) {
@@ -97,10 +128,19 @@ export class DummyAdapter extends Adapter<
    * @template M - The model type for the repository
    * @return {Constructor<RamRepository<M>>} A constructor for creating RAM repositories
    */
-  override repository<M extends Model<boolean>>(): Constructor<
-    RamRepository<M>
+  // @ts-expect-error testitng
+  override repository(): Constructor<
+    Repository<
+      any,
+      Adapter<RamConfig, RamStorage, RawRamQuery<any>, RamContext>
+    >
   > {
-    return super.repository<M>() as Constructor<RamRepository<M>>;
+    return super.repository() as unknown as Constructor<
+      Repository<
+        any,
+        Adapter<RamConfig, RamStorage, RawRamQuery<any>, RamContext>
+      >
+    >;
   }
 
   /**
@@ -120,14 +160,14 @@ export class DummyAdapter extends Adapter<
   ): Promise<RamFlags> {
     return Object.assign(await super.flags(operation, model, flags), {
       UUID: this.config.user || "" + Date.now(),
+      lock: this.lock,
+      isLocked: false,
     }) as RamFlags;
   }
 
-  protected override Dispatch(): Dispatch {
+  protected override Dispatch(): Dispatch<any> {
     return super.Dispatch();
   }
-
-  override Context = RamContext;
 
   private indexes: Record<
     string,
@@ -135,6 +175,30 @@ export class DummyAdapter extends Adapter<
   > = {};
 
   private lock = new Lock();
+
+  protected readonly Context: Constructor<TransactionalContext> =
+    TransactionalContext;
+
+  async context<M extends Model>(
+    operation:
+      | OperationKeys.CREATE
+      | OperationKeys.READ
+      | OperationKeys.UPDATE
+      | OperationKeys.DELETE
+      | string,
+    overrides: Partial<FlagsOf<TransactionalContext>>,
+    model: Constructor<M> | Constructor<M>[],
+    ...args
+  ): Promise<TransactionalContext> {
+    const ctx = (await super.context(
+      operation,
+      overrides,
+      model,
+      ...args
+    )) as TransactionalContext;
+    await ctx.acquire();
+    return ctx;
+  }
 
   /**
    * @description Indexes models in the RAM adapter
@@ -159,12 +223,13 @@ export class DummyAdapter extends Adapter<
    */
   override prepare<M extends Model>(
     model: M,
-    pk: keyof M,
     ...args: [...any[], RamContext]
   ): { record: Record<string, any>; id: string } {
-    const ctx = args.pop();
+    const { ctx } = this.logCtx(args, this.create);
     const prepared = super.prepare(model, ...args, ctx);
-    delete prepared.record[pk as string];
+    delete prepared.record[
+      Model.pk(model.constructor as Constructor) as string
+    ];
     return prepared;
   }
 
@@ -186,7 +251,8 @@ export class DummyAdapter extends Adapter<
     transient?: Record<string, any>,
     ...args: [...any[], RamContext]
   ): M {
-    const res = super.revert(obj, clazz, id, transient, ...args);
+    const { ctxArgs } = this.logCtx(args, this.revert);
+    const res = super.revert(obj, clazz, id, transient, ...ctxArgs);
     return res;
   }
 
@@ -219,19 +285,23 @@ export class DummyAdapter extends Adapter<
    *   RamAdapter->>RamAdapter: lock.release()
    *   RamAdapter-->>Caller: model
    */
-  async create(
-    tableName: string,
-    id: string | number,
-    model: Record<string, any>
+  async create<M extends Model>(
+    clazz: Constructor<M>,
+    id: PrimaryKeyType,
+    model: Record<string, any>,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
-    await this.lock.acquire();
+    const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName)) this.client.set(tableName, new Map());
-    if (this.client.get(tableName) && this.client.get(tableName)?.has(id))
+    if (
+      this.client.get(tableName) &&
+      this.client.get(tableName)?.has(id as string)
+    )
       throw new ConflictError(
         `Record with id ${id} already exists in table ${tableName}`
       );
-    this.client.get(tableName)?.set(id, model);
-    this.lock.release();
+    this.client.get(tableName)?.set(id as string, model);
     return model;
   }
 
@@ -261,17 +331,21 @@ export class DummyAdapter extends Adapter<
    *   Storage-->>RamAdapter: record
    *   RamAdapter-->>Caller: record
    */
-  async read(
-    tableName: string,
-    id: string | number
+  async read<M extends Model>(
+    clazz: Constructor<M>,
+    id: PrimaryKeyType,
+    ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { log, ctx } = this.logCtx(args, this.create);
+    const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.client.get(tableName)?.has(id))
+    if (!this.client.get(tableName)?.has(id as string))
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
-    return this.client.get(tableName)?.get(id);
+    return this.client.get(tableName)?.get(id as string);
   }
 
   /**
@@ -303,20 +377,22 @@ export class DummyAdapter extends Adapter<
    *   RamAdapter->>RamAdapter: lock.release()
    *   RamAdapter-->>Caller: model
    */
-  async update(
-    tableName: string,
-    id: string | number,
-    model: Record<string, any>
+  async update<M extends Model>(
+    clazz: Constructor<M>,
+    id: PrimaryKeyType,
+    model: Record<string, any>,
+    ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
-    await this.lock.acquire();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { log, ctx } = this.logCtx(args, this.create);
+    const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.client.get(tableName)?.has(id))
+    if (!this.client.get(tableName)?.has(id as string))
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
-    this.client.get(tableName)?.set(id, model);
-    this.lock.release();
+    this.client.get(tableName)?.set(id as string, model);
     return model;
   }
 
@@ -350,20 +426,22 @@ export class DummyAdapter extends Adapter<
    *   RamAdapter->>RamAdapter: lock.release()
    *   RamAdapter-->>Caller: record
    */
-  async delete(
-    tableName: string,
-    id: string | number
+  async delete<M extends Model>(
+    clazz: Constructor<M>,
+    id: PrimaryKeyType,
+    ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
-    await this.lock.acquire();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { log, ctx } = this.logCtx(args, this.create);
+    const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.client.get(tableName)?.has(id))
+    if (!this.client.get(tableName)?.has(id as string))
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
-    const natived = this.client.get(tableName)?.get(id);
-    this.client.get(tableName)?.delete(id);
-    this.lock.release();
+    const natived = this.client.get(tableName)?.get(id as string);
+    this.client.get(tableName)?.delete(id as string);
     return natived;
   }
 
@@ -428,7 +506,7 @@ export class DummyAdapter extends Adapter<
    */
   async raw<R>(
     rawInput: RawRamQuery<any>,
-    ...args: [...any[], RamContext]
+    ...args: ContextualArgs<RamContext>
   ): Promise<R> {
     const ctx = args.pop();
     const { where, sort, limit, skip, from } = rawInput;
@@ -437,7 +515,7 @@ export class DummyAdapter extends Adapter<
     if (!collection)
       throw new InternalError(`Table ${from} not found in RamAdapter`);
     const id = Model.pk(from);
-    const props = Metadata.get(from, Metadata.key(DBKeys.ID, id));
+    const props = Metadata.get(from, Metadata.key(DBKeys.ID, id as string));
 
     let result: any[] = Array.from(collection.entries()).map(([pk, r]) =>
       this.revert(
@@ -489,19 +567,8 @@ export class DummyAdapter extends Adapter<
    * @template M - The model type for the statement
    * @return {RamStatement<M, any>} A new statement builder instance
    */
-  Statement<M extends Model<boolean>>(): RamStatement<M, any> {
-    return new RamStatement<M, any>(this as any);
-  }
-
-  /**
-   * @description Creates a new sequence for generating sequential IDs
-   * @summary Factory method that creates a new RamSequence instance for ID generation.
-   * This method provides a way to create auto-incrementing sequences for entity IDs.
-   * @param {SequenceOptions} options - Configuration options for the sequence
-   * @return {Promise<Sequence>} A promise that resolves to the new sequence instance
-   */
-  async Sequence(options: SequenceOptions): Promise<Sequence> {
-    return new DummySequence(options, this);
+  Statement<M extends Model<boolean>>(): RamStatement<M, any, any> {
+    return new RamStatement<M, any, any>(this as any);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

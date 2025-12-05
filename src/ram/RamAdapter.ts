@@ -9,7 +9,6 @@ import { RamStatement } from "./RamStatement";
 import { Repository } from "../repository/Repository";
 import { Dispatch } from "../persistence/Dispatch";
 import { Adapter, PersistenceKeys, Sequence } from "../persistence";
-import { SequenceOptions } from "../interfaces";
 import { Lock } from "@decaf-ts/transactional-decorators";
 import { hashObj, Model } from "@decaf-ts/decorator-validation";
 import {
@@ -24,7 +23,6 @@ import {
   Context,
   PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
-import { RamSequence } from "./RamSequence";
 import { createdByOnRamCreateUpdate } from "./handlers";
 import { RamFlavour } from "./constants";
 import {
@@ -519,17 +517,6 @@ export class RamAdapter extends Adapter<
       any,
       Adapter<any, any, RawRamQuery<M>, RamContext>
     >(this);
-  }
-
-  /**
-   * @description Creates a new sequence for generating sequential IDs
-   * @summary Factory method that creates a new RamSequence instance for ID generation.
-   * This method provides a way to create auto-incrementing sequences for entity IDs.
-   * @param {SequenceOptions} options - Configuration options for the sequence
-   * @return {Promise<Sequence>} A promise that resolves to the new sequence instance
-   */
-  async Sequence(options: SequenceOptions): Promise<Sequence> {
-    return new RamSequence(options, this);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

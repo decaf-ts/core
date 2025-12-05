@@ -23,8 +23,7 @@ import { PersistenceKeys } from "../persistence/constants";
 import { CascadeMetadata, IndexMetadata } from "../repository/types";
 import { DefaultCascade, OrderDirection } from "../repository/constants";
 import { async, list, Model, type } from "@decaf-ts/decorator-validation";
-
-import { Repo } from "../repository/Repository";
+import type { Repo } from "../repository/Repository";
 import { Condition } from "../query/Condition";
 import {
   JoinColumnOptions,
@@ -41,7 +40,7 @@ import {
   oneToOneOnUpdate,
   populate as pop,
 } from "./construction";
-import { AuthorizationError } from "../utils";
+import { AuthorizationError } from "../utils/errors";
 import { ContextOf } from "../persistence/types";
 
 /**

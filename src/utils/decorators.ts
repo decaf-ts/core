@@ -4,8 +4,11 @@ import { PersistenceKeys } from "../persistence/index";
 import { ModelConstructor } from "@decaf-ts/decorator-validation";
 
 export function service(key: string | ModelConstructor<any>) {
+  key =
+    typeof key === "string"
+      ? key
+      : Metadata.Symbol(key as ModelConstructor<any>).toString();
   return function service(target: any, prop?: any, descriptor?: any) {
-    key = typeof key === "string" ? key : Metadata.Symbol(key).toString();
     Metadata.set(PersistenceKeys.SERVICE, key, target);
     const decs = [];
     if (descriptor && typeof descriptor.value === "number") {

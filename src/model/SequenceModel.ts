@@ -1,7 +1,8 @@
 import { model, required } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
-import { BaseModel, index, table } from "../../model";
-import { pk } from "../../identity";
+import { BaseModel } from "./BaseModel";
+import { index, table } from "./decorators";
+import { pk } from "../identity/decorators";
 
 /**
  * @description RAM sequence model for auto-incrementing values
@@ -21,13 +22,13 @@ import { pk } from "../../identity";
  * orderSequence.current = nextOrderId;
  * ```
  */
-@table("__RamSequence")
+@table("??sequence")
 @model()
-export class RamSequenceModel extends BaseModel {
+export class SequenceModel extends BaseModel {
   /**
    * @description Primary key identifier for the sequence
    */
-  @pk()
+  @pk({ type: "String", generated: false })
   id!: string;
 
   /**
@@ -38,7 +39,7 @@ export class RamSequenceModel extends BaseModel {
   @index()
   current!: string | number;
 
-  constructor(seq?: ModelArg<RamSequenceModel>) {
+  constructor(seq?: ModelArg<SequenceModel>) {
     super(seq);
   }
 }

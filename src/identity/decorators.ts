@@ -11,8 +11,8 @@ import {
   readonly,
 } from "@decaf-ts/db-decorators";
 import { index } from "../model/decorators";
-import { Sequence } from "../persistence/Sequence";
-import { OrderDirection } from "../repository";
+import type { Sequence } from "../persistence/Sequence";
+import { OrderDirection } from "../repository/constants";
 import {
   apply,
   Decoration,

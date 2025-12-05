@@ -1,7 +1,9 @@
+import { Constructor } from "@decaf-ts/decoration";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
+import { Service } from "./Services";
+import { service } from "../utils/decorators";
 import { Repository } from "../repository/Repository";
 import { create, del, read, update } from "./decorators";
-import { Service } from "./Services";
 
 export abstract class ModelService<T extends Model> extends Service {
   protected repository!: Repository<T, any>;
@@ -25,9 +27,28 @@ export abstract class ModelService<T extends Model> extends Service {
 
   static forModel<M extends Model, S extends ModelService<M>>(
     this: new (model: ModelConstructor<M>) => S,
-    model: ModelConstructor<M>
+    model: ModelConstructor<M>,
+    alias?: string
   ): S {
-    return new this(model);
+    let instance: S | undefined;
+    const _alias: string = alias || model.name + "Service";
+    try {
+      instance = ModelService.get(_alias) as S;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e: any) {
+      instance = undefined;
+    }
+
+    if (instance instanceof ModelService) return instance as S;
+
+    const Base = this as Constructor;
+    @service(_alias)
+    class DecoratedService extends Base {
+      constructor() {
+        super(model);
+      }
+    }
+    return new DecoratedService() as S;
   }
 
   for(conf: any, ...args: any[]): this {
@@ -88,12 +109,10 @@ export abstract class ModelService<T extends Model> extends Service {
     data: T,
     ...rest: any[]
   ): Promise<[T, ...any[]]> {
-    // default: não mexe em nada
     return [data, ...rest];
   }
 
-  protected async createSuffix(result: T, _ctx?: any): Promise<T> {
-    // default: não mexe em nada
+  protected async createSuffix(result: T): Promise<T> {
     return result;
   }
 
@@ -105,7 +124,7 @@ export abstract class ModelService<T extends Model> extends Service {
     return [id, data, ...rest];
   }
 
-  protected async updateSuffix(result: T, _ctx?: any): Promise<T> {
+  protected async updateSuffix(result: T): Promise<T> {
     return result;
   }
 
@@ -113,7 +132,7 @@ export abstract class ModelService<T extends Model> extends Service {
     return [...rest];
   }
 
-  protected async findAllSuffix(result: T[], _ctx?: any): Promise<T[]> {
+  protected async findAllSuffix(result: T[]): Promise<T[]> {
     return result;
   }
 
@@ -124,10 +143,7 @@ export abstract class ModelService<T extends Model> extends Service {
     return [id, ...rest];
   }
 
-  protected async findOneSuffix(
-    result: T | null,
-    _ctx?: any
-  ): Promise<T | null> {
+  protected async findOneSuffix(result: T | null): Promise<T | null> {
     return result;
   }
 
@@ -138,7 +154,7 @@ export abstract class ModelService<T extends Model> extends Service {
     return [id, ...rest];
   }
 
-  protected async deleteSuffix(result: T, _ctx?: any): Promise<T> {
+  protected async deleteSuffix(result: T): Promise<T> {
     return result;
   }
 }

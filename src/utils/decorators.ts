@@ -1,16 +1,18 @@
 import { apply, metadata, Metadata } from "@decaf-ts/decoration";
 import { inject, injectable } from "@decaf-ts/injectable-decorators";
 import { PersistenceKeys } from "../persistence/index";
+import { ModelConstructor } from "@decaf-ts/decorator-validation";
 
-export function service(key: string) {
+export function service(key: string | ModelConstructor<any>) {
   return function service(target: any, prop?: any, descriptor?: any) {
+    key = typeof key === "string" ? key : Metadata.Symbol(key).toString();
     Metadata.set(PersistenceKeys.SERVICE, key, target);
     const decs = [];
     if (descriptor && typeof descriptor.value === "number") {
-      decs.push(inject());
+      decs.push(inject(key));
     } else if (!descriptor && !prop) {
       decs.push(
-        injectable({
+        injectable(key, {
           callback: (inst: any) =>
             Object.defineProperty(inst, "name", {
               enumerable: true,
@@ -21,7 +23,7 @@ export function service(key: string) {
         })
       );
     } else if (!descriptor) {
-      decs.push(inject());
+      decs.push(inject(key));
     } else throw new Error("Invalid decorator usage. Should be impossible");
 
     decs.push(metadata(PersistenceKeys.SERVICE, key));

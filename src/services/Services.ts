@@ -5,15 +5,15 @@ import {
   InternalError,
   OperationKeys,
 } from "@decaf-ts/db-decorators";
-import { final, Logging, Logger } from "@decaf-ts/logging";
-import { Constructor } from "@decaf-ts/decoration";
+import { final, Logger, Logging } from "@decaf-ts/logging";
+import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import {
   ContextualArgs,
   ContextualizedArgs,
   MaybeContextualArg,
 } from "../utils/ContextualLoggedClass";
-import { FlagsOf, LoggerOf } from "../persistence/index";
+import { FlagsOf, LoggerOf } from "../persistence";
 
 export abstract class Service<C extends Context<any> = any>
   implements Contextual<C>
@@ -124,6 +124,10 @@ export abstract class Service<C extends Context<any> = any>
    */
   static get<A extends Service>(name: string | symbol | Constructor<A>): A {
     if (!name) throw new InternalError(`No name provided`);
+
+    name = ["string", "symbol"].includes(typeof name)
+      ? name
+      : Metadata.Symbol(name as Constructor).toString();
 
     const injectable = Injectables.get(name);
     if (injectable) return injectable as A;

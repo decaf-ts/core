@@ -1,9 +1,12 @@
 import {
   Context,
+  ContextOfRepository,
   Contextual,
   DefaultRepositoryFlags,
   InternalError,
+  IRepository,
   OperationKeys,
+  PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
 import { final, Logging, Logger } from "@decaf-ts/logging";
 import { Constructor } from "@decaf-ts/decoration";
@@ -14,6 +17,8 @@ import {
   MaybeContextualArg,
 } from "./ContextualLoggedClass";
 import { FlagsOf, LoggerOf } from "../persistence/index";
+import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
+import { Repository } from "../repository/Repository";
 
 export abstract class Service<C extends Context<any> = any>
   implements Contextual<C>
@@ -88,7 +93,9 @@ export abstract class Service<C extends Context<any> = any>
     this: Contextual,
     args: ARGS,
     operation: ((...args: any[]) => any) | string,
-    allowCreate: boolean = false
+    allowCreate: boolean = false,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...argz: any[]
   ): Promise<ContextualizedArgs<CONTEXT, ARGS>> {
     const bootCtx = async function bootCtx(this: Contextual) {
       if (!allowCreate) throw new InternalError("No context provided");
@@ -214,5 +221,137 @@ export abstract class ClientBasedService<
   async shutdown(...args: MaybeContextualArg<C>): Promise<void> {
     const { log } = await this.logCtx(args, this.shutdown, true);
     log.info(`Shutting down ${this.name} service...`);
+  }
+}
+
+export class ModelService<
+    M extends Model<boolean>,
+    R extends Repository<M, any> = Repository<M, any>,
+  >
+  extends Service
+  implements IRepository<M, ContextOfRepository<R>>
+{
+  protected repo!: R;
+
+  get class() {
+    if (!this.clazz) throw new InternalError(`Class not initialized`);
+    return this.clazz;
+  }
+
+  constructor(private readonly clazz: Constructor<M>) {
+    super();
+    this.repo = Repository.forModel(clazz);
+  }
+
+  async create(
+    model: M,
+    ...args: MaybeContextualArg<ContextOfRepository<R>>
+  ): Promise<M> {
+    const { ctxArgs } = await this.logCtx(args, this.create, true);
+    return this.repo.create(model, ...ctxArgs);
+  }
+
+  async createAll(
+    models: M[],
+    ...args: MaybeContextualArg<ContextOfRepository<R>>
+  ): Promise<M[]> {
+    const { ctxArgs } = await this.logCtx(args, this.createAll, true);
+    return this.repo.createAll(models, ...ctxArgs);
+  }
+
+  async delete(
+    key: PrimaryKeyType,
+    ...args: MaybeContextualArg<ContextOfRepository<R>>
+  ): Promise<M> {
+    const { ctxArgs } = await this.logCtx(args, this.delete, true);
+    return this.repo.delete(key, ...ctxArgs);
+  }
+
+  async deleteAll(
+    keys: PrimaryKeyType[],
+    ...args: MaybeContextualArg<ContextOfRepository<R>>
+  ): Promise<M[]> {
+    const { ctxArgs } = await this.logCtx(args, this.deleteAll, true);
+    return this.repo.deleteAll(keys, ...ctxArgs);
+  }
+
+  async read(
+    key: PrimaryKeyType,
+    ...args: MaybeContextualArg<ContextOfRepository<R>>
+  ): Promise<M> {
+    const { ctxArgs } = await this.logCtx(args, this.read, true);
+    return this.repo.read(key, ...ctxArgs);
+  }
+
+  async readAll(
+    keys: PrimaryKeyType[],
+    ...args: MaybeContextualArg<ContextOfRepository<R>>
+  ): Promise<M[]> {
+    const { ctxArgs } = await this.logCtx(args, this.readAll, true);
+    return this.repo.readAll(keys, ...ctxArgs);
+  }
+
+  async update(
+    model: M,
+    ...args: MaybeContextualArg<ContextOfRepository<R>>
+  ): Promise<M> {
+    const { ctxArgs } = await this.logCtx(args, this.update, true);
+    return this.repo.update(model, ...ctxArgs);
+  }
+
+  async updateAll(models: M[], ...args: any[]): Promise<M[]> {
+    const { ctxArgs } = await this.logCtx(args, this.updateAll, true);
+    return this.repo.updateAll(models, ...ctxArgs);
+  }
+
+  protected override async logCtx<ARGS extends any[]>(
+    args: ARGS,
+    method: ((...args: any[]) => any) | string,
+    allowCreate = false
+  ): Promise<ContextualizedArgs<any, ARGS>> {
+    return (await ModelService.logCtx.bind(this.repo["adapter"])(
+      args,
+      method as any,
+      allowCreate,
+      {},
+      this.class
+    )) as ContextualizedArgs<ContextOfRepository<R>, ARGS>;
+  }
+
+  protected static override async logCtx<
+    CONTEXT extends Context<any>,
+    ARGS extends any[],
+  >(
+    this: Contextual,
+    args: ARGS,
+    operation: ((...args: any[]) => any) | string,
+    allowCreate: boolean = false,
+    overrides: Partial<FlagsOf<CONTEXT>> = {},
+    constructor: ModelConstructor<any>
+  ): Promise<ContextualizedArgs<CONTEXT, ARGS>> {
+    const bootCtx = async function bootCtx(this: Contextual) {
+      if (!allowCreate) throw new InternalError("No context provided");
+      return this.context(
+        typeof operation === "string" ? operation : operation.name,
+        overrides,
+        constructor
+      );
+    }.bind(this);
+
+    if (args.length < 1) {
+      args = [await bootCtx()] as ARGS;
+    }
+    const ctx = args.pop() as CONTEXT;
+    if (!(ctx instanceof Context)) args = [...args, await bootCtx()] as ARGS;
+    const log = (
+      this
+        ? ctx.logger.for(this).for(operation)
+        : ctx.logger.clear().for(this).for(operation)
+    ) as LoggerOf<CONTEXT>;
+    return {
+      ctx: ctx,
+      log: operation ? (log.for(operation) as LoggerOf<CONTEXT>) : log,
+      ctxArgs: [...args, ctx],
+    };
   }
 }

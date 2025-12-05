@@ -1,7 +1,7 @@
 import { Metadata } from "@decaf-ts/decoration";
 import { CrudOperations, OperationKeys } from "@decaf-ts/db-decorators";
 import { ModelConstructor } from "@decaf-ts/decorator-validation";
-import type { ModelService } from "./ModelService";
+import type { ModelService } from "../utils/Services";
 
 export function isOperationBlocked(
   ModelConstructor: ModelConstructor<any>,
@@ -30,7 +30,7 @@ function OperationGuard(op: CrudOperations) {
   ) {
     const original = descriptor.value;
     descriptor.value = function (...args: any[]) {
-      const ModelConstr = (this as ModelService<any>).ModelConstr;
+      const ModelConstr = (this as ModelService<any>).class;
       if (ModelConstr && isOperationBlocked(ModelConstr, op)) {
         const name = ModelConstr?.name ?? "Model";
         throw new Error(

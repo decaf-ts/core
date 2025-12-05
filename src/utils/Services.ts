@@ -20,7 +20,7 @@ import { FlagsOf, LoggerOf } from "../persistence";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Repository } from "../repository/Repository";
 import { service } from "./decorators";
-import { del, read } from "../services";
+import { create, del, read, update } from "../services";
 
 export abstract class Service<C extends Context<any> = any>
   implements Contextual<C>

@@ -184,7 +184,12 @@ export function pk(
     "cycle" | "startWith" | "incrementBy"
   > = DefaultSequenceOptions
 ) {
-  opts = Object.assign({}, DefaultSequenceOptions, opts) as SequenceOptions;
+      opts = Object.assign({}, DefaultSequenceOptions, opts, {
+    generated:
+      opts.type && typeof opts.generated === "undefined"
+        ? true
+        : opts.generated || DefaultSequenceOptions.generated,
+  }) as SequenceOptions;
   return Decoration.for(DBKeys.ID)
     .define({
       decorator: pkDec,

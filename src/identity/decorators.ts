@@ -113,22 +113,22 @@ export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
         break;
       }
 
-      case String.name:
-        console.warn('Deprecated "String" type in options');
+      case String.name || String.name.toLowerCase():
+        console.warn(`Deprecated "${options.type}" type in options`);
       // eslint-disable-next-line no-fallthrough
       case String:
         options.generated = false;
         options.type = String;
         break;
-      case Number.name:
-        console.warn('Deprecated "Number" type in options');
+      case Number.name || String.name.toLowerCase():
+        console.warn(`Deprecated "${options.type}" type in options`);
       // eslint-disable-next-line no-fallthrough
       case Number:
         options.generated = true;
         options.type = Number;
         break;
-      case BigInt.name:
-        console.warn('Deprecated "BigInt" type in options');
+      case BigInt.name || BigInt.name.toLowerCase():
+        console.warn(`Deprecated "${options.type}" type in options`);
       // eslint-disable-next-line no-fallthrough
       case BigInt:
         options.type = BigInt;
@@ -137,8 +137,6 @@ export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
       case "uuid":
       case "serial":
         options.generated = true;
-        break;
-      case "string":
         break;
       default:
         throw new Error("Unsupported type");
@@ -184,7 +182,7 @@ export function pk(
     "cycle" | "startWith" | "incrementBy"
   > = DefaultSequenceOptions
 ) {
-      opts = Object.assign({}, DefaultSequenceOptions, opts, {
+  opts = Object.assign({}, DefaultSequenceOptions, opts, {
     generated:
       opts.type && typeof opts.generated === "undefined"
         ? true

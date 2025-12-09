@@ -291,20 +291,20 @@ export class Sequence extends ContextualLoggedClass<any> {
         ? (type as any).name
         : type;
     switch (typeName) {
-      case Number.name:
+      case Number.name || Number.name.toLowerCase():
         return typeof value === "string"
           ? parseInt(value)
           : typeof value === "number"
             ? value
             : BigInt(value);
-      case BigInt.name:
+      case BigInt.name || BigInt.name.toLowerCase():
         return BigInt(value);
+      case String.name || String.name.toLowerCase():
+        return value.toString();
+      case undefined:
       case "uuid":
       case "serial":
-      case "string":
-      case undefined:
-      case String.name:
-        return value.toString();
+        return value;
       default:
         throw new UnsupportedError(
           `Unsupported sequence type: ${type} for adapter ${this}`

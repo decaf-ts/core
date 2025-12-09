@@ -17,5 +17,5 @@ export interface Paginatable<M extends Model, R, Q> {
    * @param {number} size - The number of items per page
    * @return {Promise<Paginator>} A promise that resolves to a paginator for the specified model, result, and query types
    */
-  paginate(size: number): Promise<Paginator<M, R, Q>>;
+  paginate(size: number, ...args: any[]): Promise<Paginator<M, R, Q>>;
 }

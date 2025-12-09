@@ -63,4 +63,8 @@ export enum PersistenceKeys {
   NO_VALIDATE = "no-validate",
   /** @description Key for migration classes */
   MIGRATION = "migration",
+
+  STATEMENT = "statement",
+
+  QUERY = "query",
 }

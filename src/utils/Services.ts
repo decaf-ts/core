@@ -1,24 +1,22 @@
 import {
   Context,
-  ContextOfRepository,
+  type ContextOfRepository,
   Contextual,
   DefaultRepositoryFlags,
   InternalError,
   IRepository,
   OperationKeys,
-  PrimaryKeyType,
+  type PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
-import { final, Logging, Logger } from "@decaf-ts/logging";
+import { final, Logger, Logging } from "@decaf-ts/logging";
 import { Constructor } from "@decaf-ts/decoration";
 import { Injectables } from "@decaf-ts/injectable-decorators";
-import {
-  ContextualArgs,
-  ContextualizedArgs,
-  MaybeContextualArg,
-} from "./ContextualLoggedClass";
+import type { MaybeContextualArg } from "./ContextualLoggedClass";
+import { ContextualArgs, ContextualizedArgs } from "./ContextualLoggedClass";
 import { FlagsOf, LoggerOf } from "../persistence/index";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Repository } from "../repository/Repository";
+import { create, del, read, service, update } from "./decorators";
 
 export abstract class Service<C extends Context<any> = any>
   implements Contextual<C>
@@ -224,6 +222,17 @@ export abstract class ClientBasedService<
   }
 }
 
+export type ArrayMode = "one" | "many";
+
+const resolveAlias = (
+  alias: string | symbol | Constructor<Model<any>>
+): string => {
+  if (typeof alias === "string")
+    return alias.endsWith("Service") ? alias : `${alias}Service`;
+  if (typeof alias === "symbol") return alias.toString();
+  return `${alias.name}Service`;
+};
+
 export class ModelService<
     M extends Model<boolean>,
     R extends Repository<M, any> = Repository<M, any>,
@@ -243,6 +252,36 @@ export class ModelService<
     this.repo = Repository.forModel(clazz);
   }
 
+  static getService<M extends Model<boolean>, S extends ModelService<M>>(
+    name: string | symbol | Constructor<M>
+  ): S {
+    if (!name) throw new InternalError(`No name provided`);
+
+    const alias = resolveAlias(name);
+    try {
+      const injectable = Service.get(alias);
+      if (injectable) return injectable as S;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e: unknown) {
+      // ignore
+    }
+
+    throw new InternalError(`No ModelService found for alias ${alias}`);
+  }
+
+  for(conf: any, ...args: any[]): this {
+    const target = this as any;
+    return new Proxy(target, {
+      get(original, prop, receiver) {
+        if (prop === "repo") {
+          return (original.repo as any).for(conf, ...args);
+        }
+        return Reflect.get(original, prop, receiver);
+      },
+    }) as this;
+  }
+
+  @create()
   async create(
     model: M,
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -251,6 +290,7 @@ export class ModelService<
     return this.repo.create(model, ...ctxArgs);
   }
 
+  @create()
   async createAll(
     models: M[],
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -259,6 +299,7 @@ export class ModelService<
     return this.repo.createAll(models, ...ctxArgs);
   }
 
+  @del()
   async delete(
     key: PrimaryKeyType,
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -267,6 +308,7 @@ export class ModelService<
     return this.repo.delete(key, ...ctxArgs);
   }
 
+  @del()
   async deleteAll(
     keys: PrimaryKeyType[],
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -275,6 +317,7 @@ export class ModelService<
     return this.repo.deleteAll(keys, ...ctxArgs);
   }
 
+  @read()
   async read(
     key: PrimaryKeyType,
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -283,6 +326,7 @@ export class ModelService<
     return this.repo.read(key, ...ctxArgs);
   }
 
+  @read()
   async readAll(
     keys: PrimaryKeyType[],
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -291,6 +335,19 @@ export class ModelService<
     return this.repo.readAll(keys, ...ctxArgs);
   }
 
+  @read()
+  async query<M, R extends ArrayMode = "one">(
+    methodName: string,
+    ...args: unknown[]
+  ): Promise<R extends "one" ? M : M[]> {
+    const method = (this.repo as any)?.[methodName];
+    if (typeof method !== "function")
+      throw new Error(`Method "${methodName}" is not implemented`);
+
+    return method.apply(this.repo, args);
+  }
+
+  @update()
   async update(
     model: M,
     ...args: MaybeContextualArg<ContextOfRepository<R>>
@@ -299,6 +356,7 @@ export class ModelService<
     return this.repo.update(model, ...ctxArgs);
   }
 
+  @update()
   async updateAll(models: M[], ...args: any[]): Promise<M[]> {
     const { ctxArgs } = await this.logCtx(args, this.updateAll, true);
     return this.repo.updateAll(models, ...ctxArgs);
@@ -316,6 +374,33 @@ export class ModelService<
       {},
       this.class
     )) as ContextualizedArgs<ContextOfRepository<R>, ARGS>;
+  }
+
+  static forModel<M extends Model<boolean>, S extends ModelService<M>>(
+    this: new (model: ModelConstructor<M>) => S,
+    model: ModelConstructor<M>,
+    alias?: string | symbol
+  ): S {
+    let instance: S | undefined;
+    alias = resolveAlias(alias || model);
+
+    try {
+      instance = ModelService.get(alias) as S;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e: any) {
+      instance = undefined;
+    }
+
+    if (instance instanceof ModelService) return instance as S;
+
+    const Base = this as Constructor;
+    @service(alias)
+    class DecoratedService extends Base {
+      constructor() {
+        super(model);
+      }
+    }
+    return new DecoratedService() as S;
   }
 
   protected static override async logCtx<

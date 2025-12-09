@@ -261,6 +261,7 @@ export class ModelService<
     try {
       const injectable = Service.get(alias);
       if (injectable) return injectable as S;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: unknown) {
       // ignore
     }

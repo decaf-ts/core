@@ -1,5 +1,8 @@
 import { Model } from "@decaf-ts/decorator-validation";
-import { SequenceOptions } from "../interfaces/SequenceOptions";
+import {
+  SequenceOptions,
+  SequenceOptionsType,
+} from "../interfaces/SequenceOptions";
 import { UnsupportedError } from "./errors";
 import { Constructor } from "@decaf-ts/decoration";
 import {
@@ -139,14 +142,18 @@ export class Sequence extends ContextualLoggedClass<any> {
       throw new InternalError(
         `Value to increment does not consider the incrementBy setting: ${incrementBy}`
       );
-    switch (type) {
-      case "Number":
+    const typeName =
+      typeof type === "function" && (type as any)?.name
+        ? (type as any).name
+        : type;
+    switch (typeName) {
+      case Number.name:
         next = (this.parse(current) as number) + toIncrementBy;
         break;
-      case "BigInt":
+      case BigInt.name:
         next = (this.parse(current) as bigint) + BigInt(toIncrementBy);
         break;
-      case "String":
+      case String.name:
         next = this.parse(current);
         break;
       case "serial":
@@ -237,7 +244,18 @@ export class Sequence extends ContextualLoggedClass<any> {
     for (let i: number = 1; i <= count; i++) {
       range.push(current + incrementBy * (this.parse(i) as number));
     }
-    if (range[range.length - 1] !== next && this.options.type !== "String")
+
+    if (this.options.type === "uuid" || this.options.type === "serial")
+      throw new UnsupportedError(
+        `type ${this.options.type} is currently not suppported for this adapter`
+      );
+    const typeName =
+      typeof this.options.type === "function" &&
+      (this.options.type as any)?.name
+        ? (this.options.type as any).name
+        : this.options.type;
+
+    if (range[range.length - 1] !== next && typeName !== "String")
       throw new InternalError("Miscalculation of range");
     return range;
   }
@@ -265,20 +283,25 @@ export class Sequence extends ContextualLoggedClass<any> {
    * @return {string|number|bigint} The converted value
    */
   static parseValue(
-    type: "Number" | "BigInt" | "uuid" | "serial" | string | undefined,
+    type: SequenceOptionsType,
     value: string | number | bigint
   ): string | number | bigint {
-    switch (type) {
-      case "Number":
+    const typeName =
+      typeof type === "function" && (type as any)?.name
+        ? (type as any).name
+        : type;
+    switch (typeName) {
+      case Number.name || Number.name.toLowerCase():
         return typeof value === "string"
           ? parseInt(value)
           : typeof value === "number"
             ? value
             : BigInt(value);
-      case "BigInt":
+      case BigInt.name || BigInt.name.toLowerCase():
         return BigInt(value);
+      case String.name || String.name.toLowerCase():
+        return value.toString();
       case undefined:
-      case "String":
       case "uuid":
       case "serial":
         return value;

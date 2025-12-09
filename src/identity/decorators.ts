@@ -17,6 +17,7 @@ import {
   apply,
   Decoration,
   Metadata,
+  prop,
   propMetadata,
 } from "@decaf-ts/decoration";
 import { ContextOf } from "../persistence/types";
@@ -96,6 +97,65 @@ export async function pkOnCreate<
   setPrimaryKeyValue(model, key as string, next);
 }
 
+export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
+  return function pkDec(obj: any, attr: any) {
+    prop()(obj, attr);
+    switch (options.type) {
+      case undefined: {
+        const metaType = Metadata.type(obj.constructor, attr);
+        if (
+          ![Number.name, String.name, BigInt.name].includes(
+            metaType?.name || metaType
+          )
+        )
+          throw new Error("Incorrrect option type");
+        options.type = metaType;
+        break;
+      }
+
+      case String.name || String.name.toLowerCase():
+        console.warn(`Deprecated "${options.type}" type in options`);
+      // eslint-disable-next-line no-fallthrough
+      case String:
+        options.generated = false;
+        options.type = String;
+        break;
+      case Number.name || String.name.toLowerCase():
+        console.warn(`Deprecated "${options.type}" type in options`);
+      // eslint-disable-next-line no-fallthrough
+      case Number:
+        options.generated = true;
+        options.type = Number;
+        break;
+      case BigInt.name || BigInt.name.toLowerCase():
+        console.warn(`Deprecated "${options.type}" type in options`);
+      // eslint-disable-next-line no-fallthrough
+      case BigInt:
+        options.type = BigInt;
+        options.generated = true;
+        break;
+      case "uuid":
+      case "serial":
+        options.generated = true;
+        break;
+      default:
+        throw new Error("Unsupported type");
+    }
+    if (typeof options.generated === "undefined") {
+      options.generated = true;
+    }
+
+    return apply(
+      index([OrderDirection.ASC, OrderDirection.DSC]),
+      required(),
+      readonly(),
+      // Model.pk neeeds to get the pk property name from the first property of Metatada[DBKeys.ID] ---> { [DBKeys.ID]: { [attr]:options }}
+      propMetadata(Metadata.key(DBKeys.ID, attr), options),
+      onCreate(pkOnCreate, options, groupsort)
+    )(obj, attr);
+  };
+}
+
 /**
  * @description Primary Key Decorator
  * @summary Marks a property as the model's primary key with automatic sequence generation
@@ -122,27 +182,8 @@ export function pk(
     "cycle" | "startWith" | "incrementBy"
   > = DefaultSequenceOptions
 ) {
-  opts = Object.assign({}, DefaultSequenceOptions, opts, {
-    generated:
-      opts.type && typeof opts.generated === "undefined"
-        ? true
-        : opts.generated || DefaultSequenceOptions.generated,
-  }) as SequenceOptions;
-
-  const key = DBKeys.ID;
-  function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
-    return function pkDec(obj: any, attr: any) {
-      return apply(
-        index([OrderDirection.ASC, OrderDirection.DSC]),
-        required(),
-        readonly(),
-        // Model.pk neeeds to get the pk property name from the first property of Metatada[DBKeys.ID] ---> { [DBKeys.ID]: { [attr]:options }}
-        propMetadata(Metadata.key(DBKeys.ID, attr), options),
-        onCreate(pkOnCreate, options, groupsort)
-      )(obj, attr);
-    };
-  }
-  return Decoration.for(key)
+  opts = Object.assign({}, DefaultSequenceOptions, opts) as SequenceOptions;
+  return Decoration.for(DBKeys.ID)
     .define({
       decorator: pkDec,
       args: [opts, { priority: defaultPkPriority }],

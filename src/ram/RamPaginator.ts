@@ -95,7 +95,7 @@ export class RamPaginator<M extends Model, R> extends Paginator<
     statement.skip = (page - 1) * this.size;
     const results: any[] = await this.adapter.raw(
       statement,
-      await this.adapter.context(OperationKeys.READ, {}, this.clazz)
+      ...contextArgs.args
     );
     this._currentPage = page;
     return results;

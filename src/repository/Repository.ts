@@ -17,7 +17,7 @@ import { Adapter } from "../persistence/Adapter";
 import { Model } from "@decaf-ts/decorator-validation";
 import { PersistenceKeys } from "../persistence/constants";
 import { OrderDirection } from "./constants";
-import { SequenceOptions } from "../interfaces/SequenceOptions";
+import { type SequenceOptions } from "../interfaces/SequenceOptions";
 import { Queriable } from "../interfaces/Queriable";
 import { Condition } from "../query/Condition";
 import { WhereOption } from "../query/options";
@@ -25,10 +25,10 @@ import { OrderBySelector, SelectSelector } from "../query/selectors";
 import { ObserverHandler } from "../persistence/ObserverHandler";
 import { final } from "@decaf-ts/logging";
 import {
-  ContextOf,
+  type ContextOf,
   EventIds,
-  FlagsOf,
-  InferredAdapterConfig,
+  type FlagsOf,
+  type InferredAdapterConfig,
   type ObserverFilter,
   PersistenceObservable,
   PersistenceObserver,
@@ -40,11 +40,14 @@ import {
   Metadata,
   uses,
 } from "@decaf-ts/decoration";
-import { Logger } from "@decaf-ts/logging";
-import {
+import type { Logger } from "@decaf-ts/logging";
+import type {
   ContextualizedArgs,
   MaybeContextualArg,
 } from "../utils/ContextualLoggedClass";
+import { QueryError } from "../query/errors";
+import { type QueryOptions } from "../query/types";
+import { prepared } from "../query/decorators";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.
@@ -905,6 +908,88 @@ export class Repository<
     return query.execute();
   }
 
+  @prepared()
+  async listBy(
+    key: keyof M,
+    order: OrderDirection,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ) {
+    const contextArgs = await Context.args<M, ContextOf<A>>(
+      "list",
+      this.class,
+      args,
+      this.adapter,
+      this._overrides || {}
+    );
+    const { log, ctxArgs } = this.logCtx(contextArgs.args, this.listBy);
+    log.verbose(
+      `listing ${Model.tableName(this.class)} by ${key as string} ${order}`
+    );
+    return this.select()
+      .orderBy([key, order])
+      .execute(...ctxArgs);
+  }
+
+  @prepared()
+  async paginateBy(
+    key: keyof M,
+    order: OrderDirection,
+    size: number,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ) {
+    const contextArgs = await Context.args<M, ContextOf<A>>(
+      "paginateBy",
+      this.class,
+      args,
+      this.adapter,
+      this._overrides || {}
+    );
+    const { log, ctxArgs } = this.logCtx(contextArgs.args, this.paginateBy);
+    log.verbose(
+      `paginating ${Model.tableName(this.class)} with page size ${size}`
+    );
+    return this.select()
+      .orderBy([key, order])
+      .paginate(size, ...ctxArgs);
+  }
+
+  @prepared()
+  async findOneBy(
+    key: keyof M,
+    value: any,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ) {
+    const contextArgs = await Context.args<M, ContextOf<A>>(
+      "findOneBy",
+      this.class,
+      args,
+      this.adapter,
+      this._overrides || {}
+    );
+    const { log, ctxArgs } = this.logCtx(contextArgs.args, this.findOneBy);
+    log.verbose(
+      `finding ${Model.tableName(this.class)} with ${key as string} ${value}`
+    );
+    return this.select()
+      .where(this.attr(key).eq(value))
+      .execute(...ctxArgs);
+  }
+
+  async statement(name: string, ...args: MaybeContextualArg<ContextOf<A>>) {
+    if (!Repository.statements(this, name as keyof typeof this))
+      throw new QueryError(`Invalid prepared statement requested ${name}`);
+    const contextArgs = await Context.args<M, ContextOf<A>>(
+      "statement",
+      this.class,
+      args,
+      this.adapter,
+      this._overrides || {}
+    );
+    const { log, ctxArgs } = this.logCtx(contextArgs.args, this.statement);
+    log.verbose(`Executing prepared statement ${name}`);
+    return (this as any)[name](...ctxArgs);
+  }
+
   attr(prop: keyof M) {
     return Condition.attr<M>(prop);
   }
@@ -1135,6 +1220,36 @@ export class Repository<
         throw new InternalError(`${name} already has a registered instance`);
     }
     this._cache[name] = repo as any;
+  }
+
+  static statements<R extends Repository<any, any>, K extends keyof R>(
+    repo: Constructor<R> | R,
+    method?: K
+  ): undefined | (K extends keyof R ? boolean : (keyof R)[]) {
+    const contr: Constructor<R> =
+      repo instanceof Repository ? (repo.constructor as Constructor<R>) : repo;
+    const meta = Metadata.get(
+      contr,
+      method
+        ? Metadata.key(PersistenceKeys.STATEMENT, method as string)
+        : PersistenceKeys.STATEMENT
+    );
+    return (method ? meta : Object.keys(meta)) || false;
+  }
+  static queries<R extends Repository<any, any>, K extends keyof R>(
+    repo: Constructor<R> | R,
+    method?: K
+  ):
+    | undefined
+    | (K extends keyof R ? QueryOptions : Record<keyof R, QueryOptions>) {
+    const contr: Constructor<R> =
+      repo instanceof Repository ? (repo.constructor as Constructor<R>) : repo;
+    return Metadata.get(
+      contr,
+      method
+        ? Metadata.key(PersistenceKeys.QUERY, method as string)
+        : PersistenceKeys.QUERY
+    );
   }
 }
 

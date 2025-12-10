@@ -15,6 +15,7 @@ import { uses } from "@decaf-ts/decoration";
 
 RamAdapter.decoration();
 Adapter.setCurrent(RamFlavour);
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const adapter = new RamAdapter();
 const DB_FAVLOUR = RamFlavour;
 

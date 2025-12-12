@@ -11,6 +11,7 @@ import {
   reduceErrorsToPrint,
   PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
+import type { FlagsOf as ContextualFlagsOf } from "@decaf-ts/db-decorators";
 import { type Observer } from "../interfaces/Observer";
 import { Adapter } from "../persistence/Adapter";
 import { Model } from "@decaf-ts/decorator-validation";
@@ -137,7 +138,13 @@ export class Repository<
 
   private readonly _adapter!: A;
   private _tableName!: string;
-  protected _overrides?: Partial<FlagsOf<A>>;
+  protected _overrides?: Partial<FlagsOf<ContextOf<A>>>;
+
+  protected get contextualOverrides(): Partial<
+    ContextualFlagsOf<ContextOf<A>>
+  > {
+    return (this._overrides || {}) as Partial<ContextualFlagsOf<ContextOf<A>>>;
+  }
 
   private logger!: Logger;
 
@@ -228,7 +235,7 @@ export class Repository<
    * @param {Partial<F>} flags - The flags to override.
    * @return {Repository} A proxy of this repository with overridden flags.
    */
-  override(flags: Partial<FlagsOf<A>>): this {
+  override(flags: Partial<FlagsOf<ContextOf<A>>>): this {
     return new Proxy(this, {
       get: (target: typeof this, p: string | symbol, receiver: any) => {
         const result = Reflect.get(target, p, receiver);
@@ -289,7 +296,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextualOverrides
     );
     const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
     const ignoreValidate = contextArgs.context.get("ignoreValidation");
@@ -401,7 +408,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextualOverrides
     );
     const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
     const ignoreValidate = contextArgs.context.get("ignoreValidation");
@@ -479,7 +486,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextualOverrides
     );
     const model: M = new this.class();
     model[this.pk] = key as M[keyof M];
@@ -529,7 +536,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextualOverrides
     );
     await Promise.all(
       keys.map(async (k) => {
@@ -608,7 +615,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextualOverrides
     );
     const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
     const ignoreValidate = contextArgs.context.get("ignoreValidation");
@@ -694,7 +701,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextualOverrides
     );
     const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
     const ignoreValidate = contextArgs.context.get("ignoreValidation");
@@ -755,7 +762,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextualOverrides
     );
     const model = await this.read(key, ...contextArgs.args);
     await enforceDBDecorators<M, Repository<M, A>, any>(
@@ -804,7 +811,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextualOverrides
     );
     const models = await this.readAll(keys, ...contextArgs.args);
     await Promise.all(
@@ -915,7 +922,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextualOverrides
     );
     const { log, ctxArgs } = this.logCtx(contextArgs.args, this.listBy);
     log.verbose(
@@ -938,7 +945,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextualOverrides
     );
     const { log, ctxArgs } = this.logCtx(contextArgs.args, this.paginateBy);
     log.verbose(
@@ -960,7 +967,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextualOverrides
     );
     const { log, ctxArgs } = this.logCtx(contextArgs.args, this.findOneBy);
     log.verbose(
@@ -979,7 +986,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this._overrides || {}
+      this.contextualOverrides
     );
     const { log, ctxArgs } = this.logCtx(contextArgs.args, this.statement);
     log.verbose(`Executing prepared statement ${name}`);

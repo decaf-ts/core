@@ -79,4 +79,4 @@ export const DefaultAdapterFlags: AdapterFlags = Object.assign(
     allowRawStatements: true,
     allowGenerationOverride: false,
   }
-);
+) as AdapterFlags;

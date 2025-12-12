@@ -41,7 +41,7 @@ import {
  * ```
  */
 export class Dispatch<A extends Adapter<any, any, any, any>>
-  extends ContextualLoggedClass<LoggerOf<A>>
+  extends ContextualLoggedClass<ContextOf<A>>
   implements AdapterDispatch<A>
 {
   /**

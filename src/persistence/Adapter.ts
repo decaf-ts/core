@@ -2,7 +2,6 @@ import {
   BaseError,
   InternalError,
   OperationKeys,
-  DefaultRepositoryFlags,
   Contextual,
   BulkCrudOperationKeys,
   PrimaryKeyType,
@@ -399,7 +398,7 @@ export abstract class Adapter<
         ? []
         : Metadata.validationExceptions(model, operation as any),
       logger: log,
-    }) as FlagsOf<CONTEXT>;
+    }) as unknown as FlagsOf<CONTEXT>;
   }
 
   /**
@@ -437,7 +436,12 @@ export abstract class Adapter<
     log.debug(
       `Creating new context for ${operation} operation on ${Array.isArray(model) ? model.map((m) => m.name) : model.name} model with flag overrides: ${JSON.stringify(overrides)}`
     );
-    const flags = await this.flags(operation, model, overrides, ...args);
+    const flags = (await this.flags(
+      operation,
+      model,
+      overrides as Partial<FlagsOf<CONTEXT>>,
+      ...args
+    )) as FlagsOf<CONTEXT>;
     return new this.Context().accumulate(flags) as unknown as CONTEXT;
   }
 

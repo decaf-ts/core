@@ -1232,6 +1232,7 @@ export class Repository<
     );
     return (method ? meta : Object.keys(meta)) || false;
   }
+
   static queries<R extends Repository<any, any>, K extends keyof R>(
     repo: Constructor<R> | R,
     method?: K

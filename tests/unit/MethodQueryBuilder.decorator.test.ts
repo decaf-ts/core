@@ -1,5 +1,5 @@
 import { MethodQueryBuilderRepo } from "./MethodQueryBuilderRepo";
-import { OrderDirection, QueryError } from "../../src/index";
+import { OrderDirection, QueryError } from "../../src";
 // import { RamAdapter } from "../../src/ram/RamAdapter";
 // const ramAdapter = new RamAdapter();
 

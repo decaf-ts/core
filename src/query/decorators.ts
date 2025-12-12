@@ -88,8 +88,18 @@ export function query(options: QueryOptions = {}) {
         };
       }
 
+      const fields = MethodQueryBuilder.getFieldsFromMethodName(prop);
+      // const paramNames = descriptor.value
+      //   .toString()
+      //   .match(/\(([^)]*)\)/)?.[1]
+      //   .split(",")
+      //   .map((x) => x.trim())
+      //   .filter(Boolean);
       return apply(
-        methodMetadata(Metadata.key(PersistenceKeys.QUERY, prop), options),
+        methodMetadata(Metadata.key(PersistenceKeys.QUERY, prop), {
+          ...options,
+          fields,
+        }),
         prepared(),
         innerQuery(options)
       )(obj, prop, descriptor);

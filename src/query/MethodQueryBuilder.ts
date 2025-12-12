@@ -124,6 +124,16 @@ export class MethodQueryBuilder {
     return match ? afterFindBy.substring(0, match.index) : afterFindBy;
   }
 
+  static getFieldsFromMethodName(methodName: string): Array<string> {
+    const core = this.extractCore(methodName);
+    const parts = core.split(/OrderBy|GroupBy/)[0] || "";
+    const conditions = parts.split(/And|Or/);
+    return conditions.map((token) => {
+      const { field } = this.parseFieldAndOperator(token);
+      return field;
+    });
+  }
+
   /**
    * @description
    * Extracts the select clause from a method name.

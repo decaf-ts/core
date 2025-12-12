@@ -1,6 +1,5 @@
 import {
   BulkCrudOperationKeys,
-  Context,
   DefaultSeparator,
   enforceDBDecorators,
   InternalError,
@@ -48,6 +47,7 @@ import type {
 import { QueryError } from "../query/errors";
 import { type QueryOptions } from "../query/types";
 import { prepared } from "../query/decorators";
+import { Context } from "../persistence/Context";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.

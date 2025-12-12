@@ -3,8 +3,9 @@ import { Paginator } from "../query";
 import { Model } from "@decaf-ts/decorator-validation";
 import { Adapter } from "../persistence";
 import { Constructor } from "@decaf-ts/decoration";
-import { Context, OperationKeys } from "@decaf-ts/db-decorators";
+import { OperationKeys } from "@decaf-ts/db-decorators";
 import { MaybeContextualArg } from "../utils/index";
+import { Context } from "../persistence/Context";
 
 /**
  * @description RAM-specific paginator implementation

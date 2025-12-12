@@ -12,10 +12,10 @@ import {
 } from "@decaf-ts/db-decorators";
 import { PersistenceKeys } from "../persistence/constants";
 import { Cascade } from "../repository/constants";
-import { Context } from "@decaf-ts/db-decorators";
 import { Metadata } from "@decaf-ts/decoration";
 import { isClass } from "@decaf-ts/logging";
-import { ContextOf } from "../persistence/types";
+import { AdapterFlags, ContextOf } from "../persistence/types";
+import { Context } from "../persistence/Context";
 
 /**
  * @description Creates or updates a model instance
@@ -58,10 +58,7 @@ import { ContextOf } from "../persistence/types";
  *
  *   createOrUpdate-->>Caller: model
  */
-export async function createOrUpdate<
-  M extends Model,
-  F extends RepositoryFlags,
->(
+export async function createOrUpdate<M extends Model, F extends AdapterFlags>(
   model: M,
   context: Context<F>,
   alias?: string,
@@ -585,7 +582,7 @@ export function getPopulateKey(
  */
 export async function cacheModelForPopulate<
   M extends Model,
-  F extends RepositoryFlags,
+  F extends AdapterFlags,
 >(
   context: Context<F>,
   parentModel: M,

@@ -20,7 +20,6 @@ import {
   onCreate,
   onCreateUpdate,
   DBKeys,
-  Context,
   PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
 import { createdByOnRamCreateUpdate } from "./handlers";
@@ -121,8 +120,6 @@ export class RamAdapter extends Adapter<
   protected override Dispatch(): Dispatch<RamAdapter> {
     return super.Dispatch() as Dispatch<RamAdapter>;
   }
-
-  override Context: Constructor<RamContext> = Context;
 
   private indexes: Record<
     string,

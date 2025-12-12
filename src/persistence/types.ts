@@ -1,13 +1,5 @@
 import {
   BulkCrudOperationKeys,
-  Context,
-  ContextOfRepository,
-  FlagsOfContext,
-  FlagsOfRepository,
-  IRepository,
-  LoggerOfContext,
-  LoggerOfFlags,
-  LoggerOfRepository,
   OperationKeys,
   RepositoryFlags,
 } from "@decaf-ts/db-decorators";
@@ -16,14 +8,30 @@ import { Observable, type Observer } from "../interfaces/index";
 import { Logger } from "@decaf-ts/logging";
 import { Constructor } from "@decaf-ts/decoration";
 import { Model } from "@decaf-ts/decorator-validation";
-import { ContextualArgs } from "../utils/index";
+import { ContextualArgs } from "../utils";
+import { Context } from "./Context";
+import { Repository } from "../repository/Repository";
+
+export type LoggerOfFlags<R extends AdapterFlags<any>> =
+  R extends AdapterFlags<infer L> ? L : never;
+export type FlagsOfContext<C extends Context> =
+  C extends Context<infer F> ? F : never;
+export type LoggerOfContext<C extends Context> = LoggerOfFlags<
+  FlagsOfContext<C>
+>;
+export type ContextOfRepository<R extends Repository<any, any>> =
+  R extends Repository<any, infer C> ? C : never;
+export type LoggerOfRepository<R extends Repository<any, any>> =
+  LoggerOfContext<ContextOfRepository<R>>;
+export type FlagsOfRepository<R extends Repository<any, any>> =
+  R extends Repository<any, infer C> ? FlagsOfContext<C> : never;
 
 export type ContextOf<
-  OBJ extends IRepository<any, any> | Adapter<any, any, any, any>,
+  OBJ extends Repository<any, any> | Adapter<any, any, any, any>,
 > =
   OBJ extends Adapter<any, any, any, infer C>
     ? C
-    : OBJ extends IRepository<any, any>
+    : OBJ extends Repository<any, any>
       ? ContextOfRepository<OBJ>
       : never;
 
@@ -35,31 +43,28 @@ export type FlagsOfAdapter<A extends Adapter<any, any, any, any>> =
 
 export type LoggerOf<
   OBJ extends
-    | RepositoryFlags<any>
+    | AdapterFlags<any>
     | Context<any>
     | Adapter<any, any, any>
-    | IRepository<any, any>,
+    | Repository<any, any>,
 > =
-  OBJ extends RepositoryFlags<any>
+  OBJ extends AdapterFlags<any>
     ? LoggerOfFlags<OBJ>
     : OBJ extends Context<any>
       ? LoggerOfContext<OBJ>
-      : OBJ extends IRepository<any, any>
+      : OBJ extends Repository<any, any>
         ? LoggerOfRepository<OBJ>
         : OBJ extends Adapter<any, any, any>
-          ? // @ts-expect-error ts is dumb. it's not infinite
+          ? // @ts-expect-error stoopid eslint
             LoggerOfAdapter<OBJ>
           : Logger;
 
 export type FlagsOf<
-  OBJ extends
-    | IRepository<any, any>
-    | Adapter<any, any, any, any>
-    | Context<any>,
+  OBJ extends Repository<any, any> | Adapter<any, any, any, any> | Context<any>,
 > =
   OBJ extends Context<any>
     ? FlagsOfContext<OBJ>
-    : OBJ extends IRepository<any, any>
+    : OBJ extends Repository<any, any>
       ? FlagsOfRepository<OBJ>
       : OBJ extends Adapter<any, any, any, any>
         ? FlagsOfAdapter<OBJ>
@@ -134,4 +139,8 @@ export type PreparedModel = {
   record: Record<string, any>;
   id: string;
   transient?: Record<string, any>;
+};
+
+export type AdapterFlags<LOG extends Logger = Logger> = RepositoryFlags<LOG> & {
+  allowRawStatements: boolean;
 };

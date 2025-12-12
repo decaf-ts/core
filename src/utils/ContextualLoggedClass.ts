@@ -1,6 +1,7 @@
 import { LoggedClass } from "@decaf-ts/logging";
-import { Context, InternalError } from "@decaf-ts/db-decorators";
+import { InternalError } from "@decaf-ts/db-decorators";
 import { LoggerOf } from "../persistence/index";
+import { Context } from "../persistence/Context";
 
 export type ContextualArgs<
   C extends Context<any>,

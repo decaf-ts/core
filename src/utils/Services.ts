@@ -1,5 +1,4 @@
 import {
-  Context,
   type ContextOfRepository,
   Contextual,
   DefaultRepositoryFlags,
@@ -17,6 +16,7 @@ import { FlagsOf, LoggerOf } from "../persistence/index";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Repository } from "../repository/Repository";
 import { create, del, read, service, update } from "./decorators";
+import { Context } from "../persistence/Context";
 
 export abstract class Service<C extends Context<any> = any>
   implements Contextual<C>

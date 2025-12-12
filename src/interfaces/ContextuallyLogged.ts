@@ -1,5 +1,5 @@
-import { Context } from "@decaf-ts/db-decorators";
 import { LoggerOf } from "../persistence/index";
+import { Context } from "@decaf-ts/db-decorators";
 
 export interface ContextuallyLogged<C extends Context<any>> {
   logAndCtx(

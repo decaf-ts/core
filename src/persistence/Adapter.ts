@@ -1,7 +1,6 @@
 import {
   BaseError,
   InternalError,
-  Context,
   OperationKeys,
   DefaultRepositoryFlags,
   Contextual,
@@ -35,6 +34,7 @@ import {
 import { ObserverHandler } from "./ObserverHandler";
 import { Impersonatable, Logging } from "@decaf-ts/logging";
 import { AdapterDispatch } from "./types";
+import { Context } from "./Context";
 import {
   Decoration,
   DefaultFlavour,
@@ -176,7 +176,7 @@ export abstract class Adapter<
     CONF,
     CONN,
     QUERY,
-    CONTEXT extends Context<any> = Context,
+    CONTEXT extends Context = Context,
   >
   extends ContextualLoggedClass<CONTEXT>
   implements

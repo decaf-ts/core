@@ -7,7 +7,7 @@ import type {
   SelectSelector,
 } from "./selectors";
 import { Condition } from "./Condition";
-import { Context, InternalError, OperationKeys } from "@decaf-ts/db-decorators";
+import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { final } from "@decaf-ts/logging";
 import type {
   CountOption,
@@ -31,7 +31,7 @@ import {
   ContextualLoggedClass,
   type MaybeContextualArg,
 } from "../utils/index";
-
+import { Context } from "../persistence/Context";
 /**
  * @description Base class for database query statements
  * @summary Provides a foundation for building and executing database queries
@@ -246,6 +246,8 @@ export abstract class Statement<
     if (Array.isArray(results)) return results.map(processor) as R;
     return processor(results) as R;
   }
+
+  prepare() {}
 
   protected abstract build(): Q;
   protected abstract parseCondition(condition: Condition<M>, ...args: any[]): Q;

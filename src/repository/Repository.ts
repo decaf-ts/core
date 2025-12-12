@@ -291,11 +291,10 @@ export class Repository<
       this.adapter,
       this._overrides || {}
     );
-    const shouldRunHandlers =
-      contextArgs.context.get("ignoreHandlers") !== false;
-    const shouldValidate = !contextArgs.context.get("ignoreValidation");
+    const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
+    const ignoreValidate = contextArgs.context.get("ignoreValidation");
     model = new this.class(model);
-    if (shouldRunHandlers)
+    if (!ignoreHandlers)
       await enforceDBDecorators<M, Repository<M, A>, any>(
         this,
         contextArgs.context,
@@ -304,7 +303,7 @@ export class Repository<
         OperationKeys.ON
       );
 
-    if (shouldValidate) {
+    if (!ignoreValidate) {
       const errors = await Promise.resolve(
         model.hasErrors(
           ...(contextArgs.context.get("ignoredValidationProperties") || [])
@@ -404,9 +403,8 @@ export class Repository<
       this.adapter,
       this._overrides || {}
     );
-    const shouldRunHandlers =
-      contextArgs.context.get("ignoreHandlers") !== false;
-    const shouldValidate = !contextArgs.context.get("ignoreValidation");
+    const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
+    const ignoreValidate = contextArgs.context.get("ignoreValidation");
     if (!models.length) return [models, ...contextArgs.args];
     const opts = Model.sequenceFor(models[0]);
     let ids: (string | number | bigint | undefined)[] = [];
@@ -438,7 +436,7 @@ export class Repository<
           ) as M[keyof M];
         }
 
-        if (shouldRunHandlers)
+        if (!ignoreHandlers)
           await enforceDBDecorators<M, Repository<M, A>, any>(
             this,
             contextArgs.context,
@@ -450,7 +448,7 @@ export class Repository<
       })
     );
 
-    if (shouldValidate) {
+    if (!ignoreValidate) {
       const ignoredProps =
         contextArgs.context.get("ignoredValidationProperties") || [];
 
@@ -612,9 +610,8 @@ export class Repository<
       this.adapter,
       this._overrides || {}
     );
-    const shouldRunHandlers =
-      contextArgs.context.get("ignoreHandlers") !== false;
-    const shouldValidate = !contextArgs.context.get("ignoreValidation");
+    const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
+    const ignoreValidate = contextArgs.context.get("ignoreValidation");
     const pk = model[this.pk] as string;
     if (!pk)
       throw new InternalError(
@@ -622,7 +619,7 @@ export class Repository<
       );
     const oldModel = await this.read(pk, ...contextArgs.args);
     model = Model.merge(oldModel, model, this.class);
-    if (shouldRunHandlers)
+    if (!ignoreHandlers)
       await enforceDBDecorators(
         this,
         contextArgs.context,
@@ -632,7 +629,7 @@ export class Repository<
         oldModel
       );
 
-    if (shouldValidate) {
+    if (!ignoreValidate) {
       const errors = await Promise.resolve(
         model.hasErrors(
           oldModel,
@@ -699,9 +696,8 @@ export class Repository<
       this.adapter,
       this._overrides || {}
     );
-    const shouldRunHandlers =
-      contextArgs.context.get("ignoreHandlers") !== false;
-    const shouldValidate = !contextArgs.context.get("ignoreValidation");
+    const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
+    const ignoreValidate = contextArgs.context.get("ignoreValidation");
     const ids = models.map((m) => {
       const id = m[this.pk] as string;
       if (!id) throw new InternalError("missing id on update operation");
@@ -712,7 +708,7 @@ export class Repository<
       m = Model.merge(oldModels[i], m, this.class);
       return m;
     });
-    if (shouldRunHandlers)
+    if (!ignoreHandlers)
       await Promise.all(
         models.map((m, i) =>
           enforceDBDecorators<M, Repository<M, A>, any>(
@@ -726,7 +722,7 @@ export class Repository<
         )
       );
 
-    if (shouldValidate) {
+    if (!ignoreValidate) {
       const ignoredProps =
         contextArgs.context.get("ignoredValidationProperties") || [];
 

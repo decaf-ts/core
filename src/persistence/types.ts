@@ -143,4 +143,5 @@ export type PreparedModel = {
 
 export type AdapterFlags<LOG extends Logger = Logger> = RepositoryFlags<LOG> & {
   allowRawStatements: boolean;
+  allowGenerationOverride: boolean;
 };

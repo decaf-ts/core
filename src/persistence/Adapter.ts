@@ -15,7 +15,7 @@ import {
 } from "@decaf-ts/decorator-validation";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { RawExecutor } from "../interfaces/RawExecutor";
-import { PersistenceKeys } from "./constants";
+import { DefaultAdapterFlags, PersistenceKeys } from "./constants";
 import type { Repository } from "../repository/Repository";
 import type { Sequence } from "./Sequence";
 import { ErrorParser } from "../interfaces";
@@ -388,7 +388,7 @@ export abstract class Adapter<
     if (flags.correlationId)
       log = log.for({ correlationId: flags.correlationId });
 
-    return Object.assign({}, DefaultRepositoryFlags, flags, {
+    return Object.assign({}, DefaultAdapterFlags, flags, {
       affectedTables: (Array.isArray(model) ? model : [model]).map(
         Model.tableName
       ),

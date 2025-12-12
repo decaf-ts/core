@@ -1,27 +1,29 @@
 import {
-  type ContextOfRepository,
   Contextual,
-  DefaultRepositoryFlags,
   InternalError,
   IRepository,
   OperationKeys,
   type PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
 import { final, Logger, Logging } from "@decaf-ts/logging";
-import { Constructor } from "@decaf-ts/decoration";
+import type { Constructor } from "@decaf-ts/decoration";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import type { MaybeContextualArg } from "./ContextualLoggedClass";
-import { ContextualArgs, ContextualizedArgs } from "./ContextualLoggedClass";
+import type {
+  ContextualArgs,
+  ContextualizedArgs,
+} from "./ContextualLoggedClass";
 import {
-  AdapterFlags,
-  DefaultAdapterFlags,
-  FlagsOf,
-  LoggerOf,
-} from "../persistence/index";
-import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
+  type AdapterFlags,
+  type ContextOfRepository,
+  type FlagsOf,
+  type LoggerOf,
+} from "../persistence/types";
+import { Model, type ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Repository } from "../repository/Repository";
 import { create, del, read, service, update } from "./decorators";
 import { Context } from "../persistence/Context";
+import { DefaultAdapterFlags } from "../persistence/constants";
 
 export abstract class Service<
   C extends Context<AdapterFlags> = Context<AdapterFlags>,
@@ -49,7 +51,7 @@ export abstract class Service<
     let log = (flags.logger || Logging.for(this.toString())) as Logger;
     if (flags.correlationId)
       log = log.for({ correlationId: flags.correlationId });
-    return Object.assign({}, DefaultRepositoryFlags, flags, {
+    return Object.assign({}, DefaultAdapterFlags, flags, {
       timestamp: new Date(),
       operation: operation,
       logger: log,
@@ -75,7 +77,7 @@ export abstract class Service<
     ...args: any[]
   ): Promise<C> {
     const flags = await this.flags(operation, overrides, ...args);
-    return new this.Context().accumulate(flags) as unknown as C;
+    return new this.Context().accumulate(flags);
   }
 
   protected async logCtx<ARGS extends any[]>(
@@ -162,7 +164,7 @@ export abstract class Service<
             operation: operation,
             logger: Logging.get(),
           })
-        ) as FlagsOf<C>;
+        );
       },
     };
 

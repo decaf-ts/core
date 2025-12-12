@@ -11,7 +11,6 @@ import {
   reduceErrorsToPrint,
   PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
-import type { FlagsOf as ContextualFlagsOf } from "@decaf-ts/db-decorators";
 import { type Observer } from "../interfaces/Observer";
 import { Adapter } from "../persistence/Adapter";
 import { Model } from "@decaf-ts/decorator-validation";
@@ -140,10 +139,8 @@ export class Repository<
   private _tableName!: string;
   protected _overrides?: Partial<FlagsOf<ContextOf<A>>>;
 
-  protected get contextualOverrides(): Partial<
-    ContextualFlagsOf<ContextOf<A>>
-  > {
-    return (this._overrides || {}) as Partial<ContextualFlagsOf<ContextOf<A>>>;
+  protected get contextualOverrides(): Partial<FlagsOf<ContextOf<A>>> {
+    return (this._overrides || {}) as Partial<FlagsOf<ContextOf<A>>>;
   }
 
   private logger!: Logger;

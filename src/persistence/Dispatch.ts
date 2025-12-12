@@ -7,7 +7,7 @@ import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Observer } from "../interfaces";
 import { Adapter } from "./Adapter";
 import { UnsupportedError } from "./errors";
-import { AdapterDispatch, ContextOf, EventIds, LoggerOf } from "./types";
+import { AdapterDispatch, ContextOf, EventIds } from "./types";
 import { Constructor } from "@decaf-ts/decoration";
 import {
   ContextualArgs,

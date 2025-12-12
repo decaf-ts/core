@@ -12,14 +12,20 @@ import { Constructor } from "@decaf-ts/decoration";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import type { MaybeContextualArg } from "./ContextualLoggedClass";
 import { ContextualArgs, ContextualizedArgs } from "./ContextualLoggedClass";
-import { FlagsOf, LoggerOf } from "../persistence/index";
+import {
+  AdapterFlags,
+  DefaultAdapterFlags,
+  FlagsOf,
+  LoggerOf,
+} from "../persistence/index";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Repository } from "../repository/Repository";
 import { create, del, read, service, update } from "./decorators";
 import { Context } from "../persistence/Context";
 
-export abstract class Service<C extends Context<any> = any>
-  implements Contextual<C>
+export abstract class Service<
+  C extends Context<AdapterFlags> = Context<AdapterFlags>,
+> implements Contextual<C>
 {
   protected constructor(readonly name?: string) {}
 
@@ -151,7 +157,7 @@ export abstract class Service<C extends Context<any> = any>
           | string
       ): Promise<Context<any>> {
         return new Context().accumulate(
-          Object.assign({}, DefaultRepositoryFlags, {
+          Object.assign({}, DefaultAdapterFlags, {
             timestamp: new Date(),
             operation: operation,
             logger: Logging.get(),

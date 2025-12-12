@@ -1,8 +1,11 @@
 import {
   BulkCrudOperationKeys,
+  ContextOfRepository,
   FlagsOfContext,
+  FlagsOfRepository,
   LoggerOfContext,
   LoggerOfFlags,
+  LoggerOfRepository,
   OperationKeys,
   RepositoryFlags,
 } from "@decaf-ts/db-decorators";
@@ -14,14 +17,6 @@ import { Model } from "@decaf-ts/decorator-validation";
 import { ContextualArgs } from "../utils";
 import { Context } from "./Context";
 import { Repository } from "../repository/Repository";
-
-export type ContextOfRepository<R extends Repository<any, any>> =
-  R extends Repository<any, infer A> ? ContextOf<A> : never;
-export type LoggerOfRepository<R extends Repository<any, any>> =
-  LoggerOfContext<ContextOfRepository<R>>;
-export type FlagsOfRepository<R extends Repository<any, any>> = FlagsOfContext<
-  ContextOfRepository<R>
->;
 
 export type ContextOf<
   OBJ extends Repository<any, any> | Adapter<any, any, any, any>,

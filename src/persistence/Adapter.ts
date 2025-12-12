@@ -2,9 +2,9 @@ import {
   BaseError,
   InternalError,
   OperationKeys,
-  Contextual,
   BulkCrudOperationKeys,
   PrimaryKeyType,
+  FlagsOf,
 } from "@decaf-ts/db-decorators";
 import { type Observer } from "../interfaces/Observer";
 import {
@@ -22,8 +22,8 @@ import { Statement } from "../query/Statement";
 import { final, Logger } from "@decaf-ts/logging";
 import type { Dispatch } from "./Dispatch";
 import {
+  type AdapterFlags,
   type EventIds,
-  FlagsOf,
   Migration,
   type ObserverFilter,
   PersistenceObservable,
@@ -175,12 +175,11 @@ export abstract class Adapter<
     CONF,
     CONN,
     QUERY,
-    CONTEXT extends Context = Context,
+    CONTEXT extends Context<AdapterFlags> = Context,
   >
   extends ContextualLoggedClass<CONTEXT>
   implements
     RawExecutor<QUERY>,
-    Contextual<CONTEXT>,
     PersistenceObservable<CONTEXT>,
     PersistenceObserver<CONTEXT>,
     Impersonatable<any, [Partial<CONF>, ...any[]]>,

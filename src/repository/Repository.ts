@@ -11,27 +11,33 @@ import {
   reduceErrorsToPrint,
   PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
-import { type Observer } from "../interfaces/Observer";
-import { Adapter } from "../persistence/Adapter";
-import { Model } from "@decaf-ts/decorator-validation";
-import { PersistenceKeys } from "../persistence/constants";
-import { OrderDirection } from "./constants";
-import { type SequenceOptions } from "../interfaces/SequenceOptions";
-import { Queriable } from "../interfaces/Queriable";
-import { Condition } from "../query/Condition";
-import { WhereOption } from "../query/options";
-import { OrderBySelector, SelectSelector } from "../query/selectors";
-import { ObserverHandler } from "../persistence/ObserverHandler";
-import { final } from "@decaf-ts/logging";
+import { type FlagsOf } from "@decaf-ts/db-decorators";
+import { final, Logger } from "@decaf-ts/logging";
 import {
-  type ContextOf,
+  ContextualizedArgs,
+  MaybeContextualArg,
+} from "../utils/ContextualLoggedClass";
+import { Adapter } from "../persistence/Adapter";
+import { Context } from "../persistence/Context";
+import { PersistenceKeys } from "../persistence/constants";
+import { ObserverHandler } from "../persistence/ObserverHandler";
+import { QueryError } from "../query/errors";
+import type { QueryOptions } from "../query/types";
+import { OrderBySelector, SelectSelector } from "../query/selectors";
+import { WhereOption } from "../query/options";
+import { Condition } from "../query/Condition";
+import { Queriable } from "../interfaces/Queriable";
+import { SequenceOptions } from "../interfaces/SequenceOptions";
+import { OrderDirection } from "./constants";
+import {
+  ContextOf,
   EventIds,
-  type FlagsOf,
-  type InferredAdapterConfig,
-  type ObserverFilter,
+  InferredAdapterConfig,
+  ObserverFilter,
   PersistenceObservable,
   PersistenceObserver,
 } from "../persistence/types";
+import { Observer } from "../interfaces/Observer";
 import {
   Constructor,
   DecorationKeys,
@@ -39,15 +45,8 @@ import {
   Metadata,
   uses,
 } from "@decaf-ts/decoration";
-import type { Logger } from "@decaf-ts/logging";
-import type {
-  ContextualizedArgs,
-  MaybeContextualArg,
-} from "../utils/ContextualLoggedClass";
-import { QueryError } from "../query/errors";
-import { type QueryOptions } from "../query/types";
+import { Model } from "@decaf-ts/decorator-validation";
 import { prepared } from "../query/decorators";
-import { Context } from "../persistence/Context";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.
@@ -138,10 +137,6 @@ export class Repository<
   private readonly _adapter!: A;
   private _tableName!: string;
   protected _overrides?: Partial<FlagsOf<ContextOf<A>>>;
-
-  protected get contextualOverrides(): Partial<FlagsOf<ContextOf<A>>> {
-    return (this._overrides || {}) as Partial<FlagsOf<ContextOf<A>>>;
-  }
 
   private logger!: Logger;
 
@@ -293,7 +288,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this.contextualOverrides
+      this._overrides || {}
     );
     const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
     const ignoreValidate = contextArgs.context.get("ignoreValidation");
@@ -405,7 +400,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this.contextualOverrides
+      this._overrides || {}
     );
     const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
     const ignoreValidate = contextArgs.context.get("ignoreValidation");
@@ -483,7 +478,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this.contextualOverrides
+      this._overrides || {}
     );
     const model: M = new this.class();
     model[this.pk] = key as M[keyof M];
@@ -533,7 +528,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this.contextualOverrides
+      this._overrides || {}
     );
     await Promise.all(
       keys.map(async (k) => {
@@ -612,7 +607,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this.contextualOverrides
+      this._overrides || {}
     );
     const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
     const ignoreValidate = contextArgs.context.get("ignoreValidation");
@@ -698,7 +693,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this.contextualOverrides
+      this._overrides || {}
     );
     const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
     const ignoreValidate = contextArgs.context.get("ignoreValidation");
@@ -759,7 +754,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this.contextualOverrides
+      this._overrides || {}
     );
     const model = await this.read(key, ...contextArgs.args);
     await enforceDBDecorators<M, Repository<M, A>, any>(
@@ -808,7 +803,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this.contextualOverrides
+      this._overrides || {}
     );
     const models = await this.readAll(keys, ...contextArgs.args);
     await Promise.all(
@@ -919,7 +914,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this.contextualOverrides
+      this._overrides || {}
     );
     const { log, ctxArgs } = this.logCtx(contextArgs.args, this.listBy);
     log.verbose(
@@ -942,7 +937,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this.contextualOverrides
+      this._overrides || {}
     );
     const { log, ctxArgs } = this.logCtx(contextArgs.args, this.paginateBy);
     log.verbose(
@@ -964,7 +959,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this.contextualOverrides
+      this._overrides || {}
     );
     const { log, ctxArgs } = this.logCtx(contextArgs.args, this.findOneBy);
     log.verbose(
@@ -983,7 +978,7 @@ export class Repository<
       this.class,
       args,
       this.adapter,
-      this.contextualOverrides
+      this._overrides || {}
     );
     const { log, ctxArgs } = this.logCtx(contextArgs.args, this.statement);
     log.verbose(`Executing prepared statement ${name}`);

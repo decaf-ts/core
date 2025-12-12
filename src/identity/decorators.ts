@@ -20,8 +20,8 @@ import {
   prop,
   propMetadata,
 } from "@decaf-ts/decoration";
-import { ContextOf } from "../persistence/types";
 import { Repository } from "../repository/Repository";
+import { ContextOf } from "../persistence/index";
 const defaultPkPriority = 60; // Default priority for primary key to run latter than other properties
 
 /**

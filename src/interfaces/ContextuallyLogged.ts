@@ -1,5 +1,5 @@
-import { LoggerOf } from "../persistence/types";
 import { Context } from "../persistence/Context";
+import { LoggerOf } from "../persistence/types";
 
 export interface ContextuallyLogged<C extends Context<any>> {
   logAndCtx(

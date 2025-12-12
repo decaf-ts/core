@@ -1,5 +1,5 @@
+import type { ContextOfRepository, Contextual } from "@decaf-ts/db-decorators";
 import {
-  Contextual,
   InternalError,
   IRepository,
   OperationKeys,
@@ -15,7 +15,6 @@ import type {
 } from "./ContextualLoggedClass";
 import {
   type AdapterFlags,
-  type ContextOfRepository,
   type FlagsOf,
   type LoggerOf,
 } from "../persistence/types";
@@ -27,8 +26,7 @@ import { DefaultAdapterFlags } from "../persistence/constants";
 
 export abstract class Service<
   C extends Context<AdapterFlags> = Context<AdapterFlags>,
-> implements Contextual<C>
-{
+> {
   protected constructor(readonly name?: string) {}
 
   /**
@@ -55,7 +53,7 @@ export abstract class Service<
       timestamp: new Date(),
       operation: operation,
       logger: log,
-    }) as FlagsOf<C>;
+    }) as unknown as FlagsOf<C>;
   }
 
   /**

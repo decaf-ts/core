@@ -98,7 +98,13 @@ export abstract class Paginator<
   ) {
     super();
   }
-
+  /**
+   * @description Prepares a statement for pagination
+   * @summary Modifies the raw query statement to include pagination parameters.
+   * This protected method sets the limit parameter on the query to match the page size.
+   * @param {RawRamQuery<M>} rawStatement - The original query statement
+   * @return {RawRamQuery<M>} The modified query with pagination parameters
+   */
   protected abstract prepare(rawStatement: Q): Q;
 
   async next(...args: MaybeContextualArg<any>) {

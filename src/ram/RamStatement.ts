@@ -129,27 +129,6 @@ export class RamStatement<
   }
 
   /**
-   * @description Creates a paginator for the query
-   * @summary Builds the query and wraps it in a RamPaginator to enable pagination of results.
-   * This allows retrieving large result sets in smaller chunks.
-   * @param {number} size - The page size (number of results per page)
-   * @return {Promise<Paginator<M, R, RawRamQuery<M>>>} A promise that resolves to a paginator for the query
-   */
-  async paginate(size: number): Promise<Paginator<M, R, RawRamQuery<any>>> {
-    try {
-      const query = this.build();
-      return new RamPaginator<M, R>(
-        this.adapter,
-        query,
-        size,
-        this.fromSelector
-      );
-    } catch (e: any) {
-      throw new InternalError(e);
-    }
-  }
-
-  /**
    * @description Parses a condition into a RAM query predicate
    * @summary Converts a Condition object into a predicate function that can be used
    * to filter model instances in memory. This method handles both simple conditions

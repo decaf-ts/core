@@ -1,32 +1,15 @@
+import { Condition } from "../query/Condition";
+import { OrderBySelector } from "../query/selectors";
 import {
-  Condition,
-  GroupOperator,
-  Operator,
-  OrderBySelector,
-  QueryError,
-  Statement,
-} from "../query";
-import { FilterDescriptor, QueryAssist, QueryClause } from "./types";
+  FilterDescriptor,
+  OrderLimitOffsetExtract,
+  QueryAssist,
+  QueryClause,
+} from "./types";
 import { OperatorsMap } from "./utils";
-import { Model } from "@decaf-ts/decorator-validation";
-import { Constructor } from "@decaf-ts/decoration";
-import { toCamelCase } from "@decaf-ts/logging";
 
 const lowerFirst = (str: string): string =>
   str.charAt(0).toLowerCase() + str.slice(1);
-
-export type OrderLimitOffsetExtract = {
-  orderBy?: OrderBySelector<any>[];
-  limit?: number;
-  offset?: number;
-};
-
-export type PreparedStatement<M extends Model> = {
-  class: Constructor<M>;
-  method: string;
-  args: any[];
-  params: OrderLimitOffsetExtract;
-};
 
 /**
  * @description
@@ -82,127 +65,6 @@ export type PreparedStatement<M extends Model> = {
  *   MQB->>Query: return structured QueryAssist object
  */
 export class MethodQueryBuilder {
-  private static prepareCondition(condition: Condition<any>) {
-    // @ts-expect-error accessing protected properties
-    // eslint-disable-next-line prefer-const
-    let { attr1, operator, comparison } = condition;
-
-    const result: PreparedStatement<any> = {} as any;
-    switch (operator) {
-      case GroupOperator.AND:
-      case GroupOperator.OR: {
-        let side1: string = attr1 as string,
-          side2: string = comparison as any;
-        if (typeof attr1 !== "string") {
-          const condition1 = MethodQueryBuilder.prepareCondition(
-            attr1 as Condition<any>
-          );
-          side1 = condition1.method as string;
-          result.args = [...(result.args || []), ...(condition1.args || [])];
-        }
-
-        if (comparison instanceof Condition) {
-          const condition2 = MethodQueryBuilder.prepareCondition(comparison);
-          side2 = condition2.method as string;
-          result.args = [...(result.args || []), ...(condition2.args || [])];
-        }
-
-        result.method = `${side1} ${operator.toLowerCase()} ${side2}`;
-        break;
-      }
-      case Operator.EQUAL:
-        result.method = attr1 as string;
-        result.args = [...(result.args || []), comparison];
-        break;
-      case Operator.DIFFERENT:
-        result.method = `${attr1} diff`;
-        result.args = [...(result.args || []), comparison];
-        break;
-      case Operator.REGEXP:
-        result.method = `${attr1} matches`;
-        result.args = [...(result.args || []), comparison];
-        break;
-      case Operator.BIGGER:
-        result.method = `${attr1} bigger`;
-        result.args = [...(result.args || []), comparison];
-        break;
-      case Operator.BIGGER_EQ:
-        result.method = `${attr1} bigger than equal`;
-        break;
-      case Operator.SMALLER:
-        result.method = `${attr1} less`;
-        result.args = [...(result.args || []), comparison];
-        break;
-      case Operator.SMALLER_EQ:
-        result.method = `${attr1} less than equal`;
-        result.args = [...(result.args || []), comparison];
-        break;
-      case Operator.IN:
-        result.method = `${attr1} in`;
-        result.args = [...(result.args || []), comparison];
-        break;
-      default:
-        throw new QueryError(`Unsupported operator ${operator}`);
-    }
-
-    return result;
-  }
-
-  static prepare<S extends Statement<any, any, any, any>>(
-    statement: S
-  ): PreparedStatement<
-    S extends Statement<infer M, any, any, any> ? M : never
-  > {
-    const {
-      // @ts-expect-error accessing protected properties
-      whereCondition,
-      // @ts-expect-error accessing protected properties
-      selectSelector,
-      // @ts-expect-error accessing protected properties
-      orderBySelector,
-      // @ts-expect-error accessing protected properties
-      groupBySelector,
-      // @ts-expect-error accessing protected properties
-      limitSelector,
-      // @ts-expect-error accessing protected properties
-      offsetSelector,
-    } = statement;
-
-    const method: string[] = [QueryClause.FIND_BY];
-    const args: (string | number)[] = [];
-    const params: Record<"limit" | "skip", any> = {} as any;
-    const prepared: PreparedStatement<
-      S extends Statement<infer M, any, any, any> ? M : never
-    > = {
-      class: statement["fromSelector"],
-      args,
-      params,
-    } as any;
-
-    if (whereCondition) {
-      const parsed = MethodQueryBuilder.prepareCondition(whereCondition);
-      method.push(parsed.method);
-      if (parsed.args && parsed.args.length)
-        args.push(...(parsed.args as (string | number)[]));
-    }
-    if (selectSelector)
-      method.push(
-        QueryClause.SELECT,
-        selectSelector.join(` ${QueryClause.AND.toLowerCase()} `)
-      );
-    if (orderBySelector)
-      method.push(QueryClause.ORDER_BY, ...(orderBySelector as string[]));
-    if (groupBySelector)
-      method.push(QueryClause.GROUP_BY, groupBySelector as string);
-    if (limitSelector) params.limit = limitSelector;
-    if (offsetSelector) {
-      params.skip = offsetSelector;
-    }
-    prepared.method = toCamelCase(method.join(" "));
-    prepared.params = params;
-    return prepared;
-  }
-
   /**
    * @description
    * Builds a `QueryAssist` object by parsing a repository method name and values.

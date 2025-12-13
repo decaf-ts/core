@@ -70,6 +70,8 @@ export enum PersistenceKeys {
   STATEMENT = "statement",
 
   QUERY = "query",
+
+  GENERATED = "generated",
 }
 
 export const DefaultAdapterFlags: AdapterFlags = Object.assign(
@@ -78,5 +80,7 @@ export const DefaultAdapterFlags: AdapterFlags = Object.assign(
   {
     allowRawStatements: true,
     allowGenerationOverride: false,
+    squashSimpleQueries: true,
+    allowComplexStatements: true,
   }
 ) as AdapterFlags;

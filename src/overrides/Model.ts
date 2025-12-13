@@ -37,6 +37,22 @@ declare module "@decaf-ts/decorator-validation" {
      * @param {M | Constructor<M>} model - The model instance or constructor.
      * @return {string[]} An array of property names that are relations.
      */
+    function generated<M extends Model>(
+      m: Constructor<M> | M,
+      prop: keyof M
+    ): boolean;
+
+    function createdBy<M extends Model>(m: Constructor<M> | M): keyof M;
+
+    function updatedBy<M extends Model>(m: Constructor<M> | M): keyof M;
+
+    /**
+     * @description Gets all relation properties defined on a model.
+     * @summary Retrieves the names of all properties marked as relations in the model hierarchy.
+     * @template M - The model type that extends Model.
+     * @param {M | Constructor<M>} model - The model instance or constructor.
+     * @return {string[]} An array of property names that are relations.
+     */
     function relations<M extends Model>(
       m: Constructor<M> | M,
       prop?: keyof M

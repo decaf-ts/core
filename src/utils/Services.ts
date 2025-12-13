@@ -1,4 +1,8 @@
-import type { ContextOfRepository, Contextual } from "@decaf-ts/db-decorators";
+import type {
+  ContextOfRepository,
+  Contextual,
+  FlagsOf as ContextualFlagsOf,
+} from "@decaf-ts/db-decorators";
 import {
   InternalError,
   IRepository,
@@ -71,11 +75,12 @@ export abstract class Service<
       | OperationKeys.UPDATE
       | OperationKeys.DELETE
       | string,
-    overrides: Partial<FlagsOf<C>>,
+    overrides: Partial<ContextualFlagsOf<C>>,
     ...args: any[]
   ): Promise<C> {
-    const flags = await this.flags(operation, overrides, ...args);
-    return new this.Context().accumulate(flags);
+    const normalizedOverrides = overrides as Partial<FlagsOf<C>>;
+    const flags = await this.flags(operation, normalizedOverrides, ...args);
+    return new this.Context().accumulate(flags) as unknown as C;
   }
 
   protected async logCtx<ARGS extends any[]>(

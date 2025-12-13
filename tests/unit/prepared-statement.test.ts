@@ -7,6 +7,7 @@ import {
   Repository,
   OrderDirection,
   QueryError,
+  Context,
 } from "../../src/index";
 import type { RamRepository } from "../../src/ram/types";
 import { uses } from "@decaf-ts/decoration";
@@ -81,6 +82,7 @@ describe("prepared statements", () => {
 
     expect(page1).toEqual(page11);
   });
+
   it("fails for unprepared statements", async () => {
     const repo: RamRepository<TestBulkModel> = Repository.forModel<
       TestBulkModel,
@@ -89,6 +91,18 @@ describe("prepared statements", () => {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const res1 = await repo.select().execute();
+
+    await expect(repo.statement("select")).rejects.toThrowError(QueryError);
+  });
+
+  it("prepares in the statement itself", async () => {
+    const repo: RamRepository<TestBulkModel> = Repository.forModel<
+      TestBulkModel,
+      RamRepository<TestBulkModel>
+    >(TestBulkModel);
+
+    const prepared = await repo.select().prepare();
+    const result = await prepared.execute();
 
     await expect(repo.statement("select")).rejects.toThrowError(QueryError);
   });

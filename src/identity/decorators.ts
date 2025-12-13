@@ -10,7 +10,7 @@ import {
   onCreate,
   readonly,
 } from "@decaf-ts/db-decorators";
-import { index } from "../model/decorators";
+import { generated, index } from "../model/decorators";
 import type { Sequence } from "../persistence/Sequence";
 import { OrderDirection } from "../repository/constants";
 import {
@@ -145,14 +145,15 @@ export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
       options.generated = true;
     }
 
-    return apply(
+    const decs = [
       index([OrderDirection.ASC, OrderDirection.DSC]),
       required(),
       readonly(),
-      // Model.pk neeeds to get the pk property name from the first property of Metatada[DBKeys.ID] ---> { [DBKeys.ID]: { [attr]:options }}
       propMetadata(Metadata.key(DBKeys.ID, attr), options),
-      onCreate(pkOnCreate, options, groupsort)
-    )(obj, attr);
+      onCreate(pkOnCreate, options, groupsort),
+    ];
+    if (options.generated) decs.push(generated());
+    return apply(...decs)(obj, attr);
   };
 }
 

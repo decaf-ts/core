@@ -24,12 +24,9 @@ import {
 } from "@decaf-ts/db-decorators";
 import { createdByOnRamCreateUpdate } from "./handlers";
 import { RamFlavour } from "./constants";
-import {
-  Constructor,
-  Decoration,
-  Metadata,
-  propMetadata,
-} from "@decaf-ts/decoration";
+import { Decoration, Metadata, propMetadata } from "@decaf-ts/decoration";
+import type { Constructor } from "@decaf-ts/decoration";
+import { RamPaginator } from "./RamPaginator";
 
 /**
  * @description In-memory adapter for data persistence
@@ -513,7 +510,15 @@ export class RamAdapter extends Adapter<
       M,
       any,
       Adapter<any, any, RawRamQuery<M>, RamContext>
-    >(this);
+    >(this as any);
+  }
+
+  Paginator<M extends Model<boolean>>(
+    query: RawRamQuery,
+    size: number,
+    clazz: Constructor<M>
+  ): RamPaginator<M, any> {
+    return new RamPaginator(this, query, size, clazz);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

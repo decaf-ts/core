@@ -1,5 +1,8 @@
 import { Condition } from "./Condition";
 import { OrderBySelector } from "./selectors";
+import { Model } from "@decaf-ts/decorator-validation";
+import { Constructor } from "@decaf-ts/decoration";
+import { OrderDirection } from "../repository/index";
 
 /**
  * @description
@@ -17,6 +20,25 @@ export type QueryOptions = {
   allowOffset?: boolean;
   allowOrderBy?: boolean;
   throws?: boolean;
+};
+
+export type OrderLimitOffsetExtract = {
+  orderBy?: OrderBySelector<any>[];
+  limit?: number;
+  offset?: number;
+};
+
+export type DirectionLimitOffset = {
+  direction?: OrderDirection;
+  limit?: number;
+  offset?: number;
+};
+
+export type PreparedStatement<M extends Model> = {
+  class: Constructor<M>;
+  method: string;
+  args: any[];
+  params: DirectionLimitOffset;
 };
 
 /**

@@ -4,8 +4,8 @@ import {
   OperationKeys,
   BulkCrudOperationKeys,
   PrimaryKeyType,
-  FlagsOf,
 } from "@decaf-ts/db-decorators";
+import type { FlagsOf as ContextualFlagsOf } from "@decaf-ts/db-decorators";
 import { type Observer } from "../interfaces/Observer";
 import {
   hashObj,
@@ -24,6 +24,7 @@ import type { Dispatch } from "./Dispatch";
 import {
   type AdapterFlags,
   type EventIds,
+  FlagsOf,
   Migration,
   type ObserverFilter,
   PersistenceObservable,
@@ -46,6 +47,7 @@ import {
   ContextualizedArgs,
   ContextualLoggedClass,
 } from "../utils/ContextualLoggedClass";
+import { Paginator } from "../query/Paginator";
 
 const flavourResolver = Decoration["flavourResolver"].bind(Decoration);
 Decoration["flavourResolver"] = (obj: object) => {
@@ -306,6 +308,12 @@ export abstract class Adapter<
     any
   >;
 
+  abstract Paginator<M extends Model>(
+    query: QUERY,
+    size: number,
+    clazz: Constructor<M>
+  ): Paginator<M, any, QUERY>;
+
   /**
    * @description Creates a new dispatch instance
    * @summary Factory method that creates a dispatch instance for this adapter
@@ -427,7 +435,7 @@ export abstract class Adapter<
       | OperationKeys.UPDATE
       | OperationKeys.DELETE
       | string,
-    overrides: Partial<FlagsOf<CONTEXT>>,
+    overrides: Partial<ContextualFlagsOf<CONTEXT>>,
     model: Constructor<M> | Constructor<M>[],
     ...args: any[]
   ): Promise<CONTEXT> {
@@ -435,12 +443,12 @@ export abstract class Adapter<
     log.debug(
       `Creating new context for ${operation} operation on ${Array.isArray(model) ? model.map((m) => m.name) : model.name} model with flag overrides: ${JSON.stringify(overrides)}`
     );
-    const flags = (await this.flags(
+    const flags = await this.flags(
       operation,
       model,
       overrides as Partial<FlagsOf<CONTEXT>>,
       ...args
-    )) as FlagsOf<CONTEXT>;
+    );
     return new this.Context().accumulate(flags) as unknown as CONTEXT;
   }
 

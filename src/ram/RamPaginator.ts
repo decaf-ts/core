@@ -1,9 +1,8 @@
 import { RawRamQuery } from "./types";
 import { Paginator } from "../query";
 import { Model } from "@decaf-ts/decorator-validation";
-import { Adapter } from "../persistence";
-import { Constructor } from "@decaf-ts/decoration";
-import { OperationKeys } from "@decaf-ts/db-decorators";
+import { Adapter, PersistenceKeys } from "../persistence";
+import type { Constructor } from "@decaf-ts/decoration";
 import { MaybeContextualArg } from "../utils/index";
 import { Context } from "../persistence/Context";
 
@@ -41,7 +40,7 @@ export class RamPaginator<M extends Model, R> extends Paginator<
   RawRamQuery<M>
 > {
   constructor(
-    adapter: Adapter<any, RawRamQuery<M>, any, any>,
+    adapter: Adapter<any, any, RawRamQuery<M>, any>,
     query: RawRamQuery<M>,
     size: number,
     clazz: Constructor<M>
@@ -72,7 +71,7 @@ export class RamPaginator<M extends Model, R> extends Paginator<
    */
   async page(page: number = 1, ...args: MaybeContextualArg<any>): Promise<R[]> {
     const contextArgs = await Context.args<M, any>(
-      OperationKeys.READ,
+      PersistenceKeys.QUERY,
       this.clazz,
       args,
       this.adapter
@@ -96,7 +95,8 @@ export class RamPaginator<M extends Model, R> extends Paginator<
     statement.skip = (page - 1) * this.size;
     const results: any[] = await this.adapter.raw(
       statement,
-      ...contextArgs.args
+      ...args,
+      contextArgs.context
     );
     this._currentPage = page;
     return results;

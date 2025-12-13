@@ -36,7 +36,7 @@ export type QueryOptions = {
 export interface QueryAssist {
   action: "find";
   select: undefined | string[];
-  where: Condition<any>;
+  where?: Condition<any>;
   groupBy?: string[];
   orderBy?: OrderBySelector<any>[];
   limit: number | undefined;

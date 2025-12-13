@@ -317,7 +317,7 @@ export function updatedBy() {
         onUpdate(createdByOnCreateUpdate),
         propMetadata(PersistenceKeys.UPDATED_BY, prop),
         generated()
-      );
+      )(target, prop);
     };
   }
   return Decoration.for(PersistenceKeys.UPDATED_BY)

@@ -1,6 +1,6 @@
 import { Constructor } from "@decaf-ts/decoration";
 import { CascadeMetadata } from "../repository";
-import { PersistenceKeys } from "../persistence/index";
+import { PersistenceKeys } from "../persistence/constants";
 
 /**
  * Describes join column options.

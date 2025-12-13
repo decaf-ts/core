@@ -2,7 +2,7 @@ import { Condition } from "./Condition";
 import { OrderBySelector } from "./selectors";
 import { Model } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
-import { OrderDirection } from "../repository/index";
+import { OrderDirection } from "../repository/constants";
 
 /**
  * @description

@@ -1,6 +1,6 @@
 import { Decoration } from "@decaf-ts/decoration";
 import { DBKeys } from "@decaf-ts/db-decorators";
-import { generated } from "../model/index";
+import { generated } from "../model/decorators";
 
 Decoration.for(DBKeys.TIMESTAMP).extend(generated()).apply();
 

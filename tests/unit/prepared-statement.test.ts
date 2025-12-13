@@ -7,7 +7,6 @@ import {
   Repository,
   OrderDirection,
   QueryError,
-  Context,
 } from "../../src/index";
 import type { RamRepository } from "../../src/ram/types";
 import { uses } from "@decaf-ts/decoration";
@@ -102,6 +101,7 @@ describe("prepared statements", () => {
     >(TestBulkModel);
 
     const prepared = await repo.select().prepare();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const result = await prepared.execute();
 
     await expect(repo.statement("select")).rejects.toThrowError(QueryError);

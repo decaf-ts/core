@@ -159,8 +159,6 @@ export abstract class Statement<
     });
   }
 
-  protected isSquashable() {}
-
   protected override get log(): Logger {
     return (this.adapter as any).log.for(Statement);
   }
@@ -271,13 +269,7 @@ export abstract class Statement<
   ): Promise<R> {
     const repo = Repository.forModel(this.fromSelector, this.adapter.alias);
     const { method, args, params } = this.prepared as PreparedStatement<any>;
-    return repo.statement(
-      method,
-      // page ? method.replace(regexp, PreparedStatementKeys.PAGE_BY) : method,
-      ...args,
-      params,
-      ...argz
-    );
+    return repo.statement(method, ...args, params, ...argz);
   }
 
   async raw<R>(rawInput: Q, ...args: ContextualArgs<ContextOf<A>>): Promise<R> {
@@ -453,7 +445,7 @@ export abstract class Statement<
       }
     }
     const args: (string | number)[] = [];
-    const params: Record<"limit" | "skip", any> = {} as any;
+    const params: any = {} as any;
 
     const prepared: PreparedStatement<any> = {
       class: this.fromSelector,
@@ -477,8 +469,10 @@ export abstract class Statement<
         QueryClause.SELECT,
         this.selectSelector.join(` ${QueryClause.AND.toLowerCase()} `)
       );
-    if (this.orderBySelector)
-      method.push(QueryClause.ORDER_BY, ...(this.orderBySelector as string[]));
+    if (this.orderBySelector) {
+      method.push(QueryClause.ORDER_BY, this.orderBySelector[0] as string);
+      params.direction = this.orderBySelector[1];
+    }
     if (this.groupBySelector)
       method.push(QueryClause.GROUP_BY, this.groupBySelector as string);
     if (this.limitSelector) params.limit = this.limitSelector;
@@ -487,18 +481,6 @@ export abstract class Statement<
     }
     prepared.method = toCamelCase(method.join(" "));
     prepared.params = params;
-    this.prepared = prepared;
-
-    if (
-      !(ctx as ContextOf<A>).get("forcePrepareSimpleQueries") ||
-      (this.selectSelector && this.selectSelector.length) ||
-      this.groupBySelector ||
-      this.countSelector ||
-      this.maxSelector ||
-      this.minSelector
-    ) {
-      return this;
-    }
     this.prepared = prepared;
     return this;
   }
@@ -530,9 +512,8 @@ export abstract class Statement<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const ctx = args.pop() as ContextOf<A>; // handled by prefix. kept for example for overrides
     try {
-      const query = this.build();
       return this.adapter.Paginator(
-        this.prepared || query,
+        this.prepared || this.build(),
         size,
         this.fromSelector
       );

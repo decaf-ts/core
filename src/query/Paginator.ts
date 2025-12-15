@@ -185,7 +185,7 @@ export abstract class Paginator<
     return page;
   }
 
-  async page(page?: number, ...args: MaybeContextualArg<any>): Promise<R[]> {
+  async page(page: number = 1, ...args: MaybeContextualArg<any>): Promise<R[]> {
     const { ctxArgs } = this.adapter["logCtx"](args, this.page);
     if (this.isPreparedStatement()) return this.pagePrepared(page, ...ctxArgs);
     throw new UnsupportedError(

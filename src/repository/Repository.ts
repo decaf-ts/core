@@ -307,8 +307,10 @@ export class Repository<
       );
 
     if (!ignoreValidate) {
+      const relations = Model.relations(this.class);
       const errors = await Promise.resolve(
         model.hasErrors(
+          ...relations,
           ...(contextArgs.context.get("ignoredValidationProperties") || [])
         )
       );
@@ -633,10 +635,11 @@ export class Repository<
       );
 
     if (!ignoreValidate) {
+      const relations = Model.relations(this.class);
       const errors = await Promise.resolve(
         model.hasErrors(
           oldModel,
-          ...Model.relations(this.class),
+          ...relations,
           ...(contextArgs.context.get("ignoredValidationProperties") || [])
         )
       );

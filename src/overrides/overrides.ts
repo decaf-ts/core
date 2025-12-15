@@ -18,6 +18,15 @@ import type { Migration } from "../persistence/types";
   model: Constructor<M>,
   op: OperationKeys
 ): string[] {
+  // const relations = Model.relations(model as Constructor<M>) || [];
+  // const noValidation: Record<string, OperationKeys[]> =
+  //   Metadata.get(model, PersistenceKeys.NO_VALIDATE) || [];
+  // const novalidationEntries = Object.entries(noValidation)
+  //   .filter(([, val]) => val.includes(op))
+  //   .map(([key]) => key)
+
+  // return [...new Set([...relations, ...novalidationEntries])];
+
   const noValidation: Record<string, OperationKeys[]> | undefined =
     Metadata.get(model, PersistenceKeys.NO_VALIDATE);
   if (!noValidation) return [];
@@ -31,16 +40,14 @@ import type { Migration } from "../persistence/types";
   model: M,
   property: keyof M
 ): boolean {
-  const metadata: any = Metadata.get(model.constructor as Constructor<M>);
-  if (!metadata) return false;
-  const relations = metadata[PersistenceKeys.RELATIONS];
-  const relation = metadata[PersistenceKeys.RELATION];
-  if (Array.isArray(relations) && relations?.includes(property)) {
+  const relations = Model.relations(model.constructor as Constructor<M>);
+  const relation = Metadata.get(model.constructor as Constructor<M>, PersistenceKeys.RELATION);
+  if (Array.isArray(relations) && relations?.includes(property as string)) {
     const relationName = Object.keys(relation)[0];
     const relationClassName = Model.isPropertyModel(model, property as string);
 
     return (
-      relation[relationName]?.class !== relationClassName
+      relation[relationName]?.class?.name !== relationClassName
       // TODO: Revisit this
       // ||
       // relation[relationName]?.populate !== false

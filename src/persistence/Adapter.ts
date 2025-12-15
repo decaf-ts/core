@@ -13,7 +13,7 @@ import {
   ModelConstructor,
 } from "@decaf-ts/decorator-validation";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
-import { RawExecutor } from "../interfaces/RawExecutor";
+import { RawExecutor, RawPagedExecutor } from "../interfaces/RawExecutor";
 import { DefaultAdapterFlags, PersistenceKeys } from "./constants";
 import type { Repository } from "../repository/Repository";
 import type { Sequence } from "./Sequence";
@@ -30,6 +30,7 @@ import {
   PersistenceObservable,
   PersistenceObserver,
   PreparedModel,
+  RawResult,
 } from "./types";
 import { ObserverHandler } from "./ObserverHandler";
 import { Impersonatable, Logging } from "@decaf-ts/logging";
@@ -48,6 +49,7 @@ import {
   ContextualLoggedClass,
 } from "../utils/ContextualLoggedClass";
 import { Paginator } from "../query/Paginator";
+import { PreparedStatement } from "../query/index";
 
 const flavourResolver = Decoration["flavourResolver"].bind(Decoration);
 Decoration["flavourResolver"] = (obj: object) => {
@@ -181,7 +183,7 @@ export abstract class Adapter<
   >
   extends ContextualLoggedClass<CONTEXT>
   implements
-    RawExecutor<QUERY>,
+    RawPagedExecutor<QUERY>,
     PersistenceObservable<CONTEXT>,
     PersistenceObserver<CONTEXT>,
     Impersonatable<any, [Partial<CONF>, ...any[]]>,
@@ -302,14 +304,12 @@ export abstract class Adapter<
    * @template M - The model type
    * @return {Statement} A statement builder for the model
    */
-  abstract Statement<M extends Model>(): Statement<
-    M,
-    Adapter<CONF, CONN, QUERY, CONTEXT>,
-    any
-  >;
+  abstract Statement<M extends Model>(
+    overrides?: Partial<AdapterFlags>
+  ): Statement<M, Adapter<CONF, CONN, QUERY, CONTEXT>, any>;
 
   abstract Paginator<M extends Model>(
-    query: QUERY,
+    query: QUERY | PreparedStatement<M>,
     size: number,
     clazz: Constructor<M>
   ): Paginator<M, any, QUERY>;
@@ -725,10 +725,11 @@ export abstract class Adapter<
    * @param {...any[]} args - Additional arguments specific to the adapter implementation
    * @return {Promise<R>} A promise that resolves to the query result
    */
-  abstract raw<R>(
+  abstract raw<R, D extends boolean>(
     rawInput: QUERY,
+    docsOnly: D,
     ...args: ContextualArgs<CONTEXT>
-  ): Promise<R>;
+  ): Promise<RawResult<R, D>>;
 
   /**
    * @description Registers an observer for database events

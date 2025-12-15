@@ -139,8 +139,14 @@ export class Repository<
 
   private readonly _adapter!: A;
   private _tableName!: string;
-  protected _overrides?: Partial<FlagsOf<ContextOf<A>>> &
-    Partial<ContextualFlagsOf<ContextOf<A>>>;
+
+  protected _overrides: Partial<FlagsOf<ContextOf<A>>> &
+    Partial<ContextualFlagsOf<ContextOf<A>>> = {
+    allowGenerationOverride: false,
+    allowRawStatements: true,
+    forcePrepareSimpleQueries: false,
+    forcePrepareComplexQueries: false,
+  } as any;
 
   private logger!: Logger;
 
@@ -878,7 +884,7 @@ export class Repository<
     selector?: readonly [...S]
   ): WhereOption<M, M[]> | WhereOption<M, Pick<M, S[number]>[]> {
     return this.adapter
-      .Statement<M>()
+      .Statement<M>(this._overrides)
       .select(selector as readonly [...S])
       .from(this.class);
   }
@@ -956,7 +962,11 @@ export class Repository<
     log.verbose(
       `paginating ${Model.tableName(this.class)} with page size ${size}`
     );
-    return this.select()
+    return this.override({
+      forcePrepareComplexQueries: false,
+      forcePrepareSimpleQueries: false,
+    } as any)
+      .select()
       .orderBy([key, order])
       .paginate(size, ...ctxArgs);
   }

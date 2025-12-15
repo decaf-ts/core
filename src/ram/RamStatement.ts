@@ -4,7 +4,7 @@ import { Model } from "@decaf-ts/decorator-validation";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Statement } from "../query/Statement";
 import { Metadata } from "@decaf-ts/decoration";
-import { Adapter } from "../persistence/index";
+import { Adapter, AdapterFlags } from "../persistence/index";
 
 /**
  * @description RAM-specific query statement builder
@@ -38,8 +38,8 @@ export class RamStatement<
   R,
   A extends Adapter<M, any, RawRamQuery<any>, RamContext>,
 > extends Statement<M, A, R, RawRamQuery<any>> {
-  constructor(adapter: A) {
-    super(adapter);
+  constructor(adapter: A, overrides?: Partial<AdapterFlags>) {
+    super(adapter, overrides);
   }
 
   /**

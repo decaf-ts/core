@@ -29,7 +29,6 @@ import {
   AdapterFlags,
   type ContextOf,
   PersistenceKeys,
-  RawResult,
   UnsupportedError,
 } from "../persistence";
 import { QueryError } from "./errors";

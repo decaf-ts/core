@@ -6,14 +6,11 @@ import {
   DirectionLimitOffset,
   pk,
   prepared,
-  query,
-  QueryOptions,
   table,
   UnsupportedError,
 } from "../../src";
 import { Adapter } from "../../src/persistence/Adapter";
 import { Condition } from "../../src/query/Condition";
-import { QueryError } from "../../src/query/errors";
 import { OrderDirection } from "../../src/repository/constants";
 import { Repository } from "../../src/repository/Repository";
 import { RamAdapter } from "../../src/ram/RamAdapter";
@@ -197,6 +194,7 @@ describe("Statement execution strategy", () => {
       .orderBy(["name", OrderDirection.ASC])
       .paginate(2);
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const page = await result.page();
 
     expect(statementSpy).toHaveBeenCalledTimes(1);
@@ -245,6 +243,7 @@ describe("Statement execution strategy", () => {
       forcePrepareSimpleQueries: false,
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const prepared = Repository.statements(repo.constructor as any);
 
     const statementSpy = jest.spyOn(repoWithOverrides as any, "statement");
@@ -254,7 +253,7 @@ describe("Statement execution strategy", () => {
       .and(Condition.attr<StatementTestModel>("name").eq("carol"));
 
     const page = await repoWithOverrides.select().where(condition).paginate(3);
-
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const result = await page.page();
 
     expect(statementSpy).toHaveBeenCalledTimes(1);

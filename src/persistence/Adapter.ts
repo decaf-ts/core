@@ -13,7 +13,7 @@ import {
   ModelConstructor,
 } from "@decaf-ts/decorator-validation";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
-import { RawExecutor, RawPagedExecutor } from "../interfaces/RawExecutor";
+import { RawPagedExecutor } from "../interfaces/RawExecutor";
 import { DefaultAdapterFlags, PersistenceKeys } from "./constants";
 import type { Repository } from "../repository/Repository";
 import type { Sequence } from "./Sequence";

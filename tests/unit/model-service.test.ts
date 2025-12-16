@@ -143,11 +143,13 @@ describe("Model Services", () => {
         "No ModelService found for alias TestNameModelService"
       );
 
+      // get by model
       ModelService.forModel(TestNameModel);
       const s1 = ModelService.getService(TestNameModel);
       expect(s1).toBeDefined();
       expect(s1).toBeInstanceOf(ModelService);
 
+      // get by name
       Injectables.setRegistry(new InjectableRegistryImp());
       expect(() => ModelService.getService(TestNameModel)).toThrow(
         "No ModelService found for alias TestNameModelService"
@@ -156,6 +158,34 @@ describe("Model Services", () => {
       const s2 = ModelService.getService("TestNameModelService");
       expect(s2).toBeDefined();
       expect(s2).toBeInstanceOf(ModelService);
+    });
+
+    it("should get already created service", async () => {
+      Injectables.setRegistry(new InjectableRegistryImp());
+      expect(() => ModelService.getService(TestNameModel)).toThrow(
+        "No ModelService found for alias TestNameModelService"
+      );
+
+      @service("TestNameModelService")
+      class TestNameModelService extends ModelService<TestNameModel> {
+        constructor() {
+          super(TestNameModel);
+        }
+
+        method() {
+          throw new Error("Method not implemented");
+        }
+      }
+
+      const serviceInstance = new TestNameModelService();
+      const serviceFromRegistry = ModelService.forModel(TestNameModel);
+      expect(serviceInstance.name).toEqual("TestNameModelService");
+      expect(serviceInstance.name).toEqual(serviceFromRegistry.name);
+      expect(serviceFromRegistry).toBeDefined();
+      expect(() =>
+        (serviceFromRegistry as TestNameModelService).method()
+      ).toThrow("Method not implemented");
+      expect(() => serviceInstance.method()).toThrow("Method not implemented");
     });
   });
 });

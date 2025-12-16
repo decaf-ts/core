@@ -258,8 +258,11 @@ export class ModelService<
     return this.clazz;
   }
 
-  constructor(private readonly clazz: Constructor<M>) {
-    super();
+  constructor(
+    private readonly clazz: Constructor<M>,
+    name?: string
+  ) {
+    super(name ?? `${clazz.name}Service`);
     this.repo = Repository.forModel(clazz);
   }
 

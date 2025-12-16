@@ -394,12 +394,6 @@ export abstract class Adapter<
     if (flags.correlationId)
       log = log.for({ correlationId: flags.correlationId });
 
-    // const isModelArray = Array.isArray(model);
-    // const ignoredProps = isModelArray
-    //     ? []
-    //   : Metadata.validationExceptions(model, operation as any);
-    // const meta = Metadata.get(model as any);
-
     return Object.assign({}, DefaultAdapterFlags, flags, {
       affectedTables: (Array.isArray(model) ? model : [model]).map(
         Model.tableName

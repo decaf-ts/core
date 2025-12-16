@@ -671,9 +671,9 @@ export function relation(relationKey: string, meta: RelationsMetadata) {
       // const existingNoValidate =
       //   Metadata.get(
       //     obj.constructor,
-      //     PersistenceKeys.NO_VALIDATE
+      //     PersistenceKeys.NO_VALIDATE + '2'
       //   ) || [];
-      // Metadata.set(obj.constructor, PersistenceKeys.NO_VALIDATE, [...new Set([...existingNoValidate, attr])]); 
+      // Metadata.set(obj.constructor, PersistenceKeys.NO_VALIDATE + '2', [...new Set([...existingNoValidate, attr])]); 
       return propMetadata(
         Metadata.key(PersistenceKeys.RELATIONS, attr),
         Object.assign({}, meta, {

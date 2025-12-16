@@ -1,3 +1,5 @@
+import { RawResult } from "../persistence/types";
+
 /**
  * @description Interface for executing raw queries
  * @summary Defines a contract for objects that can execute raw queries of a specific type and return results
@@ -14,4 +16,19 @@ export interface RawExecutor<Q> {
    * @return {Promise<R>} A promise that resolves to the result of type R
    */
   raw<R>(rawInput: Q, ...args: any[]): Promise<R>;
+}
+
+export interface RawPagedExecutor<Q> {
+  /**
+   * @description Executes a raw query
+   * @summary Processes a raw query input and returns a promise that resolves to the result
+   * @template R - The result type that will be returned
+   * @param {Q} rawInput - The raw query to execute
+   * @return {Promise<R>} A promise that resolves to the result of type R
+   */
+  raw<R, D extends boolean>(
+    rawInput: Q,
+    docsOnly: D,
+    ...args: any[]
+  ): Promise<RawResult<R, D>>;
 }

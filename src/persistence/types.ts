@@ -146,8 +146,12 @@ export type PreparedModel = {
 };
 
 export type AdapterFlags<LOG extends Logger = Logger> = RepositoryFlags<LOG> & {
-  allowRawStatements: boolean;
   allowGenerationOverride: boolean;
-  squashSimpleQueries: boolean;
-  allowComplexStatements: boolean;
+  allowRawStatements: boolean;
+  forcePrepareSimpleQueries: boolean;
+  forcePrepareComplexQueries: boolean;
 };
+
+export type RawResult<R, D extends boolean> = D extends true
+  ? R
+  : { data: R; count?: number };

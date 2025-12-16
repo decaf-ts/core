@@ -7,7 +7,7 @@ import type {
   SelectSelector,
 } from "./selectors";
 import { Condition } from "./Condition";
-import { InternalError, prefixMethod } from "@decaf-ts/db-decorators";
+import { prefixMethod } from "@decaf-ts/db-decorators";
 import { final, toCamelCase } from "@decaf-ts/logging";
 import type {
   CountOption,
@@ -24,7 +24,13 @@ import type {
 } from "./options";
 import { Paginatable } from "../interfaces/Paginatable";
 import { Paginator } from "./Paginator";
-import { Adapter, type ContextOf, PersistenceKeys } from "../persistence";
+import {
+  Adapter,
+  AdapterFlags,
+  type ContextOf,
+  PersistenceKeys,
+  UnsupportedError,
+} from "../persistence";
 import { QueryError } from "./errors";
 import { Logger } from "@decaf-ts/logging";
 import { Constructor } from "@decaf-ts/decoration";
@@ -37,7 +43,8 @@ import { Context } from "../persistence/Context";
 import { DirectionLimitOffset, PreparedStatement } from "./types";
 import { QueryClause } from "./types";
 import { GroupOperator, Operator, PreparedStatementKeys } from "./constants";
-import { OrderDirection } from "../repository/index";
+import { OrderDirection } from "../repository/constants";
+import { Repository } from "../repository/Repository";
 /**
  * @description Base class for database query statements
  * @summary Provides a foundation for building and executing database queries
@@ -112,7 +119,10 @@ export abstract class Statement<
 
   protected prepared?: PreparedStatement<M>;
 
-  protected constructor(protected adapter: Adapter<any, any, Q, any>) {
+  protected constructor(
+    protected adapter: Adapter<any, any, Q, any>,
+    protected overrides?: Partial<AdapterFlags>
+  ) {
     super();
     [this.execute, this.paginate].forEach((m) => {
       prefixMethod(
@@ -127,7 +137,7 @@ export abstract class Statement<
           ) {
             const ctx = await this.adapter.context(
               PersistenceKeys.QUERY,
-              {},
+              this.overrides || {},
               this.fromSelector
             );
             execArgs = [...execArgs, ctx];
@@ -137,7 +147,9 @@ export abstract class Statement<
             m.name
           );
 
-          if (!ctx.get("allowRawStatements") && !this.prepared)
+          const forceSimple = ctx.get("forcePrepareSimpleQueries");
+          const forceComplex = ctx.get("forcePrepareComplexQueries");
+          if ((forceSimple && this.isSimpleQuery()) || forceComplex)
             await this.prepare(ctx);
           return ctxArgs;
         },
@@ -239,19 +251,41 @@ export abstract class Statement<
 
   @final()
   async execute(...args: MaybeContextualArg<ContextOf<A>>): Promise<R> {
-    const ctx = args.pop() as ContextOf<A>; // handled by prefix
     try {
+      if (this.prepared) return this.executePrepared(...args);
       const query: Q = this.build();
-      return (await this.raw(query, ctx)) as R;
+      return (await this.raw<R>(
+        query,
+        ...(args as ContextualArgs<ContextOf<A>>)
+      )) as unknown as R;
     } catch (e: unknown) {
-      throw new InternalError(e as Error);
+      throw new QueryError(e as Error);
     }
+  }
+
+  protected async executePrepared(
+    ...argz: MaybeContextualArg<ContextOf<A>>
+  ): Promise<R> {
+    const repo = Repository.forModel(this.fromSelector, this.adapter.alias);
+    const { method, args, params } = this.prepared as PreparedStatement<any>;
+    return repo.statement(method, ...args, params, ...argz);
   }
 
   async raw<R>(rawInput: Q, ...args: ContextualArgs<ContextOf<A>>): Promise<R> {
     const { ctx, ctxArgs } = this.logCtx(args, this.raw);
-    const results = await this.adapter.raw<R>(rawInput, ...ctxArgs);
-    if (!this.selectSelector) return results;
+    const allowRawStatements = ctx.get("allowRawStatements");
+    if (!allowRawStatements)
+      throw new UnsupportedError(
+        "Raw statements are not allowed in the current configuration"
+      );
+    const results: R = await this.adapter.raw<R, true>(
+      rawInput,
+      true,
+      ...ctxArgs
+    );
+    if (!this.selectSelector) {
+      return results as unknown as R;
+    }
     const pkAttr = Model.pk(this.fromSelector);
 
     const processor = function recordProcessor(
@@ -388,73 +422,6 @@ export abstract class Statement<
     }
 
     return squashed;
-    //
-    //
-    //
-    // let attrs = rawStatement.method.split(
-    //   new RegExp(
-    //     `(${[QueryClause.FIND_BY, QueryClause.SELECT, QueryClause.ORDER_BY, QueryClause.GROUP_BY, QueryClause.AND, QueryClause.OR].join("|")})`,
-    //     "i"
-    //   )
-    // );
-    //
-    // attrs = attrs
-    //   .map((s) => s.trim())
-    //   .filter(Boolean)
-    //   .filter(
-    //     (s) =>
-    //       ![
-    //         QueryClause.FIND_BY,
-    //         QueryClause.SELECT,
-    //         QueryClause.ORDER_BY,
-    //         QueryClause.GROUP_BY,
-    //         toPascalCase(OrderDirection.ASC),
-    //         toPascalCase(OrderDirection.DSC),
-    //       ].find((c) => s.includes(c))
-    //   );
-    //
-    // const fullOrderBy = rawStatement.method.split(QueryClause.ORDER_BY);
-    // let orderBy: any;
-    // if (fullOrderBy.length) {
-    //   orderBy = fullOrderBy[1]
-    //     .split(
-    //       new RegExp(
-    //         `${[toPascalCase(OrderDirection.ASC), toPascalCase(OrderDirection.DSC), QueryClause.GROUP_BY + ".*", QueryClause.THEN_BY].join("|")}`,
-    //         "i"
-    //       )
-    //     )
-    //     .map((s) => s.trim())
-    //     .filter(Boolean);
-    //   orderBy = [
-    //     orderBy[0] as any,
-    //     fullOrderBy[1].includes(toPascalCase(OrderDirection.ASC))
-    //       ? OrderDirection.ASC
-    //       : OrderDirection.DSC,
-    //   ];
-    // }
-    //
-    // const canBeSquashed = (!attrs.length
-    //   || (attrs.length === 1 && attrs[0] === orderBy[0]
-    //
-    // if (attrs.length === 1 && attrs[0] === orderBy[0]) {
-    //   // there's an order by
-    //   const attr = attrs[0];
-    //   if (attrFromWhere && attrFromWhere !== attr) {
-    //     return rawStatement;
-    //   }
-    //   return Object.assign({}, rawStatement, {
-    //     method: PreparedStatementKeys.LIST_BY,
-    //     args: [toCamelCase(attr), orderBy[1]],
-    //     // args: [toCamelCase(attr), orderBy[1], this.size],
-    //   });
-    // } else {
-    //   // there's no orderBy
-    //   return Object.assign({}, rawStatement, {
-    //     method: rawStatement.method.replace(QueryClause.FIND_BY, PreparedStatementKeys.LIST_BY),
-    //     args: [...rawStatement.args],
-    //     // args: [...rawStatement.args, this.size],
-    //   });
-    // }
   }
 
   async prepare(ctx?: ContextOf<A>): Promise<StatementExecutor<M, R>> {
@@ -462,11 +429,14 @@ export abstract class Statement<
       ctx ||
       (await this.adapter.context(
         PersistenceKeys.QUERY,
-        {},
+        this.overrides || {},
         this.fromSelector
       ));
 
-    if ((ctx as ContextOf<A>).get("squashSimpleQueries")) {
+    if (
+      this.isSimpleQuery() &&
+      (ctx as ContextOf<A>).get("forcePrepareSimpleQueries")
+    ) {
       const squashed = this.squash(ctx as ContextOf<A>);
       if (squashed) {
         this.prepared = squashed;
@@ -474,7 +444,7 @@ export abstract class Statement<
       }
     }
     const args: (string | number)[] = [];
-    const params: Record<"limit" | "skip", any> = {} as any;
+    const params: any = {} as any;
 
     const prepared: PreparedStatement<any> = {
       class: this.fromSelector,
@@ -498,8 +468,10 @@ export abstract class Statement<
         QueryClause.SELECT,
         this.selectSelector.join(` ${QueryClause.AND.toLowerCase()} `)
       );
-    if (this.orderBySelector)
-      method.push(QueryClause.ORDER_BY, ...(this.orderBySelector as string[]));
+    if (this.orderBySelector) {
+      method.push(QueryClause.ORDER_BY, this.orderBySelector[0] as string);
+      params.direction = this.orderBySelector[1];
+    }
     if (this.groupBySelector)
       method.push(QueryClause.GROUP_BY, this.groupBySelector as string);
     if (this.limitSelector) params.limit = this.limitSelector;
@@ -509,19 +481,17 @@ export abstract class Statement<
     prepared.method = toCamelCase(method.join(" "));
     prepared.params = params;
     this.prepared = prepared;
+    return this;
+  }
 
-    if (
-      !(ctx as ContextOf<A>).get("squashSimpleQueries") ||
+  protected isSimpleQuery() {
+    return !(
       (this.selectSelector && this.selectSelector.length) ||
       this.groupBySelector ||
       this.countSelector ||
       this.maxSelector ||
       this.minSelector
-    ) {
-      return this;
-    }
-    this.prepared = prepared;
-    return this;
+    );
   }
 
   protected abstract build(): Q;
@@ -541,8 +511,11 @@ export abstract class Statement<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const ctx = args.pop() as ContextOf<A>; // handled by prefix. kept for example for overrides
     try {
-      const query = this.build();
-      return this.adapter.Paginator(query, size, this.fromSelector);
+      return this.adapter.Paginator(
+        this.prepared || this.build(),
+        size,
+        this.fromSelector
+      );
     } catch (e: any) {
       throw new QueryError(e);
     }

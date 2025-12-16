@@ -19,21 +19,15 @@ import type { Migration } from "../persistence/types";
   op: OperationKeys
 ): string[] {
   // const relations = Model.relations(model as Constructor<M>) || [];
-  // const noValidation: Record<string, OperationKeys[]> =
-  //   Metadata.get(model, PersistenceKeys.NO_VALIDATE) || [];
-  // const novalidationEntries = Object.entries(noValidation)
-  //   .filter(([, val]) => val.includes(op))
-  //   .map(([key]) => key)
-
+  const noValidation: string[] =
+    Metadata.get(model, PersistenceKeys.NO_VALIDATE) || [];
+  const novalidationEntries = Object.entries(noValidation)
+    .filter(([, val]) => val.includes(op))
+    .map(([key]) => key)
+  return noValidation;
+  // return novalidationEntries;
   // return [...new Set([...relations, ...novalidationEntries])];
 
-  const noValidation: Record<string, OperationKeys[]> | undefined =
-    Metadata.get(model, PersistenceKeys.NO_VALIDATE);
-  if (!noValidation) return [];
-
-  return Object.entries(noValidation)
-    .filter(([, val]) => val.includes(op))
-    .map(([key]) => key);
 }.bind(Metadata);
 
 (Model as any).shouldValidateNestedHandler = function <M extends Model>(

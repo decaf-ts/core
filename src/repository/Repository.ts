@@ -313,10 +313,13 @@ export class Repository<
       );
 
     if (!ignoreValidate) {
+      // const metaObj = Metadata.get(this.class, PersistenceKeys.NO_VALIDATE);
       const relations = Model.relations(this.class);
+      // const ignoredProps = Metadata.validationExceptions(this.class, OperationKeys.CREATE);
       const errors = await Promise.resolve(
         model.hasErrors(
           ...relations,
+          // ...ignoredProps,
           ...(contextArgs.context.get("ignoredValidationProperties") || [])
         )
       );
@@ -641,10 +644,13 @@ export class Repository<
       );
 
     if (!ignoreValidate) {
+      // const metaObj = Metadata.get(this.class, PersistenceKeys.NO_VALIDATE);
       const relations = Model.relations(this.class);
+      // const ignoredProps = Metadata.validationExceptions(this.class, OperationKeys.UPDATE);
       const errors = await Promise.resolve(
         model.hasErrors(
           oldModel,
+          // ...ignoredProps,
           ...relations,
           ...(contextArgs.context.get("ignoredValidationProperties") || [])
         )

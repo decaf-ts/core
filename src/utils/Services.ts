@@ -1,26 +1,36 @@
-import {
-  Context,
-  type ContextOfRepository,
+import type {
+  ContextOfRepository,
   Contextual,
-  DefaultRepositoryFlags,
+  FlagsOf as ContextualFlagsOf,
+} from "@decaf-ts/db-decorators";
+import {
   InternalError,
   IRepository,
   OperationKeys,
   type PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
 import { final, Logger, Logging } from "@decaf-ts/logging";
-import { Constructor } from "@decaf-ts/decoration";
+import type { Constructor } from "@decaf-ts/decoration";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import type { MaybeContextualArg } from "./ContextualLoggedClass";
-import { ContextualArgs, ContextualizedArgs } from "./ContextualLoggedClass";
-import { FlagsOf, LoggerOf } from "../persistence/index";
-import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
+import type {
+  ContextualArgs,
+  ContextualizedArgs,
+} from "./ContextualLoggedClass";
+import {
+  type AdapterFlags,
+  type FlagsOf,
+  type LoggerOf,
+} from "../persistence/types";
+import { Model, type ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Repository } from "../repository/Repository";
 import { create, del, read, service, update } from "./decorators";
+import { Context } from "../persistence/Context";
+import { DefaultAdapterFlags } from "../persistence/constants";
 
-export abstract class Service<C extends Context<any> = any>
-  implements Contextual<C>
-{
+export abstract class Service<
+  C extends Context<AdapterFlags> = Context<AdapterFlags>,
+> {
   protected constructor(readonly name?: string) {}
 
   /**
@@ -43,11 +53,11 @@ export abstract class Service<C extends Context<any> = any>
     let log = (flags.logger || Logging.for(this.toString())) as Logger;
     if (flags.correlationId)
       log = log.for({ correlationId: flags.correlationId });
-    return Object.assign({}, DefaultRepositoryFlags, flags, {
+    return Object.assign({}, DefaultAdapterFlags, flags, {
       timestamp: new Date(),
       operation: operation,
       logger: log,
-    }) as FlagsOf<C>;
+    }) as unknown as FlagsOf<C>;
   }
 
   /**
@@ -65,10 +75,11 @@ export abstract class Service<C extends Context<any> = any>
       | OperationKeys.UPDATE
       | OperationKeys.DELETE
       | string,
-    overrides: Partial<FlagsOf<C>>,
+    overrides: Partial<ContextualFlagsOf<C>>,
     ...args: any[]
   ): Promise<C> {
-    const flags = await this.flags(operation, overrides, ...args);
+    const normalizedOverrides = overrides as Partial<FlagsOf<C>>;
+    const flags = await this.flags(operation, normalizedOverrides, ...args);
     return new this.Context().accumulate(flags) as unknown as C;
   }
 
@@ -151,12 +162,12 @@ export abstract class Service<C extends Context<any> = any>
           | string
       ): Promise<Context<any>> {
         return new Context().accumulate(
-          Object.assign({}, DefaultRepositoryFlags, {
+          Object.assign({}, DefaultAdapterFlags, {
             timestamp: new Date(),
             operation: operation,
             logger: Logging.get(),
           })
-        ) as FlagsOf<C>;
+        );
       },
     };
 

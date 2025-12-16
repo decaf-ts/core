@@ -1,13 +1,11 @@
 import {
   BaseError,
   InternalError,
-  Context,
   OperationKeys,
-  DefaultRepositoryFlags,
-  Contextual,
   BulkCrudOperationKeys,
   PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
+import type { FlagsOf as ContextualFlagsOf } from "@decaf-ts/db-decorators";
 import { type Observer } from "../interfaces/Observer";
 import {
   hashObj,
@@ -15,8 +13,8 @@ import {
   ModelConstructor,
 } from "@decaf-ts/decorator-validation";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
-import { RawExecutor } from "../interfaces/RawExecutor";
-import { PersistenceKeys } from "./constants";
+import { RawPagedExecutor } from "../interfaces/RawExecutor";
+import { DefaultAdapterFlags, PersistenceKeys } from "./constants";
 import type { Repository } from "../repository/Repository";
 import type { Sequence } from "./Sequence";
 import { ErrorParser } from "../interfaces";
@@ -24,6 +22,7 @@ import { Statement } from "../query/Statement";
 import { final, Logger } from "@decaf-ts/logging";
 import type { Dispatch } from "./Dispatch";
 import {
+  type AdapterFlags,
   type EventIds,
   FlagsOf,
   Migration,
@@ -31,10 +30,12 @@ import {
   PersistenceObservable,
   PersistenceObserver,
   PreparedModel,
+  RawResult,
 } from "./types";
 import { ObserverHandler } from "./ObserverHandler";
 import { Impersonatable, Logging } from "@decaf-ts/logging";
 import { AdapterDispatch } from "./types";
+import { Context } from "./Context";
 import {
   Decoration,
   DefaultFlavour,
@@ -47,6 +48,8 @@ import {
   ContextualizedArgs,
   ContextualLoggedClass,
 } from "../utils/ContextualLoggedClass";
+import { Paginator } from "../query/Paginator";
+import { PreparedStatement } from "../query/index";
 
 const flavourResolver = Decoration["flavourResolver"].bind(Decoration);
 Decoration["flavourResolver"] = (obj: object) => {
@@ -176,12 +179,11 @@ export abstract class Adapter<
     CONF,
     CONN,
     QUERY,
-    CONTEXT extends Context<any> = Context,
+    CONTEXT extends Context<AdapterFlags> = Context,
   >
   extends ContextualLoggedClass<CONTEXT>
   implements
-    RawExecutor<QUERY>,
-    Contextual<CONTEXT>,
+    RawPagedExecutor<QUERY>,
     PersistenceObservable<CONTEXT>,
     PersistenceObserver<CONTEXT>,
     Impersonatable<any, [Partial<CONF>, ...any[]]>,
@@ -302,11 +304,15 @@ export abstract class Adapter<
    * @template M - The model type
    * @return {Statement} A statement builder for the model
    */
-  abstract Statement<M extends Model>(): Statement<
-    M,
-    Adapter<CONF, CONN, QUERY, CONTEXT>,
-    any
-  >;
+  abstract Statement<M extends Model>(
+    overrides?: Partial<AdapterFlags>
+  ): Statement<M, Adapter<CONF, CONN, QUERY, CONTEXT>, any>;
+
+  abstract Paginator<M extends Model>(
+    query: QUERY | PreparedStatement<M>,
+    size: number,
+    clazz: Constructor<M>
+  ): Paginator<M, any, QUERY>;
 
   /**
    * @description Creates a new dispatch instance
@@ -388,7 +394,7 @@ export abstract class Adapter<
     if (flags.correlationId)
       log = log.for({ correlationId: flags.correlationId });
 
-    return Object.assign({}, DefaultRepositoryFlags, flags, {
+    return Object.assign({}, DefaultAdapterFlags, flags, {
       affectedTables: (Array.isArray(model) ? model : [model]).map(
         Model.tableName
       ),
@@ -399,7 +405,7 @@ export abstract class Adapter<
         ? []
         : Metadata.validationExceptions(model, operation as any),
       logger: log,
-    }) as FlagsOf<CONTEXT>;
+    }) as unknown as FlagsOf<CONTEXT>;
   }
 
   /**
@@ -429,7 +435,7 @@ export abstract class Adapter<
       | OperationKeys.UPDATE
       | OperationKeys.DELETE
       | string,
-    overrides: Partial<FlagsOf<CONTEXT>>,
+    overrides: Partial<ContextualFlagsOf<CONTEXT>>,
     model: Constructor<M> | Constructor<M>[],
     ...args: any[]
   ): Promise<CONTEXT> {
@@ -437,7 +443,12 @@ export abstract class Adapter<
     log.debug(
       `Creating new context for ${operation} operation on ${Array.isArray(model) ? model.map((m) => m.name) : model.name} model with flag overrides: ${JSON.stringify(overrides)}`
     );
-    const flags = await this.flags(operation, model, overrides, ...args);
+    const flags = await this.flags(
+      operation,
+      model,
+      overrides as Partial<FlagsOf<CONTEXT>>,
+      ...args
+    );
     return new this.Context().accumulate(flags) as unknown as CONTEXT;
   }
 
@@ -714,10 +725,11 @@ export abstract class Adapter<
    * @param {...any[]} args - Additional arguments specific to the adapter implementation
    * @return {Promise<R>} A promise that resolves to the query result
    */
-  abstract raw<R>(
+  abstract raw<R, D extends boolean>(
     rawInput: QUERY,
+    docsOnly: D,
     ...args: ContextualArgs<CONTEXT>
-  ): Promise<R>;
+  ): Promise<RawResult<R, D>>;
 
   /**
    * @description Registers an observer for database events

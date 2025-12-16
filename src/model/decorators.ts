@@ -278,13 +278,17 @@ export async function createdByOnCreateUpdate<
  * ```
  */
 export function createdBy() {
-  const key = PersistenceKeys.CREATED_BY;
-
   function createdBy() {
-    return apply(onCreate(createdByOnCreateUpdate), propMetadata(key, {}));
+    return function createdBy(target: object, prop?: any) {
+      return apply(
+        onCreate(createdByOnCreateUpdate),
+        propMetadata(PersistenceKeys.CREATED_BY, prop),
+        generated()
+      )(target, prop);
+    };
   }
 
-  return Decoration.for(key)
+  return Decoration.for(PersistenceKeys.CREATED_BY)
     .define({
       decorator: createdBy,
       args: [],
@@ -307,11 +311,16 @@ export function createdBy() {
  * ```
  */
 export function updatedBy() {
-  const key = PersistenceKeys.UPDATED_BY;
   function updatedBy() {
-    return apply(onUpdate(createdByOnCreateUpdate), propMetadata(key, {}));
+    return function updatedBy(target: object, prop?: any) {
+      return apply(
+        onUpdate(createdByOnCreateUpdate),
+        propMetadata(PersistenceKeys.UPDATED_BY, prop),
+        generated()
+      )(target, prop);
+    };
   }
-  return Decoration.for(key)
+  return Decoration.for(PersistenceKeys.UPDATED_BY)
     .define({
       decorator: updatedBy,
       args: [],
@@ -608,6 +617,15 @@ export function manyToMany<M extends Model>(
       args: [clazz, cascadeOptions, populate, joinTableOpts, fk],
     })
     .apply();
+}
+
+export function generated() {
+  return function generated(target: object, prop?: any) {
+    return propMetadata(Metadata.key(PersistenceKeys.GENERATED, prop), true)(
+      target,
+      prop
+    );
+  };
 }
 
 export function noValidateOn(...ops: OperationKeys[]) {

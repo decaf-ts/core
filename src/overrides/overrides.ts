@@ -1,17 +1,17 @@
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { Model } from "@decaf-ts/decorator-validation";
 import { DBKeys, InternalError, OperationKeys } from "@decaf-ts/db-decorators";
-import {
-  Adapter,
-  type Migration,
-  PersistenceKeys,
-  UnsupportedError,
-} from "../persistence/index";
+import { Adapter } from "../persistence/Adapter";
+
+import { PersistenceKeys } from "../persistence/constants";
+import { UnsupportedError } from "../persistence/errors";
 import { type ExtendedRelationsMetadata } from "../model";
-import { SequenceOptions } from "../interfaces/index";
-import { IndexMetadata, Repository } from "../repository/index";
+import { SequenceOptions } from "../interfaces/SequenceOptions";
+import { IndexMetadata } from "../repository/types";
+import { Repository } from "../repository/Repository";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import { Service } from "../utils/Services";
+import type { Migration } from "../persistence/types";
 
 (Metadata as any).validationExceptions = function <M extends Model>(
   this: Metadata,
@@ -88,6 +88,44 @@ import { Service } from "../utils/Services";
     ) || []
   );
 };
+
+(Metadata as any).generated = function generated<M extends Model>(
+  model: M | Constructor<M>,
+  prop: keyof M
+): boolean {
+  return !!Metadata.get(
+    typeof model !== "function" ? (model.constructor as any) : model,
+    Metadata.key(PersistenceKeys.GENERATED, prop as string)
+  );
+}.bind(Metadata);
+
+(Metadata as any).createdBy = function createdBy<M extends Model>(
+  model: M | Constructor<M>
+): keyof M {
+  const meta = Metadata.get(
+    typeof model !== "function" ? (model.constructor as any) : model,
+    PersistenceKeys.CREATED_BY
+  );
+  if (!meta)
+    throw new InternalError(
+      `No createdBy metadata found for model. did you use @createdBy()?`
+    );
+  return meta;
+}.bind(Metadata);
+
+(Metadata as any).updatedBy = function updatedBy<M extends Model>(
+  model: M | Constructor<M>
+): keyof M {
+  const meta = Metadata.get(
+    typeof model !== "function" ? (model.constructor as any) : model,
+    PersistenceKeys.UPDATED_BY
+  );
+  if (!meta)
+    throw new InternalError(
+      `No updatedBy metadata found for model. did you use @updatedBy()?`
+    );
+  return meta;
+}.bind(Metadata);
 
 (Model as any).tableName = function <M extends Model>(
   model: Constructor<M> | M

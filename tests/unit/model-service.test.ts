@@ -114,7 +114,7 @@ describe("Model Services", () => {
     @table("tst_name")
     @model()
     class TestNameModel extends IdentifiedBaseModel {
-      @pk({ type: "Number", generated: true })
+      @pk()
       id!: number;
 
       @column("tst_name")

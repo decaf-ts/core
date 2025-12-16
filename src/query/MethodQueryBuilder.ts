@@ -1,15 +1,15 @@
-import { Condition, OrderBySelector } from "../query";
-import { FilterDescriptor, QueryAssist, QueryClause } from "./types";
+import { Condition } from "../query/Condition";
+import { OrderBySelector } from "../query/selectors";
+import {
+  FilterDescriptor,
+  OrderLimitOffsetExtract,
+  QueryAssist,
+  QueryClause,
+} from "./types";
 import { OperatorsMap } from "./utils";
 
 const lowerFirst = (str: string): string =>
   str.charAt(0).toLowerCase() + str.slice(1);
-
-export type OrderLimitOffsetExtract = {
-  orderBy?: OrderBySelector<any>[];
-  limit?: number;
-  offset?: number;
-};
 
 /**
  * @description

@@ -1,17 +1,10 @@
-import {
-  Condition,
-  GroupOperator,
-  Operator,
-  Paginator,
-  QueryError,
-} from "../query";
+import { Condition, GroupOperator, Operator, QueryError } from "../query";
 import { RamContext, RawRamQuery } from "./types";
 import { Model } from "@decaf-ts/decorator-validation";
-import { RamPaginator } from "./RamPaginator";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Statement } from "../query/Statement";
 import { Metadata } from "@decaf-ts/decoration";
-import { Adapter } from "../persistence/index";
+import { Adapter, AdapterFlags } from "../persistence/index";
 
 /**
  * @description RAM-specific query statement builder
@@ -45,8 +38,8 @@ export class RamStatement<
   R,
   A extends Adapter<M, any, RawRamQuery<any>, RamContext>,
 > extends Statement<M, A, R, RawRamQuery<any>> {
-  constructor(adapter: A) {
-    super(adapter);
+  constructor(adapter: A, overrides?: Partial<AdapterFlags>) {
+    super(adapter, overrides);
   }
 
   /**
@@ -126,27 +119,6 @@ export class RamStatement<
     };
     if (this.orderBySelector) result.sort = this.getSort();
     return result as RawRamQuery<any>;
-  }
-
-  /**
-   * @description Creates a paginator for the query
-   * @summary Builds the query and wraps it in a RamPaginator to enable pagination of results.
-   * This allows retrieving large result sets in smaller chunks.
-   * @param {number} size - The page size (number of results per page)
-   * @return {Promise<Paginator<M, R, RawRamQuery<M>>>} A promise that resolves to a paginator for the query
-   */
-  async paginate(size: number): Promise<Paginator<M, R, RawRamQuery<any>>> {
-    try {
-      const query = this.build();
-      return new RamPaginator<M, R>(
-        this.adapter,
-        query,
-        size,
-        this.fromSelector
-      );
-    } catch (e: any) {
-      throw new InternalError(e);
-    }
   }
 
   /**

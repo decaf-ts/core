@@ -12,10 +12,10 @@ import {
 import { final, Logger, Logging } from "@decaf-ts/logging";
 import type { Constructor } from "@decaf-ts/decoration";
 import { Injectables } from "@decaf-ts/injectable-decorators";
-import type { MaybeContextualArg } from "./ContextualLoggedClass";
 import type {
   ContextualArgs,
   ContextualizedArgs,
+  MaybeContextualArg,
 } from "./ContextualLoggedClass";
 import {
   type AdapterFlags,
@@ -251,16 +251,23 @@ export class ModelService<
   extends Service
   implements IRepository<M, ContextOfRepository<R>>
 {
-  protected repo!: R;
+  protected _repository!: R;
 
   get class() {
     if (!this.clazz) throw new InternalError(`Class not initialized`);
     return this.clazz;
   }
 
-  constructor(private readonly clazz: Constructor<M>) {
-    super();
-    this.repo = Repository.forModel(clazz);
+  get repo() {
+    if (!this._repository) this._repository = Repository.forModel(this.clazz);
+    return this._repository;
+  }
+
+  constructor(
+    private readonly clazz: Constructor<M>,
+    name?: string
+  ) {
+    super(name ?? `${clazz.name}Service`);
   }
 
   static getService<M extends Model<boolean>, S extends ModelService<M>>(

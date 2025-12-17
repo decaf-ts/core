@@ -129,8 +129,8 @@ export class MethodQueryBuilder {
     const parts = core.split(/OrderBy|GroupBy/)[0] || "";
     const conditions = parts.split(/And|Or/);
     return conditions.map((token) => {
-      const { field } = this.parseFieldAndOperator(token);
-      return field;
+      const { operator, field } = this.parseFieldAndOperator(token);
+      return field + (operator ?? "");
     });
   }
 

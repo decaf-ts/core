@@ -13,46 +13,18 @@ import { Injectables } from "@decaf-ts/injectable-decorators";
 import { Service } from "../utils/Services";
 import type { Migration } from "../persistence/types";
 
-(Model as any).nestedRelations = function <M extends Model>(
-  model: Constructor<M> | M,
-  existingRelations?: string[]
-): string[] | ExtendedRelationsMetadata {
-  if (!existingRelations?.length) existingRelations = Model.relations(model);
-  let inner: string[] = [];
-  const rels = Metadata.get(model as Constructor<M>, PersistenceKeys.RELATIONS);
-  if (!rels || !Object.keys(rels).length) return [...new Set([...existingRelations])];
-  for (const prop in rels) {
-    const relationMeta = rels[prop] as any;
-    if (relationMeta?.class && Model.relations(relationMeta.class)) {
-      existingRelations = [...existingRelations, ...Model.relations(relationMeta.class)];
-      inner = Model.nestedRelations(relationMeta.class, existingRelations);
-    }
-  }
-  return [...new Set([...existingRelations, ...inner])];
-};
-
 (Metadata as any).validationExceptions = function <M extends Model>(
   this: Metadata,
   model: Constructor<M>,
   op: OperationKeys
 ): string[] {
-  // const meta = Metadata.get(model, PersistenceKeys.RELATIONS);
-  const nestedRels = Model.nestedRelations(model); 
-  // const relations = Model.relations(model as Constructor<M>) || [];
-    // const noValidation2: string[] =
-    // Metadata.get(model, PersistenceKeys.NO_VALIDATE+'2') || [];
   const noValidation: string[] =
     Metadata.get(model, PersistenceKeys.NO_VALIDATE) || [];
   const novalidationEntries = Object.entries(noValidation)
     .filter(([, val]) => val.includes(op))
     .map(([key]) => key)
-  // return noValidation2;
-  // return noValidation;
-  // return novalidationEntries;
-
+  const nestedRels = Model.nestedRelations(model); 
   return [...new Set([...novalidationEntries,...nestedRels])];
-  // return [...new Set([...relations, ...noValidation2, ...novalidationEntries])];
-  // return [...new Set([...relations,...noValidation2])];
 
 }.bind(Metadata);
 
@@ -114,6 +86,26 @@ import type { Migration } from "../persistence/types";
       prop
     ) || []
   );
+};
+
+(Model as any).nestedRelations = function <M extends Model>(
+  model: Constructor<M> | M,
+  existingRelations?: string[]
+): string[] | ExtendedRelationsMetadata {
+  if (!existingRelations?.length) existingRelations = Model.relations(model);
+  let inner: string[] = [];
+  const rels = Metadata.get(model as Constructor<M>, PersistenceKeys.RELATIONS);
+  if (!rels || !Object.keys(rels).length) return [...new Set([...existingRelations])];
+  for (const prop in rels) {
+    const relationMeta = rels[prop] as any;
+    if (relationMeta?.class && Model.relations(relationMeta.class)) {
+      const innerModelRels = Model.relations(relationMeta.class) as string[];
+      const innerModelDotRels = innerModelRels.map((r) => `${prop}.${r}`);
+      existingRelations = [...existingRelations, ...innerModelRels,...innerModelDotRels];
+      inner = Model.nestedRelations(relationMeta.class, existingRelations);
+    }
+  }
+  return [...new Set([...existingRelations, ...inner])];
 };
 
 (Metadata as any).generated = function generated<M extends Model>(

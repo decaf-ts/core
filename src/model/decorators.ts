@@ -668,12 +668,6 @@ export function relation(relationKey: string, meta: RelationsMetadata) {
   function relation(relationKey: string, meta: RelationsMetadata) {
     return function relation(obj: any, attr: any) {
       propMetadata(relationKey, meta)(obj, attr);
-      // const existingNoValidate =
-      //   Metadata.get(
-      //     obj.constructor,
-      //     PersistenceKeys.NO_VALIDATE + '2'
-      //   ) || [];
-      // Metadata.set(obj.constructor, PersistenceKeys.NO_VALIDATE + '2', [...new Set([...existingNoValidate, attr])]); 
       return propMetadata(
         Metadata.key(PersistenceKeys.RELATIONS, attr),
         Object.assign({}, meta, {

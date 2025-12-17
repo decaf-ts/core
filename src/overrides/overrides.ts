@@ -18,36 +18,15 @@ import type { Migration } from "../persistence/types";
   model: Constructor<M>,
   op: OperationKeys
 ): string[] {
-  const noValidation: Record<string, OperationKeys[]> | undefined =
-    Metadata.get(model, PersistenceKeys.NO_VALIDATE);
-  if (!noValidation) return [];
-
-  return Object.entries(noValidation)
+  const noValidation: string[] =
+    Metadata.get(model, PersistenceKeys.NO_VALIDATE) || [];
+  const novalidationEntries = Object.entries(noValidation)
     .filter(([, val]) => val.includes(op))
-    .map(([key]) => key);
+    .map(([key]) => key)
+  const nestedRels = Model.nestedRelations(model); 
+  return [...new Set([...novalidationEntries,...nestedRels])];
+
 }.bind(Metadata);
-
-(Model as any).shouldValidateNestedHandler = function <M extends Model>(
-  model: M,
-  property: keyof M
-): boolean {
-  const metadata: any = Metadata.get(model.constructor as Constructor<M>);
-  if (!metadata) return false;
-  const relations = metadata[PersistenceKeys.RELATIONS];
-  const relation = metadata[PersistenceKeys.RELATION];
-  if (Array.isArray(relations) && relations?.includes(property)) {
-    const relationName = Object.keys(relation)[0];
-    const relationClassName = Model.isPropertyModel(model, property as string);
-
-    return (
-      relation[relationName]?.class !== relationClassName
-      // TODO: Revisit this
-      // ||
-      // relation[relationName]?.populate !== false
-    );
-  }
-  return true;
-}.bind(Model);
 
 (Metadata as any).migrationsFor = function <
   A extends Adapter<any, any, any, any>,
@@ -87,6 +66,26 @@ import type { Migration } from "../persistence/types";
       prop
     ) || []
   );
+};
+
+(Model as any).nestedRelations = function <M extends Model>(
+  model: Constructor<M> | M,
+  existingRelations?: string[]
+): string[] | ExtendedRelationsMetadata {
+  if (!existingRelations?.length) existingRelations = Model.relations(model);
+  let inner: string[] = [];
+  const rels = Metadata.get(model as Constructor<M>, PersistenceKeys.RELATIONS);
+  if (!rels || !Object.keys(rels).length) return [...new Set([...existingRelations])];
+  for (const prop in rels) {
+    const relationMeta = rels[prop] as any;
+    if (relationMeta?.class && Model.relations(relationMeta.class)) {
+      const innerModelRels = Model.relations(relationMeta.class) as string[];
+      const innerModelDotRels = innerModelRels.map((r) => `${prop}.${r}`);
+      existingRelations = [...existingRelations, ...innerModelRels,...innerModelDotRels];
+      inner = Model.nestedRelations(relationMeta.class, existingRelations);
+    }
+  }
+  return [...new Set([...existingRelations, ...inner])];
 };
 
 (Metadata as any).generated = function generated<M extends Model>(

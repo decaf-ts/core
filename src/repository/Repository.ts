@@ -642,7 +642,6 @@ export class Repository<
       const errors = await Promise.resolve(
         model.hasErrors(
           oldModel,
-          ...Model.relations(this.class),
           ...(contextArgs.context.get("ignoredValidationProperties") || [])
         )
       );

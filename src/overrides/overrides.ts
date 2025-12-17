@@ -28,26 +28,6 @@ import type { Migration } from "../persistence/types";
 
 }.bind(Metadata);
 
-(Model as any).shouldValidateNestedHandler = function <M extends Model>(
-  model: M,
-  property: keyof M
-): boolean {
-  const relations = Model.relations(model.constructor as Constructor<M>);
-  const relation = Metadata.get(model.constructor as Constructor<M>, PersistenceKeys.RELATION);
-  if (Array.isArray(relations) && relations?.includes(property as string)) {
-    const relationName = Object.keys(relation)[0];
-    const relationClassName = Model.isPropertyModel(model, property as string);
-
-    return (
-      relation[relationName]?.class?.name !== relationClassName
-      // TODO: Revisit this
-      // ||
-      // relation[relationName]?.populate !== false
-    );
-  }
-  return true;
-}.bind(Model);
-
 (Metadata as any).migrationsFor = function <
   A extends Adapter<any, any, any, any>,
 >(adapter?: A): Constructor<Migration<any, A>>[] {

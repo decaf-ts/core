@@ -83,16 +83,7 @@ describe(`Complex Database`, function () {
 
   let sequenceRepository: RamRepository<Seq>;
   let userRepository: RamRepository<TestUserModel>;
-  let userManyToOneRepository: RamRepository<TestUserManyToOneModel>;
-  let testDummyCountryModelRepository: RamRepository<TestDummyCountry>;
   let testPhoneModelRepository: RamRepository<TestPhoneModel>;
-  let testPhoneManyToOneModelRepository: RamRepository<TestPhoneManyToOneModel>;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  let testDummyPhoneModelRepository: RamRepository<TestDummyPhone>;
-  let testAddressModelRepository: RamRepository<TestAddressModel>;
-  let testCountryModelRepository: RamRepository<TestCountryModel>;
-  let noPopulateOnceModelRepository: RamRepository<NoPopulateOnceModel>;
-  let noPopulateManyModelRepository: RamRepository<NoPopulateManyModel>;
 
   let model: any;
 
@@ -101,21 +92,7 @@ describe(`Complex Database`, function () {
     expect(sequenceRepository).toBeDefined();
 
     userRepository = new Repository(adapter, TestUserModel);
-    userManyToOneRepository = new Repository(adapter, TestUserManyToOneModel);
     testPhoneModelRepository = new Repository(adapter, TestPhoneModel);
-    testPhoneManyToOneModelRepository = new Repository(adapter, TestPhoneManyToOneModel);
-    testAddressModelRepository = new Repository(adapter, TestAddressModel);
-    testCountryModelRepository = new Repository(adapter, TestCountryModel);
-    testDummyCountryModelRepository = new Repository(adapter, TestDummyCountry);
-    testDummyPhoneModelRepository = new Repository(adapter, TestDummyPhone);
-    noPopulateOnceModelRepository = new Repository(
-      adapter as any,
-      NoPopulateOnceModel
-    );
-    noPopulateManyModelRepository = new Repository(
-      adapter as any,
-      NoPopulateManyModel
-    );
 
     model = {
       name: "test country",
@@ -129,32 +106,50 @@ describe(`Complex Database`, function () {
     let sequenceCountry: Sequence;
    
     describe("Many to one relations", () => {
-        const phones = 
-        {
-          areaCode: "351",
-          number: "000-0000000",
-          user: {
-            name: "testuser",
-            email: "test@test.com",
-            age: 25,
-            address: {
-              street: "test street",
-              doorNumber: "test door",
-              apartmentNumber: "test number",
-              areaCode: "test area code",
-              city: "test city",
-              country: {
-                name: "test country",
-                countryCode: "tst",
-                locale: "ts_TS",
-              },
+      const phones =
+      {
+        areaCode: "351",
+        number: "000-0000000",
+        user: {
+          name: "testuser",
+          email: "test@test.com",
+          age: 25,
+          address: {
+            street: "test street",
+            doorNumber: "test door",
+            apartmentNumber: "test number",
+            areaCode: "test area code",
+            city: "test city",
+            country: {
+              name: "test country",
+              countryCode: "tst",
+              locale: "ts_TS",
             },
-          }
-        };
+          },
+        }
+      };
+      
+      const user = {
+        name: "testuser",
+        email: "test@test.com",
+        age: 25,
+        phones: [
+          {
+            areaCode: "351",
+            number: "000-0000000",
+          },
+          {
+            areaCode: "351",
+            number: "000-0000001",
+          },
+        ],
+      };
       
 
-      let created: TestPhoneModel;
-      let updated: TestPhoneModel;
+      let createdPhone: TestPhoneModel;
+      let updatedPhone: TestPhoneModel;
+      let createdUser: TestUserModel;
+      let updatedUser: TestUserModel;
 
       let userSequence: Sequence;
 
@@ -176,46 +171,41 @@ describe(`Complex Database`, function () {
         });
 
 
-        const curUser = (await userSequence.current()) as number;
+        const currentUser = (await userSequence.current()) as number;
         const curPhone = (await phoneSequence.current()) as number;
-        created = await testPhoneModelRepository.create(new TestPhoneModel(phones));
-
-        
-        const phoneSeq = await sequenceRepository.read(
-          Sequence.pk(TestPhoneModel)
-        );
-        expect(phoneSeq.current).toEqual(curPhone + 1);
+        // Possibly the user needs to be created throught the relation
+        createdUser = await userRepository.create(new TestUserModel(user));
+        createdPhone = await testPhoneModelRepository.create(new TestPhoneModel(phones));
 
 
-        const seq = Sequence.pk(TestPhoneModel)
-        const userSeq = await sequenceRepository.read(
-          Sequence.pk(TestUserModel)
-        );
-        expect(userSeq.current).toEqual(curUser + 2);
+          const phoneSeq = await sequenceRepository.read(
+            Sequence.pk(TestPhoneModel)
+          );
+          expect(phoneSeq.current).toEqual(curPhone + 1);
 
-        console.log("asdf")
-        // testUser(created);
+          const userSeq = await sequenceRepository.read(
+            Sequence.pk(TestUserModel)
+          );
+          expect(userSeq.current).toEqual(currentUser + 1);
 
-        // const read = await userRepository.read(created.id);
-        // testUser(read);
+      
+          expect(createdPhone).toBeInstanceOf(TestPhoneModel);
+          expect(createdPhone.id).toBeDefined();
+          expect(createdPhone.createdAt).toBeDefined();
+          expect(createdPhone.updatedAt).toBeDefined();
 
-        // const { address, phones } = read;
-        // expect(created.equals(read)).toEqual(true);
-        // expect(created.address.equals(address)).toEqual(true);
+          // const read = await userRepository.read(createdUser.id);
+          // testUser(read);
 
-        // const read2 = await testAddressModelRepository.read(created.address.id);
-        // testAddress(read2);
-        // expect(read2.equals(created.address)).toEqual(true);
+          // const { phones } = read;
+          // expect(createdUser.equals(read)).toEqual(true);
 
-        // const read3 = await testCountryModelRepository.read(address.country.id);
-        // testCountry(read3);
-        // expect(read3.equals(address.country)).toEqual(true);
-        // phones.forEach((p: any) => {
-        //   testPhone(p);
-        // });
+          // phones.forEach((p: any) => {
+          //   testPhone(p);
+          // });
+        });
+
       });
 
     });
-
   });
-});

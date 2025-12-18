@@ -1,9 +1,9 @@
 import {
-  RamFlags,
-  RawRamQuery,
-  RamStorage,
   RamConfig,
   RamContext,
+  RamFlags,
+  RamStorage,
+  RawRamQuery,
 } from "./types";
 import { RamStatement } from "./RamStatement";
 import { Repository } from "../repository/Repository";
@@ -20,18 +20,18 @@ import { hashObj, Model } from "@decaf-ts/decorator-validation";
 import {
   BaseError,
   ConflictError,
-  OperationKeys,
+  DBKeys,
   InternalError,
   NotFoundError,
   onCreate,
   onCreateUpdate,
-  DBKeys,
+  OperationKeys,
   PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
 import { createdByOnRamCreateUpdate } from "./handlers";
 import { RamFlavour } from "./constants";
-import { Decoration, Metadata, propMetadata } from "@decaf-ts/decoration";
 import type { Constructor } from "@decaf-ts/decoration";
+import { Decoration, Metadata, propMetadata } from "@decaf-ts/decoration";
 import { RamPaginator } from "./RamPaginator";
 
 /**
@@ -227,7 +227,6 @@ export class RamAdapter extends Adapter<
     const log = ctx.logger.for(this.create);
     const tableName = Model.tableName(clazz);
     log.debug(`creating record in table ${tableName} with id ${id}`);
-    await this.lock.acquire();
     if (!this.client.has(tableName)) this.client.set(tableName, new Map());
     if (
       this.client.get(tableName) &&
@@ -236,6 +235,8 @@ export class RamAdapter extends Adapter<
       throw new ConflictError(
         `Record with id ${id} already exists in table ${tableName}`
       );
+
+    await this.lock.acquire();
     this.client.get(tableName)?.set(id as any, model);
     this.lock.release();
     return model;
@@ -322,13 +323,14 @@ export class RamAdapter extends Adapter<
     const tableName = Model.tableName(clazz);
     log.debug(`updating record in table ${tableName} with id ${id}`);
 
-    await this.lock.acquire();
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
     if (!this.client.get(tableName)?.has(id as any))
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
+
+    await this.lock.acquire();
     this.client.get(tableName)?.set(id as any, model);
     this.lock.release();
     return model;
@@ -373,13 +375,14 @@ export class RamAdapter extends Adapter<
     const tableName = Model.tableName(clazz);
     log.debug(`deleting record from table ${tableName} with pk ${id}`);
 
-    await this.lock.acquire();
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
     if (!this.client.get(tableName)?.has(id as string))
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
+
+    await this.lock.acquire();
     const natived = this.client.get(tableName)?.get(id as string);
     this.client.get(tableName)?.delete(id as string);
     this.lock.release();

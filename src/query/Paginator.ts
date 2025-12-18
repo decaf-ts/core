@@ -1,9 +1,18 @@
 import { PagingError } from "./errors";
-import { Adapter } from "../persistence";
+import {
+  Adapter,
+  Context,
+  PersistenceKeys,
+  prefixMethod,
+  UnsupportedError,
+} from "../persistence";
 import { Model } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
 import { LoggedClass } from "@decaf-ts/logging";
-import { MaybeContextualArg } from "../utils/index";
+import { ContextualArgs, MaybeContextualArg } from "../utils/index";
+import { PreparedStatement } from "./types";
+import { PreparedStatementKeys } from "./constants";
+import { Repository } from "../repository/Repository";
 
 /**
  * @description Handles pagination for database queries
@@ -86,19 +95,74 @@ export abstract class Paginator<
   }
 
   protected get statement() {
-    if (!this._statement) this._statement = this.prepare(this.query);
+    if (!this._statement) this._statement = this.prepare(this.query as Q);
     return this._statement;
   }
 
   protected constructor(
     protected readonly adapter: Adapter<any, any, Q, any>,
-    protected readonly query: Q,
+    protected readonly query: Q | PreparedStatement<M>,
     readonly size: number,
     protected readonly clazz: Constructor<M>
   ) {
     super();
+    prefixMethod(this, this.page, this.pagePrefix, this.page.name);
   }
 
+  protected isPreparedStatement() {
+    const query = this.query as PreparedStatement<any>;
+    return (
+      query.method &&
+      query.method.match(
+        new RegExp(
+          `${PreparedStatementKeys.FIND_BY}|${PreparedStatementKeys.LIST_BY}`,
+          "gi"
+        )
+      )
+    );
+  }
+
+  protected async pagePrefix(page?: number, ...args: MaybeContextualArg<any>) {
+    const contextArgs = await Context.args<M, any>(
+      PersistenceKeys.QUERY,
+      this.clazz,
+      args,
+      this.adapter
+    );
+
+    return [page, ...contextArgs.args];
+  }
+
+  protected pagePrepared(page?: number, ...argz: ContextualArgs<any>) {
+    const repo = Repository.forModel(this.clazz, this.adapter.alias);
+    const statement = this.query as PreparedStatement<M>;
+    const { method, args, params } = statement;
+    const regexp = new RegExp(
+      `^${PreparedStatementKeys.FIND_BY}|${PreparedStatementKeys.LIST_BY}`,
+      "gi"
+    );
+    if (!method.match(regexp))
+      throw new UnsupportedError(
+        `Method ${method} is not supported for pagination`
+      );
+    regexp.lastIndex = 0;
+    const pagedMethod = method.replace(regexp, PreparedStatementKeys.PAGE_BY);
+    const result = repo.statement(
+      pagedMethod,
+      ...args,
+      page,
+      Object.assign({}, params, { limit: this.size }),
+      ...argz
+    );
+    return result;
+  }
+  /**
+   * @description Prepares a statement for pagination
+   * @summary Modifies the raw query statement to include pagination parameters.
+   * This protected method sets the limit parameter on the query to match the page size.
+   * @param {RawRamQuery<M>} rawStatement - The original query statement
+   * @return {RawRamQuery<M>} The modified query with pagination parameters
+   */
   protected abstract prepare(rawStatement: Q): Q;
 
   async next(...args: MaybeContextualArg<any>) {
@@ -121,5 +185,11 @@ export abstract class Paginator<
     return page;
   }
 
-  abstract page(page?: number, ...args: MaybeContextualArg<any>): Promise<R[]>;
+  async page(page: number = 1, ...args: MaybeContextualArg<any>): Promise<R[]> {
+    const { ctxArgs } = this.adapter["logCtx"](args, this.page);
+    if (this.isPreparedStatement()) return this.pagePrepared(page, ...ctxArgs);
+    throw new UnsupportedError(
+      "Raw support not available without subclassing this"
+    );
+  }
 }

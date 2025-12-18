@@ -1,3 +1,5 @@
+import { QueryClause } from "./types";
+
 /**
  * @description Comparison operators for query conditions
  * @summary Enum defining the available operators for comparing values in database queries
@@ -40,4 +42,11 @@ export enum GroupOperator {
   AND = "AND",
   /** Logical OR operator - at least one condition must be true */
   OR = "OR",
+}
+
+export enum PreparedStatementKeys {
+  LIST_BY = "listBy",
+  FIND_BY = QueryClause.FIND_BY,
+  FIND_ONE_BY = "findOneBy",
+  PAGE_BY = "paginateBy",
 }

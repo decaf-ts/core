@@ -12,6 +12,14 @@ import { Condition } from "./Condition";
 import { Paginatable } from "../interfaces/Paginatable";
 import { Constructor } from "@decaf-ts/decoration";
 
+export interface StatementExecutor<M extends Model, R>
+  extends Executor<R>,
+    Paginatable<M, R, any> {}
+
+export interface PreparableStatementExecutor<M extends Model, R>
+  extends StatementExecutor<M, R> {
+  prepare(...args: any[]): Promise<StatementExecutor<M, R>>;
+}
 /**
  * @summary GroupBy Option interface
  * @description Exposes the GROUP BY method and remaining options
@@ -20,7 +28,7 @@ import { Constructor } from "@decaf-ts/decoration";
  * @memberOf module:core
  */
 export interface GroupByOption<M extends Model, R> extends Executor<R> {
-  groupBy(selector: GroupBySelector<M>): Executor<R>;
+  groupBy(selector: GroupBySelector<M>): PreparableStatementExecutor<M, R>;
 }
 /**
  * @summary Offset Option interface
@@ -29,8 +37,9 @@ export interface GroupByOption<M extends Model, R> extends Executor<R> {
  * @interface GroupByOption
  * @memberOf module:core
  */
-export interface OffsetOption<R> extends Executor<R> {
-  offset(selector: OffsetSelector): Executor<R>;
+export interface OffsetOption<M extends Model, R>
+  extends PreparableStatementExecutor<M, R> {
+  offset(selector: OffsetSelector): PreparableStatementExecutor<M, R>;
 }
 /**
  * @summary Limit Option interface
@@ -40,9 +49,8 @@ export interface OffsetOption<R> extends Executor<R> {
  * @memberOf module:core
  */
 export interface LimitOption<M extends Model, R>
-  extends Executor<R>,
-    Paginatable<M, R, any> {
-  limit(selector: LimitSelector): OffsetOption<R>;
+  extends PreparableStatementExecutor<M, R> {
+  limit(selector: LimitSelector): OffsetOption<M, R>;
 }
 /**
  * @summary OrderBy Option interface
@@ -52,9 +60,8 @@ export interface LimitOption<M extends Model, R>
  * @memberOf module:core
  */
 export interface OrderByOption<M extends Model, R>
-  extends Executor<R>,
-    Paginatable<M, R, any> {
-  orderBy(selector: OrderBySelector<M>): LimitOption<M, R> & OffsetOption<R>;
+  extends PreparableStatementExecutor<M, R> {
+  orderBy(selector: OrderBySelector<M>): LimitOption<M, R> & OffsetOption<M, R>;
 }
 /**
  * @summary OrderBy Option interface
@@ -65,9 +72,8 @@ export interface OrderByOption<M extends Model, R>
  */
 export interface ThenByOption<M extends Model, R>
   extends LimitOption<M, R>,
-    OffsetOption<R>,
-    Executor<R>,
-    Paginatable<M, R, any> {
+    OffsetOption<M, R>,
+    PreparableStatementExecutor<M, R> {
   thenBy(selector: OrderBySelector<M>): ThenByOption<M, R>;
 }
 /**
@@ -82,10 +88,10 @@ export interface ThenByOption<M extends Model, R>
  */
 export interface OrderAndGroupOption<M extends Model, R>
   extends OrderByOption<M, R>,
-    Executor<R>,
+    PreparableStatementExecutor<M, R>,
     GroupByOption<M, R>,
     LimitOption<M, R>,
-    OffsetOption<R> {}
+    OffsetOption<M, R> {}
 /**
  * @summary Where Option interface
  * @description Exposes the WHERE method and remaining options

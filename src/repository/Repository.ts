@@ -1,6 +1,5 @@
 import {
   BulkCrudOperationKeys,
-  Context,
   DefaultSeparator,
   enforceDBDecorators,
   InternalError,
@@ -11,28 +10,36 @@ import {
   wrapMethodWithContext,
   reduceErrorsToPrint,
   PrimaryKeyType,
+  NotFoundError,
 } from "@decaf-ts/db-decorators";
-import { type Observer } from "../interfaces/Observer";
-import { Adapter } from "../persistence/Adapter";
-import { Model } from "@decaf-ts/decorator-validation";
-import { PersistenceKeys } from "../persistence/constants";
-import { OrderDirection } from "./constants";
-import { type SequenceOptions } from "../interfaces/SequenceOptions";
-import { Queriable } from "../interfaces/Queriable";
-import { Condition } from "../query/Condition";
-import { WhereOption } from "../query/options";
-import { OrderBySelector, SelectSelector } from "../query/selectors";
-import { ObserverHandler } from "../persistence/ObserverHandler";
-import { final } from "@decaf-ts/logging";
+import { final, Logger } from "@decaf-ts/logging";
 import {
-  type ContextOf,
+  ContextualizedArgs,
+  MaybeContextualArg,
+} from "../utils/ContextualLoggedClass";
+import { Adapter } from "../persistence/Adapter";
+import { Context } from "../persistence/Context";
+import { PersistenceKeys } from "../persistence/constants";
+import { ObserverHandler } from "../persistence/ObserverHandler";
+import { QueryError } from "../query/errors";
+import type { QueryOptions } from "../query/types";
+import { OrderBySelector, SelectSelector } from "../query/selectors";
+import { WhereOption } from "../query/options";
+import { Condition } from "../query/Condition";
+import { Queriable } from "../interfaces/Queriable";
+import { SequenceOptions } from "../interfaces/SequenceOptions";
+import { OrderDirection } from "./constants";
+import type {
+  ContextOf,
   EventIds,
-  type FlagsOf,
-  type InferredAdapterConfig,
-  type ObserverFilter,
+  FlagsOf,
+  InferredAdapterConfig,
+  ObserverFilter,
   PersistenceObservable,
   PersistenceObserver,
 } from "../persistence/types";
+import type { FlagsOf as ContextualFlagsOf } from "@decaf-ts/db-decorators";
+import type { Observer } from "../interfaces/Observer";
 import {
   Constructor,
   DecorationKeys,
@@ -40,14 +47,9 @@ import {
   Metadata,
   uses,
 } from "@decaf-ts/decoration";
-import type { Logger } from "@decaf-ts/logging";
-import type {
-  ContextualizedArgs,
-  MaybeContextualArg,
-} from "../utils/ContextualLoggedClass";
-import { QueryError } from "../query/errors";
-import { type QueryOptions } from "../query/types";
+import { Model } from "@decaf-ts/decorator-validation";
 import { prepared } from "../query/decorators";
+import { PreparedStatementKeys } from "../query/constants";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.
@@ -137,7 +139,14 @@ export class Repository<
 
   private readonly _adapter!: A;
   private _tableName!: string;
-  protected _overrides?: Partial<FlagsOf<A>>;
+
+  protected _overrides: Partial<FlagsOf<ContextOf<A>>> &
+    Partial<ContextualFlagsOf<ContextOf<A>>> = {
+    allowGenerationOverride: false,
+    allowRawStatements: true,
+    forcePrepareSimpleQueries: false,
+    forcePrepareComplexQueries: false,
+  } as any;
 
   private logger!: Logger;
 
@@ -228,7 +237,7 @@ export class Repository<
    * @param {Partial<F>} flags - The flags to override.
    * @return {Repository} A proxy of this repository with overridden flags.
    */
-  override(flags: Partial<FlagsOf<A>>): this {
+  override(flags: Partial<FlagsOf<ContextOf<A>>>): this {
     return new Proxy(this, {
       get: (target: typeof this, p: string | symbol, receiver: any) => {
         const result = Reflect.get(target, p, receiver);
@@ -633,7 +642,6 @@ export class Repository<
       const errors = await Promise.resolve(
         model.hasErrors(
           oldModel,
-          ...Model.relations(this.class),
           ...(contextArgs.context.get("ignoredValidationProperties") || [])
         )
       );
@@ -875,7 +883,7 @@ export class Repository<
     selector?: readonly [...S]
   ): WhereOption<M, M[]> | WhereOption<M, Pick<M, S[number]>[]> {
     return this.adapter
-      .Statement<M>()
+      .Statement<M>(this._overrides)
       .select(selector as readonly [...S])
       .from(this.class);
   }
@@ -895,13 +903,22 @@ export class Repository<
     orderBy: keyof M,
     order: OrderDirection = OrderDirection.ASC,
     limit?: number,
-    skip?: number
+    skip?: number,
+    ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<M[]> {
+    const contextArgs = await Context.args<M, ContextOf<A>>(
+      PersistenceKeys.QUERY,
+      this.class,
+      args,
+      this.adapter,
+      this._overrides || {}
+    );
+    const { ctx } = this.logCtx(contextArgs.args, this.query);
     const sort: OrderBySelector<M> = [orderBy, order as OrderDirection];
     const query = this.select().where(condition).orderBy(sort);
     if (limit) query.limit(limit);
     if (skip) query.offset(skip);
-    return query.execute();
+    return query.execute(ctx);
   }
 
   @prepared()
@@ -911,7 +928,7 @@ export class Repository<
     ...args: MaybeContextualArg<ContextOf<A>>
   ) {
     const contextArgs = await Context.args<M, ContextOf<A>>(
-      "list",
+      PreparedStatementKeys.LIST_BY,
       this.class,
       args,
       this.adapter,
@@ -934,7 +951,7 @@ export class Repository<
     ...args: MaybeContextualArg<ContextOf<A>>
   ) {
     const contextArgs = await Context.args<M, ContextOf<A>>(
-      "paginateBy",
+      PreparedStatementKeys.PAGE_BY,
       this.class,
       args,
       this.adapter,
@@ -944,7 +961,11 @@ export class Repository<
     log.verbose(
       `paginating ${Model.tableName(this.class)} with page size ${size}`
     );
-    return this.select()
+    return this.override({
+      forcePrepareComplexQueries: false,
+      forcePrepareSimpleQueries: false,
+    } as any)
+      .select()
       .orderBy([key, order])
       .paginate(size, ...ctxArgs);
   }
@@ -956,13 +977,38 @@ export class Repository<
     ...args: MaybeContextualArg<ContextOf<A>>
   ) {
     const contextArgs = await Context.args<M, ContextOf<A>>(
-      "findOneBy",
+      PreparedStatementKeys.FIND_ONE_BY,
       this.class,
       args,
       this.adapter,
       this._overrides || {}
     );
     const { log, ctxArgs } = this.logCtx(contextArgs.args, this.findOneBy);
+    log.verbose(
+      `finding ${Model.tableName(this.class)} with ${key as string} ${value}`
+    );
+    const result = await this.select()
+      .where(this.attr(key).eq(value))
+      .limit(1)
+      .execute(...ctxArgs);
+    if (!result.length) throw new NotFoundError(`No results found`);
+    return result[0];
+  }
+
+  @prepared()
+  async findBy(
+    key: keyof M,
+    value: any,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ) {
+    const contextArgs = await Context.args<M, ContextOf<A>>(
+      PreparedStatementKeys.FIND_BY,
+      this.class,
+      args,
+      this.adapter,
+      this._overrides || {}
+    );
+    const { log, ctxArgs } = this.logCtx(contextArgs.args, this.findBy);
     log.verbose(
       `finding ${Model.tableName(this.class)} with ${key as string} ${value}`
     );
@@ -975,7 +1021,7 @@ export class Repository<
     if (!Repository.statements(this, name as keyof typeof this))
       throw new QueryError(`Invalid prepared statement requested ${name}`);
     const contextArgs = await Context.args<M, ContextOf<A>>(
-      "statement",
+      PersistenceKeys.STATEMENT,
       this.class,
       args,
       this.adapter,
@@ -1232,6 +1278,7 @@ export class Repository<
     );
     return (method ? meta : Object.keys(meta)) || false;
   }
+
   static queries<R extends Repository<any, any>, K extends keyof R>(
     repo: Constructor<R> | R,
     method?: K

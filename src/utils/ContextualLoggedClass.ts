@@ -1,5 +1,6 @@
 import { LoggedClass } from "@decaf-ts/logging";
-import { Context, InternalError } from "@decaf-ts/db-decorators";
+import { Context as BaseContext, InternalError } from "@decaf-ts/db-decorators";
+import { Context } from "../persistence/Context";
 import { LoggerOf } from "../persistence/index";
 
 export type ContextualArgs<
@@ -57,9 +58,9 @@ export abstract class ContextualLoggedClass<
   ): ContextualizedArgs<CONTEXT, ARGS> {
     if (args.length < 1) throw new InternalError("No context provided");
     const ctx = args.pop() as CONTEXT;
-    if (!(ctx instanceof Context))
+    if (!(ctx instanceof BaseContext))
       throw new InternalError("No context provided");
-    if (args.filter((a) => a instanceof Context).length > 1)
+    if (args.filter((a) => a instanceof BaseContext).length > 1)
       throw new Error("here");
     const log = (
       this

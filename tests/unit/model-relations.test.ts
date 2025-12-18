@@ -404,7 +404,9 @@ describe(`Complex Database`, function () {
       });
 
       it("Updates a one to many relation", async () => {
-        // created = await userManager.create(new TestUserModel(user));
+        if (!created) {
+          created = await userRepository.create(new TestUserModel(user));
+        }
         const toUpdate = new TestUserModel(
           Object.assign({}, created, {
             name: "new name",

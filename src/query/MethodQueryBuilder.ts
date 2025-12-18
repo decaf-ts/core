@@ -1,15 +1,15 @@
-import { Condition, OrderBySelector } from "../query";
-import { FilterDescriptor, QueryAssist, QueryClause } from "./types";
+import { Condition } from "../query/Condition";
+import { OrderBySelector } from "../query/selectors";
+import {
+  FilterDescriptor,
+  OrderLimitOffsetExtract,
+  QueryAssist,
+  QueryClause,
+} from "./types";
 import { OperatorsMap } from "./utils";
 
 const lowerFirst = (str: string): string =>
   str.charAt(0).toLowerCase() + str.slice(1);
-
-export type OrderLimitOffsetExtract = {
-  orderBy?: OrderBySelector<any>[];
-  limit?: number;
-  offset?: number;
-};
 
 /**
  * @description
@@ -124,6 +124,16 @@ export class MethodQueryBuilder {
     return match ? afterFindBy.substring(0, match.index) : afterFindBy;
   }
 
+  static getFieldsFromMethodName(methodName: string): Array<string> {
+    const core = this.extractCore(methodName);
+    const parts = core.split(/OrderBy|GroupBy/)[0] || "";
+    const conditions = parts.split(/And|Or/);
+    return conditions.map((token) => {
+      const { operator, field } = this.parseFieldAndOperator(token);
+      return field + (operator ?? "");
+    });
+  }
+
   /**
    * @description
    * Extracts the select clause from a method name.
@@ -217,7 +227,12 @@ export class MethodQueryBuilder {
    *
    * @return {Condition<any>} A structured condition object representing the query's where clause.
    */
-  private static buildWhere(core: string, values: any[]): Condition<any> {
+  private static buildWhere(
+    core: string,
+    values: any[]
+  ): Condition<any> | undefined {
+    if (!core && values.length === 0) return undefined;
+
     const parts = core.split(/OrderBy|GroupBy/)[0] || "";
     const conditions = parts.split(/And|Or/);
 
@@ -243,6 +258,8 @@ export class MethodQueryBuilder {
             ? where!.and(condition)
             : where!.or(condition);
     });
+
+    if (conditions.length === 0) return undefined;
 
     if (!where) throw new Error("No conditions found in method name");
     return where;

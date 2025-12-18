@@ -499,10 +499,54 @@ describe(`Complex Database`, function () {
         ],
       };
 
-      let created: TestUserModel;
-      let updated: TestUserModel;
+      let created: TestPhoneManyToOneModel;
+      let updated: TestPhoneManyToOneModel;
 
       let userSequence: Sequence;
+      const phones = [
+        {
+          areaCode: "351",
+          number: "000-0000000",
+          user: {
+            name: "testuser",
+            email: "test@test.com",
+            age: 25,
+            address: {
+              street: "test street",
+              doorNumber: "test door",
+              apartmentNumber: "test number",
+              areaCode: "test area code",
+              city: "test city",
+              country: {
+                name: "test country",
+                countryCode: "tst",
+                locale: "ts_TS",
+              },
+            },
+          }
+        },
+        {
+          areaCode: "351",
+          number: "000-0000001",
+          user: {
+            name: "testuser2",
+            email: "test2@test.com",
+            age: 26,
+            address: {
+              street: "test street2",
+              doorNumber: "test door2",
+              apartmentNumber: "test number2",
+              areaCode: "test area code2",
+              city: "test city",
+              country: {
+                name: "test country",
+                countryCode: "tst",
+                locale: "ts_TS",
+              },
+            },
+          }
+        },
+      ];
 
       // it("Ensure no population when populate is disabled in a one-to-many relation", async () => {
       //   const phones = [
@@ -591,12 +635,12 @@ describe(`Complex Database`, function () {
         const curAddress = (await sequenceModel.current()) as number;
         const curCountry = (await sequenceCountry.current()) as number;
         const curPhone = (await phoneSequence.current()) as number;
-        created = await userManyToOneRepository.create(new TestUserManyToOneModel(user));
+        created = await testPhoneManyToOneModelRepository.create(new TestPhoneManyToOneModel(phones));
 
-        // const userSeq = await sequenceRepository.read(
-        //   Sequence.pk(TestUserManyToOneModel)
-        // );
-        // expect(userSeq.current).toEqual(current + 1);
+        const userSeq = await sequenceRepository.read(
+          Sequence.pk(TestUserManyToOneModel)
+        );
+        expect(userSeq.current).toEqual(current + 1);
 
         // const v = Sequence.pk(TestAddressModel);
         // const addressSeq = await sequenceRepository.read(v);

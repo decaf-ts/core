@@ -129,42 +129,38 @@ describe(`Complex Database`, function () {
     let sequenceCountry: Sequence;
    
     describe("Many to one relations", () => {
-      const phones = {
-        name: "testuser",
-        email: "test@test.com",
-        age: 25,
-        address: {
-          street: "test street",
-          doorNumber: "test door",
-          apartmentNumber: "test number",
-          areaCode: "test area code",
-          city: "test city",
-          country: {
-            name: "test country",
-            countryCode: "tst",
-            locale: "ts_TS",
-          },
-        },
-        phones: [
-          {
-            areaCode: "351",
-            number: "000-0000000",
-          },
-          {
-            areaCode: "351",
-            number: "000-0000001",
-          },
-        ],
-      };
+        const phones = 
+        {
+          areaCode: "351",
+          number: "000-0000000",
+          user: {
+            name: "testuser",
+            email: "test@test.com",
+            age: 25,
+            address: {
+              street: "test street",
+              doorNumber: "test door",
+              apartmentNumber: "test number",
+              areaCode: "test area code",
+              city: "test city",
+              country: {
+                name: "test country",
+                countryCode: "tst",
+                locale: "ts_TS",
+              },
+            },
+          }
+        };
+      
 
-      let created: TestUserModel;
-      let updated: TestUserModel;
+      let created: TestPhoneModel;
+      let updated: TestPhoneModel;
 
       let userSequence: Sequence;
 
       it("Creates a many to one relation", async () => {
         userSequence = await adapter.Sequence({
-          name: Sequence.pk(TestUserManyToOneModel),
+          name: Sequence.pk(TestUserModel),
           type: "Number",
           startWith: 0,
           incrementBy: 1,
@@ -172,23 +168,7 @@ describe(`Complex Database`, function () {
         });
 
         const phoneSequence = await adapter.Sequence({
-          name: Sequence.pk(TestPhoneManyToOneModel),
-          type: "Number",
-          startWith: 0,
-          incrementBy: 1,
-          cycle: false,
-        });
-
-        const sequenceModel = await adapter.Sequence({
-          name: Model.sequenceName(NoPopulateOnceModel, "pk"),
-          type: "Number",
-          startWith: 0,
-          incrementBy: 1,
-          cycle: false,
-        });
-
-        const sequenceCountry = await adapter.Sequence({
-          name: Model.sequenceName(TestDummyCountry, "pk"),
+          name: Sequence.pk(TestPhoneModel),
           type: "Number",
           startWith: 0,
           incrementBy: 1,
@@ -196,31 +176,24 @@ describe(`Complex Database`, function () {
         });
 
 
-        const current = (await userSequence.current()) as number;
-        const curAddress = (await sequenceModel.current()) as number;
-        const curCountry = (await sequenceCountry.current()) as number;
+        const curUser = (await userSequence.current()) as number;
         const curPhone = (await phoneSequence.current()) as number;
-        created = await testPhoneManyToOneModelRepository.create(new TestPhoneManyToOneModel(phones));
+        created = await testPhoneModelRepository.create(new TestPhoneModel(phones));
 
-        // const userSeq = await sequenceRepository.read(
-        //   Sequence.pk(TestUserManyToOneModel)
-        // );
-        // expect(userSeq.current).toEqual(current + 1);
+        
+        const phoneSeq = await sequenceRepository.read(
+          Sequence.pk(TestPhoneModel)
+        );
+        expect(phoneSeq.current).toEqual(curPhone + 1);
 
-        // const v = Sequence.pk(TestAddressModel);
-        // const addressSeq = await sequenceRepository.read(v);
-        // expect(addressSeq.current).toEqual(curAddress + 1);
 
-        // const countrySeq = await sequenceRepository.read(
-        //   Sequence.pk(TestCountryModel)
-        // );
-        // expect(countrySeq.current).toEqual(curCountry + 1);
+        const seq = Sequence.pk(TestPhoneModel)
+        const userSeq = await sequenceRepository.read(
+          Sequence.pk(TestUserModel)
+        );
+        expect(userSeq.current).toEqual(curUser + 2);
 
-        // const phoneSeq = await sequenceRepository.read(
-        //   Sequence.pk(TestPhoneManyToOneModel)
-        // );
-        // expect(phoneSeq.current).toEqual(curPhone + 2);
-
+        console.log("asdf")
         // testUser(created);
 
         // const read = await userRepository.read(created.id);

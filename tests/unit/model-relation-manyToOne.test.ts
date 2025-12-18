@@ -173,8 +173,6 @@ describe(`Complex Database`, function () {
 
         const currentUser = (await userSequence.current()) as number;
         const curPhone = (await phoneSequence.current()) as number;
-        // Possibly the user needs to be created throught the relation
-        createdUser = await userRepository.create(new TestUserModel(user));
         createdPhone = await testPhoneModelRepository.create(new TestPhoneModel(phones));
 
 

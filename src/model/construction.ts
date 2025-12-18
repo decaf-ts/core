@@ -551,35 +551,29 @@ export async function ManyToOneOnCreate<M extends Model, R extends Repo<M>>(
   key: keyof M,
   model: M
 ): Promise<void> {
-  const propertyValues: any = model[key];
-  if (!propertyValues || !propertyValues.length) return;
-  const arrayType = typeof propertyValues[0];
-  if (!propertyValues.every((item: any) => typeof item === arrayType))
-    throw new InternalError(
-      `Invalid operation. All elements of property ${key as string} must match the same type.`
+  const propertyValue: any = model[key];
+  if (!propertyValue) return;
+
+  // If it's a primitive value (ID), read the existing record
+  if (typeof propertyValue !== "object") {
+    const innerRepo = repositoryFromTypeMetadata(
+      model,
+      key,
+      this.adapter.alias
     );
-  const uniqueValues = new Set([...propertyValues]);
-  if (arrayType !== "object") {
-    const repo = repositoryFromTypeMetadata(model, key, this.adapter.alias);
-    for (const id of uniqueValues) {
-      const read = await repo.read(id);
-      await cacheModelForPopulate(context, model, key, id, read);
-    }
-    (model as any)[key] = [...uniqueValues];
+    const read = await innerRepo.read(propertyValue);
+    await cacheModelForPopulate(context, model, key, propertyValue, read);
+    (model as any)[key] = propertyValue;
     return;
   }
-
-  const pkName = Model.pk(propertyValues[0]);
-
-  const result: Set<string> = new Set();
-
-  for (const m of propertyValues) {
-    const record = await createOrUpdate(m, context, this.adapter.alias);
-    await cacheModelForPopulate(context, model, key, record[pkName], record);
-    result.add(record[pkName]);
-  }
-
-  (model as any)[key] = [...result];
+  const constructor = isClass(data.class) ? data.class : data.class();
+  if (!constructor)
+    throw new InternalError(`Could not find model ${data.class}`);
+  const repo: Repo<any> = Repository.forModel(constructor, this.adapter.alias);
+  const created = await repo.create(propertyValue);
+  const pk = Model.pk(created);
+  await cacheModelForPopulate(context, model, key, created[pk], created);
+  (model as any)[key] = created[pk];
 }
 /**
  * @description Generates a key for caching populated model relationships

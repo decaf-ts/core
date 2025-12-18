@@ -130,11 +130,11 @@ declare module "@decaf-ts/decorator-validation" {
       : ModelErrorDefinition | undefined;
   }
 
-  export interface Model {
-    hasErrorsOn<M extends Model<boolean>>(
-      op: OperationKeys.CREATE | OperationKeys.UPDATE | string
-    ): M extends Model<true>
-      ? Promise<ModelErrorDefinition | undefined>
-      : ModelErrorDefinition | undefined;
-  }
+  // export interface Model {
+  //   hasErrorsOn<M extends Model<boolean>>(
+  //     op: OperationKeys.CREATE | OperationKeys.UPDATE | string
+  //   ): M extends Model<true>
+  //     ? Promise<ModelErrorDefinition | undefined>
+  //     : ModelErrorDefinition | undefined;
+  // }
 }

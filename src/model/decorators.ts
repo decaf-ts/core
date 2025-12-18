@@ -32,6 +32,7 @@ import {
   RelationsMetadata,
 } from "./types";
 import {
+  ManyToOneOnCreate,
   oneToManyOnCreate,
   oneToManyOnDelete,
   oneToManyOnUpdate,
@@ -524,8 +525,8 @@ export function manyToOne<M extends Model>(
     return apply(
       prop(),
       relation(key, metadata),
-      type([clazz, String, Number, BigInt])
-      // onCreate(oneToManyOnCreate, metadata),
+      type([clazz, String, Number, BigInt]),
+      onCreate(ManyToOneOnCreate, metadata),
       // onUpdate(oneToManyOnUpdate, metadata),
       // onDelete(oneToManyOnDelete, metadata),
       // afterAny(pop, metadata),

@@ -551,6 +551,43 @@ export async function oneToManyOnDelete<M extends Model, R extends Repo<M>>(
   (model as any)[key] = [...uniqueValues];
 }
 
+export async function ManyToOneOnCreate<M extends Model, R extends Repo<M>>(
+  this: R,
+  context: ContextOf<R>,
+  data: RelationsMetadata,
+  key: keyof M,
+  model: M
+): Promise<void> {
+  const propertyValues: any = model[key];
+  if (!propertyValues || !propertyValues.length) return;
+  const arrayType = typeof propertyValues[0];
+  if (!propertyValues.every((item: any) => typeof item === arrayType))
+    throw new InternalError(
+      `Invalid operation. All elements of property ${key as string} must match the same type.`
+    );
+  const uniqueValues = new Set([...propertyValues]);
+  if (arrayType !== "object") {
+    const repo = repositoryFromTypeMetadata(model, key, this.adapter.alias);
+    for (const id of uniqueValues) {
+      const read = await repo.read(id);
+      await cacheModelForPopulate(context, model, key, id, read);
+    }
+    (model as any)[key] = [...uniqueValues];
+    return;
+  }
+
+  const pkName = Model.pk(propertyValues[0]);
+
+  const result: Set<string> = new Set();
+
+  for (const m of propertyValues) {
+    const record = await createOrUpdate(m, context, this.adapter.alias);
+    await cacheModelForPopulate(context, model, key, record[pkName], record);
+    result.add(record[pkName]);
+  }
+
+  (model as any)[key] = [...result];
+}
 /**
  * @description Generates a key for caching populated model relationships
  * @summary Creates a unique key for storing and retrieving populated model relationships in the cache

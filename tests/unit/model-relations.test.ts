@@ -8,8 +8,10 @@ import {
   TestDummyCountry,
   TestDummyPhone,
   testPhone,
+  TestPhoneManyToOneModel,
   TestPhoneModel,
   testUser,
+  TestUserManyToOneModel,
   TestUserModel,
 } from "./models";
 import { NotFoundError } from "@decaf-ts/db-decorators";
@@ -31,8 +33,10 @@ describe(`Complex Database`, function () {
 
   let sequenceRepository: RamRepository<Seq>;
   let userRepository: RamRepository<TestUserModel>;
+  let userManyToOneRepository: RamRepository<TestUserManyToOneModel>;
   let testDummyCountryModelRepository: RamRepository<TestDummyCountry>;
   let testPhoneModelRepository: RamRepository<TestPhoneModel>;
+  let testPhoneManyToOneModelRepository: RamRepository<TestPhoneManyToOneModel>;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let testDummyPhoneModelRepository: RamRepository<TestDummyPhone>;
   let testAddressModelRepository: RamRepository<TestAddressModel>;
@@ -47,7 +51,9 @@ describe(`Complex Database`, function () {
     expect(sequenceRepository).toBeDefined();
 
     userRepository = new Repository(adapter, TestUserModel);
+    userManyToOneRepository = new Repository(adapter, TestUserManyToOneModel);
     testPhoneModelRepository = new Repository(adapter, TestPhoneModel);
+    testPhoneManyToOneModelRepository = new Repository(adapter, TestPhoneManyToOneModel);
     testAddressModelRepository = new Repository(adapter, TestAddressModel);
     testCountryModelRepository = new Repository(adapter, TestCountryModel);
     testDummyCountryModelRepository = new Repository(adapter, TestDummyCountry);
@@ -446,6 +452,234 @@ describe(`Complex Database`, function () {
 
       it("Deletes a one to many relation", async () => {
         const deleted = await userRepository.delete(updated.id);
+        testUser(deleted);
+        await expect(
+          testAddressModelRepository.read(updated.address.id)
+        ).rejects.toBeInstanceOf(NotFoundError);
+        await expect(
+          testCountryModelRepository.read(updated.address.country.id)
+        ).rejects.toBeInstanceOf(NotFoundError);
+        await expect(
+          testPhoneModelRepository.read((updated.phones as any)[0].id)
+        ).rejects.toBeInstanceOf(NotFoundError);
+        await expect(
+          testPhoneModelRepository.read((updated.phones as any)[1].id)
+        ).rejects.toBeInstanceOf(NotFoundError);
+      });
+    });
+    
+    describe("Many to one relations", () => {
+      const user = {
+        name: "testuser",
+        email: "test@test.com",
+        age: 25,
+        address: {
+          street: "test street",
+          doorNumber: "test door",
+          apartmentNumber: "test number",
+          areaCode: "test area code",
+          city: "test city",
+          country: {
+            name: "test country",
+            countryCode: "tst",
+            locale: "ts_TS",
+          },
+        },
+        phones: [
+          {
+            areaCode: "351",
+            number: "000-0000000",
+          },
+          {
+            areaCode: "351",
+            number: "000-0000001",
+          },
+        ],
+      };
+
+      let created: TestUserModel;
+      let updated: TestUserModel;
+
+      let userSequence: Sequence;
+
+      // it("Ensure no population when populate is disabled in a one-to-many relation", async () => {
+      //   const phones = [
+      //     {
+      //       areaCode: "351",
+      //       number: "000-0000000",
+      //     },
+      //     {
+      //       areaCode: "351",
+      //       number: "000-0000001",
+      //     },
+      //   ];
+
+      //   const sequencePhone = await adapter.Sequence({
+      //     name: Sequence.pk(TestDummyPhone),
+      //     type: "Number",
+      //     startWith: 0,
+      //     incrementBy: 1,
+      //     cycle: false,
+      //   });
+
+      //   const currPhone = (await sequencePhone.current()) as number;
+
+      //   const m = new NoPopulateManyModel({
+      //     name: "Robert",
+      //     phones: phones,
+      //   });
+      //   const created = await noPopulateManyModelRepository.create(m);
+      //   expect(created.phones).toEqual([currPhone + 1, currPhone + 2]);
+
+      //   const read = await noPopulateManyModelRepository.read(created.id);
+      //   expect(read.phones).toEqual([currPhone + 1, currPhone + 2]);
+
+      //   read.phones = [
+      //     new TestDummyPhone({
+      //       areaCode: "352",
+      //       number: "000-0000002",
+      //     }),
+      //     new TestDummyPhone({
+      //       areaCode: "51",
+      //       number: "000-0000000",
+      //     }),
+      //   ];
+      //   const updated = await noPopulateManyModelRepository.update(read);
+      //   expect(updated.phones).toEqual([currPhone + 3, currPhone + 4]);
+
+      //   const deleted = await noPopulateManyModelRepository.delete(created.id);
+      //   expect(deleted.phones).toEqual([currPhone + 3, currPhone + 4]);
+      // });
+
+      it("Creates a many to one relation", async () => {
+        userSequence = await adapter.Sequence({
+          name: Sequence.pk(TestUserManyToOneModel),
+          type: "Number",
+          startWith: 0,
+          incrementBy: 1,
+          cycle: false,
+        });
+
+        const phoneSequence = await adapter.Sequence({
+          name: Sequence.pk(TestPhoneManyToOneModel),
+          type: "Number",
+          startWith: 0,
+          incrementBy: 1,
+          cycle: false,
+        });
+
+        const sequenceModel = await adapter.Sequence({
+          name: Model.sequenceName(NoPopulateOnceModel, "pk"),
+          type: "Number",
+          startWith: 0,
+          incrementBy: 1,
+          cycle: false,
+        });
+
+        const sequenceCountry = await adapter.Sequence({
+          name: Model.sequenceName(TestDummyCountry, "pk"),
+          type: "Number",
+          startWith: 0,
+          incrementBy: 1,
+          cycle: false,
+        });
+
+
+        const current = (await userSequence.current()) as number;
+        const curAddress = (await sequenceModel.current()) as number;
+        const curCountry = (await sequenceCountry.current()) as number;
+        const curPhone = (await phoneSequence.current()) as number;
+        created = await userManyToOneRepository.create(new TestUserManyToOneModel(user));
+
+        // const userSeq = await sequenceRepository.read(
+        //   Sequence.pk(TestUserManyToOneModel)
+        // );
+        // expect(userSeq.current).toEqual(current + 1);
+
+        // const v = Sequence.pk(TestAddressModel);
+        // const addressSeq = await sequenceRepository.read(v);
+        // expect(addressSeq.current).toEqual(curAddress + 1);
+
+        // const countrySeq = await sequenceRepository.read(
+        //   Sequence.pk(TestCountryModel)
+        // );
+        // expect(countrySeq.current).toEqual(curCountry + 1);
+
+        // const phoneSeq = await sequenceRepository.read(
+        //   Sequence.pk(TestPhoneManyToOneModel)
+        // );
+        // expect(phoneSeq.current).toEqual(curPhone + 2);
+
+        // testUser(created);
+
+        // const read = await userRepository.read(created.id);
+        // testUser(read);
+
+        // const { address, phones } = read;
+        // expect(created.equals(read)).toEqual(true);
+        // expect(created.address.equals(address)).toEqual(true);
+
+        // const read2 = await testAddressModelRepository.read(created.address.id);
+        // testAddress(read2);
+        // expect(read2.equals(created.address)).toEqual(true);
+
+        // const read3 = await testCountryModelRepository.read(address.country.id);
+        // testCountry(read3);
+        // expect(read3.equals(address.country)).toEqual(true);
+        // phones.forEach((p: any) => {
+        //   testPhone(p);
+        // });
+      });
+
+      it("Updates a one to many relation", async () => {
+        // created = await userManager.create(new TestUserModel(user));
+        const toUpdate = new TestUserModel(
+          Object.assign({}, created, {
+            name: "new name",
+            address: Object.assign({}, created.address, {
+              city: "new city",
+              country: Object.assign({}, created.address?.country, {
+                name: "new country",
+              }),
+            }),
+            phones: [
+              Object.assign({}, (created.phones as any[])[0], {
+                areaCode: "352",
+              }),
+              Object.assign({}, (created.phones as any[])[1], {
+                areaCode: "352",
+              }),
+            ],
+          })
+        );
+        updated = await userManyToOneRepository.update(toUpdate);
+        testUser(updated);
+
+        const read = await userManyToOneRepository.read(updated.id);
+        testUser(read);
+        expect(read.name).toEqual("new name");
+
+        const { address, phones } = read;
+        expect(updated.equals(read)).toEqual(true);
+        expect(updated.address.equals(address)).toEqual(true);
+        const read2 = await testAddressModelRepository.read(updated.address.id);
+        testAddress(read2);
+        expect(read2.city).toEqual("new city");
+        expect(read2.equals(updated.address)).toEqual(true);
+
+        const read3 = await testCountryModelRepository.read(address.country.id);
+        testCountry(read3);
+        expect(read3.equals(address.country)).toEqual(true);
+        expect(read3.name).toEqual("new country");
+
+        phones.forEach((p: any) => {
+          testPhone(p);
+          expect(p.areaCode).toEqual("352");
+        });
+      });
+
+      it("Deletes a one to many relation", async () => {
+        const deleted = await userManyToOneRepository.delete(updated.id);
         testUser(deleted);
         await expect(
           testAddressModelRepository.read(updated.address.id)

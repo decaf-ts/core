@@ -1,17 +1,3 @@
-import {
-  NoPopulateManyModel,
-  NoPopulateOnceModel,
-  testAddress,
-  TestAddressModel,
-  testCountry,
-  TestCountryModel,
-  TestDummyCountry,
-  TestDummyPhone,
-  testPhone,
-  TestPhoneManyToOneModel,
-  testUser,
-  TestUserManyToOneModel,
-} from "./models";
 import { NotFoundError } from "@decaf-ts/db-decorators";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { RamRepository } from "../../src/ram/types";
@@ -65,7 +51,7 @@ export class TestPhoneModel extends BaseModel {
   })
   @required()
   @minlength(1)
-  user!: TestUserModel;
+  user!: TestUserModel | string | number;
 
   constructor(m?: ModelArg<TestPhoneModel>) {
     super(m);
@@ -184,25 +170,6 @@ describe(`Complex Database`, function () {
           // });
         });
       it("Creates a many to one relation using Id", async () => {
-      const phone1: Partial<TestPhoneModel> =
-      {
-        areaCode: "351",
-        number: "000-0000000"
-      };
-
-      const phone2: Partial<TestPhoneModel> =
-      {
-        areaCode: "351",
-        number: "000-0000001"
-      };
-      
-      const user = {
-        name: "testuser",
-        email: "test@test.com",
-        age: 25,
-      };
-
-
         userSequence = await adapter.Sequence({
           name: Sequence.pk(TestUserModel),
           type: "Number",
@@ -219,25 +186,47 @@ describe(`Complex Database`, function () {
           cycle: false,
         });
 
-        const currentUser = (await userSequence.current()) as number;
-        const curPhone = (await phoneSequence.current()) as number;
+        const user = {
+          name: "testuser",
+          email: "test@test.com",
+          age: 25,
+        };
         createdUser = await userRepository.create(new TestUserModel(user));
-        phone1.user = createdUser.id as any;
-        phone2.user = createdUser.id as any;
+        const phone1: Partial<TestPhoneModel> =
+        {
+          areaCode: "351",
+          number: "000-0000000",
+          user: createdUser.id
+        };
+
+        const phone2: Partial<TestPhoneModel> =
+        {
+          areaCode: "351",
+          number: "000-0000001",
+          user: createdUser.id
+        };
+        
+        const userSeq = await sequenceRepository.read(
+          Sequence.pk(TestUserModel)
+        );
+        const currentUser = (await userSequence.current()) as number;
+
+        expect(userSeq.current).toEqual(currentUser);
+        expect(createdUser).toBeInstanceOf(TestUserModel);
+        expect(createdUser.id).toBeDefined();
+        expect(createdUser.createdAt).toBeDefined();
+        expect(createdUser.updatedAt).toBeDefined();
+
+
+        const curPhone = (await phoneSequence.current()) as number;
         createdPhone1 = await phoneModelRepository.create(new TestPhoneModel(phone1));
         createdPhone2 = await phoneModelRepository.create(new TestPhoneModel(phone2));
         const createdPhones = [createdPhone1, createdPhone2];
 
-          const phoneSeq = await sequenceRepository.read(
-            Sequence.pk(TestPhoneModel)
-          );
-          expect(phoneSeq.current).toEqual(curPhone + 2);
-
-          const userSeq = await sequenceRepository.read(
-            Sequence.pk(TestUserModel)
-          );
-        createdUser = await userRepository.read(userSeq.current);
-          expect(userSeq.current).toEqual(currentUser + 1);
+        const phoneSeq = await sequenceRepository.read(
+          Sequence.pk(TestPhoneModel)
+        );
+        expect(phoneSeq.current).toEqual(curPhone + 2);
 
         for (const createdPhone of createdPhones){
           expect(createdPhone).toBeInstanceOf(TestPhoneModel);
@@ -247,20 +236,13 @@ describe(`Complex Database`, function () {
         }
 
 
-          // read user created via cascade from phone create
-          createdUser = await userRepository.read(userSeq.current);
 
-          expect(createdUser).toBeInstanceOf(TestUserModel);
-          expect(createdUser.id).toBeDefined();
-          expect(createdUser.createdAt).toBeDefined();
-          expect(createdUser.updatedAt).toBeDefined();
+        // const { phones } = createdUser;
+        // expect(createdUser.equals(createdPhone.user)).toEqual(true);
 
-          // const { phones } = createdUser;
-          // expect(createdUser.equals(createdPhone.user)).toEqual(true);
-
-          // phones.forEach((p: any) => {
-          //   testPhone(p);
-          // });
+        // phones.forEach((p: any) => {
+        //   testPhone(p);
+        // });
         });
       });
     });

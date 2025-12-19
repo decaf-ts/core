@@ -502,8 +502,12 @@ export class ModelService<
     if (args.length < 1) {
       args = [await bootCtx()] as ARGS;
     }
-    const ctx = args.pop() as CONTEXT;
-    if (!(ctx instanceof Context)) args = [...args, await bootCtx()] as ARGS;
+    let ctx = args.pop() as CONTEXT;
+    if (!(ctx instanceof Context)) {
+      if (typeof ctx !== "undefined") args.push(ctx);
+      ctx = (await bootCtx()) as CONTEXT;
+      args.push(ctx);
+    }
     const log = (
       this
         ? ctx.logger.for(this).for(operation)

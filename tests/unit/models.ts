@@ -12,7 +12,6 @@ import {
   Cascade,
   column,
   index,
-  manyToOne,
   oneToMany,
   oneToOne,
   pk,
@@ -123,68 +122,6 @@ export class TestUserModel extends BaseModel {
   phones!: TestPhoneModel[];
 
   constructor(m?: ModelArg<TestUserModel>) {
-    super(m);
-  }
-}
-
-
-@model()
-export class TestUserManyToOneModel extends BaseModel {
-  @pk({ type: "Number" })
-  id!: number;
-
-  @required()
-  @index()
-  name!: string;
-
-  @required()
-  @email()
-  @index()
-  email!: string;
-
-  @required()
-  @min(18)
-  @index()
-  age!: number;
-
-  @oneToOne(TestAddressModel, {
-    update: Cascade.CASCADE,
-    delete: Cascade.CASCADE,
-  })
-  @required()
-  address!: TestAddressModel;
-
-  @oneToMany(TestPhoneModel, {
-    update: Cascade.CASCADE,
-    delete: Cascade.CASCADE,
-  })
-  @required()
-  @minlength(1)
-  phones!: TestPhoneModel[];
-
-  constructor(m?: ModelArg<TestUserManyToOneModel>) {
-    super(m);
-  }
-}
-
-@model()
-export class TestPhoneManyToOneModel extends BaseModel {
-  @pk({ type: "Number" })
-  id!: number;
-
-  @required()
-  areaCode!: string;
-
-  @required()
-  number!: string;
-
-  @manyToOne(TestUserManyToOneModel, {
-    update: Cascade.CASCADE,
-    delete: Cascade.CASCADE,
-  })
-  users: string;
-
-  constructor(m?: ModelArg<TestPhoneManyToOneModel>) {
     super(m);
   }
 }

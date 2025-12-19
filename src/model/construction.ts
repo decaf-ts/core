@@ -569,10 +569,15 @@ export async function ManyToOneOnCreate<M extends Model, R extends Repo<M>>(
   const constructor = isClass(data.class) ? data.class : data.class();
   if (!constructor)
     throw new InternalError(`Could not find model ${data.class}`);
-  const repo: Repo<any> = Repository.forModel(constructor, this.adapter.alias);
-  const created = await repo.create(propertyValue);
+  const created = await createOrUpdate(propertyValue, context, this.adapter.alias);
   const pk = Model.pk(created);
-  await cacheModelForPopulate(context, model, key, created[pk], created);
+  await cacheModelForPopulate(
+    context,
+    model,
+    key,
+    created[pk] as string,
+    created
+  );
   (model as any)[key] = created[pk];
 }
 /**

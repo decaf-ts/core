@@ -538,7 +538,7 @@ export function manyToOne<M extends Model>(
       onCreate(ManyToOneOnCreate, metadata),
       // onUpdate(oneToManyOnUpdate, metadata),
       // onDelete(oneToManyOnDelete, metadata),
-      // afterAny(pop, metadata),
+      afterAny(pop, metadata),
     );
   }
 

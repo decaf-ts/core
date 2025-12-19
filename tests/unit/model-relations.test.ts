@@ -8,10 +8,8 @@ import {
   TestDummyCountry,
   TestDummyPhone,
   testPhone,
-  TestPhoneManyToOneModel,
   TestPhoneModel,
   testUser,
-  TestUserManyToOneModel,
   TestUserModel,
 } from "./models";
 import { NotFoundError } from "@decaf-ts/db-decorators";
@@ -33,10 +31,8 @@ describe(`Complex Database`, function () {
 
   let sequenceRepository: RamRepository<Seq>;
   let userRepository: RamRepository<TestUserModel>;
-  let userManyToOneRepository: RamRepository<TestUserManyToOneModel>;
   let testDummyCountryModelRepository: RamRepository<TestDummyCountry>;
   let testPhoneModelRepository: RamRepository<TestPhoneModel>;
-  let testPhoneManyToOneModelRepository: RamRepository<TestPhoneManyToOneModel>;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let testDummyPhoneModelRepository: RamRepository<TestDummyPhone>;
   let testAddressModelRepository: RamRepository<TestAddressModel>;
@@ -51,9 +47,7 @@ describe(`Complex Database`, function () {
     expect(sequenceRepository).toBeDefined();
 
     userRepository = new Repository(adapter, TestUserModel);
-    userManyToOneRepository = new Repository(adapter, TestUserManyToOneModel);
     testPhoneModelRepository = new Repository(adapter, TestPhoneModel);
-    testPhoneManyToOneModelRepository = new Repository(adapter, TestPhoneManyToOneModel);
     testAddressModelRepository = new Repository(adapter, TestAddressModel);
     testCountryModelRepository = new Repository(adapter, TestCountryModel);
     testDummyCountryModelRepository = new Repository(adapter, TestDummyCountry);

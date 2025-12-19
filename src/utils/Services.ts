@@ -506,7 +506,6 @@ export class ModelService<
     if (!(ctx instanceof Context)) {
       if (typeof ctx !== "undefined") args.push(ctx);
       ctx = (await bootCtx()) as CONTEXT;
-      args.push(ctx);
     }
     const log = (
       this
@@ -515,7 +514,7 @@ export class ModelService<
     ) as LoggerOf<CONTEXT>;
     return {
       ctx: ctx,
-      log: operation ? (log.for(operation) as LoggerOf<CONTEXT>) : log,
+      log: log,
       ctxArgs: [...args, ctx],
     };
   }

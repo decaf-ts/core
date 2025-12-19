@@ -10,6 +10,7 @@ import {
   oneToMany,
   oneToOne,
   pk,
+  populate,
   Sequence,
 } from "../../src/index";
 import {
@@ -71,6 +72,27 @@ export class TestPhoneModel extends BaseModel {
   }
 }
 
+@model()
+export class TestPhoneNoPopModel extends BaseModel {
+  @pk({ type: "Number" })
+  id!: number;
+
+  @required()
+  areaCode!: string;
+
+  @required()
+  number!: string;
+
+  @manyToOne(TestUserModel, {update: Cascade.CASCADE, delete: Cascade.CASCADE}, false)
+  @required()
+  @minlength(1)
+  user!: TestUserModel | string | number;
+
+  constructor(m?: ModelArg<TestPhoneModel>) {
+    super(m);
+  }
+}
+
 describe(`Complex Database`, function () {
   let adapter: RamAdapter;
 
@@ -81,6 +103,7 @@ describe(`Complex Database`, function () {
   let sequenceRepository: RamRepository<Seq>;
   let userRepository: RamRepository<TestUserModel>;
   let phoneModelRepository: RamRepository<TestPhoneModel>;
+  let phoneNoPopModelRepository: RamRepository<TestPhoneNoPopModel>;
 
   beforeAll(async () => {
     sequenceRepository = new Repository(adapter, Seq);
@@ -88,6 +111,7 @@ describe(`Complex Database`, function () {
 
     userRepository = new Repository(adapter, TestUserModel);
     phoneModelRepository = new Repository(adapter, TestPhoneModel);
+    phoneNoPopModelRepository = new Repository(adapter, TestPhoneNoPopModel);
   });
 
   describe("Many to one relations", () => {
@@ -115,6 +139,61 @@ describe(`Complex Database`, function () {
     let updatedUser: TestUserModel;
 
     let userSequence: Sequence;
+
+    
+    it("Ensure no population when populate is disabled in a many-to-one relation", async () => {
+      userSequence = await adapter.Sequence({
+        name: Sequence.pk(TestUserModel),
+        type: "Number",
+        startWith: 0,
+        incrementBy: 1,
+        cycle: false,
+      });
+
+      const phoneSequence = await adapter.Sequence({
+        name: Sequence.pk(TestPhoneNoPopModel),
+        type: "Number",
+        startWith: 0,
+        incrementBy: 1,
+        cycle: false,
+      });
+
+      const currentUser = (await userSequence.current()) as number;
+      const curPhone = (await phoneSequence.current()) as number;
+      createdUser = await userRepository.create(new TestUserModel(user));
+      const phone = {
+        areaCode: "351",
+        number: "000-0000000",
+        user: createdUser.id,
+      };
+      createdPhone1 = await phoneNoPopModelRepository.create(
+        new TestPhoneNoPopModel(phone)
+      );
+
+      const phoneSeq = await sequenceRepository.read(
+        Sequence.pk(TestPhoneNoPopModel)
+      );
+      expect(phoneSeq.current).toEqual(curPhone + 1);
+
+      const userSeq = await sequenceRepository.read(Sequence.pk(TestUserModel));
+      createdUser = await userRepository.read(userSeq.current);
+      expect(userSeq.current).toEqual(currentUser + 1);
+      expect(createdPhone1.user).toEqual(createdUser.id)
+
+      const toUpdate = new TestPhoneNoPopModel(
+        Object.assign({}, createdPhone1, {
+          areaCode: "30",
+          number: "987-654321",
+        })
+      );
+
+      const updated = await phoneNoPopModelRepository.update(toUpdate);
+      expect(updated.user).toEqual(createdUser.id);
+
+      const deleted = await phoneNoPopModelRepository.delete(createdPhone1.id);
+      expect(deleted.user).toEqual(createdUser.id);
+    });
+
 
     it("Creates a many to one relation", async () => {
       userSequence = await adapter.Sequence({

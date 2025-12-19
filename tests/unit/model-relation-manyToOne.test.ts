@@ -282,5 +282,20 @@ describe(`Complex Database`, function () {
       expect(readUserAndPhone).toBeDefined();
       console.log("asdf", read);
     });
+    it("Deletes a one to many relation", async () => {
+      createdUser = await userRepository.create(new TestUserModel(user));
+      const userRead = await userRepository.read(createdUser.id);
+      phone1.user = userRead.id as any;
+      const createdPhone = await phoneModelRepository.create(
+        new TestPhoneModel(phone1)
+      );
+      await phoneModelRepository.delete(createdPhone.id);
+      await expect(
+        phoneModelRepository.read(createdPhone.id)
+      ).rejects.toBeInstanceOf(NotFoundError);
+      await expect(
+        userRepository.read(createdUser.id)
+      ).rejects.toBeInstanceOf(NotFoundError);
+    });
   });
 });

@@ -613,17 +613,12 @@ export async function ManyToOneOnDelete<M extends Model, R extends Repo<M>>(
     ? Repository.forModel(value, this.adapter.alias)
     : repositoryFromTypeMetadata(model, key, this.adapter.alias);
 
-  const uniqueValues = new Set([
-    ...(isInstantiated
-      ? value[repo["pk"] as string]
-      : value),
-  ]);
+  const repoId = isInstantiated? value[repo["pk"] as string] : value
 
-  for (const id of uniqueValues.values()) {
-    const deleted = await repo.delete(id);
-    await cacheModelForPopulate(context, model, key, id, deleted);
-  }
-  (model as any)[key] = [...uniqueValues];
+  const deleted = await repo.delete(repoId);
+  await cacheModelForPopulate(context, model, key, repoId, deleted);
+
+  (model as any)[key] = repoId
 }
 
 /**

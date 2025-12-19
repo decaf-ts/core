@@ -61,7 +61,7 @@ export class TestPhoneModel extends BaseModel {
   @required()
   number!: string;
 
-  @manyToOne(TestUserModel)
+  @manyToOne(TestUserModel, {update: Cascade.CASCADE, delete: Cascade.CASCADE})
   @required()
   @minlength(1)
   user!: TestUserModel | string | number;

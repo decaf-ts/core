@@ -606,23 +606,17 @@ export async function ManyToOneOnDelete<M extends Model, R extends Repo<M>>(
   model: M
 ): Promise<void> {
   if (data.cascade.delete !== Cascade.CASCADE) return;
-  const values = model[key] as any;
-  if (!values || !values.length) return;
-  const arrayType = typeof values[0];
-  const areAllSameType = values.every((item: any) => typeof item === arrayType);
-  if (!areAllSameType)
-    throw new InternalError(
-      `Invalid operation. All elements of property ${key as string} must match the same type.`
-    );
-  const isInstantiated = arrayType === "object";
+  const value = model[key] as any;
+  if (!value) return;
+  const isInstantiated = typeof value === "object";
   const repo = isInstantiated
-    ? Repository.forModel(values[0], this.adapter.alias)
+    ? Repository.forModel(value, this.adapter.alias)
     : repositoryFromTypeMetadata(model, key, this.adapter.alias);
 
   const uniqueValues = new Set([
     ...(isInstantiated
-      ? values.map((v: Record<string, any>) => v[repo["pk"] as string])
-      : values),
+      ? value[repo["pk"] as string]
+      : value),
   ]);
 
   for (const id of uniqueValues.values()) {

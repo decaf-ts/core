@@ -580,6 +580,23 @@ export async function ManyToOneOnCreate<M extends Model, R extends Repo<M>>(
   );
   (model as any)[key] = created[pk];
 }
+
+export async function ManyToOneOnUpdate<M extends Model, R extends Repo<M>>(
+  this: R,
+  context: ContextOf<R>,
+  data: RelationsMetadata,
+  key: keyof M,
+  model: M
+): Promise<void> {
+  const { cascade } = data;
+  if (cascade.update !== Cascade.CASCADE) return;
+  return ManyToOneOnCreate.apply(this as any, [
+    context,
+    data,
+    key as keyof Model,
+    model,
+  ]);
+}
 /**
  * @description Generates a key for caching populated model relationships
  * @summary Creates a unique key for storing and retrieving populated model relationships in the cache

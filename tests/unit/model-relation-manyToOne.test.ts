@@ -45,10 +45,7 @@ export class TestPhoneModel extends BaseModel {
   @required()
   number!: string;
 
-  @manyToOne(TestUserModel, {
-    update: Cascade.CASCADE,
-    delete: Cascade.CASCADE,
-  })
+  @manyToOne(TestUserModel)
   @required()
   @minlength(1)
   user!: TestUserModel | string | number;
@@ -243,6 +240,40 @@ describe(`Complex Database`, function () {
         // phones.forEach((p: any) => {
         //   testPhone(p);
         // });
+        });
+      it("Updates a many to one relation", async () => {
+        createdUser = await userRepository.create(new TestUserModel(user));
+        const userRead = await userRepository.read(createdUser.id);
+        phone1.user = userRead.id as any;
+        const createdPhone = await phoneModelRepository.create(new TestPhoneModel(phone1));
+
+        const toUpdate = new TestPhoneModel(
+          Object.assign({}, createdPhone, {
+            areaCode: "30",
+            number: "987-654321"
+          })
+        )
+
+        const toUpdateAndCreateUser = new TestPhoneModel(
+          Object.assign({}, createdPhone, {
+            areaCode: "30",
+            number: "987-654321",
+            user: new TestUserModel({
+              name: "asdf",
+              email: "asdf@test.com",
+              age: 26,
+            })
+          })
+        )
+
+        const updatedPhone = await phoneModelRepository.update(toUpdate);
+        const read = await phoneModelRepository.read(updatedPhone.id)
+        expect(read).toBeDefined();
+
+        const updatedUserAndPhone = await phoneModelRepository.update(toUpdateAndCreateUser);
+        const readUserAndPhone = await phoneModelRepository.read(updatedUserAndPhone.id)
+        expect(readUserAndPhone).toBeDefined();
+        console.log("asdf",read)
         });
       });
     });

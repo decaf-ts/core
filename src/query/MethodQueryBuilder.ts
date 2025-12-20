@@ -7,6 +7,10 @@ import {
   QueryClause,
 } from "./types";
 import { OperatorsMap } from "./utils";
+import { Context } from "@decaf-ts/db-decorators";
+import { LoggedClass, Logger, Logging } from "@decaf-ts/logging";
+import { OrderDirection } from "../repository/constants";
+import { QueryError } from "./errors";
 
 const lowerFirst = (str: string): string =>
   str.charAt(0).toLowerCase() + str.slice(1);
@@ -64,7 +68,14 @@ const lowerFirst = (str: string): string =>
  *   MQB->>MQB: extractOrderLimitOffset(core, values)
  *   MQB->>Query: return structured QueryAssist object
  */
-export class MethodQueryBuilder {
+export class MethodQueryBuilder extends LoggedClass {
+  private static _logger: Logger;
+
+  protected static get log(): Logger {
+    if (!this._logger) this._logger = Logging.for(MethodQueryBuilder.name);
+    return this._logger;
+  }
+
   /**
    * @description
    * Builds a `QueryAssist` object by parsing a repository method name and values.
@@ -90,7 +101,7 @@ export class MethodQueryBuilder {
     // const orderBy = this.extractOrderBy(methodName);
     const where = this.buildWhere(core, values);
     const { orderBy, limit, offset } = this.extractOrderLimitOffset(
-      core,
+      methodName,
       values
     );
 
@@ -287,6 +298,44 @@ export class MethodQueryBuilder {
     return { field: lowerFirst(str) };
   }
 
+  private static extractOrderByField(methodName: string): string | undefined {
+    // new Regex(`${QueryClause.ORDER_BY}`);
+    const match = methodName.match(/OrderBy(.+)$/);
+    if (!match) return undefined;
+    const field = match[1];
+    return field.charAt(0).toLowerCase() + field.slice(1);
+  }
+
+  private static getProperlyOrderByOrThrow(
+    field: string | undefined,
+    direction: OrderDirection | undefined
+  ): Array<OrderBySelector<any>> | undefined {
+    const log = MethodQueryBuilder.log.for(this.getProperlyOrderByOrThrow);
+    // Both absent → ignore OrderBy
+    if (!direction && !field) return;
+
+    if (direction && !field)
+      throw new QueryError(
+        `Expected OrderBy clause, but no sortable field was found in method name.`
+      );
+
+    // Field present, but direction is undefined → ignore OrderBy
+    if (!direction && field) {
+      log.debug("Ignoring OrderBy clause because direction is undefined.");
+      return;
+    }
+
+    // Both present → validate direction
+    const allowedDirections = Object.values(OrderDirection);
+    if (!allowedDirections.includes(direction as any)) {
+      throw new QueryError(
+        `Invalid OrderBy direction ${direction}. Expected one of: ${Object.values(OrderDirection).join(", ")}.`
+      );
+    }
+
+    return [[field as any, direction as OrderDirection]];
+  }
+
   /**
    * @description
    * Extracts `orderBy`, `limit`, and `offset` clauses from method arguments.
@@ -295,24 +344,30 @@ export class MethodQueryBuilder {
    * Determines the number of condition arguments, then checks the remaining arguments
    * to resolve sorting, limiting, and pagination.
    *
-   * @param core {string} - The extracted core string from the method name.
+   * @param methodName {string} - The extracted core string from the method name.
    * @param values {any[]} - The values corresponding to method arguments, including conditions and extras.
    *
    * @return {OrderLimitOffsetExtract} An object containing orderBy, limit, and offset values if present.
    */
   private static extractOrderLimitOffset(
-    core: string,
+    methodName: string,
     values: any[]
   ): OrderLimitOffsetExtract {
+    const core = this.extractCore(methodName);
     const conditionCount = core.split(/And|Or/).length;
-    const extraArgs = values.slice(conditionCount);
+    const extraArgs: any[] = values.slice(conditionCount) ?? [];
 
-    let orderBy: OrderBySelector<any>[] | undefined;
+    let orderBy: Array<OrderBySelector<any>> | undefined;
     let limit: number | undefined;
     let offset: number | undefined;
 
-    if (extraArgs.length >= 1 && Array.isArray(extraArgs[0]))
-      orderBy = extraArgs[0] as OrderBySelector<any>[];
+    if (extraArgs.at(-1) instanceof Context) extraArgs.pop();
+
+    if (extraArgs.length >= 1) {
+      const direction = extraArgs[0];
+      const field = this.extractOrderByField(methodName);
+      orderBy = this.getProperlyOrderByOrThrow(field, direction);
+    }
 
     if (extraArgs.length >= 2 && typeof extraArgs[1] === "number")
       limit = extraArgs[1];

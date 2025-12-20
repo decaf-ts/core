@@ -77,18 +77,62 @@ describe("MethodQueryBuilder", () => {
   });
 
   describe("OrderBy", () => {
-    it("should parse single OrderBy", () => {
+    it("should parse single OrderBy asc", () => {
       const result = MethodQueryBuilder.build(
-        "findByAgeGreater",
+        "findByAgeGreaterOrderByName",
         18,
-        [["name", OrderDirection.ASC]],
+        OrderDirection.ASC,
         10
       );
 
       expect(result.orderBy).toEqual([["name", OrderDirection.ASC]]);
     });
 
-    it("should parse multiple ThenBy orderings", () => {
+    it("should parse single OrderBy dsc", () => {
+      const result = MethodQueryBuilder.build(
+        "findByAgeGreaterOrderByAge",
+        18,
+        OrderDirection.DSC,
+        10
+      );
+
+      expect(result.orderBy).toEqual([["age", OrderDirection.DSC]]);
+    });
+
+    it("should ignore OrderBy when direction is undefined but clause exists on method", () => {
+      const result = MethodQueryBuilder.build(
+        "findByAgeGreaterOrderByName",
+        18,
+        undefined as any, // no direction
+        10
+      );
+      expect(result.orderBy).toBeUndefined();
+    });
+
+    it("should ignore OrderBy when both direction and field are undefined", () => {
+      const result = MethodQueryBuilder.build(
+        "findByAgeGreater", // no OrderBy
+        18,
+        undefined as any,
+        10
+      );
+
+      expect(result.orderBy).toBeUndefined();
+    });
+
+    it("should throw for invalid direction when OrderBy exists", () => {
+      expect(() =>
+        MethodQueryBuilder.build(
+          "findByAgeGreaterOrderByName",
+          18,
+          "UP" as any,
+          10
+        )
+      ).toThrow(/Invalid OrderBy direction UP. Expected one of:/);
+    });
+
+    // Now OrderBy currently supports only a single clause
+    it.skip("should parse multiple ThenBy orderings", () => {
       const result = MethodQueryBuilder.build(
         "findByActiveOrderByAgeDescThenByCountryDsc",
         true,
@@ -105,10 +149,12 @@ describe("MethodQueryBuilder", () => {
       ]);
     });
 
-    it.skip("should throw error on invalid OrderBy part", () => {
+    it("should throw if no OrderBy in method name", () => {
       expect(() =>
-        MethodQueryBuilder.build("findByAgeOrderByInvalid", 18)
-      ).toThrowError(/Invalid OrderBy part/);
+        MethodQueryBuilder.build("findByAge", 18, OrderDirection.ASC)
+      ).toThrowError(
+        /Expected OrderBy clause, but no sortable field was found in method name/
+      );
     });
   });
 

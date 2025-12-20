@@ -447,7 +447,7 @@ export class ModelService<
       args,
       method as any,
       allowCreate,
-      {},
+      this.repo["_overrides"],
       this.class
     )) as ContextualizedArgs<ContextOfRepository<R>, ARGS>;
   }

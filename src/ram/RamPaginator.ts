@@ -71,7 +71,7 @@ export class RamPaginator<M extends Model, R> extends Paginator<
   override async page(
     page: number = 1,
     ...args: MaybeContextualArg<any>
-  ): Promise<R[]> {
+  ): Promise<R> {
     const { ctx, ctxArgs } = this.adapter["logCtx"](args, this.page);
     if (this.isPreparedStatement()) {
       return this.pagePrepared(page, ...ctxArgs);

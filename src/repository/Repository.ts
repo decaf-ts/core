@@ -50,6 +50,7 @@ import {
 import { Model } from "@decaf-ts/decorator-validation";
 import { prepared } from "../query/decorators";
 import { PreparedStatementKeys } from "../query/constants";
+import { Paginator, SerializedPage } from "../query/index";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.
@@ -948,8 +949,14 @@ export class Repository<
     key: keyof M,
     order: OrderDirection,
     size: number,
+    ref: { page?: number; bookmark?: string } | number = { page: 1 },
     ...args: MaybeContextualArg<ContextOf<A>>
-  ) {
+  ): Promise<SerializedPage<M>> {
+    if (typeof ref === "number") ref = { page: ref };
+    // eslint-disable-next-line prefer-const
+    let { page, bookmark } = ref;
+    if (!page && !bookmark)
+      throw new QueryError(`PaginateBy needs a page or a bookmark`);
     const contextArgs = await Context.args<M, ContextOf<A>>(
       PreparedStatementKeys.PAGE_BY,
       this.class,
@@ -961,13 +968,31 @@ export class Repository<
     log.verbose(
       `paginating ${Model.tableName(this.class)} with page size ${size}`
     );
-    return this.override({
-      forcePrepareComplexQueries: false,
-      forcePrepareSimpleQueries: false,
-    } as any)
-      .select()
-      .orderBy([key, order])
-      .paginate(size, ...ctxArgs);
+
+    let paginator: Paginator<M>;
+    if (bookmark) {
+      paginator = await this.override({
+        forcePrepareComplexQueries: false,
+        forcePrepareSimpleQueries: false,
+      } as any)
+        .select()
+        .where(this.attr(Model.pk(this.class)).gt(bookmark))
+        .orderBy([key, order])
+        .paginate(size, ...ctxArgs);
+      page = 1;
+    } else if (page) {
+      paginator = await this.override({
+        forcePrepareComplexQueries: false,
+        forcePrepareSimpleQueries: false,
+      } as any)
+        .select()
+        .orderBy([key, order])
+        .paginate(size, ...ctxArgs);
+    } else {
+      throw new QueryError(`PaginateBy needs a page or a bookmark`);
+    }
+    const paged = await paginator.page(page);
+    return paginator.serialize(paged) as SerializedPage<M>;
   }
 
   @prepared()

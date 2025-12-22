@@ -13,6 +13,7 @@ import { ContextualArgs, MaybeContextualArg } from "../utils/index";
 import { PreparedStatement } from "./types";
 import { PreparedStatementKeys } from "./constants";
 import { Repository } from "../repository/Repository";
+import { SerializationError } from "@decaf-ts/db-decorators";
 
 /**
  * @description Handles pagination for database queries
@@ -78,6 +79,7 @@ export abstract class Paginator<
   protected _currentPage!: number;
   protected _totalPages!: number;
   protected _recordCount!: number;
+  protected _bookmark?: number | string;
   protected limit!: number;
 
   private _statement?: Q;
@@ -185,11 +187,55 @@ export abstract class Paginator<
     return page;
   }
 
-  async page(page: number = 1, ...args: MaybeContextualArg<any>): Promise<R[]> {
+  async page(page: number = 1, ...args: MaybeContextualArg<any>): Promise<R> {
     const { ctxArgs } = this.adapter["logCtx"](args, this.page);
     if (this.isPreparedStatement()) return this.pagePrepared(page, ...ctxArgs);
     throw new UnsupportedError(
       "Raw support not available without subclassing this"
     );
   }
+
+  serialize(data: M[], toString: boolean = false): string | SerializedPage<M> {
+    const serialization: SerializedPage<M> = {
+      data: data,
+      current: this.current,
+      total: this.total,
+      count: this.count,
+      bookmark: this._bookmark,
+    };
+    try {
+      return toString ? JSON.stringify(serialization) : serialization;
+    } catch (e: unknown) {
+      throw new SerializationError(e as Error);
+    }
+  }
+
+  apply(serialization: string | SerializedPage<M>): M[] {
+    const ser =
+      typeof serialization === "string"
+        ? Paginator.deserialize<M>(serialization)
+        : serialization;
+
+    this._currentPage = ser.current;
+    this._totalPages = ser.total;
+    this._recordCount = ser.count;
+    this._bookmark = ser.bookmark;
+    return ser.data;
+  }
+
+  static deserialize<M extends Model>(str: string): SerializedPage<M> {
+    try {
+      return JSON.parse(str);
+    } catch (e: unknown) {
+      throw new SerializationError(e as Error);
+    }
+  }
 }
+
+export type SerializedPage<M extends Model> = {
+  current: number;
+  total: number;
+  count: number;
+  data: M[];
+  bookmark?: number | string;
+};

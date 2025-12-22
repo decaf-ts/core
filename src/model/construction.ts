@@ -563,7 +563,7 @@ export async function oneToManyOnDelete<M extends Model, R extends Repo<M>>(
   (model as any)[key] = [...uniqueValues];
 }
 
-export async function ManyToOneOnCreate<M extends Model, R extends Repo<M>>(
+export async function manyToOneOnCreate<M extends Model, R extends Repo<M>>(
   this: R,
   context: ContextOf<R>,
   data: RelationsMetadata,
@@ -588,7 +588,11 @@ export async function ManyToOneOnCreate<M extends Model, R extends Repo<M>>(
   const constructor = isClass(data.class) ? data.class : data.class();
   if (!constructor)
     throw new InternalError(`Could not find model ${data.class}`);
-  const created = await createOrUpdate(propertyValue, context, this.adapter.alias);
+  const created = await createOrUpdate(
+    propertyValue,
+    context,
+    this.adapter.alias
+  );
   const pk = Model.pk(created);
   await cacheModelForPopulate(
     context,
@@ -600,7 +604,7 @@ export async function ManyToOneOnCreate<M extends Model, R extends Repo<M>>(
   (model as any)[key] = created[pk];
 }
 
-export async function ManyToOneOnUpdate<M extends Model, R extends Repo<M>>(
+export async function manyToOneOnUpdate<M extends Model, R extends Repo<M>>(
   this: R,
   context: ContextOf<R>,
   data: RelationsMetadata,
@@ -609,7 +613,7 @@ export async function ManyToOneOnUpdate<M extends Model, R extends Repo<M>>(
 ): Promise<void> {
   const { cascade } = data;
   if (cascade.update !== Cascade.CASCADE) return;
-  return ManyToOneOnCreate.apply(this as any, [
+  return manyToOneOnCreate.apply(this as any, [
     context,
     data,
     key as keyof Model,
@@ -617,7 +621,7 @@ export async function ManyToOneOnUpdate<M extends Model, R extends Repo<M>>(
   ]);
 }
 
-export async function ManyToOneOnDelete<M extends Model, R extends Repo<M>>(
+export async function manyToOneOnDelete<M extends Model, R extends Repo<M>>(
   this: R,
   context: ContextOf<R>,
   data: RelationsMetadata,
@@ -632,12 +636,95 @@ export async function ManyToOneOnDelete<M extends Model, R extends Repo<M>>(
     ? Repository.forModel(value, this.adapter.alias)
     : repositoryFromTypeMetadata(model, key, this.adapter.alias);
 
-  const repoId = isInstantiated? value[repo["pk"] as string] : value
+  const repoId = isInstantiated ? value[repo["pk"] as string] : value;
 
   const deleted = await repo.delete(repoId);
   await cacheModelForPopulate(context, model, key, repoId, deleted);
 
-  (model as any)[key] = repoId
+  (model as any)[key] = repoId;
+}
+
+export async function manyToManyOnCreate<M extends Model, R extends Repo<M>>(
+  this: R,
+  context: ContextOf<R>,
+  data: RelationsMetadata,
+  key: keyof M,
+  model: M
+): Promise<void> {
+  console.warn("method not yet implemented");
+  const propertyValue: any = model[key];
+  if (!propertyValue) return;
+
+  // If it's a primitive value (ID), read the existing record
+  if (typeof propertyValue !== "object") {
+    const innerRepo = repositoryFromTypeMetadata(
+      model,
+      key,
+      this.adapter.alias
+    );
+    const read = await innerRepo.read(propertyValue);
+    await cacheModelForPopulate(context, model, key, propertyValue, read);
+    (model as any)[key] = propertyValue;
+    return;
+  }
+  const constructor = isClass(data.class) ? data.class : data.class();
+  if (!constructor)
+    throw new InternalError(`Could not find model ${data.class}`);
+  const created = await createOrUpdate(
+    propertyValue,
+    context,
+    this.adapter.alias
+  );
+  const pk = Model.pk(created);
+  await cacheModelForPopulate(
+    context,
+    model,
+    key,
+    created[pk] as string,
+    created
+  );
+  (model as any)[key] = created[pk];
+}
+
+export async function manyToManyOnUpdate<M extends Model, R extends Repo<M>>(
+  this: R,
+  context: ContextOf<R>,
+  data: RelationsMetadata,
+  key: keyof M,
+  model: M
+): Promise<void> {
+  console.warn("method not yet implemented");
+  const { cascade } = data;
+  if (cascade.update !== Cascade.CASCADE) return;
+  return manyToOneOnCreate.apply(this as any, [
+    context,
+    data,
+    key as keyof Model,
+    model,
+  ]);
+}
+
+export async function manyToManyOnDelete<M extends Model, R extends Repo<M>>(
+  this: R,
+  context: ContextOf<R>,
+  data: RelationsMetadata,
+  key: keyof M,
+  model: M
+): Promise<void> {
+  if (data.cascade.delete !== Cascade.CASCADE) return;
+  const value = model[key] as any;
+  if (!value) return;
+  const isInstantiated = typeof value === "object";
+  const repo = isInstantiated
+    ? Repository.forModel(value, this.adapter.alias)
+    : repositoryFromTypeMetadata(model, key, this.adapter.alias);
+
+  const repoId = isInstantiated ? value[repo["pk"] as string] : value;
+
+  const deleted = await repo.delete(repoId);
+  await cacheModelForPopulate(context, model, key, repoId, deleted);
+
+  (model as any)[key] = repoId;
 }
 
 /**

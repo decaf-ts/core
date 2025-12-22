@@ -46,10 +46,11 @@ export const OperatorsMap: Record<string, OperatorParser> = {
   LessThanEqual: (f, v) => Condition.attribute(f as any).lte(v),
   GreaterThan: (f, v) => Condition.attribute(f as any).gt(v),
   GreaterThanEqual: (f, v) => Condition.attribute(f as any).gte(v),
-  Between: (f, v1, v2) =>
-    Condition.attribute(f as any)
-      .gte(v1)
-      .and(Condition.attribute(f as any).lte(v2)),
+  // Between deprecated due to GreaterThan/LessThanEqual
+  // Between: (f, v1, v2) =>
+  //   Condition.attribute(f as any)
+  //     .gte(v1)
+  //     .and(Condition.attribute(f as any).lte(v2)),
   In: (f, v) => Condition.attribute(f as any).in(v),
   Matches: (f, v) => Condition.attribute(f as any).regexp(v),
 };

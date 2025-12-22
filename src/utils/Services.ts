@@ -447,7 +447,7 @@ export class ModelService<
       args,
       method as any,
       allowCreate,
-      {},
+      this.repo["_overrides"],
       this.class
     )) as ContextualizedArgs<ContextOfRepository<R>, ARGS>;
   }
@@ -502,8 +502,11 @@ export class ModelService<
     if (args.length < 1) {
       args = [await bootCtx()] as ARGS;
     }
-    const ctx = args.pop() as CONTEXT;
-    if (!(ctx instanceof Context)) args = [...args, await bootCtx()] as ARGS;
+    let ctx = args.pop() as CONTEXT;
+    if (!(ctx instanceof Context)) {
+      if (typeof ctx !== "undefined") args.push(ctx);
+      ctx = (await bootCtx()) as CONTEXT;
+    }
     const log = (
       this
         ? ctx.logger.for(this).for(operation)
@@ -511,7 +514,7 @@ export class ModelService<
     ) as LoggerOf<CONTEXT>;
     return {
       ctx: ctx,
-      log: operation ? (log.for(operation) as LoggerOf<CONTEXT>) : log,
+      log: log,
       ctxArgs: [...args, ctx],
     };
   }

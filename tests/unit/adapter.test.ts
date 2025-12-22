@@ -36,11 +36,7 @@ describe("Adapter", () => {
       nif: "123456789",
     });
 
-    const ctx = await adapter.context(
-      OperationKeys.CREATE,
-      {},
-      TestModel
-    );
+    const ctx = await adapter.context(OperationKeys.CREATE, {}, TestModel);
     const { record, id } = adapter.prepare(create, ctx);
     expect(record).toMatchObject({
       tst_name: create.name,
@@ -51,11 +47,7 @@ describe("Adapter", () => {
   });
 
   it("reverts models", async () => {
-    const ctx = await adapter.context(
-      OperationKeys.READ,
-      {},
-      TestModel
-    );
+    const ctx = await adapter.context(OperationKeys.READ, {}, TestModel);
     const reverted = adapter.revert(
       prepared,
       TestModel,
@@ -85,6 +77,11 @@ describe("Adapter", () => {
     it("Recognizes adapter registrations at the model level", () => {
       const managedModels = Adapter.models("ram");
       expect(managedModels).toBeDefined();
+      // Return only classes decorated with @Model
+      expect(managedModels.map((m) => m.name)).toEqual([
+        "ManagedModel",
+        "TestModel",
+      ]);
     });
 
     @model()

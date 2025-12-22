@@ -202,8 +202,8 @@ describe("Statement execution strategy", () => {
       "name",
       "asc",
       expect.objectContaining({
-        size: 2,
-        page: 1,
+        limit: 2,
+        offset: 1,
       }),
       expect.any(Context)
     );

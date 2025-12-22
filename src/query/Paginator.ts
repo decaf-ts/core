@@ -154,9 +154,10 @@ export abstract class Paginator<
     const pagedMethod = method.replace(regexp, PreparedStatementKeys.PAGE_BY);
 
     const preparedArgs = [pagedMethod, ...args];
-    let preparedParams: Record<any, any> | DirectionLimitOffset = {
-      size: this.size,
-      page: page,
+    let preparedParams: DirectionLimitOffset = {
+      limit: this.size,
+      offset: page,
+      bookmark: this._bookmark,
     };
     if (pagedMethod === PreparedStatementKeys.PAGE_BY) {
       preparedArgs.push(params.direction);
@@ -164,7 +165,8 @@ export abstract class Paginator<
       preparedParams = {
         direction: params.direction,
         limit: this.size,
-        offset: this._bookmark || page,
+        offset: page,
+        bookmark: this._bookmark,
       };
     }
 

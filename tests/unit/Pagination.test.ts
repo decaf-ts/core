@@ -1,10 +1,40 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { InternalError } from "@decaf-ts/db-decorators";
+
 import { TestCountryModel } from "./models";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { RamRepository } from "../../src/ram/types";
-import { OrderDirection, Paginator, Repository } from "../../src/index";
+import {
+  DirectionLimitOffset,
+  OrderDirection,
+  Paginator,
+  query,
+  prepared,
+  Repository,
+} from "../../src/index";
 
 jest.setTimeout(500000);
+
+class TestCountryModelRepo extends Repository<TestCountryModel, any> {
+  constructor(adapter: any) {
+    super(adapter, TestCountryModel);
+  }
+
+  @query()
+  async findByIdBiggerOrderById(
+    id: string,
+    direction: OrderDirection,
+    params: DirectionLimitOffset
+  ) {
+    throw new InternalError("Should be overridden by decorator");
+  }
+
+  // TODO @pedro make this happen automatically
+  @prepared()
+  async paginateByIdBiggerOrderById(id: string, params: DirectionLimitOffset) {
+    return this.findByIdBiggerOrderById(id, params.direction, params);
+  }
+}
 
 describe(`Pagination`, function () {
   let adapter: RamAdapter;
@@ -15,7 +45,7 @@ describe(`Pagination`, function () {
 
   beforeAll(async () => {
     adapter = new RamAdapter();
-    repo = new Repository(adapter, TestCountryModel);
+    repo = new TestCountryModelRepo(adapter);
     const models = Object.keys(new Array(size).fill(0)).map(
       (i) =>
         new TestCountryModel({
@@ -112,9 +142,10 @@ describe(`Pagination`, function () {
 
     expect(paginator.size).toEqual(10);
     expect(paginator.current).toEqual(undefined);
-
     const page1 = (await paginator.page()) as any;
     expect(page1).toBeDefined();
+    expect(paginator.total).toEqual(10);
+    expect(paginator.current).toEqual(1);
 
     expect(paginator.current).toEqual(1);
     const ids = [100, 99, 98, 97, 96, 95, 94, 93, 92, 91];
@@ -126,6 +157,8 @@ describe(`Pagination`, function () {
     const page2 = (await paginator.next()) as any;
     expect(page2).toBeDefined();
 
+    expect(paginator.current).toEqual(2);
+
     expect(page2.map((el: any) => el["id"])).toEqual(
       expect.arrayContaining(ids.map((e) => e - 10))
     );
@@ -133,6 +166,7 @@ describe(`Pagination`, function () {
     const page3 = (await paginator.next()) as any;
     expect(page3).toBeDefined();
 
+    expect(paginator.current).toEqual(3);
     expect(page3.map((el: any) => el["id"])).toEqual(
       expect.arrayContaining(ids.map((e) => e - 20))
     );
@@ -140,6 +174,60 @@ describe(`Pagination`, function () {
     const page4 = (await paginator.next()) as any;
     expect(page4).toBeDefined();
 
+    expect(paginator.current).toEqual(4);
+    expect(page4.map((el: any) => el["id"])).toEqual(
+      expect.arrayContaining(ids.map((e) => e - 30))
+    );
+  });
+
+  // TODO @pedro compatibilize pagination with complex queries. I though we said the sort direction would be a 'query param'?
+  it.skip("handles complex queries", async () => {
+    const paginator: Paginator<TestCountryModel> = await repo
+      .override({
+        forcePrepareSimpleQueries: true,
+        forcePrepareComplexQueries: true,
+      })
+      .select()
+      .where(repo.attr("id").gt(50))
+      .orderBy(["id", OrderDirection.DSC])
+      .paginate(10);
+
+    expect(paginator).toBeDefined();
+
+    expect(paginator.size).toEqual(10);
+    expect(paginator.current).toEqual(undefined);
+
+    const page1 = (await paginator.page()) as any;
+    expect(page1).toBeDefined();
+    expect(paginator.total).toEqual(5);
+    expect(paginator.current).toEqual(1);
+
+    const ids = [100, 99, 98, 97, 96, 95, 94, 93, 92, 91];
+
+    expect(page1.map((el: any) => el["id"])).toEqual(
+      expect.arrayContaining(ids)
+    );
+
+    const page2 = (await paginator.next()) as any;
+    expect(page2).toBeDefined();
+
+    expect(paginator.current).toEqual(2);
+    expect(page2.map((el: any) => el["id"])).toEqual(
+      expect.arrayContaining(ids.map((e) => e - 10))
+    );
+
+    const page3 = (await paginator.next()) as any;
+    expect(page3).toBeDefined();
+
+    expect(paginator.current).toEqual(3);
+    expect(page3.map((el: any) => el["id"])).toEqual(
+      expect.arrayContaining(ids.map((e) => e - 20))
+    );
+
+    const page4 = (await paginator.next()) as any;
+    expect(page4).toBeDefined();
+
+    expect(paginator.current).toEqual(4);
     expect(page4.map((el: any) => el["id"])).toEqual(
       expect.arrayContaining(ids.map((e) => e - 30))
     );

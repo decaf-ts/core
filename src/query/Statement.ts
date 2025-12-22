@@ -383,6 +383,7 @@ export abstract class Statement<
 
     let attrFromWhere: string | undefined;
     if (this.whereCondition) {
+      if (this.orderBySelector) return undefined;
       if (this.whereCondition["comparison"] instanceof Condition)
         return undefined;
       attrFromWhere = this.whereCondition["attr1"] as string;

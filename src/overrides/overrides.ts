@@ -22,10 +22,9 @@ import type { Migration } from "../persistence/types";
     Metadata.get(model, PersistenceKeys.NO_VALIDATE) || [];
   const novalidationEntries = Object.entries(noValidation)
     .filter(([, val]) => val.includes(op))
-    .map(([key]) => key)
-  const nestedRels = Model.nestedRelations(model); 
-  return [...new Set([...novalidationEntries,...nestedRels])];
-
+    .map(([key]) => key);
+  const nestedRels = Model.nestedRelations(model);
+  return [...new Set([...novalidationEntries, ...nestedRels])];
 }.bind(Metadata);
 
 (Metadata as any).migrationsFor = function <
@@ -75,13 +74,18 @@ import type { Migration } from "../persistence/types";
   if (!existingRelations?.length) existingRelations = Model.relations(model);
   let inner: string[] = [];
   const rels = Metadata.get(model as Constructor<M>, PersistenceKeys.RELATIONS);
-  if (!rels || !Object.keys(rels).length) return [...new Set([...existingRelations])];
+  if (!rels || !Object.keys(rels).length)
+    return [...new Set([...existingRelations])];
   for (const prop in rels) {
     const relationMeta = rels[prop] as any;
     if (relationMeta?.class && Model.relations(relationMeta.class)) {
       const innerModelRels = Model.relations(relationMeta.class) as string[];
       const innerModelDotRels = innerModelRels.map((r) => `${prop}.${r}`);
-      existingRelations = [...existingRelations, ...innerModelRels,...innerModelDotRels];
+      existingRelations = [
+        ...existingRelations,
+        ...innerModelRels,
+        ...innerModelDotRels,
+      ];
       inner = Model.nestedRelations(relationMeta.class, existingRelations);
     }
   }

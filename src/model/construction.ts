@@ -57,9 +57,10 @@ import { Context } from "../persistence/Context";
 export async function createOrUpdate<M extends Model, F extends AdapterFlags>(
   model: M,
   context: Context<F>,
-  alias?: string,
+  alias: string,
   repository?: Repo<M>
 ): Promise<M> {
+  const log = context.logger.for(createOrUpdate);
   if (!repository) {
     const constructor = Model.get(model.constructor.name);
     if (!constructor)
@@ -68,17 +69,34 @@ export async function createOrUpdate<M extends Model, F extends AdapterFlags>(
       constructor as unknown as ModelConstructor<M>,
       alias
     );
+    log.info(`Retrieved ${repository.toString()}`);
   }
-  if (typeof model[Model.pk(repository.class)] === "undefined")
-    return repository.create(model, context);
-  else {
+
+  let result: M;
+
+  if (typeof model[Model.pk(repository.class)] === "undefined") {
+    log.info(`No pk found in ${Model.tableName(repository.class)} - creating`);
+    result = await repository.create(model, context);
+  } else {
+    log.info(
+      `pk found in ${Model.tableName(repository.class)} - attempting update`
+    );
     try {
-      return repository.update(model, context);
+      result = await repository.update(model, context);
+      log.info(`Updated ${Model.tableName(repository.class)}`);
     } catch (e: any) {
-      if (!(e instanceof NotFoundError)) throw e;
-      return repository.create(model, context);
+      if (!(e instanceof NotFoundError)) {
+        throw e;
+      }
+      log.info(
+        `update Failed - creating new ${Model.tableName(repository.class)}`
+      );
+      result = await repository.create(model, context);
     }
+
+    log.info(`After create update: ${result}`);
   }
+  return result;
 }
 
 /**

@@ -33,9 +33,9 @@ import { MaybeContextualArg } from "../utils/index";
  * const secondPage = await paginator.page(2);
  * ```
  */
-export class RamPaginator<M extends Model, R> extends Paginator<
+export class RamPaginator<M extends Model> extends Paginator<
   M,
-  R,
+  M[],
   RawRamQuery<M>
 > {
   constructor(
@@ -71,7 +71,7 @@ export class RamPaginator<M extends Model, R> extends Paginator<
   override async page(
     page: number = 1,
     ...args: MaybeContextualArg<any>
-  ): Promise<R> {
+  ): Promise<M[]> {
     const { ctx, ctxArgs } = this.adapter["logCtx"](args, this.page);
     if (this.isPreparedStatement()) {
       return this.pagePrepared(page, ...ctxArgs);

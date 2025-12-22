@@ -534,7 +534,7 @@ export class RamAdapter extends Adapter<
     query: RawRamQuery,
     size: number,
     clazz: Constructor<M>
-  ): RamPaginator<M, any> {
+  ): RamPaginator<M> {
     return new RamPaginator(this, query, size, clazz);
   }
 

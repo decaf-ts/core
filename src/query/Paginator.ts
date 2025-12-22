@@ -159,7 +159,10 @@ export abstract class Paginator<
       offset: page,
       bookmark: this._bookmark,
     };
-    if (pagedMethod === PreparedStatementKeys.PAGE_BY) {
+    if (
+      pagedMethod === PreparedStatementKeys.PAGE_BY &&
+      preparedArgs.length <= 2
+    ) {
       preparedArgs.push(params.direction);
     } else {
       preparedParams = {

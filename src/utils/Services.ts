@@ -27,6 +27,7 @@ import { Repository } from "../repository/Repository";
 import { create, del, read, service, update } from "./decorators";
 import { Context } from "../persistence/Context";
 import { DefaultAdapterFlags } from "../persistence/constants";
+import { OrderDirection } from "../repository/constants";
 
 export abstract class Service<
   C extends Context<AdapterFlags> = Context<AdapterFlags>,
@@ -379,6 +380,63 @@ export class ModelService<
     const { ctxArgs } = await this.logCtx(args, this.updateAll, true);
     return this.repo.updateAll(models, ...ctxArgs);
   }
+  //
+  // async query(
+  //   condition: Condition<M>,
+  //   orderBy: keyof M,
+  //   order: OrderDirection = OrderDirection.ASC,
+  //   limit?: number,
+  //   skip?: number,
+  //   ...args: MaybeContextualArg<ContextOfRepository<R>>
+  // ): Promise<M[]> {
+  //   const { ctxArgs } = await this.logCtx(args, this.query, true);
+  //   return this.repo.query(condition, orderBy, order, limit, skip, ...ctxArgs);
+  // }
+
+  async listBy(
+    key: keyof M,
+    order: OrderDirection,
+    ...args: MaybeContextualArg<ContextOfRepository<R>>
+  ) {
+    const { ctxArgs } = await this.logCtx(args, this.listBy, true);
+    return this.repo.listBy(key, order, ...ctxArgs);
+  }
+
+  async paginateBy(
+    key: keyof M,
+    order: OrderDirection,
+    size: number,
+    ...args: MaybeContextualArg<ContextOfRepository<R>>
+  ) {
+    const { ctxArgs } = await this.logCtx(args, this.paginateBy, true);
+    return this.repo.paginateBy(key, order, size, ...ctxArgs);
+  }
+
+  async findOneBy(
+    key: keyof M,
+    value: any,
+    ...args: MaybeContextualArg<ContextOfRepository<R>>
+  ) {
+    const { ctxArgs } = await this.logCtx(args, this.findOneBy, true);
+    return this.repo.findOneBy(key, value, ...ctxArgs);
+  }
+
+  async findBy(
+    key: keyof M,
+    value: any,
+    ...args: MaybeContextualArg<ContextOfRepository<R>>
+  ) {
+    const { ctxArgs } = await this.logCtx(args, this.findBy, true);
+    return this.repo.findBy(key, value, ...ctxArgs);
+  }
+
+  async statement(
+    name: string,
+    ...args: MaybeContextualArg<ContextOfRepository<R>>
+  ) {
+    const { ctxArgs } = await this.logCtx(args, this.statement, true);
+    return this.repo.statement(name, ...ctxArgs);
+  }
 
   protected override async logCtx<ARGS extends any[]>(
     args: ARGS,
@@ -389,7 +447,7 @@ export class ModelService<
       args,
       method as any,
       allowCreate,
-      {},
+      this.repo["_overrides"],
       this.class
     )) as ContextualizedArgs<ContextOfRepository<R>, ARGS>;
   }
@@ -444,8 +502,11 @@ export class ModelService<
     if (args.length < 1) {
       args = [await bootCtx()] as ARGS;
     }
-    const ctx = args.pop() as CONTEXT;
-    if (!(ctx instanceof Context)) args = [...args, await bootCtx()] as ARGS;
+    let ctx = args.pop() as CONTEXT;
+    if (!(ctx instanceof Context)) {
+      if (typeof ctx !== "undefined") args.push(ctx);
+      ctx = (await bootCtx()) as CONTEXT;
+    }
     const log = (
       this
         ? ctx.logger.for(this).for(operation)
@@ -453,7 +514,7 @@ export class ModelService<
     ) as LoggerOf<CONTEXT>;
     return {
       ctx: ctx,
-      log: operation ? (log.for(operation) as LoggerOf<CONTEXT>) : log,
+      log: log,
       ctxArgs: [...args, ctx],
     };
   }

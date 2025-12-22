@@ -57,9 +57,10 @@ import { Context } from "../persistence/Context";
 export async function createOrUpdate<M extends Model, F extends AdapterFlags>(
   model: M,
   context: Context<F>,
-  alias?: string,
+  alias: string,
   repository?: Repo<M>
 ): Promise<M> {
+  const log = context.logger.for(createOrUpdate);
   if (!repository) {
     const constructor = Model.get(model.constructor.name);
     if (!constructor)
@@ -68,17 +69,34 @@ export async function createOrUpdate<M extends Model, F extends AdapterFlags>(
       constructor as unknown as ModelConstructor<M>,
       alias
     );
+    log.info(`Retrieved ${repository.toString()}`);
   }
-  if (typeof model[Model.pk(repository.class)] === "undefined")
-    return repository.create(model, context);
-  else {
+
+  let result: M;
+
+  if (typeof model[Model.pk(repository.class)] === "undefined") {
+    log.info(`No pk found in ${Model.tableName(repository.class)} - creating`);
+    result = await repository.create(model, context);
+  } else {
+    log.info(
+      `pk found in ${Model.tableName(repository.class)} - attempting update`
+    );
     try {
-      return repository.update(model, context);
+      result = await repository.update(model, context);
+      log.info(`Updated ${Model.tableName(repository.class)}`);
     } catch (e: any) {
-      if (!(e instanceof NotFoundError)) throw e;
-      return repository.create(model, context);
+      if (!(e instanceof NotFoundError)) {
+        throw e;
+      }
+      log.info(
+        `update Failed - creating new ${Model.tableName(repository.class)}`
+      );
+      result = await repository.create(model, context);
     }
+
+    log.info(`After create update: ${result}`);
   }
+  return result;
 }
 
 /**
@@ -157,7 +175,7 @@ export async function oneToOneOnCreate<M extends Model, R extends Repo<M>>(
   if (!constructor)
     throw new InternalError(`Could not find model ${data.class}`);
   const repo: Repo<any> = Repository.forModel(constructor, this.adapter.alias);
-  const created = await repo.create(propertyValue);
+  const created = await repo.create(propertyValue, context);
   const pk = Model.pk(created);
   await cacheModelForPopulate(context, model, key, created[pk], created);
   (model as any)[key] = created[pk];
@@ -227,7 +245,7 @@ export async function oneToOneOnUpdate<M extends Model, R extends Repo<M>>(
       key,
       this.adapter.alias
     );
-    const read = await innerRepo.read(propertyValue);
+    const read = await innerRepo.read(propertyValue, context);
     await cacheModelForPopulate(context, model, key, propertyValue, read);
     (model as any)[key] = propertyValue;
     return;
@@ -307,10 +325,11 @@ export async function oneToOneOnDelete<M extends Model, R extends Repo<M>>(
   );
   let deleted: M;
   if (!(propertyValue instanceof Model))
-    deleted = await innerRepo.delete(model[key] as string);
+    deleted = await innerRepo.delete(model[key] as string, context);
   else
     deleted = await innerRepo.delete(
-      (model[key] as M)[innerRepo.pk as keyof M] as string
+      (model[key] as M)[innerRepo.pk as keyof M] as string,
+      context
     );
   await cacheModelForPopulate(
     context,
@@ -393,7 +412,7 @@ export async function oneToManyOnCreate<M extends Model, R extends Repo<M>>(
   if (arrayType !== "object") {
     const repo = repositoryFromTypeMetadata(model, key, this.adapter.alias);
     for (const id of uniqueValues) {
-      const read = await repo.read(id);
+      const read = await repo.read(id, context);
       await cacheModelForPopulate(context, model, key, id, read);
     }
     (model as any)[key] = [...uniqueValues];
@@ -538,7 +557,7 @@ export async function oneToManyOnDelete<M extends Model, R extends Repo<M>>(
   ]);
 
   for (const id of uniqueValues.values()) {
-    const deleted = await repo.delete(id);
+    const deleted = await repo.delete(id, context);
     await cacheModelForPopulate(context, model, key, id, deleted);
   }
   (model as any)[key] = [...uniqueValues];
@@ -682,7 +701,7 @@ export async function populate<M extends Model, R extends Repo<M>>(
           alias
         );
         if (!repo) throw new InternalError("Could not find repo");
-        val = await repo.read(proKeyValue);
+        val = await repo.read(proKeyValue, context);
       }
       results.push(val);
     }

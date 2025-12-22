@@ -79,6 +79,7 @@ export const DefaultAdapterFlags: AdapterFlags = Object.assign(
   DefaultRepositoryFlags,
   {
     allowGenerationOverride: false,
+    enforceUpdateValidation: true,
     allowRawStatements: true,
     forcePrepareSimpleQueries: false,
     forcePrepareComplexQueries: false,

@@ -28,6 +28,7 @@ import { create, del, read, service, update } from "./decorators";
 import { Context } from "../persistence/Context";
 import { DefaultAdapterFlags } from "../persistence/constants";
 import { OrderDirection } from "../repository/constants";
+import { DirectionLimitOffset } from "../query/index";
 
 export abstract class Service<
   C extends Context<AdapterFlags> = Context<AdapterFlags>,
@@ -405,10 +406,7 @@ export class ModelService<
   async paginateBy(
     key: keyof M,
     order: OrderDirection,
-    ref: { size: number; page?: number; bookmark?: string } = {
-      page: 1,
-      size: 10,
-    },
+    ref: Omit<DirectionLimitOffset, "direction">,
     ...args: MaybeContextualArg<ContextOfRepository<R>>
   ) {
     const { ctxArgs } = await this.logCtx(args, this.paginateBy, true);

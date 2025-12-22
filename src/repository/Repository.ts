@@ -948,13 +948,14 @@ export class Repository<
   async paginateBy(
     key: keyof M,
     order: OrderDirection,
-    size: number,
-    ref: { page?: number; bookmark?: string } | number = { page: 1 },
+    ref: { size: number; page?: number; bookmark?: string } = {
+      page: 1,
+      size: 10,
+    },
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<SerializedPage<M>> {
-    if (typeof ref === "number") ref = { page: ref };
     // eslint-disable-next-line prefer-const
-    let { page, bookmark } = ref;
+    let { page, bookmark, size } = ref;
     if (!page && !bookmark)
       throw new QueryError(`PaginateBy needs a page or a bookmark`);
     const contextArgs = await Context.args<M, ContextOf<A>>(

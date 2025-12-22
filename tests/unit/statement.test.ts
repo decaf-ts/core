@@ -45,13 +45,12 @@ class StatementTestRepository extends Repository<
   }
 
   @prepared()
-  paginateByAgeBiggerAndName(
+  async paginateByAgeBiggerAndName(
     age: number,
     name: string,
-    page: number,
     params: DirectionLimitOffset
   ) {
-    return this.override({
+    return await this.override({
       allowRawStatements: true,
       forcePrepareComplexQueries: false,
     })
@@ -201,8 +200,11 @@ describe("Statement execution strategy", () => {
     expect(statementSpy).toHaveBeenCalledWith(
       "paginateBy",
       "name",
-      1,
-      { limit: 2, direction: OrderDirection.ASC },
+      "asc",
+      expect.objectContaining({
+        size: 2,
+        page: 1,
+      }),
       expect.any(Context)
     );
   });
@@ -261,8 +263,7 @@ describe("Statement execution strategy", () => {
       "paginateByAgeBiggerAndName",
       18,
       "carol",
-      1,
-      { limit: 3 },
+      expect.objectContaining({ offset: 1, limit: 3 }),
       expect.any(Context)
     );
   });

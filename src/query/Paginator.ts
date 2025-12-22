@@ -10,7 +10,7 @@ import { Model } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
 import { LoggedClass } from "@decaf-ts/logging";
 import { ContextualArgs, MaybeContextualArg } from "../utils/index";
-import { PreparedStatement } from "./types";
+import { DirectionLimitOffset, PreparedStatement } from "./types";
 import { PreparedStatementKeys } from "./constants";
 import { Repository } from "../repository/Repository";
 import { SerializationError } from "@decaf-ts/db-decorators";
@@ -135,7 +135,10 @@ export abstract class Paginator<
     return [page, ...contextArgs.args];
   }
 
-  protected pagePrepared(page?: number, ...argz: ContextualArgs<any>) {
+  protected async pagePrepared(
+    page?: number,
+    ...argz: ContextualArgs<any>
+  ): Promise<M[]> {
     const repo = Repository.forModel(this.clazz, this.adapter.alias);
     const statement = this.query as PreparedStatement<M>;
     const { method, args, params } = statement;
@@ -149,14 +152,29 @@ export abstract class Paginator<
       );
     regexp.lastIndex = 0;
     const pagedMethod = method.replace(regexp, PreparedStatementKeys.PAGE_BY);
-    const result = repo.statement(
-      pagedMethod,
-      ...args,
-      page,
-      Object.assign({}, params, { limit: this.size }),
+
+    const preparedArgs = [pagedMethod, ...args];
+    let preparedParams: Record<any, any> | DirectionLimitOffset = {
+      size: this.size,
+      page: page,
+    };
+    if (pagedMethod === PreparedStatementKeys.PAGE_BY) {
+      preparedArgs.push(params.direction);
+    } else {
+      preparedParams = {
+        direction: params.direction,
+        limit: this.size,
+        offset: this._bookmark || page,
+      };
+    }
+
+    preparedArgs.push(preparedParams);
+
+    const result = await repo.statement(
+      ...(preparedArgs as [string, any]),
       ...argz
     );
-    return result;
+    return this.apply(result);
   }
   /**
    * @description Prepares a statement for pagination
@@ -189,7 +207,8 @@ export abstract class Paginator<
 
   async page(page: number = 1, ...args: MaybeContextualArg<any>): Promise<R> {
     const { ctxArgs } = this.adapter["logCtx"](args, this.page);
-    if (this.isPreparedStatement()) return this.pagePrepared(page, ...ctxArgs);
+    if (this.isPreparedStatement())
+      return (await this.pagePrepared(page, ...ctxArgs)) as R;
     throw new UnsupportedError(
       "Raw support not available without subclassing this"
     );

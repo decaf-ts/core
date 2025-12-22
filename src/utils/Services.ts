@@ -405,11 +405,14 @@ export class ModelService<
   async paginateBy(
     key: keyof M,
     order: OrderDirection,
-    size: number,
+    ref: { size: number; page?: number; bookmark?: string } = {
+      page: 1,
+      size: 10,
+    },
     ...args: MaybeContextualArg<ContextOfRepository<R>>
   ) {
     const { ctxArgs } = await this.logCtx(args, this.paginateBy, true);
-    return this.repo.paginateBy(key, order, size, ...ctxArgs);
+    return this.repo.paginateBy(key, order, ref, ...ctxArgs);
   }
 
   async findOneBy(

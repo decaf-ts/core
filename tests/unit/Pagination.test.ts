@@ -97,4 +97,51 @@ describe(`Pagination`, function () {
       expect.arrayContaining(ids.map((e) => e - 30))
     );
   });
+
+  it("paginates with prepared statemetns", async () => {
+    const paginator: Paginator<TestCountryModel> = await repo
+      .override({
+        forcePrepareSimpleQueries: true,
+        forcePrepareComplexQueries: true,
+      })
+      .select()
+      .orderBy(["id", OrderDirection.DSC])
+      .paginate(10);
+
+    expect(paginator).toBeDefined();
+
+    expect(paginator.size).toEqual(10);
+    expect(paginator.current).toEqual(undefined);
+
+    const page1 = (await paginator.page()) as any;
+    expect(page1).toBeDefined();
+
+    expect(paginator.current).toEqual(1);
+    const ids = [100, 99, 98, 97, 96, 95, 94, 93, 92, 91];
+
+    expect(page1.map((el: any) => el["id"])).toEqual(
+      expect.arrayContaining(ids)
+    );
+
+    const page2 = (await paginator.next()) as any;
+    expect(page2).toBeDefined();
+
+    expect(page2.map((el: any) => el["id"])).toEqual(
+      expect.arrayContaining(ids.map((e) => e - 10))
+    );
+
+    const page3 = (await paginator.next()) as any;
+    expect(page3).toBeDefined();
+
+    expect(page3.map((el: any) => el["id"])).toEqual(
+      expect.arrayContaining(ids.map((e) => e - 20))
+    );
+
+    const page4 = (await paginator.next()) as any;
+    expect(page4).toBeDefined();
+
+    expect(page4.map((el: any) => el["id"])).toEqual(
+      expect.arrayContaining(ids.map((e) => e - 30))
+    );
+  });
 });

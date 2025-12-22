@@ -68,11 +68,15 @@ describe("prepared statements", () => {
 
     expect(res1).toEqual(res2);
 
-    const res11 = await repo.paginateBy("attr1", OrderDirection.DSC, 5, {
+    const res11 = await repo.paginateBy("attr1", OrderDirection.DSC, {
       page: 1,
+      size: 5,
     });
 
-    const res22 = await repo.statement("paginateBy", "attr1", "desc", 5, 1);
+    const res22 = await repo.statement("paginateBy", "attr1", "desc", {
+      size: 5,
+      page: 1,
+    });
 
     expect(JSON.parse(JSON.stringify(res11))).toEqual(
       JSON.parse(JSON.stringify(res22))

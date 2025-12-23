@@ -992,7 +992,7 @@ export class Repository<
     } else {
       throw new QueryError(`PaginateBy needs a page or a bookmark`);
     }
-    const paged = await paginator.page(offset);
+    const paged = await paginator.page(offset, ...ctxArgs);
     return paginator.serialize(paged) as SerializedPage<M>;
   }
 

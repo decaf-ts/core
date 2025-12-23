@@ -254,6 +254,17 @@ export abstract class Paginator<
       throw new SerializationError(e as Error);
     }
   }
+
+  static isSerializedPage(obj: SerializedPage<any> | any) {
+    return (
+      obj &&
+      typeof obj === "object" &&
+      Array.isArray(obj.data) &&
+      typeof obj.total === "number" &&
+      typeof obj.current === "number" &&
+      typeof obj.count === "number"
+    );
+  }
 }
 
 export type SerializedPage<M extends Model> = {

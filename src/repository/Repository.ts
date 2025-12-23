@@ -22,7 +22,7 @@ import { Context } from "../persistence/Context";
 import { PersistenceKeys } from "../persistence/constants";
 import { ObserverHandler } from "../persistence/ObserverHandler";
 import { QueryError } from "../query/errors";
-import type { QueryOptions } from "../query/types";
+import type { DirectionLimitOffset, QueryOptions } from "../query/types";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
 import { WhereOption } from "../query/options";
 import { Condition } from "../query/Condition";
@@ -50,6 +50,7 @@ import {
 import { Model } from "@decaf-ts/decorator-validation";
 import { prepared } from "../query/decorators";
 import { PreparedStatementKeys } from "../query/constants";
+import { Paginator, SerializedPage } from "../query/index";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.
@@ -947,9 +948,16 @@ export class Repository<
   async paginateBy(
     key: keyof M,
     order: OrderDirection,
-    size: number,
+    ref: Omit<DirectionLimitOffset, "direction"> = {
+      offset: 1,
+      limit: 10,
+    },
     ...args: MaybeContextualArg<ContextOf<A>>
-  ) {
+  ): Promise<SerializedPage<M>> {
+    // eslint-disable-next-line prefer-const
+    let { offset, bookmark, limit } = ref;
+    if (!offset && !bookmark)
+      throw new QueryError(`PaginateBy needs a page or a bookmark`);
     const contextArgs = await Context.args<M, ContextOf<A>>(
       PreparedStatementKeys.PAGE_BY,
       this.class,
@@ -959,15 +967,33 @@ export class Repository<
     );
     const { log, ctxArgs } = this.logCtx(contextArgs.args, this.paginateBy);
     log.verbose(
-      `paginating ${Model.tableName(this.class)} with page size ${size}`
+      `paginating ${Model.tableName(this.class)} with page size ${limit}`
     );
-    return this.override({
-      forcePrepareComplexQueries: false,
-      forcePrepareSimpleQueries: false,
-    } as any)
-      .select()
-      .orderBy([key, order])
-      .paginate(size, ...ctxArgs);
+
+    let paginator: Paginator<M>;
+    if (bookmark) {
+      paginator = await this.override({
+        forcePrepareComplexQueries: false,
+        forcePrepareSimpleQueries: false,
+      } as any)
+        .select()
+        .where(this.attr(Model.pk(this.class)).gt(bookmark))
+        .orderBy([key, order])
+        .paginate(limit as number, ...ctxArgs);
+      offset = 1;
+    } else if (offset) {
+      paginator = await this.override({
+        forcePrepareComplexQueries: false,
+        forcePrepareSimpleQueries: false,
+      } as any)
+        .select()
+        .orderBy([key, order])
+        .paginate(limit as number, ...ctxArgs);
+    } else {
+      throw new QueryError(`PaginateBy needs a page or a bookmark`);
+    }
+    const paged = await paginator.page(offset, ...ctxArgs);
+    return paginator.serialize(paged) as SerializedPage<M>;
   }
 
   @prepared()

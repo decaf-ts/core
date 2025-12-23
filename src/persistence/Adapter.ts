@@ -1,11 +1,11 @@
+import type { FlagsOf as ContextualFlagsOf } from "@decaf-ts/db-decorators";
 import {
   BaseError,
+  BulkCrudOperationKeys,
   InternalError,
   OperationKeys,
-  BulkCrudOperationKeys,
   PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
-import type { FlagsOf as ContextualFlagsOf } from "@decaf-ts/db-decorators";
 import { type Observer } from "../interfaces/Observer";
 import {
   hashObj,
@@ -19,9 +19,10 @@ import type { Repository } from "../repository/Repository";
 import type { Sequence } from "./Sequence";
 import { ErrorParser } from "../interfaces";
 import { Statement } from "../query/Statement";
-import { final, Logger } from "@decaf-ts/logging";
+import { final, Impersonatable, Logger, Logging } from "@decaf-ts/logging";
 import type { Dispatch } from "./Dispatch";
 import {
+  AdapterDispatch,
   type AdapterFlags,
   type EventIds,
   FlagsOf,
@@ -33,14 +34,12 @@ import {
   RawResult,
 } from "./types";
 import { ObserverHandler } from "./ObserverHandler";
-import { Impersonatable, Logging } from "@decaf-ts/logging";
-import { AdapterDispatch } from "./types";
 import { Context } from "./Context";
 import {
+  type Constructor,
   Decoration,
   DefaultFlavour,
   Metadata,
-  type Constructor,
 } from "@decaf-ts/decoration";
 import { MigrationError } from "./errors";
 import {
@@ -897,7 +896,9 @@ export abstract class Adapter<
    */
   static models<M extends Model>(flavour: string): ModelConstructor<M>[] {
     try {
-      return Metadata.flavouredAs(flavour) as ModelConstructor<M>[];
+      return Metadata.flavouredAs(flavour).filter(
+        (Model as any).isModel
+      ) as ModelConstructor<M>[];
     } catch (e: any) {
       throw new InternalError(e);
     }

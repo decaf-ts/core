@@ -63,6 +63,9 @@ export class Product extends BaseIdentifiedModel {
   // @column()
   // healthcarePractitionerInfo?: string;
 
+  @column()
+  counter?: number;
+
   @oneToMany(
     () => ProductStrength,
     { update: Cascade.CASCADE, delete: Cascade.CASCADE },

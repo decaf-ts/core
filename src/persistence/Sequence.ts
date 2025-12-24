@@ -144,10 +144,7 @@ export class Sequence extends ContextualLoggedClass<any> {
     const { type, incrementBy, name } = this.options;
     if (!name) throw new InternalError("Sequence name is required");
 
-    const lock = await Sequence.lock.acquire(name);
-    let seq: SequenceModel | undefined;
-    let currentValue = await this.current(ctx);
-    while (true) {
+    return Sequence.lock.execute(async () => {
       const toIncrementBy = count || incrementBy;
       if (toIncrementBy % incrementBy !== 0)
         throw new InternalError(
@@ -157,63 +154,70 @@ export class Sequence extends ContextualLoggedClass<any> {
         typeof type === "function" && (type as any)?.name
           ? (type as any).name
           : type;
-      let next: string | number | bigint;
-      switch (typeName) {
-        case Number.name:
-          next = (this.parse(currentValue) as number) + toIncrementBy;
-          break;
-        case BigInt.name:
-          next = (this.parse(currentValue) as bigint) + BigInt(toIncrementBy);
-          break;
-        case String.name:
-          next = this.parse(currentValue);
-          break;
-        case "serial":
-          next = Serial.instance.generate(currentValue as string);
-          break;
-        case "uuid":
-          next = UUID.instance.generate(currentValue as string);
-          break;
-        default:
-          throw new InternalError("Should never happen");
-      }
-      try {
-        seq = await this.repo.update(
-          new SequenceModel({ id: name, current: next }),
-          ctx
-        );
-        log.debug(
-          `Sequence.increment ${name} current=${currentValue as any} next=${next as any}`
-        );
-        break;
-      } catch (e: any) {
-        if (e instanceof ConflictError) {
-          currentValue = await this.current(ctx);
-          continue;
-        }
-        if (!(e instanceof NotFoundError)) {
-          throw e;
-        }
+      const currentValue = await this.current(ctx);
+
+      const performUpsert = async (
+        next: string | number | bigint
+      ): Promise<SequenceModel> => {
         try {
-          log.debug(
-            `Sequence.create ${name} current=${currentValue as any} next=${next as any}`
-          );
-          seq = await this.repo.create(
+          return await this.repo.update(
             new SequenceModel({ id: name, current: next }),
             ctx
           );
-          break;
-        } catch (inner: unknown) {
-          if (inner instanceof ConflictError) {
-            currentValue = await this.current(ctx);
-            continue;
+        } catch (e: any) {
+          if (e instanceof NotFoundError) {
+            log.debug(
+              `Sequence create ${name} current=${currentValue as any} next=${next as any}`
+            );
+            return this.repo.create(
+              new SequenceModel({ id: name, current: next }),
+              ctx
+            );
           }
-          throw inner;
+          throw e;
+        }
+      };
+
+      const incrementSerial = (
+        base: string | number | bigint
+      ): string | number | bigint => {
+        switch (typeName) {
+          case Number.name:
+            return (this.parse(base) as number) + toIncrementBy;
+          case BigInt.name:
+            return (this.parse(base) as bigint) + BigInt(toIncrementBy);
+          case String.name:
+            return this.parse(base);
+          case "serial":
+            return Serial.instance.generate(base as string);
+          default:
+            throw new InternalError("Should never happen");
+        }
+      };
+
+      if (typeName === "uuid") {
+        while (true) {
+          const next = UUID.instance.generate(currentValue as string);
+          try {
+            const result = await performUpsert(next);
+            log.debug(
+              `Sequence uuid increment ${name} current=${currentValue as any} next=${next as any}`
+            );
+            return result.current as string | number | bigint;
+          } catch (e: unknown) {
+            if (e instanceof ConflictError) continue;
+            throw e;
+          }
         }
       }
-    }
-    Sequence.lock.release(name);
-    return seq!.current as string | number | bigint;
+
+      const next = incrementSerial(currentValue);
+      const seq = await performUpsert(next);
+      log.debug(
+        `Sequence.increment ${name} current=${currentValue as any} next=${next as any}`
+      );
+      return seq.current as string | number | bigint;
+    }, name);
   }
 
   /**

@@ -1,19 +1,17 @@
 import { E2eConfig } from "./e2e.config";
-import { Repository } from "../../src/repository/Repository";
-import { Context, NotFoundError, OperationKeys } from "@decaf-ts/db-decorators";
+import { Repo, Repository } from "../../src/repository/Repository";
+import { Context, OperationKeys } from "@decaf-ts/db-decorators";
 import { Product } from "./models/Product";
 import { generateGtin } from "./models/gtin";
 import { Model } from "@decaf-ts/decorator-validation";
-import {
-  Observer,
-  OrderDirection,
-  PersistenceKeys,
-  RamRepository,
-} from "../../src/index";
+import { Observer, OrderDirection } from "../../src/index";
+import { Logging, LogLevel, style } from "@decaf-ts/logging";
+import { Constructor } from "@decaf-ts/decoration";
+Logging.setConfig({ level: LogLevel.debug });
 
-const { adapterFactory } = E2eConfig;
+Logging.setConfig({ level: LogLevel.debug });
 
-const ramAdapter = adapterFactory();
+const { adapterFactory, logger, flavour } = E2eConfig;
 
 const Clazz = Product;
 
@@ -22,11 +20,18 @@ const pk = Model.pk(Clazz);
 describe("e2e Repository query test", () => {
   let created: Product;
 
-  const repo = new Repository(ramAdapter, Clazz);
+  let adapter: Awaited<ReturnType<typeof adapterFactory>>;
+  let repo: Repo<Product>;
   let observer: Observer;
-  let mock: any;
+  let mock: jest.Func;
 
+  let contextFactoryMock: jest.SpyInstance;
   let bulk: Product[];
+
+  beforeAll(async () => {
+    adapter = await adapterFactory();
+    repo = Repository.forModel(Clazz);
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -39,6 +44,33 @@ describe("e2e Repository query test", () => {
       }
     })();
     repo.observe(observer);
+
+    const adapterContextFactory = adapter.context.bind(adapter);
+    contextFactoryMock = jest
+      .spyOn(adapter, "context")
+      .mockImplementation(
+        (
+          op: string,
+          overrides: Partial<any>,
+          model: Constructor,
+          ...args: any[]
+        ) => {
+          const log = logger
+            .for(style("adapter context factory").green.bold)
+            .for(expect.getState().currentTestName);
+          try {
+            log.info(
+              `adapter context called with ${op}, ${JSON.stringify(overrides)}, ${model ? `name ${model.name}, ` : ""}${JSON.stringify(args)}`
+            );
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          } catch (e: unknown) {
+            log.warn(
+              `adapter context called with ${op}, ${model ? `name ${model.name}, ` : ""}, and not stringifyable args or overrides`
+            );
+          }
+          return adapterContextFactory(op, overrides, model, ...args);
+        }
+      );
   });
 
   afterEach(() => {

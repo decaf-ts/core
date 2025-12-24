@@ -2,12 +2,13 @@ import { Adapter, Context, RamAdapter, RamFlavour } from "../../src/index";
 import { Constructor } from "@decaf-ts/decoration";
 import { ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Contextual } from "@decaf-ts/db-decorators";
-import { Logging } from "@decaf-ts/logging";
+import { Logger, Logging, style } from "@decaf-ts/logging";
 
 export type DecafE2eConfig<A extends Adapter<any, any, any, any>> = {
   flavour: string;
   adapterClazz: Constructor<A>;
-  adapterFactory: () => A;
+  adapterFactory: () => Promise<A>;
+  logger: Logger;
   ctxFactoryMock: jest.SpyInstance;
   ctxEvaluator?: (c: Context<any>) => boolean | Promise<boolean>;
 };
@@ -24,9 +25,11 @@ const ctxMock = jest
       overrides?: Partial<any>,
       ...argz: any[]
     ) => {
-      logger.info(
-        `operation: ${operation}, model: ${model.name}, args: ${JSON.stringify(args)}, contextual: ${contextual.toString()}, overrides: ${JSON.stringify(overrides)} and argz: ${JSON.stringify(argz)}`
-      );
+      logger
+        .for(style("db-decorators context factor").yellow.bold)
+        .info(
+          `operation: ${operation}, ${model ? `name ${model.name}, ` : ""}args: ${JSON.stringify(args)}, contextual: ${contextual.toString()}, overrides: ${JSON.stringify(overrides)} and argz: ${JSON.stringify(argz)}`
+        );
       const ctx = await contextFactory(
         operation,
         model,
@@ -37,7 +40,7 @@ const ctxMock = jest
       );
       if (E2eConfig.ctxEvaluator && !(await E2eConfig.ctxEvaluator(ctx)))
         throw new Error(
-          `Context failed evaluation for operation: ${operation}, model: ${model.name}, args: ${JSON.stringify(args, undefined, 2)}, contextual: ${contextual.toString()}, overrides: ${JSON.stringify(overrides, undefined, 2)}`
+          `Context failed evaluation for operation: ${operation}, ${model ? `name ${model.name}, ` : ""}args: ${JSON.stringify(args, undefined, 2)}, contextual: ${contextual.toString()}, overrides: ${JSON.stringify(overrides, undefined, 2)}`
         );
       return ctx;
     }
@@ -46,7 +49,12 @@ const ctxMock = jest
 export const E2eConfig: DecafE2eConfig<RamAdapter> = {
   flavour: RamFlavour,
   adapterClazz: RamAdapter,
-  adapterFactory: (conf?: any) => new RamAdapter(conf || { user: "e2e-user" }),
+  logger: logger,
+  adapterFactory: async (conf?: any, ...initArgs: any[]) => {
+    const adapter = new E2eConfig.adapterClazz(conf || { user: "e2e-user" });
+    await adapter.initialize(...initArgs);
+    return adapter;
+  },
   ctxFactoryMock: ctxMock,
 };
 

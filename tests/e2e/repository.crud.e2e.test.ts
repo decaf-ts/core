@@ -1,19 +1,16 @@
 import { E2eConfig } from "./e2e.config";
-import { Repository } from "../../src/repository/Repository";
+import { Repo, Repository } from "../../src/repository/Repository";
 import { Context, NotFoundError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Product } from "./models/Product";
 import { generateGtin } from "./models/gtin";
 import { Model } from "@decaf-ts/decorator-validation";
-import {
-  Observer,
-  OrderDirection,
-  PersistenceKeys,
-  RamRepository,
-} from "../../src/index";
+import { Observer, PersistenceKeys, RamRepository } from "../../src/index";
+import { Constructor } from "@decaf-ts/decoration";
+import { Logging, LogLevel, style } from "@decaf-ts/logging";
 
-const { adapterFactory } = E2eConfig;
+Logging.setConfig({ level: LogLevel.debug });
 
-const ramAdapter = adapterFactory();
+const { adapterFactory, logger, flavour } = E2eConfig;
 
 const Clazz = Product;
 
@@ -22,23 +19,59 @@ const pk = Model.pk(Clazz);
 describe("e2e Repository test", () => {
   let created: Product;
 
-  const repo = new Repository(ramAdapter, Clazz);
+  let adapter: Awaited<ReturnType<typeof adapterFactory>>;
+  let repo: Repo<Product>;
   let observer: Observer;
-  let mock: any;
+  let mock: jest.Func;
+
+  let contextFactoryMock: jest.SpyInstance;
 
   let bulk: Product[];
+
+  beforeAll(async () => {
+    adapter = await adapterFactory();
+    repo = Repository.forModel(Clazz);
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.restoreAllMocks();
     jest.resetAllMocks();
     mock = jest.fn();
+
     observer = new (class implements Observer {
       refresh(...args: any[]): Promise<void> {
         return mock(...args);
       }
     })();
     repo.observe(observer);
+
+    const adapterContextFactory = adapter.context.bind(adapter);
+    contextFactoryMock = jest
+      .spyOn(adapter, "context")
+      .mockImplementation(
+        (
+          op: string,
+          overrides: Partial<any>,
+          model: Constructor,
+          ...args: any[]
+        ) => {
+          const log = logger
+            .for(style("adapter context factory").green.bold)
+            .for(expect.getState().currentTestName);
+          try {
+            log.info(
+              `adapter context called with ${op}, ${JSON.stringify(overrides)}, ${model ? `name ${model.name}, ` : ""}${JSON.stringify(args)}`
+            );
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          } catch (e: unknown) {
+            log.warn(
+              `adapter context called with ${op}, ${model ? `name ${model.name}, ` : ""}, and not stringifyable args or overrides`
+            );
+          }
+          return adapterContextFactory(op, overrides, model, ...args);
+        }
+      );
   });
 
   afterEach(() => {
@@ -186,7 +219,7 @@ describe("e2e Repository test", () => {
       bulk = await repo.createAll(models);
       console.log(
         "product_strength count after create",
-        ramAdapter["client"].get("product_strength")?.size
+        adapter["client"].get("product_strength")?.size
       );
       expect(bulk).toBeDefined();
       expect(Array.isArray(bulk)).toEqual(true);
@@ -224,10 +257,6 @@ describe("e2e Repository test", () => {
         })
       ).toEqual(true);
       expect(read.every((el) => !!(el as any)[PersistenceKeys.METADATA]));
-      console.log(
-        "product_strength count after read",
-        ramAdapter["client"].get("product_strength")?.size
-      );
     });
 
     let updated: Product[];
@@ -244,10 +273,6 @@ describe("e2e Repository test", () => {
         });
       });
       updated = await repo.updateAll(toUpdate);
-      console.log(
-        "product_strength count after update",
-        ramAdapter["client"].get("product_strength")?.size
-      );
       expect(updated).toBeDefined();
       expect(Array.isArray(updated)).toEqual(true);
       expect(updated.every((el) => el instanceof Product)).toEqual(true);
@@ -275,10 +300,6 @@ describe("e2e Repository test", () => {
       >(Product);
       const ids = bulk.map((c) => c[pk]);
       const deleted = await repo.deleteAll(ids as any[]);
-      console.log(
-        "product_strength count before delete cascade",
-        ramAdapter["client"].get("product_strength")?.size
-      );
       expect(deleted).toBeDefined();
       expect(Array.isArray(deleted)).toEqual(true);
       expect(deleted.every((el) => el instanceof Product)).toEqual(true);

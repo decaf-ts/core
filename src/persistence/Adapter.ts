@@ -444,7 +444,7 @@ export abstract class Adapter<
   ): Promise<CONTEXT> {
     const log = this.log.for(this.context);
     log.debug(
-      `Creating new context for ${operation} operation on ${Array.isArray(model) ? model.map((m) => m.name) : model.name} model with flag overrides: ${JSON.stringify(overrides)}`
+      `Creating new context for ${operation} operation on ${model ? (Array.isArray(model) ? model.map((m) => m.name) : model.name) : "no"} model with flag overrides: ${JSON.stringify(overrides)}`
     );
     const flags = await this.flags(
       operation,

@@ -23,6 +23,15 @@ export async function createAuditHandler<
   key: keyof M,
   model: M
 ): Promise<void> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const prop = context.get("PERSISTENT_PROPERTY");
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (e: unknown) {
+    context.logger.error(
+      `Failed to read initially BOUND CONTEXT variable: ${key as string} of ${this.class.name} with data ${JSON.stringify(data)} `
+    );
+  }
   const repo = Repository.forModel(Audit);
   const identity = context.get("UUID");
   const audit = await repo.create(
@@ -51,6 +60,15 @@ export async function updateAuditHandler<
   model: M,
   oldModel: M
 ): Promise<void> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const prop = context.get("PERSISTENT_PROPERTY");
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (e: unknown) {
+    context.logger.error(
+      `Failed to read initially BOUND CONTEXT variable: ${key as string} of ${this.class.name} with data ${JSON.stringify(data)} `
+    );
+  }
   const repo = Repository.forModel(Audit);
   const identity = context.get("UUID");
   const audit = await repo.create(
@@ -78,6 +96,15 @@ export async function deleteAuditHandler<
   key: keyof M,
   model: M
 ): Promise<void> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const prop = context.get("PERSISTENT_PROPERTY");
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (e: unknown) {
+    context.logger.error(
+      `Failed to read initially BOUND CONTEXT variable: ${key as string} of ${this.class.name} with data ${JSON.stringify(data)} `
+    );
+  }
   const repo = Repository.forModel(Audit);
   const identity = context.get("UUID");
   const audit = await repo.create(

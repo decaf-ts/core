@@ -9,6 +9,8 @@ import { Model } from "@decaf-ts/decorator-validation";
 import { Observer, PersistenceKeys, RamRepository } from "../../src/index";
 import { Constructor } from "@decaf-ts/decoration";
 import { Logging, LogLevel, style } from "@decaf-ts/logging";
+import { ProductStrength } from "./models/ProductStrength";
+import { Market } from "./models/Market";
 
 Logging.setConfig({ level: LogLevel.debug });
 
@@ -98,20 +100,20 @@ describe("e2e Repository test", () => {
             substance: "Ibuprofen",
           },
         ],
-        // markets: [
-        //   {
-        //     productCode: id,
-        //     marketId: "BR",
-        //     nationalCode: "BR",
-        //     mahName: "ProPharma BR",
-        //   },
-        //   {
-        //     productCode: id,
-        //     marketId: "US",
-        //     nationalCode: "US",
-        //     mahName: "ProPharma US",
-        //   },
-        // ],
+        markets: [
+          {
+            productCode: id,
+            marketId: "BR",
+            nationalCode: "BR",
+            mahName: "ProPharma BR",
+          },
+          {
+            productCode: id,
+            marketId: "US",
+            nationalCode: "US",
+            mahName: "ProPharma US",
+          },
+        ],
       });
 
       created = await repo.create(model);
@@ -178,6 +180,21 @@ describe("e2e Repository test", () => {
         expect.any(Object),
         expect.any(Context)
       );
+      const strengthRepo = Repository.forModel(ProductStrength);
+      await expect(
+        strengthRepo.read(deleted.strengths[0].id)
+      ).rejects.toThrowError(NotFoundError);
+      await expect(
+        strengthRepo.read(deleted.strengths[1].id)
+      ).rejects.toThrowError(NotFoundError);
+
+      const marketRepo = Repository.forModel(Market);
+      await expect(
+        marketRepo.read(deleted.markets[0] as any)
+      ).resolves.toBeInstanceOf(Market);
+      await expect(
+        marketRepo.read(deleted.markets[1] as any)
+      ).resolves.toBeInstanceOf(Market);
     });
   });
 
@@ -306,8 +323,28 @@ describe("e2e Repository test", () => {
       expect(deleted.every((el) => el instanceof Product)).toEqual(true);
       expect(deleted.every((el) => !el.hasErrors())).toEqual(true);
       expect(deleted.every((el, i) => el.equals(updated[i]))).toEqual(true);
-      for (const k in deleted.map((c) => c[pk])) {
-        await expect(repo.read(k)).rejects.toThrowError(NotFoundError);
+
+      const strengthRepo = Repository.forModel(ProductStrength);
+
+      const marketRepo = Repository.forModel(Market);
+
+      for (const p of deleted) {
+        await expect(repo.read(p[Model.pk(Clazz) as any])).rejects.toThrowError(
+          NotFoundError
+        );
+        await expect(strengthRepo.read(p.strengths[0].id)).rejects.toThrowError(
+          NotFoundError
+        );
+        await expect(strengthRepo.read(p.strengths[1].id)).rejects.toThrowError(
+          NotFoundError
+        );
+
+        await expect(
+          marketRepo.read(p.markets[0] as any)
+        ).resolves.toBeInstanceOf(Market);
+        await expect(
+          marketRepo.read(p.markets[1] as any)
+        ).resolves.toBeInstanceOf(Market);
       }
       expect(mock).toHaveBeenCalledWith(
         Product,

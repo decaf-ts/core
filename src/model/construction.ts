@@ -419,7 +419,7 @@ export async function oneToManyOnCreate<M extends Model, R extends Repo<M>>(
     return;
   }
 
-  const pkName = Model.pk(propertyValues[0]);
+  const pkName = Model.pk(propertyValues[0].constructor);
 
   const result: Set<string> = new Set();
 
@@ -545,6 +545,11 @@ export async function oneToManyOnDelete<M extends Model, R extends Repo<M>>(
     throw new InternalError(
       `Invalid operation. All elements of property ${key as string} must match the same type.`
     );
+  // const clazz =
+  //   typeof data.class === "function" && !data.class.name
+  //     ? (data.class as any)()
+  //     : data.class;
+
   const isInstantiated = arrayType === "object";
   const repo = isInstantiated
     ? Repository.forModel(values[0], this.adapter.alias)

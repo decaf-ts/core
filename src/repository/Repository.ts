@@ -418,7 +418,7 @@ export class Repository<
     if (!models.length) return [models, ...contextArgs.args];
     const opts = Model.sequenceFor(models[0]);
     let ids: (string | number | bigint | undefined)[] = [];
-    if (opts.type) {
+    if (opts.generated) {
       if (!opts.name) opts.name = Model.sequenceName(models[0], "pk");
       ids = await (
         await this.adapter.Sequence(opts)

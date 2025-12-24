@@ -521,47 +521,51 @@ export abstract class Adapter<
     transient?: Record<string, any>,
     ...args: ContextualArgs<CONTEXT>
   ): M {
-    const { log, ctx } = this.logCtx(args, this.revert);
-    const ob: Record<string, any> = {};
-    const pk = Model.pk(clazz);
-    ob[pk as string] = id;
-    const m = new clazz(ob) as M;
-    log.silly(`Rebuilding model ${m.constructor.name} id ${id}`);
-    const metadata = obj[PersistenceKeys.METADATA]; // TODO move to couchdb
-    const result = Object.keys(m).reduce((accum: M, key) => {
-      if (key === pk) return accum;
-      (accum as Record<string, any>)[key] =
-        obj[Model.columnName(clazz, key as keyof M)];
-      return accum;
-    }, m);
+    try {
+      const { log, ctx } = this.logCtx(args, this.revert);
+      const ob: Record<string, any> = {};
+      const pk = Model.pk(clazz);
+      ob[pk as string] = id;
+      const m = new clazz(ob) as M;
+      log.silly(`Rebuilding model ${m.constructor.name} id ${id}`);
+      const metadata = obj[PersistenceKeys.METADATA]; // TODO move to couchdb
+      const result = Object.keys(m).reduce((accum: M, key) => {
+        if (key === pk) return accum;
+        (accum as Record<string, any>)[key] =
+          obj[Model.columnName(clazz, key as keyof M)];
+        return accum;
+      }, m);
 
-    if (ctx.get("rebuildWithTransient") && transient) {
-      log.verbose(
-        `re-adding transient properties: ${Object.keys(transient).join(", ")}`
-      );
-      Object.entries(transient).forEach(([key, val]) => {
-        if (key in result)
-          throw new InternalError(
-            `Transient property ${key} already exists on model ${m.constructor.name}. should be impossible`
-          );
-        result[key as keyof M] = val;
-      });
+      if (ctx.get("rebuildWithTransient") && transient) {
+        log.verbose(
+          `re-adding transient properties: ${Object.keys(transient).join(", ")}`
+        );
+        Object.entries(transient).forEach(([key, val]) => {
+          if (key in result)
+            throw new InternalError(
+              `Transient property ${key} already exists on model ${m.constructor.name}. should be impossible`
+            );
+          result[key as keyof M] = val;
+        });
+      }
+
+      if (metadata) {
+        // TODO move to couchdb
+        log.silly(
+          `Passing along ${this.flavour} persistence metadata for ${m.constructor.name} id ${id}: ${metadata}`
+        );
+        Object.defineProperty(result, PersistenceKeys.METADATA, {
+          enumerable: false,
+          configurable: true,
+          writable: true,
+          value: metadata,
+        });
+      }
+
+      return result;
+    } catch (e: unknown) {
+      throw e;
     }
-
-    if (metadata) {
-      // TODO move to couchdb
-      log.silly(
-        `Passing along ${this.flavour} persistence metadata for ${m.constructor.name} id ${id}: ${metadata}`
-      );
-      Object.defineProperty(result, PersistenceKeys.METADATA, {
-        enumerable: false,
-        configurable: true,
-        writable: true,
-        value: metadata,
-      });
-    }
-
-    return result;
   }
 
   /**

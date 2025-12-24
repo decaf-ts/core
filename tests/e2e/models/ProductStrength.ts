@@ -1,0 +1,54 @@
+import type { ModelArg } from "@decaf-ts/decorator-validation";
+import { model, required } from "@decaf-ts/decorator-validation";
+import {
+  Cascade,
+  column,
+  index,
+  manyToOne,
+  OrderDirection,
+  pk,
+  table,
+} from "../../../src";
+import { TableNames } from "./constants";
+import { description, uses } from "@decaf-ts/decoration";
+import { BaseIdentifiedModel } from "./BaseIdentifiedModel";
+
+import { E2eConfig } from "../e2e.config";
+
+@uses(E2eConfig.flavour)
+@table(TableNames.ProductStrength)
+@model()
+@description("Represents the product’s strength and composition details.")
+export class ProductStrength extends BaseIdentifiedModel {
+  @pk({ type: Number, generated: true })
+  @description("Unique identifier of the product strength.")
+  id!: number;
+
+  // @manyToOne(
+  //   () => Product,
+  //   { update: Cascade.NONE, delete: Cascade.NONE },
+  //   false
+  // )
+  @index([OrderDirection.ASC, OrderDirection.DSC])
+  @description("Product code associated with this strength entry.")
+  productCode!: string;
+
+  @column()
+  @required()
+  @index([OrderDirection.ASC, OrderDirection.DSC])
+  @description("Product concentration or dosage (e.g., 500mg, 10%).")
+  strength!: string;
+
+  @column()
+  @index([OrderDirection.ASC, OrderDirection.DSC])
+  @description("Active substance related to this product strength.")
+  substance?: string;
+
+  @column()
+  @description("Legal entity name responsible for the product.")
+  legalEntityName?: string;
+
+  constructor(model?: ModelArg<ProductStrength>) {
+    super(model);
+  }
+}

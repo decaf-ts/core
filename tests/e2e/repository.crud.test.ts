@@ -1,14 +1,19 @@
 import { E2eConfig } from "./e2e.config";
-const { adapterFactory } = E2eConfig;
-
-const ramAdapter = adapterFactory();
-
 import { Repository } from "../../src/repository/Repository";
 import { Context, NotFoundError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Product } from "./models/Product";
 import { generateGtin } from "./models/gtin";
 import { Model } from "@decaf-ts/decorator-validation";
-import { Observer, PersistenceKeys, RamRepository } from "../../src/index";
+import {
+  Observer,
+  OrderDirection,
+  PersistenceKeys,
+  RamRepository,
+} from "../../src/index";
+
+const { adapterFactory } = E2eConfig;
+
+const ramAdapter = adapterFactory();
 
 const Clazz = Product;
 
@@ -144,10 +149,6 @@ describe("e2e Repository test", () => {
 
   describe("Bulk Crud", () => {
     it("Creates in bulk", async () => {
-      const repo: RamRepository<Product> = Repository.forModel<
-        Product,
-        RamRepository<Product>
-      >(Product);
       const models = new Array(10).fill(0).map(() => {
         const id = generateGtin();
         return new Product({
@@ -293,6 +294,80 @@ describe("e2e Repository test", () => {
         expect.any(Object),
         expect.any(Context)
       );
+    });
+  });
+
+  describe("Querying", () => {
+    it("Creates to query", async () => {
+      const models = new Array(10).fill(0).map((el) => {
+        const id = generateGtin();
+        return new Product({
+          productCode: id,
+          inventedName: "name" + el,
+          nameMedicinalProduct: "medicine" + el,
+          strengths: [
+            {
+              productCode: id,
+              strength: "200mg",
+              substance: "Ibuprofen",
+            },
+            {
+              productCode: id,
+              strength: "400mg",
+              substance: "Ibuprofen",
+            },
+          ],
+          markets: [
+            {
+              productCode: id,
+              marketId: "BR",
+              nationalCode: "BR",
+              mahName: "ProPharma BR",
+            },
+            {
+              productCode: id,
+              marketId: "US",
+              nationalCode: "US",
+              mahName: "ProPharma US",
+            },
+          ],
+        });
+      });
+      bulk = await repo.createAll(models);
+      expect(bulk).toBeDefined();
+      expect(Array.isArray(bulk)).toEqual(true);
+      expect(bulk.every((el) => el instanceof Product)).toEqual(true);
+      expect(bulk.every((el) => !el.hasErrors())).toEqual(true);
+
+      expect(mock).toHaveBeenCalledWith(
+        Product,
+        OperationKeys.CREATE,
+        bulk.map((b) => b[pk]),
+        expect.any(Object),
+        expect.any(Context)
+      );
+    });
+
+    it("performs simple selects", async () => {
+      const selected = await repo.select().execute();
+      expect(selected).toBeDefined();
+      expect(selected).toEqual(bulk);
+    });
+
+    it("performs sorted selects", async () => {
+      let selected = await repo
+        .select()
+        .orderBy(["inventedName", OrderDirection.DSC])
+        .execute();
+      expect(selected).toBeDefined();
+      expect(selected).toEqual(bulk);
+
+      selected = await repo
+        .select()
+        .orderBy(["inventedName", OrderDirection.ASC])
+        .execute();
+      expect(selected).toBeDefined();
+      expect(selected).toEqual(bulk.reverse());
     });
   });
 });

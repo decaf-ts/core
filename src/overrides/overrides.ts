@@ -69,9 +69,9 @@ import type { Migration } from "../persistence/types";
 
 (Model as any).nestedRelations = function <M extends Model>(
   model: Constructor<M> | M,
-  existingRelations?: string[]
+  existingRelations: string[] = []
 ): string[] | ExtendedRelationsMetadata {
-  if (!existingRelations?.length) existingRelations = Model.relations(model);
+  // if (!existingRelations?.length) existingRelations = Model.relations(model);
   let inner: string[] = [];
   const rels = Metadata.get(model as Constructor<M>, PersistenceKeys.RELATIONS);
   if (!rels || !Object.keys(rels).length)
@@ -83,7 +83,7 @@ import type { Migration } from "../persistence/types";
       const innerModelDotRels = innerModelRels.map((r) => `${prop}.${r}`);
       existingRelations = [
         ...existingRelations,
-        ...innerModelRels,
+        // ...innerModelRels,
         ...innerModelDotRels,
       ];
       inner = Model.nestedRelations(relationMeta.class, existingRelations);

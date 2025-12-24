@@ -429,6 +429,9 @@ export async function oneToManyOnCreate<M extends Model, R extends Repo<M>>(
     result.add(record[pkName]);
   }
 
+  console.log(
+    `oneToManyOnCreate ${model.constructor.name}.${key.toString()} -> ${JSON.stringify([...result])}`
+  );
   (model as any)[key] = [...result];
 }
 
@@ -561,9 +564,41 @@ export async function oneToManyOnDelete<M extends Model, R extends Repo<M>>(
       : values),
   ]);
 
+  const ids = [...uniqueValues.values()];
+  let deleted: Model[];
+  try {
+    deleted = await repo.deleteAll(ids, context);
+  } catch (e: unknown) {
+    context.logger.error(`Failed to delete all records`, e);
+    throw e;
+  }
+
+  let del: any;
+  for (let i = 0; i < deleted.length; i++) {
+    del = deleted[i];
+    try {
+      await cacheModelForPopulate(context, model, key, ids[i], del);
+    } catch (e: unknown) {
+      context.logger.error(
+        `Failed to cache record ${ids[i]} with key ${key as string} and model ${JSON.stringify(model, undefined, 2)} `,
+        e
+      );
+      throw e;
+    }
+  }
+  (model as any)[key] = ids;
+
   for (const id of uniqueValues.values()) {
-    const deleted = await repo.delete(id, context);
-    await cacheModelForPopulate(context, model, key, id, deleted);
+    try {
+      const deleted = await repo.delete(id, context);
+      await cacheModelForPopulate(context, model, key, id, deleted);
+    } catch (e) {
+      console.error(
+        `Failed to delete relation for ${model.constructor.name}.${key.toString()} id=${id} type=${typeof id} repo=${repo.toString()}`,
+        e
+      );
+      throw e;
+    }
   }
   (model as any)[key] = [...uniqueValues];
 }

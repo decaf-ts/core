@@ -148,7 +148,7 @@ describe("e2e Repository test", () => {
         Product,
         RamRepository<Product>
       >(Product);
-      const models = new Array(10).fill(0).map(() => {
+      const models = new Array(100).fill(0).map(() => {
         const id = generateGtin();
         return new Product({
           productCode: id,
@@ -197,7 +197,7 @@ describe("e2e Repository test", () => {
       );
     });
 
-    it.skip("Reads in Bulk", async () => {
+    it("Reads in Bulk", async () => {
       const repo: RamRepository<Product> = Repository.forModel<
         Product,
         RamRepository<Product>
@@ -223,7 +223,7 @@ describe("e2e Repository test", () => {
 
     let updated: Product[];
 
-    it.skip("Updates in Bulk", async () => {
+    it("Updates in Bulk", async () => {
       const repo: RamRepository<Product> = Repository.forModel<
         Product,
         RamRepository<Product>

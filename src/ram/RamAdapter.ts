@@ -238,6 +238,11 @@ export class RamAdapter extends Adapter<
 
     await this.lock.acquire();
     this.client.get(tableName)?.set(id as any, model);
+    if (tableName === "??sequence") {
+      console.log(
+        `RamAdapter.create sequence id=${id as any} current=${model.current}`
+      );
+    }
     this.lock.release();
     return model;
   }
@@ -377,14 +382,20 @@ export class RamAdapter extends Adapter<
 
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.client.get(tableName)?.has(id as string))
+    if (!this.client.get(tableName)?.has(id as any))
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
 
     await this.lock.acquire();
-    const natived = this.client.get(tableName)?.get(id as string);
-    this.client.get(tableName)?.delete(id as string);
+    const table = this.client.get(tableName);
+    if (table) {
+      console.log(
+        `RamAdapter.delete table=${tableName} existingKeys=${JSON.stringify(Array.from(table.keys()))} deleting=${id} type=${typeof id}`
+      );
+    }
+    const natived = this.client.get(tableName)?.get(id as any);
+    this.client.get(tableName)?.delete(id as any);
     this.lock.release();
     return natived;
   }

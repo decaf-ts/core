@@ -49,6 +49,7 @@ import {
 } from "../utils/ContextualLoggedClass";
 import { Paginator } from "../query/Paginator";
 import { PreparedStatement } from "../query/index";
+import { promiseSequence } from "../utils/utils";
 
 const flavourResolver = Decoration["flavourResolver"].bind(Decoration);
 Decoration["flavourResolver"] = (obj: object) => {
@@ -521,51 +522,47 @@ export abstract class Adapter<
     transient?: Record<string, any>,
     ...args: ContextualArgs<CONTEXT>
   ): M {
-    try {
-      const { log, ctx } = this.logCtx(args, this.revert);
-      const ob: Record<string, any> = {};
-      const pk = Model.pk(clazz);
-      ob[pk as string] = id;
-      const m = new clazz(ob) as M;
-      log.silly(`Rebuilding model ${m.constructor.name} id ${id}`);
-      const metadata = obj[PersistenceKeys.METADATA]; // TODO move to couchdb
-      const result = Object.keys(m).reduce((accum: M, key) => {
-        if (key === pk) return accum;
-        (accum as Record<string, any>)[key] =
-          obj[Model.columnName(clazz, key as keyof M)];
-        return accum;
-      }, m);
+    const { log, ctx } = this.logCtx(args, this.revert);
+    const ob: Record<string, any> = {};
+    const pk = Model.pk(clazz);
+    ob[pk as string] = id;
+    const m = new clazz(ob) as M;
+    log.silly(`Rebuilding model ${m.constructor.name} id ${id}`);
+    const metadata = obj[PersistenceKeys.METADATA]; // TODO move to couchdb
+    const result = Object.keys(m).reduce((accum: M, key) => {
+      if (key === pk) return accum;
+      (accum as Record<string, any>)[key] =
+        obj[Model.columnName(clazz, key as keyof M)];
+      return accum;
+    }, m);
 
-      if (ctx.get("rebuildWithTransient") && transient) {
-        log.verbose(
-          `re-adding transient properties: ${Object.keys(transient).join(", ")}`
-        );
-        Object.entries(transient).forEach(([key, val]) => {
-          if (key in result)
-            throw new InternalError(
-              `Transient property ${key} already exists on model ${m.constructor.name}. should be impossible`
-            );
-          result[key as keyof M] = val;
-        });
-      }
-
-      if (metadata) {
-        // TODO move to couchdb
-        log.silly(
-          `Passing along ${this.flavour} persistence metadata for ${m.constructor.name} id ${id}: ${metadata}`
-        );
-        Object.defineProperty(result, PersistenceKeys.METADATA, {
-          enumerable: false,
-          configurable: true,
-          writable: true,
-          value: metadata,
-        });
-      }
-
-      return result;
-    } catch (e: unknown) {
-      throw e;
+    if (ctx.get("rebuildWithTransient") && transient) {
+      log.verbose(
+        `re-adding transient properties: ${Object.keys(transient).join(", ")}`
+      );
+      Object.entries(transient).forEach(([key, val]) => {
+        if (key in result)
+          throw new InternalError(
+            `Transient property ${key} already exists on model ${m.constructor.name}. should be impossible`
+          );
+        result[key as keyof M] = val;
+      });
     }
+
+    if (metadata) {
+      // TODO move to couchdb
+      log.silly(
+        `Passing along ${this.flavour} persistence metadata for ${m.constructor.name} id ${id}: ${metadata}`
+      );
+      Object.defineProperty(result, PersistenceKeys.METADATA, {
+        enumerable: false,
+        configurable: true,
+        writable: true,
+        value: metadata,
+      });
+    }
+
+    return result;
   }
 
   /**
@@ -604,8 +601,10 @@ export abstract class Adapter<
     const { log, ctxArgs } = this.logCtx(args, this.createAll);
     const tableLabel = Model.tableName(clazz);
     log.debug(`Creating ${id.length} entries ${tableLabel} table`);
-    return Promise.all(
-      id.map((i, count) => this.create(clazz, i, model[count], ...ctxArgs))
+    return promiseSequence(
+      id.map(
+        (i, count) => () => this.create(clazz, i, model[count], ...ctxArgs)
+      )
     );
   }
 
@@ -639,7 +638,9 @@ export abstract class Adapter<
     const { log, ctxArgs } = this.logCtx(args, this.readAll);
     const tableName = Model.tableName(clazz);
     log.debug(`Reading ${id.length} entries ${tableName} table`);
-    return Promise.all(id.map((i) => this.read(clazz, i, ...ctxArgs)));
+    return promiseSequence(
+      id.map((i) => () => this.read(clazz, i, ...ctxArgs))
+    );
   }
 
   /**
@@ -679,8 +680,10 @@ export abstract class Adapter<
     const { log, ctxArgs } = this.logCtx(args, this.updateAll);
     const tableLabel = Model.tableName(clazz);
     log.debug(`Updating ${id.length} entries ${tableLabel} table`);
-    return Promise.all(
-      id.map((i, count) => this.update(clazz, i, model[count], ...ctxArgs))
+    return promiseSequence(
+      id.map(
+        (i, count) => () => this.update(clazz, i, model[count], ...ctxArgs)
+      )
     );
   }
 
@@ -716,7 +719,9 @@ export abstract class Adapter<
       this.deleteAll
     );
     log.verbose(`Deleting ${id.length} entries from ${tableName} table`);
-    return Promise.all(id.map((i) => this.delete(tableName, i, ...ctxArgs)));
+    return promiseSequence(
+      id.map((i) => () => this.delete(tableName, i, ...ctxArgs))
+    );
   }
 
   /**

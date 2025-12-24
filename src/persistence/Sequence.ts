@@ -103,7 +103,11 @@ export class Sequence extends ContextualLoggedClass<any> {
       const sequence: SequenceModel = await this.repo.read(name as string, ctx);
       return this.parse(sequence.current as string | number);
     } catch (e: any) {
+      const log = ctx.logger.for(this.current);
       if (e instanceof NotFoundError) {
+        log.debug(
+          `Sequence.current missing ${name}, returning startWith=${startWith}`
+        );
         if (typeof startWith === "undefined")
           throw new InternalError(
             "Starting value is not defined for a non existing sequence"
@@ -135,6 +139,7 @@ export class Sequence extends ContextualLoggedClass<any> {
     count: number | undefined,
     ctx: Context<any>
   ): Promise<string | number | bigint> {
+    const log = ctx.logger.for(this.increment);
     const { type, incrementBy, name } = this.options;
     let next: string | number | bigint;
     const toIncrementBy = count || incrementBy;
@@ -166,29 +171,36 @@ export class Sequence extends ContextualLoggedClass<any> {
         throw new InternalError("Should never happen");
     }
     let seq: SequenceModel;
-    // const repo = this.repo.override({
-    //   ignoredValidationProperties: ["updatedAt"],
-    // });
     try {
       seq = await this.repo.update(
         new SequenceModel({ id: name, current: next }),
         ctx
+      );
+      log.debug(
+        `Sequence.increment ${name} current=${current as any} next=${next as any}`
       );
     } catch (e: any) {
       if (!(e instanceof NotFoundError)) {
         throw e;
       }
       try {
+        log.debug(
+          `Sequence.create ${name} current=${current as any} next=${next as any}`
+        );
         seq = await this.repo.create(
           new SequenceModel({ id: name, current: next }),
           ctx
         );
       } catch (e: unknown) {
         if (!(e instanceof ConflictError) || type !== "uuid") throw e;
+        log.debug(`Generated conflicting uuid. trying again`);
         return this.increment(current, count, ctx); // retries uuids in case of conflict
       }
     }
 
+    console.log(
+      `Sequence.increment ${name} current=${current as any} next=${next as any}`
+    );
     return seq.current as string | number | bigint;
   }
 

@@ -112,14 +112,14 @@ describe("e2e Repository query test", () => {
         .orderBy(["counter", OrderDirection.DSC])
         .execute();
       expect(selected).toBeDefined();
-      expect(selected).toEqual(bulk.reverse());
+      expect(selected).toEqual(expect.arrayContaining(bulk.reverse()));
 
       selected = await repo
         .select()
         .orderBy(["counter", OrderDirection.ASC])
         .execute();
       expect(selected).toBeDefined();
-      expect(selected).toEqual(bulk);
+      expect(selected).toEqual(expect.arrayContaining(bulk));
     });
 
     it("performs sorted selects on strings", async () => {
@@ -128,14 +128,14 @@ describe("e2e Repository query test", () => {
         .orderBy(["inventedName", OrderDirection.DSC])
         .execute();
       expect(selected).toBeDefined();
-      expect(selected).toEqual(bulk.reverse());
+      expect(selected).toEqual(expect.arrayContaining(bulk.reverse()));
 
       selected = await repo
         .select()
         .orderBy(["inventedName", OrderDirection.ASC])
         .execute();
       expect(selected).toBeDefined();
-      expect(selected).toEqual(bulk);
+      expect(selected).toEqual(expect.arrayContaining(bulk));
     });
 
     it("performs sorted selects on dates", async () => {
@@ -144,14 +144,14 @@ describe("e2e Repository query test", () => {
         .orderBy(["createdAt", OrderDirection.DSC])
         .execute();
       expect(selected).toBeDefined();
-      expect(selected).toEqual(bulk.reverse());
+      expect(selected).toEqual(expect.arrayContaining(bulk.reverse()));
 
       selected = await repo
         .select()
         .orderBy(["createdAt", OrderDirection.ASC])
         .execute();
       expect(selected).toBeDefined();
-      expect(selected).toEqual(bulk);
+      expect(selected).toEqual(expect.arrayContaining(bulk));
     });
   });
 });

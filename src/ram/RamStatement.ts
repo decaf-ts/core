@@ -79,29 +79,38 @@ export class RamStatement<
         case "string":
           return (
             directionFactor *
-            this.compareStrings(value1 as string, value2 as string)
+            this.compareStrings(
+              value1 as unknown as string,
+              value2 as unknown as string
+            )
           );
         case "number":
           return (
             directionFactor *
-            this.compareNumbers(value1 as number, value2 as number)
+            this.compareNumbers(
+              value1 as unknown as number,
+              value2 as unknown as number
+            )
           );
         case "bigint":
           return (
             directionFactor *
-            this.compareBigInts(value1 as unknown as bigint, value2 as unknown as bigint)
+            this.compareBigInts(
+              value1 as unknown as bigint,
+              value2 as unknown as bigint
+            )
           );
         case "boolean":
           return (
             directionFactor *
-            this.compareBooleans(value1 as boolean, value2 as boolean)
+            this.compareBooleans(
+              value1 as unknown as boolean,
+              value2 as unknown as boolean
+            )
           );
         case "date":
         case "object":
-          if (
-            value1 instanceof Date &&
-            value2 instanceof Date
-          ) {
+          if (value1 instanceof Date && value2 instanceof Date) {
             return (
               directionFactor *
               this.compareDates(value1 as Date, value2 as Date)
@@ -112,9 +121,7 @@ export class RamStatement<
           break;
       }
 
-      throw new QueryError(
-        `sorting not supported for type ${resolvedType}`
-      );
+      throw new QueryError(`sorting not supported for type ${resolvedType}`);
     };
   }
 

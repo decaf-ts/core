@@ -1,14 +1,6 @@
 import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { model, required } from "@decaf-ts/decorator-validation";
-import {
-  Cascade,
-  column,
-  index,
-  manyToOne,
-  OrderDirection,
-  pk,
-  table,
-} from "../../../src";
+import { column, index, OrderDirection, pk, table } from "../../../src";
 import { TableNames } from "./constants";
 import { description, uses } from "@decaf-ts/decoration";
 import { BaseIdentifiedModel } from "./BaseIdentifiedModel";

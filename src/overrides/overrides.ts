@@ -104,6 +104,7 @@ import type { Migration } from "../persistence/types";
 
 (Model as any).generatedBySequence = function generatedBySequence<
   M extends Model,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
 >(model: M | Constructor<M>, prop?: keyof M): boolean {
   const constr =
     typeof model !== "function" ? (model.constructor as any) : model;

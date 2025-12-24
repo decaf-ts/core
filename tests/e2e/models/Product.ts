@@ -1,5 +1,5 @@
 import type { ModelArg } from "@decaf-ts/decorator-validation";
-import { model, required, url } from "@decaf-ts/decorator-validation";
+import { model, required } from "@decaf-ts/decorator-validation";
 import {
   Cascade,
   column,

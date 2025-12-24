@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { E2eConfig } from "./e2e.config";
 import { Repo, Repository } from "../../src/repository/Repository";
 import { Context, OperationKeys } from "@decaf-ts/db-decorators";
@@ -62,7 +63,6 @@ describe("e2e Repository query test", () => {
             log.info(
               `adapter context called with ${op}, ${JSON.stringify(overrides)}, ${model ? `name ${model.name}, ` : ""}${JSON.stringify(args)}`
             );
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
           } catch (e: unknown) {
             log.warn(
               `adapter context called with ${op}, ${model ? `name ${model.name}, ` : ""}, and not stringifyable args or overrides`

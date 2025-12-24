@@ -1,15 +1,7 @@
 import { E2eConfig } from "../e2e.config";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { date, model, pattern, required } from "@decaf-ts/decorator-validation";
-import {
-  Cascade,
-  column,
-  index,
-  manyToOne,
-  OrderDirection,
-  pk,
-  table,
-} from "../../../src";
+import { column, index, OrderDirection, pk, table } from "../../../src";
 import { BatchPattern, DatePattern, TableNames } from "./constants";
 import {
   BlockOperations,

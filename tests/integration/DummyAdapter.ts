@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Lock } from "@decaf-ts/transactional-decorators";
 import { hashObj, Model } from "@decaf-ts/decorator-validation";
 import {
@@ -206,7 +207,6 @@ export class DummyAdapter extends Adapter<
       model,
       ...args
     )) as TransactionalContext;
-    await ctx.acquire();
     return ctx;
   }
 
@@ -217,7 +217,7 @@ export class DummyAdapter extends Adapter<
    * @param models - Models to be indexed (unused)
    * @return {Promise<any>} A promise that resolves when indexing is complete
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   async index(...models: Record<string, any>[]): Promise<any> {
     return Promise.resolve(undefined);
   }
@@ -237,9 +237,6 @@ export class DummyAdapter extends Adapter<
   ): { record: Record<string, any>; id: string } {
     const { ctx } = this.logCtx(args, this.create);
     const prepared = super.prepare(model, ...args, ctx);
-    delete prepared.record[
-      Model.pk(model.constructor as Constructor) as string
-    ];
     return prepared;
   }
 
@@ -299,7 +296,7 @@ export class DummyAdapter extends Adapter<
     clazz: Constructor<M>,
     id: PrimaryKeyType,
     model: Record<string, any>,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
     const tableName = Model.tableName(clazz);
@@ -346,7 +343,6 @@ export class DummyAdapter extends Adapter<
     id: PrimaryKeyType,
     ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { log, ctx } = this.logCtx(args, this.create);
     const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))
@@ -393,7 +389,6 @@ export class DummyAdapter extends Adapter<
     model: Record<string, any>,
     ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { log, ctx } = this.logCtx(args, this.create);
     const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))
@@ -441,7 +436,6 @@ export class DummyAdapter extends Adapter<
     id: PrimaryKeyType,
     ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { log, ctx } = this.logCtx(args, this.create);
     const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))
@@ -581,7 +575,6 @@ export class DummyAdapter extends Adapter<
     return new RamStatement<M, any, any>(this as any);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   override for(config: Partial<RamConfig>, ...args: any[]): typeof this {
     if (!this.proxies) this.proxies = {};
     const key = `${this.alias} - ${hashObj(config)}`;

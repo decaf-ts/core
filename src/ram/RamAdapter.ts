@@ -380,6 +380,7 @@ export class RamAdapter extends Adapter<
       );
 
     await this.lock.acquire();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const table = this.client.get(tableName);
     const natived = this.client.get(tableName)?.get(id as any);
     this.client.get(tableName)?.delete(id as any);

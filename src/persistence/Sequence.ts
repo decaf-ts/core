@@ -20,7 +20,7 @@ import { Repo, Repository } from "../repository/Repository";
 import { SequenceModel } from "../model/SequenceModel";
 import { Serial, UUID } from "./generators";
 import { Context } from "./Context";
-import { Lock, MultiLock } from "@decaf-ts/transactional-decorators";
+import { MultiLock } from "@decaf-ts/transactional-decorators";
 
 /**
  * @description Abstract base class for sequence generation

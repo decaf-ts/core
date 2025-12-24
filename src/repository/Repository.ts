@@ -450,6 +450,7 @@ export class Repository<
           await enforceDBDecorators<M, Repository<M, A>, any>(
             this,
             contextArgs.context,
+            // TODO SOLUTION? Context.childFrom(contextArgs.context),
             m,
             OperationKeys.CREATE,
             OperationKeys.ON
@@ -547,7 +548,7 @@ export class Repository<
         m[this.pk] = k as M[keyof M];
         return enforceDBDecorators<M, Repository<M, A>, any>(
           this,
-          contextArgs.context,
+          Context.childFrom(contextArgs.context),
           m,
           OperationKeys.READ,
           OperationKeys.ON
@@ -722,7 +723,7 @@ export class Repository<
         models.map((m, i) =>
           enforceDBDecorators<M, Repository<M, A>, any>(
             this,
-            contextArgs.context,
+            Context.childFrom(contextArgs.context),
             m,
             OperationKeys.UPDATE,
             OperationKeys.ON,
@@ -820,7 +821,7 @@ export class Repository<
       models.map(async (m) => {
         return enforceDBDecorators<M, Repository<M, A>, any>(
           this,
-          contextArgs.context,
+          Context.childFrom(contextArgs.context),
           m,
           OperationKeys.DELETE,
           OperationKeys.ON

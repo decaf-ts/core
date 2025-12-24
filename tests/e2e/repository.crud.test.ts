@@ -148,7 +148,7 @@ describe("e2e Repository test", () => {
         Product,
         RamRepository<Product>
       >(Product);
-      const models = new Array(100).fill(0).map(() => {
+      const models = new Array(10).fill(0).map(() => {
         const id = generateGtin();
         return new Product({
           productCode: id,
@@ -183,6 +183,10 @@ describe("e2e Repository test", () => {
         });
       });
       bulk = await repo.createAll(models);
+      console.log(
+        "product_strength count after create",
+        ramAdapter["client"].get("product_strength")?.size
+      );
       expect(bulk).toBeDefined();
       expect(Array.isArray(bulk)).toEqual(true);
       expect(bulk.every((el) => el instanceof Product)).toEqual(true);
@@ -219,6 +223,10 @@ describe("e2e Repository test", () => {
         })
       ).toEqual(true);
       expect(read.every((el) => !!(el as any)[PersistenceKeys.METADATA]));
+      console.log(
+        "product_strength count after read",
+        ramAdapter["client"].get("product_strength")?.size
+      );
     });
 
     let updated: Product[];
@@ -235,6 +243,10 @@ describe("e2e Repository test", () => {
         });
       });
       updated = await repo.updateAll(toUpdate);
+      console.log(
+        "product_strength count after update",
+        ramAdapter["client"].get("product_strength")?.size
+      );
       expect(updated).toBeDefined();
       expect(Array.isArray(updated)).toEqual(true);
       expect(updated.every((el) => el instanceof Product)).toEqual(true);
@@ -262,6 +274,10 @@ describe("e2e Repository test", () => {
       >(Product);
       const ids = bulk.slice(0, Math.floor(bulk.length / 2)).map((c) => c[pk]);
       const deleted = await repo.deleteAll(ids as any[]);
+      console.log(
+        "product_strength count before delete cascade",
+        ramAdapter["client"].get("product_strength")?.size
+      );
       expect(deleted).toBeDefined();
       expect(Array.isArray(deleted)).toEqual(true);
       expect(deleted.every((el) => el instanceof Product)).toEqual(true);

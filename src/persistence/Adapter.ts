@@ -401,9 +401,12 @@ export abstract class Adapter<
       writeOperation: operation !== OperationKeys.READ,
       timestamp: new Date(),
       operation: operation,
-      ignoredValidationProperties: Array.isArray(model)
-        ? []
-        : Metadata.validationExceptions(model, operation as any),
+      ignoredValidationProperties: Metadata.validationExceptions(
+        Array.isArray(model) && model[0]
+          ? (model[0] as Constructor)
+          : (model as Constructor),
+        operation as any
+      ),
       logger: log,
     }) as unknown as FlagsOf<CONTEXT>;
   }
@@ -718,7 +721,7 @@ export abstract class Adapter<
       args,
       this.deleteAll
     );
-    log.verbose(`Deleting ${id.length} entries from ${tableName} table`);
+    log.debug(`Deleting ${id.length} entries from ${tableName} table`);
     return promiseSequence(
       id.map((i) => () => this.delete(tableName, i, ...ctxArgs))
     );

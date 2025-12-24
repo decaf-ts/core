@@ -548,14 +548,14 @@ export async function oneToManyOnDelete<M extends Model, R extends Repo<M>>(
     throw new InternalError(
       `Invalid operation. All elements of property ${key as string} must match the same type.`
     );
-  // const clazz =
-  //   typeof data.class === "function" && !data.class.name
-  //     ? (data.class as any)()
-  //     : data.class;
+  const clazz =
+    typeof data.class === "function" && !data.class.name
+      ? (data.class as any)()
+      : data.class;
 
   const isInstantiated = arrayType === "object";
   const repo = isInstantiated
-    ? Repository.forModel(values[0], this.adapter.alias)
+    ? Repository.forModel(clazz, this.adapter.alias)
     : repositoryFromTypeMetadata(model, key, this.adapter.alias);
 
   const uniqueValues = new Set([
@@ -650,7 +650,9 @@ export async function cacheModelForPopulate<
     propertyKey as string,
     pkValue
   );
-  return context.accumulate({ [cacheKey]: cacheValue });
+  const cache = context.get("cacheForPopulate") || {};
+  (cache[cacheKey] as Record<string, any>) = cacheValue;
+  return context.accumulate({ cacheForPopulate: cache } as any);
 }
 
 /**
@@ -729,10 +731,12 @@ export async function populate<M extends Model, R extends Repo<M>>(
     let cacheKey: string;
     let val: any;
     const results: M[] = [];
+    const cache = c.get("cacheForPopulate") || {};
     for (const proKeyValue of propKeyValues) {
       cacheKey = getPopulateKey(model.constructor.name, propName, proKeyValue);
       try {
-        val = await c.get(cacheKey as any);
+        val = cache[cacheKey];
+        if (!val) throw new Error("Not found in cache");
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: any) {
         const repo = repositoryFromTypeMetadata(

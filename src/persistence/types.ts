@@ -151,6 +151,7 @@ export type AdapterFlags<LOG extends Logger = Logger> = RepositoryFlags<LOG> & {
   allowRawStatements: boolean;
   forcePrepareSimpleQueries: boolean;
   forcePrepareComplexQueries: boolean;
+  cacheForPopulate: Record<string, any>;
 };
 
 export type RawResult<R, D extends boolean> = D extends true

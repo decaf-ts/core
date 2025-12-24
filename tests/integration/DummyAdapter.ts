@@ -33,11 +33,13 @@ import {
   Dispatch,
   FlagsOf,
   PersistenceKeys,
+  PreparedStatement,
   RelationsMetadata,
   Repo,
   Repository,
   Sequence,
   UnsupportedError,
+  Paginator,
 } from "../../src/index";
 import { Adapter } from "../../src/persistence/Adapter";
 
@@ -119,6 +121,14 @@ export class DummyAdapter extends Adapter<
 > {
   constructor(conf: RamConfig = {} as any, alias?: string) {
     super(conf, "dummy", alias);
+  }
+
+  Paginator<M>(
+    query: PreparedStatement<M> | RawRamQuery<any>,
+    size: number,
+    clazz: Constructor<M>
+  ): Paginator<M, any, RawRamQuery<any>> {
+    throw new Error("not implemented");
   }
 
   /**

@@ -533,7 +533,6 @@ export abstract class Adapter<
     log.silly(`Rebuilding model ${m.constructor.name} id ${id}`);
     const metadata = obj[PersistenceKeys.METADATA]; // TODO move to couchdb
     const result = Object.keys(m).reduce((accum: M, key) => {
-      if (key === pk) return accum;
       (accum as Record<string, any>)[key] =
         obj[Model.columnName(clazz, key as keyof M)];
       return accum;

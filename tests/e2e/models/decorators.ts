@@ -1,4 +1,5 @@
 import { Model } from "@decaf-ts/decorator-validation";
+import "../../../src/overrides";
 import { metadata, apply } from "@decaf-ts/decoration";
 import {
   afterCreate,
@@ -9,7 +10,7 @@ import {
   OperationKeys,
 } from "@decaf-ts/db-decorators";
 import { Audit } from "./Audit";
-import { Repository } from "../../../src/index";
+import { Repository } from "../../../src/repository/Repository";
 
 export async function createAuditHandler<
   M extends Model,
@@ -51,13 +52,13 @@ export async function updateAuditHandler<
   oldModel: M
 ): Promise<void> {
   const repo = Repository.forModel(Audit);
-  const identity = context.identity;
+  const identity = context.get("UUID");
   const audit = await repo.create(
     new Audit({
-      userGroup: identity.getID(),
-      userId: identity.getID(),
+      userGroup: identity,
+      userId: identity,
       action: OperationKeys.UPDATE,
-      transaction: context.stub.getTxID(),
+      transaction: identity,
       diffs: model.compare(oldModel),
     })
   );
@@ -78,13 +79,13 @@ export async function deleteAuditHandler<
   model: M
 ): Promise<void> {
   const repo = Repository.forModel(Audit);
-  const identity = context.identity;
+  const identity = context.get("UUID");
   const audit = await repo.create(
     new Audit({
-      userGroup: identity.getID(),
-      userId: identity.getID(),
+      userGroup: identity,
+      userId: identity,
       action: OperationKeys.DELETE,
-      transaction: context.stub.getTxID(),
+      transaction: identity,
       diffs: model.compare(new this.class()),
     })
   );

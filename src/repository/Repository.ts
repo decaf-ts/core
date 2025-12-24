@@ -11,6 +11,7 @@ import {
   reduceErrorsToPrint,
   PrimaryKeyType,
   NotFoundError,
+  wrapMethodWithContextForUpdate,
 } from "@decaf-ts/db-decorators";
 import { final, Logger } from "@decaf-ts/logging";
 import {
@@ -147,6 +148,9 @@ export class Repository<
     allowRawStatements: true,
     forcePrepareSimpleQueries: false,
     forcePrepareComplexQueries: false,
+    ignoreDevSafeGuards: false,
+    mergeForUpdate: true,
+    applyUpdateValidation: true,
   } as any;
 
   private logger!: Logger;
@@ -212,16 +216,22 @@ export class Repository<
         }
       }
     }
-    [this.createAll, this.readAll, this.updateAll, this.deleteAll].forEach(
-      (m) => {
-        const name = m.name;
-        wrapMethodWithContext(
-          this,
-          (this as any)[name + "Prefix"],
-          m,
-          (this as any)[name + "Suffix"]
-        );
-      }
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
+    [this.createAll, this.readAll, this.deleteAll].forEach((m) => {
+      const name = m.name;
+      wrapMethodWithContext(
+        self,
+        (self as any)[name + "Prefix"],
+        m,
+        (self as any)[name + "Suffix"]
+      );
+    });
+    wrapMethodWithContextForUpdate(
+      self,
+      (self as any)[this.updateAll.name + "Prefix"],
+      this.updateAll,
+      (self as any)[this.updateAll.name + "Suffix"]
     );
   }
 
@@ -347,17 +357,6 @@ export class Repository<
   }
 
   /**
-   * @description Post-creation hook.
-   * @summary Executes after a model is created to perform additional operations.
-   * @param {M} model - The created model.
-   * @param {C} context - The operation context.
-   * @return {Promise<M>} The processed model.
-   */
-  override async createSuffix(model: M, context: ContextOf<A>): Promise<M> {
-    return super.createSuffix(model, context);
-  }
-
-  /**
    * @description Creates multiple models in the database.
    * @summary Persists multiple model instances to the database in a batch operation.
    * @param {M[]} models - The models to create.
@@ -418,12 +417,12 @@ export class Repository<
     if (!models.length) return [models, ...contextArgs.args];
     const opts = Model.sequenceFor(models[0]);
     let ids: (string | number | bigint | undefined)[] = [];
-    if (opts.generated) {
+    if (Model.generatedBySequence(this.class)) {
       if (!opts.name) opts.name = Model.sequenceName(models[0], "pk");
       ids = await (
         await this.adapter.Sequence(opts)
       ).range(models.length, ...contextArgs.args);
-    } else {
+    } else if (!Model.generated(this.class, this.pk)) {
       ids = models.map((m, i) => {
         if (typeof m[this.pk] === "undefined")
           throw new InternalError(
@@ -431,6 +430,8 @@ export class Repository<
           );
         return m[this.pk] as string;
       });
+    } else {
+      // do nothing. The pk is tagged as generated, so it'll be handled by some other decorator
     }
 
     models = await Promise.all(
@@ -450,7 +451,6 @@ export class Repository<
           await enforceDBDecorators<M, Repository<M, A>, any>(
             this,
             contextArgs.context,
-            // TODO SOLUTION? Context.childFrom(contextArgs.context),
             m,
             OperationKeys.CREATE,
             OperationKeys.ON
@@ -548,7 +548,7 @@ export class Repository<
         m[this.pk] = k as M[keyof M];
         return enforceDBDecorators<M, Repository<M, A>, any>(
           this,
-          Context.childFrom(contextArgs.context),
+          contextArgs.context,
           m,
           OperationKeys.READ,
           OperationKeys.ON
@@ -613,7 +613,7 @@ export class Repository<
   protected override async updatePrefix(
     model: M,
     ...args: MaybeContextualArg<ContextOf<A>>
-  ): Promise<[M, ...args: any[], ContextOf<A>]> {
+  ): Promise<[M, ...args: any[], ContextOf<A>, M | undefined]> {
     const contextArgs = await Context.args(
       OperationKeys.UPDATE,
       this.class,
@@ -621,15 +621,21 @@ export class Repository<
       this.adapter,
       this._overrides || {}
     );
-    const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
-    const ignoreValidate = contextArgs.context.get("ignoreValidation");
+    const ctx = contextArgs.context;
+    const ignoreHandlers = ctx.get("ignoreHandlers");
+    const ignoreValidate = ctx.get("ignoreValidation");
     const pk = model[this.pk] as string;
     if (!pk)
       throw new InternalError(
         `No value for the Id is defined under the property ${this.pk as string}`
       );
-    const oldModel = await this.read(pk, ...contextArgs.args);
-    model = Model.merge(oldModel, model, this.class);
+    let oldModel: M | undefined;
+    if (ctx.get("applyUpdateValidation")) {
+      oldModel = await this.read(pk as string);
+      if (ctx.get("mergeForUpdate"))
+        model = Model.merge(oldModel, model, this.class);
+    }
+
     if (!ignoreHandlers)
       await enforceDBDecorators(
         this,
@@ -649,7 +655,7 @@ export class Repository<
       );
       if (errors) throw new ValidationError(errors.toString());
     }
-    return [model, ...contextArgs.args];
+    return [model, ...contextArgs.args, oldModel];
   }
 
   /**
@@ -698,7 +704,7 @@ export class Repository<
   protected override async updateAllPrefix(
     models: M[],
     ...args: MaybeContextualArg<ContextOf<A>>
-  ): Promise<[M[], ...args: any[], ContextOf<A>]> {
+  ): Promise<[M[], ...args: any[], ContextOf<A>, M[] | undefined]> {
     const contextArgs = await Context.args<M, ContextOf<A>>(
       OperationKeys.UPDATE,
       this.class,
@@ -706,47 +712,61 @@ export class Repository<
       this.adapter,
       this._overrides || {}
     );
-    const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
-    const ignoreValidate = contextArgs.context.get("ignoreValidation");
+
+    const context = contextArgs.context;
+
+    const ignoreHandlers = context.get("ignoreHandlers");
+    const ignoreValidate = context.get("ignoreValidation");
     const ids = models.map((m) => {
       const id = m[this.pk] as string;
       if (!id) throw new InternalError("missing id on update operation");
       return id;
     });
-    const oldModels = await this.readAll(ids, ...contextArgs.args);
-    models = models.map((m, i) => {
-      m = Model.merge(oldModels[i], m, this.class);
-      return m;
-    });
+    let oldModels: M[] | undefined;
+    if (context.get("applyUpdateValidation")) {
+      oldModels = await this.readAll(ids as string[], context);
+      if (context.get("mergeForUpdate"))
+        models = models.map((m, i) =>
+          Model.merge((oldModels as any)[i], m, this.class)
+        );
+    }
+
     if (!ignoreHandlers)
       await Promise.all(
         models.map((m, i) =>
           enforceDBDecorators<M, Repository<M, A>, any>(
             this,
-            Context.childFrom(contextArgs.context),
+            contextArgs.context,
             m,
             OperationKeys.UPDATE,
             OperationKeys.ON,
-            oldModels[i]
+            oldModels ? oldModels[i] : undefined
           )
         )
       );
 
     if (!ignoreValidate) {
-      const ignoredProps =
-        contextArgs.context.get("ignoredValidationProperties") || [];
+      const ignoredProps = context.get("ignoredValidationProperties") || [];
+      let modelsValidation: any;
+      if (!context.get("applyUpdateValidation")) {
+        modelsValidation = await Promise.resolve(
+          models.map((m) => m.hasErrors(...ignoredProps))
+        );
+      } else {
+        modelsValidation = await Promise.all(
+          models.map((m, i) =>
+            Promise.resolve(
+              m.hasErrors((oldModels as any)[i] as any, ...ignoredProps)
+            )
+          )
+        );
+      }
 
-      const errors = await Promise.all(
-        models.map((m, i) =>
-          Promise.resolve(m.hasErrors(oldModels[i], m, ...ignoredProps))
-        )
-      );
-
-      const errorMessages = reduceErrorsToPrint(errors);
+      const errorMessages = reduceErrorsToPrint(modelsValidation);
 
       if (errorMessages) throw new ValidationError(errorMessages);
     }
-    return [models, ...contextArgs.args];
+    return [models, ...contextArgs.args, oldModels];
   }
 
   /**

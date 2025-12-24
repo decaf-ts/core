@@ -162,9 +162,6 @@ export class RamAdapter extends Adapter<
   } {
     const ctx = args.pop();
     const prepared = super.prepare(model, ...args, ctx);
-    delete prepared.record[
-      Model.pk(model.constructor as Constructor<M>) as any
-    ];
     return prepared;
   }
 

@@ -17,6 +17,7 @@ import { BaseIdentifiedModel } from "./BaseIdentifiedModel";
 import { gtin } from "./gtin";
 
 import { E2eConfig } from "../e2e.config";
+import { audit } from "./decorators";
 
 @uses(E2eConfig.flavour)
 // @BlockOperations([OperationKeys.DELETE])
@@ -24,6 +25,7 @@ import { E2eConfig } from "../e2e.config";
 @model()
 export class Product extends BaseIdentifiedModel {
   @gtin()
+  @audit()
   @pk({ type: String, generated: false })
   productCode!: string;
 

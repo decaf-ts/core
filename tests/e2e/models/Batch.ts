@@ -28,7 +28,7 @@ import { gtin } from "./gtin";
 @table(TableNames.Batch)
 @model()
 export class Batch extends BaseIdentifiedModel {
-  @pk()
+  @pk({ type: String, generated: false })
   @audit()
   @composed(["productCode", "batchNumber"], ":")
   @description("Unique identifier composed of product code and batch number.")

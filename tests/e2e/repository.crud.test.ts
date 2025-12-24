@@ -273,7 +273,7 @@ describe("e2e Repository test", () => {
         Product,
         RamRepository<Product>
       >(Product);
-      const ids = bulk.slice(0, Math.floor(bulk.length / 2)).map((c) => c[pk]);
+      const ids = bulk.map((c) => c[pk]);
       const deleted = await repo.deleteAll(ids as any[]);
       console.log(
         "product_strength count before delete cascade",
@@ -299,12 +299,13 @@ describe("e2e Repository test", () => {
 
   describe("Querying", () => {
     it("Creates to query", async () => {
-      const models = new Array(10).fill(0).map((el) => {
+      const models = new Array(10).fill(0).map((_, index) => {
+        const i = 9 - index;
         const id = generateGtin();
         return new Product({
           productCode: id,
-          inventedName: "name" + el,
-          nameMedicinalProduct: "medicine" + el,
+          inventedName: "name" + i,
+          nameMedicinalProduct: "medicine" + i,
           strengths: [
             {
               productCode: id,
@@ -360,14 +361,14 @@ describe("e2e Repository test", () => {
         .orderBy(["inventedName", OrderDirection.DSC])
         .execute();
       expect(selected).toBeDefined();
-      expect(selected).toEqual(bulk);
+      expect(selected).toEqual(bulk.reverse());
 
       selected = await repo
         .select()
         .orderBy(["inventedName", OrderDirection.ASC])
         .execute();
       expect(selected).toBeDefined();
-      expect(selected).toEqual(bulk.reverse());
+      expect(selected).toEqual(bulk);
     });
   });
 });

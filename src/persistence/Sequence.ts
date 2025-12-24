@@ -20,6 +20,7 @@ import { Repo, Repository } from "../repository/Repository";
 import { SequenceModel } from "../model/SequenceModel";
 import { Serial, UUID } from "./generators";
 import { Context } from "./Context";
+import { Lock } from "@decaf-ts/transactional-decorators";
 
 /**
  * @description Abstract base class for sequence generation
@@ -69,6 +70,12 @@ import { Context } from "./Context";
  */
 export class Sequence extends ContextualLoggedClass<any> {
   protected repo: Repo<SequenceModel>;
+  private static readonly locks: Record<string, Lock> = {};
+
+  private static lockFor(name: string): Lock {
+    if (!this.locks[name]) this.locks[name] = new Lock();
+    return this.locks[name];
+  }
 
   /**
    * @description Creates a new sequence instance
@@ -141,67 +148,77 @@ export class Sequence extends ContextualLoggedClass<any> {
   ): Promise<string | number | bigint> {
     const log = ctx.logger.for(this.increment);
     const { type, incrementBy, name } = this.options;
-    let next: string | number | bigint;
-    const toIncrementBy = count || incrementBy;
-    if (toIncrementBy % incrementBy !== 0)
-      throw new InternalError(
-        `Value to increment does not consider the incrementBy setting: ${incrementBy}`
-      );
-    const typeName =
-      typeof type === "function" && (type as any)?.name
-        ? (type as any).name
-        : type;
-    switch (typeName) {
-      case Number.name:
-        next = (this.parse(current) as number) + toIncrementBy;
-        break;
-      case BigInt.name:
-        next = (this.parse(current) as bigint) + BigInt(toIncrementBy);
-        break;
-      case String.name:
-        next = this.parse(current);
-        break;
-      case "serial":
-        next = Serial.instance.generate(current as string);
-        break;
-      case "uuid":
-        next = UUID.instance.generate(current as string);
-        break;
-      default:
-        throw new InternalError("Should never happen");
-    }
-    let seq: SequenceModel;
-    try {
-      seq = await this.repo.update(
-        new SequenceModel({ id: name, current: next }),
-        ctx
-      );
-      log.debug(
-        `Sequence.increment ${name} current=${current as any} next=${next as any}`
-      );
-    } catch (e: any) {
-      if (!(e instanceof NotFoundError)) {
-        throw e;
+    if (!name) throw new InternalError("Sequence name is required");
+    return Sequence.lockFor(name).execute(async () => {
+      let seq: SequenceModel | undefined;
+      let currentValue = await this.current(ctx);
+      while (true) {
+        const toIncrementBy = count || incrementBy;
+        if (toIncrementBy % incrementBy !== 0)
+          throw new InternalError(
+            `Value to increment does not consider the incrementBy setting: ${incrementBy}`
+          );
+        const typeName =
+          typeof type === "function" && (type as any)?.name
+            ? (type as any).name
+            : type;
+        let next: string | number | bigint;
+        switch (typeName) {
+          case Number.name:
+            next = (this.parse(currentValue) as number) + toIncrementBy;
+            break;
+          case BigInt.name:
+            next = (this.parse(currentValue) as bigint) + BigInt(toIncrementBy);
+            break;
+          case String.name:
+            next = this.parse(currentValue);
+            break;
+          case "serial":
+            next = Serial.instance.generate(currentValue as string);
+            break;
+          case "uuid":
+            next = UUID.instance.generate(currentValue as string);
+            break;
+          default:
+            throw new InternalError("Should never happen");
+        }
+        try {
+          seq = await this.repo.update(
+            new SequenceModel({ id: name, current: next }),
+            ctx
+          );
+          log.debug(
+            `Sequence.increment ${name} current=${currentValue as any} next=${next as any}`
+          );
+          break;
+        } catch (e: any) {
+          if (e instanceof ConflictError) {
+            currentValue = await this.current(ctx);
+            continue;
+          }
+          if (!(e instanceof NotFoundError)) {
+            throw e;
+          }
+          try {
+            log.debug(
+              `Sequence.create ${name} current=${currentValue as any} next=${next as any}`
+            );
+            seq = await this.repo.create(
+              new SequenceModel({ id: name, current: next }),
+              ctx
+            );
+            break;
+          } catch (inner: unknown) {
+            if (inner instanceof ConflictError) {
+              currentValue = await this.current(ctx);
+              continue;
+            }
+            throw inner;
+          }
+        }
       }
-      try {
-        log.debug(
-          `Sequence.create ${name} current=${current as any} next=${next as any}`
-        );
-        seq = await this.repo.create(
-          new SequenceModel({ id: name, current: next }),
-          ctx
-        );
-      } catch (e: unknown) {
-        if (!(e instanceof ConflictError) || type !== "uuid") throw e;
-        log.debug(`Generated conflicting uuid. trying again`);
-        return this.increment(current, count, ctx); // retries uuids in case of conflict
-      }
-    }
-
-    console.log(
-      `Sequence.increment ${name} current=${current as any} next=${next as any}`
-    );
-    return seq.current as string | number | bigint;
+      return seq!.current as string | number | bigint;
+    });
   }
 
   /**

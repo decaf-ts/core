@@ -40,7 +40,7 @@ describe("e2e Repository test", () => {
     repo.unObserve(observer);
   });
 
-  describe.skip("Basic Crud", () => {
+  describe("Basic Crud", () => {
     it("creates", async () => {
       const id = generateGtin();
       const model = new Product({

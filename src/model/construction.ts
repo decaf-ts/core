@@ -429,9 +429,6 @@ export async function oneToManyOnCreate<M extends Model, R extends Repo<M>>(
     result.add(record[pkName]);
   }
 
-  console.log(
-    `oneToManyOnCreate ${model.constructor.name}.${key.toString()} -> ${JSON.stringify([...result])}`
-  );
   (model as any)[key] = [...result];
 }
 
@@ -587,20 +584,6 @@ export async function oneToManyOnDelete<M extends Model, R extends Repo<M>>(
     }
   }
   (model as any)[key] = ids;
-
-  for (const id of uniqueValues.values()) {
-    try {
-      const deleted = await repo.delete(id, context);
-      await cacheModelForPopulate(context, model, key, id, deleted);
-    } catch (e) {
-      console.error(
-        `Failed to delete relation for ${model.constructor.name}.${key.toString()} id=${id} type=${typeof id} repo=${repo.toString()}`,
-        e
-      );
-      throw e;
-    }
-  }
-  (model as any)[key] = [...uniqueValues];
 }
 
 /**

@@ -101,6 +101,24 @@ describe("e2e Repository query test", () => {
     it("performs simple selects", async () => {
       const selected = await repo.select().execute();
       expect(selected).toBeDefined();
+      const selectedIds = selected.map((el) => el[pk]).sort();
+      const bulkIds = bulk.map((el) => el[pk]).sort();
+      expect(selectedIds).toEqual(bulkIds);
+    });
+
+    it("performs sorted selects on numbers", async () => {
+      let selected = await repo
+        .select()
+        .orderBy(["counter", OrderDirection.DSC])
+        .execute();
+      expect(selected).toBeDefined();
+      expect(selected).toEqual(bulk.reverse());
+
+      selected = await repo
+        .select()
+        .orderBy(["counter", OrderDirection.ASC])
+        .execute();
+      expect(selected).toBeDefined();
       expect(selected).toEqual(bulk);
     });
 
@@ -115,22 +133,6 @@ describe("e2e Repository query test", () => {
       selected = await repo
         .select()
         .orderBy(["inventedName", OrderDirection.ASC])
-        .execute();
-      expect(selected).toBeDefined();
-      expect(selected).toEqual(bulk);
-    });
-
-    it("performs sorted selects on numbers", async () => {
-      let selected = await repo
-        .select()
-        .orderBy(["counter", OrderDirection.DSC])
-        .execute();
-      expect(selected).toBeDefined();
-      expect(selected).toEqual(bulk.reverse());
-
-      selected = await repo
-        .select()
-        .orderBy(["counter", OrderDirection.ASC])
         .execute();
       expect(selected).toBeDefined();
       expect(selected).toEqual(bulk);

@@ -631,7 +631,7 @@ export class Repository<
       );
     let oldModel: M | undefined;
     if (ctx.get("applyUpdateValidation")) {
-      oldModel = await this.read(pk as string);
+      oldModel = await this.read(pk as string, ctx);
       if (ctx.get("mergeForUpdate"))
         model = Model.merge(oldModel, model, this.class);
     }

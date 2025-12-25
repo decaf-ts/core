@@ -272,7 +272,7 @@ export class Sequence extends ContextualLoggedClass<any> {
     }
 
     if (this.options.type === "uuid" || this.options.type === "serial")
-      throw new UnsupportedError(
+      throw new UnsupportedError( // TODO just generate valid uuids/serials
         `type ${this.options.type} is currently not suppported for this adapter`
       );
     const typeName =

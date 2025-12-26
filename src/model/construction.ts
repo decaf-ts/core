@@ -108,7 +108,7 @@ export async function createOrUpdate<M extends Model, F extends AdapterFlags>(
 //   alias: string,
 //   repository?: Repo<M>
 // ): Promise<M> {
-//   const log = context.logger.for(createOrUpdate);
+//   const log = context.logger.for(createOrUpdateBulk);
 //   if (!repository) {
 //     const constructor = Model.get(models[0].constructor.name);
 //     if (!constructor)
@@ -121,7 +121,19 @@ export async function createOrUpdate<M extends Model, F extends AdapterFlags>(
 //     );
 //     log.info(`Retrieved ${repository.toString()}`);
 //   }
+//   const pks = models.map((m) => m[Model.pk(m)]);
 //
+//   const existing = await Promise.allSettled(pks.map((pk) => repository.read(pk as string, context)));
+//
+//   existing.forEach((ex, i) => {
+//     if (ex.status === "fulfilled") {
+//
+//     }
+//   })
+//
+//   for (let ex of existing){
+//     if (ex.)
+//   }
 //   let result: M;
 //
 //   if (typeof model[Model.pk(repository.class)] === "undefined") {

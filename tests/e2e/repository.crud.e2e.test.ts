@@ -167,6 +167,10 @@ describe("e2e Repository test", () => {
       created = await repo.create(model);
 
       expect(created).toBeDefined();
+
+      expect(created.markets.length).toBe(2);
+      expect(created.strengths.length).toBe(2);
+
       expect(mock).toHaveBeenCalledWith(
         Product,
         OperationKeys.CREATE,

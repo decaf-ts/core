@@ -70,7 +70,7 @@ import { MultiLock } from "@decaf-ts/transactional-decorators";
  */
 export class Sequence extends ContextualLoggedClass<any> {
   protected repo: Repo<SequenceModel>;
-  private static readonly lock = new MultiLock();
+  protected static readonly lock = new MultiLock();
 
   /**
    * @description Creates a new sequence instance

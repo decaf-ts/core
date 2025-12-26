@@ -98,6 +98,56 @@ export async function createOrUpdate<M extends Model, F extends AdapterFlags>(
   }
   return result;
 }
+//
+// export async function createOrUpdateBulk<
+//   M extends Model,
+//   F extends AdapterFlags,
+// >(
+//   models: M[],
+//   context: Context<F>,
+//   alias: string,
+//   repository?: Repo<M>
+// ): Promise<M> {
+//   const log = context.logger.for(createOrUpdate);
+//   if (!repository) {
+//     const constructor = Model.get(models[0].constructor.name);
+//     if (!constructor)
+//       throw new InternalError(
+//         `Could not find model ${models[0].constructor.name}`
+//       );
+//     repository = Repository.forModel<M, Repo<M>>(
+//       constructor as unknown as ModelConstructor<M>,
+//       alias
+//     );
+//     log.info(`Retrieved ${repository.toString()}`);
+//   }
+//
+//   let result: M;
+//
+//   if (typeof model[Model.pk(repository.class)] === "undefined") {
+//     log.info(`No pk found in ${Model.tableName(repository.class)} - creating`);
+//     result = await repository.create(model, context);
+//   } else {
+//     log.info(
+//       `pk found in ${Model.tableName(repository.class)} - attempting update`
+//     );
+//     try {
+//       result = await repository.update(model, context);
+//       log.info(`Updated ${Model.tableName(repository.class)}`);
+//     } catch (e: any) {
+//       if (!(e instanceof NotFoundError)) {
+//         throw e;
+//       }
+//       log.info(
+//         `update Failed - creating new ${Model.tableName(repository.class)}`
+//       );
+//       result = await repository.create(model, context);
+//     }
+//
+//     log.info(`After create update: ${result}`);
+//   }
+//   return result;
+// }
 
 /**
  * @description Handles one-to-one relationship creation
@@ -408,14 +458,17 @@ export async function oneToManyOnCreate<M extends Model, R extends Repo<M>>(
     throw new InternalError(
       `Invalid operation. All elements of property ${key as string} must match the same type.`
     );
+  const log = context.logger.for(oneToManyOnCreate);
   const uniqueValues = new Set([...propertyValues]);
   if (arrayType !== "object") {
     const repo = repositoryFromTypeMetadata(model, key, this.adapter.alias);
     for (const id of uniqueValues) {
       const read = await repo.read(id, context);
+      log.warn(`FOUND ONE TO MANY VALUE: ${JSON.stringify(read)}`);
       await cacheModelForPopulate(context, model, key, id, read);
     }
     (model as any)[key] = [...uniqueValues];
+    log.warn(`SET ONE TO MANY IDS: ${(model as any)[key]}`);
     return;
   }
 

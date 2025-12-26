@@ -41,7 +41,8 @@ export async function createAuditHandler<
       action: OperationKeys.CREATE,
       transaction: identity,
       diffs: new this.class().compare(model),
-    })
+    }),
+    context
   );
   context.logger.info(
     `Audit log for ${OperationKeys.CREATE} of ${Model.tableName(this.class)} created: ${audit.id}`
@@ -78,7 +79,8 @@ export async function updateAuditHandler<
       action: OperationKeys.UPDATE,
       transaction: identity,
       diffs: model.compare(oldModel),
-    })
+    }),
+    context
   );
   context.logger.info(
     `Audit log for ${OperationKeys.UPDATE} of ${Model.tableName(this.class)} created: ${audit.id}`
@@ -114,7 +116,8 @@ export async function deleteAuditHandler<
       action: OperationKeys.DELETE,
       transaction: identity,
       diffs: model.compare(new this.class()),
-    })
+    }),
+    context
   );
   context.logger.info(
     `Audit log for ${OperationKeys.DELETE} of ${Model.tableName(this.class)} created: ${audit.id}`

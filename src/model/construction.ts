@@ -462,11 +462,22 @@ export async function oneToManyOnCreate<M extends Model, R extends Repo<M>>(
   const uniqueValues = new Set([...propertyValues]);
   if (arrayType !== "object") {
     const repo = repositoryFromTypeMetadata(model, key, this.adapter.alias);
-    for (const id of uniqueValues) {
-      const read = await repo.read(id, context);
-      log.warn(`FOUND ONE TO MANY VALUE: ${JSON.stringify(read)}`);
-      await cacheModelForPopulate(context, model, key, id, read);
+    const read = await repo.readAll([...uniqueValues.values()], context);
+    for (let i = 0; i < read.length; i++) {
+      const model = read[i];
+      log.warn(`FOUND ONE TO MANY VALUE: ${JSON.stringify(model)}`);
+      await cacheModelForPopulate(
+        context,
+        model,
+        key,
+        [...uniqueValues.values()][i],
+        read
+      );
     }
+    // for (const model of read) {
+    //   // const read = await repo.read(id, context);
+    //
+    // }
     (model as any)[key] = [...uniqueValues];
     log.warn(`SET ONE TO MANY IDS: ${(model as any)[key]}`);
     return;
@@ -477,8 +488,11 @@ export async function oneToManyOnCreate<M extends Model, R extends Repo<M>>(
   const result: Set<string> = new Set();
 
   for (const m of propertyValues) {
+    log.info(`Creating or updating one-to-many model: ${JSON.stringify(m)}`);
     const record = await createOrUpdate(m, context, this.adapter.alias);
+    log.info(`caching: ${JSON.stringify(record)} under ${record[pkName]}`);
     await cacheModelForPopulate(context, model, key, record[pkName], record);
+    log.info(`Creating or updating one-to-many model: ${JSON.stringify(m)}`);
     result.add(record[pkName]);
   }
 

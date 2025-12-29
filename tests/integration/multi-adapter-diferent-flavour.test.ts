@@ -29,6 +29,7 @@ class Model1 extends Model {
     super(arg);
   }
 }
+Adapter.setCurrent("dummy");
 @uses("dummy")
 @model()
 class Model2 extends Model {
@@ -45,6 +46,7 @@ class Model2 extends Model {
     super(arg);
   }
 }
+Adapter.setCurrent(RamFlavour);
 
 describe("Multi Adapter full test", () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

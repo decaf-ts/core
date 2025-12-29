@@ -32,6 +32,7 @@ export type DirectionLimitOffset = {
   direction?: OrderDirection;
   limit?: number;
   offset?: number;
+  bookmark?: string | number;
 };
 
 export type PreparedStatement<M extends Model> = {

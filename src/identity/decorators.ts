@@ -178,9 +178,8 @@ export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
  * ```
  */
 export function pk(
-  opts: Omit<
-    SequenceOptions,
-    "cycle" | "startWith" | "incrementBy"
+  opts: Partial<
+    Omit<SequenceOptions, "cycle" | "startWith" | "incrementBy">
   > = DefaultSequenceOptions
 ) {
   opts = Object.assign({}, DefaultSequenceOptions, opts) as SequenceOptions;

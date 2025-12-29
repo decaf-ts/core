@@ -477,7 +477,7 @@ export async function oneToManyOnCreate<M extends Model, R extends Repo<M>>(
     const read = await repo.readAll([...uniqueValues.values()], context);
     for (let i = 0; i < read.length; i++) {
       const model = read[i];
-      log.warn(`FOUND ONE TO MANY VALUE: ${JSON.stringify(model)}`);
+      log.info(`FOUND ONE TO MANY VALUE: ${JSON.stringify(model)}`);
       await cacheModelForPopulate(
         context,
         model,
@@ -491,7 +491,7 @@ export async function oneToManyOnCreate<M extends Model, R extends Repo<M>>(
     //
     // }
     (model as any)[key] = [...uniqueValues];
-    log.warn(`SET ONE TO MANY IDS: ${(model as any)[key]}`);
+    log.info(`SET ONE TO MANY IDS: ${(model as any)[key]}`);
     return;
   }
 

@@ -44,12 +44,16 @@ export class TestUserModel extends BaseModel {
   @index()
   age!: number;
 
-  // @oneToMany(()=>TestPhoneModel, {
-  //   update: Cascade.CASCADE,
-  //   delete: Cascade.CASCADE,
-  // }, false)
-  // @required()
-  // @minlength(1)
+  @oneToMany(
+    () => TestPhoneModel,
+    {
+      update: Cascade.CASCADE,
+      delete: Cascade.CASCADE,
+    },
+    false
+  )
+  @required()
+  @minlength(1)
   phones!: TestPhoneModel[];
 
   constructor(m?: ModelArg<TestUserModel>) {
@@ -68,7 +72,10 @@ export class TestPhoneModel extends BaseModel {
   @required()
   number!: string;
 
-  @manyToOne(() => TestUserModel, {update: Cascade.CASCADE, delete: Cascade.CASCADE})
+  @manyToOne(() => TestUserModel, {
+    update: Cascade.CASCADE,
+    delete: Cascade.CASCADE,
+  })
   @required()
   @minlength(1)
   user!: TestUserModel | string | number;
@@ -89,7 +96,11 @@ export class TestPhoneNoPopModel extends BaseModel {
   @required()
   number!: string;
 
-  @manyToOne(() => TestUserModel, {update: Cascade.CASCADE, delete: Cascade.CASCADE}, false)
+  @manyToOne(
+    () => TestUserModel,
+    { update: Cascade.CASCADE, delete: Cascade.CASCADE },
+    false
+  )
   @required()
   @minlength(1)
   user!: TestUserModel | string | number;
@@ -98,27 +109,6 @@ export class TestPhoneNoPopModel extends BaseModel {
     super(m);
   }
 }
-
-// @model()
-// export class TestPhoneStrongBiDirectionalModel extends BaseModel {
-//   @pk({ type: "Number" })
-//   id!: number;
-
-//   @required()
-//   areaCode!: string;
-
-//   @required()
-//   number!: string;
-
-//   @manyToOne(() => TestUserModel, {update: Cascade.CASCADE, delete: Cascade.CASCADE}, false)
-//   @required()
-//   @minlength(1)
-//   user!: TestUserModel | string | number;
-
-//   constructor(m?: ModelArg<TestPhoneModel>) {
-//     super(m);
-//   }
-// }
 
 @model()
 export class TestPhoneBidirectionalModel extends BaseModel {
@@ -131,16 +121,19 @@ export class TestPhoneBidirectionalModel extends BaseModel {
   @required()
   number!: string;
 
-  @manyToOne(() => TestUserModel, {update: Cascade.CASCADE, delete: Cascade.CASCADE}, true)
+  @manyToOne(
+    () => TestUserBidirectionalModel,
+    { update: Cascade.CASCADE, delete: Cascade.CASCADE },
+    true
+  )
   @required()
   @minlength(1)
   user!: TestUserBidirectionalModel | string | number;
 
-  constructor(m?: ModelArg<TestPhoneModel>) {
+  constructor(m?: ModelArg<TestPhoneBidirectionalModel>) {
     super(m);
   }
 }
-
 @model()
 export class TestUserBidirectionalModel extends BaseModel {
   @pk({ type: "Number" })
@@ -160,10 +153,14 @@ export class TestUserBidirectionalModel extends BaseModel {
   @index()
   age!: number;
 
-  @oneToMany(TestPhoneBidirectionalModel, {
-    update: Cascade.CASCADE,
-    delete: Cascade.CASCADE,
-  }, true)
+  @oneToMany(
+    TestPhoneBidirectionalModel,
+    {
+      update: Cascade.CASCADE,
+      delete: Cascade.CASCADE,
+    },
+    true
+  )
   @required()
   @minlength(1)
   phones!: TestPhoneBidirectionalModel[];
@@ -193,7 +190,10 @@ describe(`Complex Database`, function () {
 
     userRepository = new Repository(adapter, TestUserModel);
     // userBidirectionalRepository = new Repository(adapter, TestUserBidirectionalModel);
-    phoneBidirectionalRepository = new Repository(adapter, TestPhoneBidirectionalModel);
+    phoneBidirectionalRepository = new Repository(
+      adapter,
+      TestPhoneBidirectionalModel
+    );
     phoneModelRepository = new Repository(adapter, TestPhoneModel);
     phoneNoPopModelRepository = new Repository(adapter, TestPhoneNoPopModel);
   });
@@ -224,7 +224,6 @@ describe(`Complex Database`, function () {
 
     let userSequence: Sequence;
 
-    
     it("Ensure no population when populate is disabled in a many-to-one relation", async () => {
       userSequence = await adapter.Sequence({
         name: Sequence.pk(TestUserModel),
@@ -262,7 +261,7 @@ describe(`Complex Database`, function () {
       const userSeq = await sequenceRepository.read(Sequence.pk(TestUserModel));
       createdUser = await userRepository.read(userSeq.current);
       expect(userSeq.current).toEqual(currentUser + 1);
-      expect(createdPhone1.user).toEqual(createdUser.id)
+      expect(createdPhone1.user).toEqual(createdUser.id);
 
       const toUpdate = new TestPhoneNoPopModel(
         Object.assign({}, createdPhone1, {
@@ -277,7 +276,6 @@ describe(`Complex Database`, function () {
       const deleted = await phoneNoPopModelRepository.delete(createdPhone1.id);
       expect(deleted.user).toEqual(createdUser.id);
     });
-
 
     it("Creates a many to one relation", async () => {
       userSequence = await adapter.Sequence({
@@ -456,9 +454,9 @@ describe(`Complex Database`, function () {
       await expect(
         phoneModelRepository.read(createdPhone.id)
       ).rejects.toBeInstanceOf(NotFoundError);
-      await expect(
-        userRepository.read(createdUser.id)
-      ).rejects.toBeInstanceOf(NotFoundError);
+      await expect(userRepository.read(createdUser.id)).rejects.toBeInstanceOf(
+        NotFoundError
+      );
     });
     // it("Creates a phone and ensures the user in the one-to-many side is updated", async () => {
     //   createdUser = await userRepository.create(new TestUserBiDirectionalModel(user));
@@ -471,19 +469,19 @@ describe(`Complex Database`, function () {
 
     // });
   });
-    it("Throws error when Bidirectional Relation exists where both populates are true", async () => {
-      const user = {
-        name: "testuser",
-        email: "test@test.com",
-        age: 25,
-      };
-      const phone1 = {
-        areaCode: "351",
-        number: "000-0000000",
-        user: user,
-      };
-      const createdPhone1 = await phoneBidirectionalRepository.create(
-        new TestPhoneBidirectionalModel(phone1)
-      );
-    });
+  it("Throws error when Bidirectional Relation exists where both populates are true", async () => {
+    const user = {
+      name: "testuser",
+      email: "test@test.com",
+      age: 25,
+    };
+    const phone1 = {
+      areaCode: "351",
+      number: "000-0000000",
+      user: user,
+    };
+    const createdPhone1 = await phoneBidirectionalRepository.create(
+      new TestPhoneBidirectionalModel(phone1)
+    );
+  });
 });

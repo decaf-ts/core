@@ -17,7 +17,10 @@ declare module "@decaf-ts/decorator-validation" {
      * @param {string[]} existingRelations - Optional parameter, the existing relations to be included.
      * @return {string[]} An array of property names that are relations.
      */
-    function nestedRelations<M extends Model>(model: Constructor<M> | M, existingRelations?: string[]): string[];
+    function nestedRelations<M extends Model>(
+      model: Constructor<M> | M,
+      existingRelations?: string[]
+    ): string[];
 
     /**
      * @description Gets all relation properties defined on a model.
@@ -128,6 +131,16 @@ declare module "@decaf-ts/decorator-validation" {
     ): M extends Model<true>
       ? Promise<ModelErrorDefinition | undefined>
       : ModelErrorDefinition | undefined;
+
+    function generated<M extends Model>(
+      model: M | Constructor<M>,
+      prop: keyof M
+    ): boolean;
+
+    function generatedBySequence<M extends Model>(
+      model: M | Constructor<M>,
+      prop?: keyof M
+    ): boolean;
   }
 
   // export interface Model {

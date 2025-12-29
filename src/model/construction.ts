@@ -98,6 +98,68 @@ export async function createOrUpdate<M extends Model, F extends AdapterFlags>(
   }
   return result;
 }
+//
+// export async function createOrUpdateBulk<
+//   M extends Model,
+//   F extends AdapterFlags,
+// >(
+//   models: M[],
+//   context: Context<F>,
+//   alias: string,
+//   repository?: Repo<M>
+// ): Promise<M> {
+//   const log = context.logger.for(createOrUpdateBulk);
+//   if (!repository) {
+//     const constructor = Model.get(models[0].constructor.name);
+//     if (!constructor)
+//       throw new InternalError(
+//         `Could not find model ${models[0].constructor.name}`
+//       );
+//     repository = Repository.forModel<M, Repo<M>>(
+//       constructor as unknown as ModelConstructor<M>,
+//       alias
+//     );
+//     log.info(`Retrieved ${repository.toString()}`);
+//   }
+//   const pks = models.map((m) => m[Model.pk(m)]);
+//
+//   const existing = await Promise.allSettled(pks.map((pk) => repository.read(pk as string, context)));
+//
+//   existing.forEach((ex, i) => {
+//     if (ex.status === "fulfilled") {
+//
+//     }
+//   })
+//
+//   for (let ex of existing){
+//     if (ex.)
+//   }
+//   let result: M;
+//
+//   if (typeof model[Model.pk(repository.class)] === "undefined") {
+//     log.info(`No pk found in ${Model.tableName(repository.class)} - creating`);
+//     result = await repository.create(model, context);
+//   } else {
+//     log.info(
+//       `pk found in ${Model.tableName(repository.class)} - attempting update`
+//     );
+//     try {
+//       result = await repository.update(model, context);
+//       log.info(`Updated ${Model.tableName(repository.class)}`);
+//     } catch (e: any) {
+//       if (!(e instanceof NotFoundError)) {
+//         throw e;
+//       }
+//       log.info(
+//         `update Failed - creating new ${Model.tableName(repository.class)}`
+//       );
+//       result = await repository.create(model, context);
+//     }
+//
+//     log.info(`After create update: ${result}`);
+//   }
+//   return result;
+// }
 
 /**
  * @description Handles one-to-one relationship creation
@@ -408,24 +470,41 @@ export async function oneToManyOnCreate<M extends Model, R extends Repo<M>>(
     throw new InternalError(
       `Invalid operation. All elements of property ${key as string} must match the same type.`
     );
+  const log = context.logger.for(oneToManyOnCreate);
   const uniqueValues = new Set([...propertyValues]);
   if (arrayType !== "object") {
     const repo = repositoryFromTypeMetadata(model, key, this.adapter.alias);
-    for (const id of uniqueValues) {
-      const read = await repo.read(id, context);
-      await cacheModelForPopulate(context, model, key, id, read);
+    const read = await repo.readAll([...uniqueValues.values()], context);
+    for (let i = 0; i < read.length; i++) {
+      const model = read[i];
+      log.warn(`FOUND ONE TO MANY VALUE: ${JSON.stringify(model)}`);
+      await cacheModelForPopulate(
+        context,
+        model,
+        key,
+        [...uniqueValues.values()][i],
+        read
+      );
     }
+    // for (const model of read) {
+    //   // const read = await repo.read(id, context);
+    //
+    // }
     (model as any)[key] = [...uniqueValues];
+    log.warn(`SET ONE TO MANY IDS: ${(model as any)[key]}`);
     return;
   }
 
-  const pkName = Model.pk(propertyValues[0]);
+  const pkName = Model.pk(propertyValues[0].constructor);
 
   const result: Set<string> = new Set();
 
   for (const m of propertyValues) {
+    log.info(`Creating or updating one-to-many model: ${JSON.stringify(m)}`);
     const record = await createOrUpdate(m, context, this.adapter.alias);
+    log.info(`caching: ${JSON.stringify(record)} under ${record[pkName]}`);
     await cacheModelForPopulate(context, model, key, record[pkName], record);
+    log.info(`Creating or updating one-to-many model: ${JSON.stringify(m)}`);
     result.add(record[pkName]);
   }
 
@@ -545,9 +624,14 @@ export async function oneToManyOnDelete<M extends Model, R extends Repo<M>>(
     throw new InternalError(
       `Invalid operation. All elements of property ${key as string} must match the same type.`
     );
+  const clazz =
+    typeof data.class === "function" && !data.class.name
+      ? (data.class as any)()
+      : data.class;
+
   const isInstantiated = arrayType === "object";
   const repo = isInstantiated
-    ? Repository.forModel(values[0], this.adapter.alias)
+    ? Repository.forModel(clazz, this.adapter.alias)
     : repositoryFromTypeMetadata(model, key, this.adapter.alias);
 
   const uniqueValues = new Set([
@@ -556,11 +640,29 @@ export async function oneToManyOnDelete<M extends Model, R extends Repo<M>>(
       : values),
   ]);
 
-  for (const id of uniqueValues.values()) {
-    const deleted = await repo.delete(id, context);
-    await cacheModelForPopulate(context, model, key, id, deleted);
+  const ids = [...uniqueValues.values()];
+  let deleted: Model[];
+  try {
+    deleted = await repo.deleteAll(ids, context);
+  } catch (e: unknown) {
+    context.logger.error(`Failed to delete all records`, e);
+    throw e;
   }
-  (model as any)[key] = [...uniqueValues];
+
+  let del: any;
+  for (let i = 0; i < deleted.length; i++) {
+    del = deleted[i];
+    try {
+      await cacheModelForPopulate(context, model, key, ids[i], del);
+    } catch (e: unknown) {
+      context.logger.error(
+        `Failed to cache record ${ids[i]} with key ${key as string} and model ${JSON.stringify(model, undefined, 2)} `,
+        e
+      );
+      throw e;
+    }
+  }
+  (model as any)[key] = ids;
 }
 
 /**
@@ -610,7 +712,9 @@ export async function cacheModelForPopulate<
     propertyKey as string,
     pkValue
   );
-  return context.accumulate({ [cacheKey]: cacheValue });
+  const cache = context.get("cacheForPopulate") || {};
+  (cache[cacheKey] as Record<string, any>) = cacheValue;
+  return context.accumulate({ cacheForPopulate: cache } as any);
 }
 
 /**
@@ -689,10 +793,12 @@ export async function populate<M extends Model, R extends Repo<M>>(
     let cacheKey: string;
     let val: any;
     const results: M[] = [];
+    const cache = c.get("cacheForPopulate") || {};
     for (const proKeyValue of propKeyValues) {
       cacheKey = getPopulateKey(model.constructor.name, propName, proKeyValue);
       try {
-        val = await c.get(cacheKey as any);
+        val = cache[cacheKey];
+        if (!val) throw new Error("Not found in cache");
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: any) {
         const repo = repositoryFromTypeMetadata(

@@ -49,6 +49,7 @@ import {
 } from "../utils/ContextualLoggedClass";
 import { Paginator } from "../query/Paginator";
 import { PreparedStatement } from "../query/index";
+import { promiseSequence } from "../utils/utils";
 
 const flavourResolver = Decoration["flavourResolver"].bind(Decoration);
 Decoration["flavourResolver"] = (obj: object) => {
@@ -400,9 +401,12 @@ export abstract class Adapter<
       writeOperation: operation !== OperationKeys.READ,
       timestamp: new Date(),
       operation: operation,
-      ignoredValidationProperties: Array.isArray(model)
-        ? []
-        : Metadata.validationExceptions(model, operation as any),
+      ignoredValidationProperties: Metadata.validationExceptions(
+        Array.isArray(model) && model[0]
+          ? (model[0] as Constructor)
+          : (model as Constructor),
+        operation as any
+      ),
       logger: log,
     }) as unknown as FlagsOf<CONTEXT>;
   }
@@ -440,7 +444,7 @@ export abstract class Adapter<
   ): Promise<CONTEXT> {
     const log = this.log.for(this.context);
     log.debug(
-      `Creating new context for ${operation} operation on ${Array.isArray(model) ? model.map((m) => m.name) : model.name} model with flag overrides: ${JSON.stringify(overrides)}`
+      `Creating new context for ${operation} operation on ${model ? (Array.isArray(model) ? model.map((m) => m.name) : model.name) : "no"} model with flag overrides: ${JSON.stringify(overrides)}`
     );
     const flags = await this.flags(
       operation,
@@ -529,7 +533,6 @@ export abstract class Adapter<
     log.silly(`Rebuilding model ${m.constructor.name} id ${id}`);
     const metadata = obj[PersistenceKeys.METADATA]; // TODO move to couchdb
     const result = Object.keys(m).reduce((accum: M, key) => {
-      if (key === pk) return accum;
       (accum as Record<string, any>)[key] =
         obj[Model.columnName(clazz, key as keyof M)];
       return accum;
@@ -600,8 +603,10 @@ export abstract class Adapter<
     const { log, ctxArgs } = this.logCtx(args, this.createAll);
     const tableLabel = Model.tableName(clazz);
     log.debug(`Creating ${id.length} entries ${tableLabel} table`);
-    return Promise.all(
-      id.map((i, count) => this.create(clazz, i, model[count], ...ctxArgs))
+    return promiseSequence(
+      id.map(
+        (i, count) => () => this.create(clazz, i, model[count], ...ctxArgs)
+      )
     );
   }
 
@@ -635,7 +640,9 @@ export abstract class Adapter<
     const { log, ctxArgs } = this.logCtx(args, this.readAll);
     const tableName = Model.tableName(clazz);
     log.debug(`Reading ${id.length} entries ${tableName} table`);
-    return Promise.all(id.map((i) => this.read(clazz, i, ...ctxArgs)));
+    return promiseSequence(
+      id.map((i) => () => this.read(clazz, i, ...ctxArgs))
+    );
   }
 
   /**
@@ -675,8 +682,10 @@ export abstract class Adapter<
     const { log, ctxArgs } = this.logCtx(args, this.updateAll);
     const tableLabel = Model.tableName(clazz);
     log.debug(`Updating ${id.length} entries ${tableLabel} table`);
-    return Promise.all(
-      id.map((i, count) => this.update(clazz, i, model[count], ...ctxArgs))
+    return promiseSequence(
+      id.map(
+        (i, count) => () => this.update(clazz, i, model[count], ...ctxArgs)
+      )
     );
   }
 
@@ -711,8 +720,10 @@ export abstract class Adapter<
       args,
       this.deleteAll
     );
-    log.verbose(`Deleting ${id.length} entries from ${tableName} table`);
-    return Promise.all(id.map((i) => this.delete(tableName, i, ...ctxArgs)));
+    log.debug(`Deleting ${id.length} entries from ${tableName} table`);
+    return promiseSequence(
+      id.map((i) => () => this.delete(tableName, i, ...ctxArgs))
+    );
   }
 
   /**

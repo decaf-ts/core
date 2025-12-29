@@ -71,7 +71,7 @@ import type { Migration } from "../persistence/types";
   model: Constructor<M> | M,
   existingRelations: string[] = []
 ): string[] | ExtendedRelationsMetadata {
-  // if (!existingRelations?.length) existingRelations = Model.relations(model);
+  if (!existingRelations?.length) existingRelations = Model.relations(model);
   let inner: string[] = [];
   const rels = Metadata.get(model as Constructor<M>, PersistenceKeys.RELATIONS);
   if (!rels || !Object.keys(rels).length)
@@ -83,7 +83,7 @@ import type { Migration } from "../persistence/types";
       const innerModelDotRels = innerModelRels.map((r) => `${prop}.${r}`);
       existingRelations = [
         ...existingRelations,
-        // ...innerModelRels,
+        ...innerModelRels,
         ...innerModelDotRels,
       ];
       inner = Model.nestedRelations(relationMeta.class, existingRelations);
@@ -92,7 +92,7 @@ import type { Migration } from "../persistence/types";
   return [...new Set([...existingRelations, ...inner])];
 };
 
-(Metadata as any).generated = function generated<M extends Model>(
+(Model as any).generated = function generated<M extends Model>(
   model: M | Constructor<M>,
   prop: keyof M
 ): boolean {
@@ -100,6 +100,16 @@ import type { Migration } from "../persistence/types";
     typeof model !== "function" ? (model.constructor as any) : model,
     Metadata.key(PersistenceKeys.GENERATED, prop as string)
   );
+}.bind(Metadata);
+
+(Model as any).generatedBySequence = function generatedBySequence<
+  M extends Model,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+>(model: M | Constructor<M>, prop?: keyof M): boolean {
+  const constr =
+    typeof model !== "function" ? (model.constructor as any) : model;
+  const seq = Model.sequenceFor(constr);
+  return !!seq.generated;
 }.bind(Metadata);
 
 (Metadata as any).createdBy = function createdBy<M extends Model>(

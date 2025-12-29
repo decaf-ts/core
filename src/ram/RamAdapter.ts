@@ -162,9 +162,6 @@ export class RamAdapter extends Adapter<
   } {
     const ctx = args.pop();
     const prepared = super.prepare(model, ...args, ctx);
-    delete prepared.record[
-      Model.pk(model.constructor as Constructor<M>) as any
-    ];
     return prepared;
   }
 
@@ -377,14 +374,16 @@ export class RamAdapter extends Adapter<
 
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.client.get(tableName)?.has(id as string))
+    if (!this.client.get(tableName)?.has(id as any))
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
 
     await this.lock.acquire();
-    const natived = this.client.get(tableName)?.get(id as string);
-    this.client.get(tableName)?.delete(id as string);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const table = this.client.get(tableName);
+    const natived = this.client.get(tableName)?.get(id as any);
+    this.client.get(tableName)?.delete(id as any);
     this.lock.release();
     return natived;
   }

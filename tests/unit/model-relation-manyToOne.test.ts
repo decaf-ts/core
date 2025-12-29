@@ -44,12 +44,12 @@ export class TestUserModel extends BaseModel {
   @index()
   age!: number;
 
-  @oneToMany(()=>TestPhoneModel, {
-    update: Cascade.CASCADE,
-    delete: Cascade.CASCADE,
-  }, false)
-  @required()
-  @minlength(1)
+  // @oneToMany(()=>TestPhoneModel, {
+  //   update: Cascade.CASCADE,
+  //   delete: Cascade.CASCADE,
+  // }, false)
+  // @required()
+  // @minlength(1)
   phones!: TestPhoneModel[];
 
   constructor(m?: ModelArg<TestUserModel>) {
@@ -99,8 +99,29 @@ export class TestPhoneNoPopModel extends BaseModel {
   }
 }
 
+// @model()
+// export class TestPhoneStrongBiDirectionalModel extends BaseModel {
+//   @pk({ type: "Number" })
+//   id!: number;
+
+//   @required()
+//   areaCode!: string;
+
+//   @required()
+//   number!: string;
+
+//   @manyToOne(() => TestUserModel, {update: Cascade.CASCADE, delete: Cascade.CASCADE}, false)
+//   @required()
+//   @minlength(1)
+//   user!: TestUserModel | string | number;
+
+//   constructor(m?: ModelArg<TestPhoneModel>) {
+//     super(m);
+//   }
+// }
+
 @model()
-export class TestPhoneStrongBiDirectionalModel extends BaseModel {
+export class TestPhoneBidirectionalModel extends BaseModel {
   @pk({ type: "Number" })
   id!: number;
 
@@ -110,10 +131,10 @@ export class TestPhoneStrongBiDirectionalModel extends BaseModel {
   @required()
   number!: string;
 
-  @manyToOne(() => TestUserModel, {update: Cascade.CASCADE, delete: Cascade.CASCADE}, false)
+  @manyToOne(() => TestUserModel, {update: Cascade.CASCADE, delete: Cascade.CASCADE}, true)
   @required()
   @minlength(1)
-  user!: TestUserModel | string | number;
+  user!: TestUserBidirectionalModel | string | number;
 
   constructor(m?: ModelArg<TestPhoneModel>) {
     super(m);
@@ -121,7 +142,7 @@ export class TestPhoneStrongBiDirectionalModel extends BaseModel {
 }
 
 @model()
-export class TestUserBiDirectionalModel extends BaseModel {
+export class TestUserBidirectionalModel extends BaseModel {
   @pk({ type: "Number" })
   id!: number;
 
@@ -139,15 +160,15 @@ export class TestUserBiDirectionalModel extends BaseModel {
   @index()
   age!: number;
 
-  @oneToMany(TestPhoneModel, {
+  @oneToMany(TestPhoneBidirectionalModel, {
     update: Cascade.CASCADE,
     delete: Cascade.CASCADE,
-  })
+  }, true)
   @required()
   @minlength(1)
-  phones!: TestPhoneModel[];
+  phones!: TestPhoneBidirectionalModel[];
 
-  constructor(m?: ModelArg<TestUserModel>) {
+  constructor(m?: ModelArg<TestUserBidirectionalModel>) {
     super(m);
   }
 }
@@ -161,6 +182,8 @@ describe(`Complex Database`, function () {
 
   let sequenceRepository: RamRepository<Seq>;
   let userRepository: RamRepository<TestUserModel>;
+  // let userBidirectionalRepository: RamRepository<TestUserBidirectionalModel>;
+  let phoneBidirectionalRepository: RamRepository<TestPhoneBidirectionalModel>;
   let phoneModelRepository: RamRepository<TestPhoneModel>;
   let phoneNoPopModelRepository: RamRepository<TestPhoneNoPopModel>;
 
@@ -169,6 +192,8 @@ describe(`Complex Database`, function () {
     expect(sequenceRepository).toBeDefined();
 
     userRepository = new Repository(adapter, TestUserModel);
+    // userBidirectionalRepository = new Repository(adapter, TestUserBidirectionalModel);
+    phoneBidirectionalRepository = new Repository(adapter, TestPhoneBidirectionalModel);
     phoneModelRepository = new Repository(adapter, TestPhoneModel);
     phoneNoPopModelRepository = new Repository(adapter, TestPhoneNoPopModel);
   });
@@ -446,4 +471,19 @@ describe(`Complex Database`, function () {
 
     // });
   });
+    it("Throws error when Bidirectional Relation exists where both populates are true", async () => {
+      const user = {
+        name: "testuser",
+        email: "test@test.com",
+        age: 25,
+      };
+      const phone1 = {
+        areaCode: "351",
+        number: "000-0000000",
+        user: user,
+      };
+      const createdPhone1 = await phoneBidirectionalRepository.create(
+        new TestPhoneBidirectionalModel(phone1)
+      );
+    });
 });

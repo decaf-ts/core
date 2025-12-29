@@ -466,6 +466,8 @@ export async function oneToManyOnCreate<M extends Model, R extends Repo<M>>(
   const propertyValues: any = model[key];
   if (!propertyValues || !propertyValues.length) return;
 
+  if (!checkBidirectionalRelational(model, data)) throw new Error("asdf");
+
   if (data?.populate === true) {
     // If this side has populate set to true, check if there is a reverse relation defined.
     // If not ignore the next steps.
@@ -704,33 +706,8 @@ export async function manyToOneOnCreate<M extends Model, R extends Repo<M>>(
   const propertyValue: any = model[key];
   if (!propertyValue) return;
 
-  if (data?.populate === true) {
-    // If this side has populate set to true, check if there is a reverse relation defined.
-    // If not ignore the next steps.
-    // If there is, we need to check if the populate is set to true to both.
-    // If populate is set to true on both sides, we should throw an error.
 
-    const relationConstructor = isClass(data.class) ? data.class : data.class();
-
-    // get the inverse relation metadata
-    const metaReverseRelationMeta = Metadata.get(
-      relationConstructor,
-      PersistenceKeys.RELATIONS
-    );
-
-    const metaReverseRelation: any = Object.values(
-      metaReverseRelationMeta
-    ).find(
-      (rel: any) =>
-        model instanceof (isClass(rel.class) ? rel.class : rel.class())
-    );
-
-    if (metaReverseRelation?.populate === true) {
-      throw new InternalError(
-        "Bidirectional populate is not allowed on many-to-one relations. Please set populate to false on one side of the relation."
-      );
-    }
-  }
+  if (!checkBidirectionalRelational(model, data)) throw new Error ("asdf");
 
   // If it's a primitive value (ID), read the existing record
   if (typeof propertyValue !== "object") {
@@ -762,6 +739,36 @@ export async function manyToOneOnCreate<M extends Model, R extends Repo<M>>(
   );
   (model as any)[key] = created[pk];
 }
+export function checkBidirectionalRelational<M extends Model>(model: M, data: RelationsMetadata): boolean{
+  if (data?.populate === false) return true;
+  // If this side has populate set to true, check if there is a reverse relation defined.
+  // If not ignore the next steps.
+  // If there is, we need to check if the populate is set to true to both.
+  // If populate is set to true on both sides, we should throw an error.
+
+  const relationConstructor = isClass(data.class) ? data.class : data.class();
+
+  // get the inverse relation metadata
+  const metaReverseRelationMeta = Metadata.get(
+    relationConstructor,
+    PersistenceKeys.RELATIONS
+  );
+
+  let metaReverseRelation: any;
+  if (metaReverseRelation)
+    metaReverseRelation = Object.values(metaReverseRelationMeta)?.find(
+      (rel: any) =>
+        model instanceof (isClass(rel.class) ? rel.class : rel.class())
+    );
+
+  if (metaReverseRelation?.populate === true) {
+    throw new InternalError(
+      "Bidirectional populate is not allowed on many-to-one relations. Please set populate to false on one side of the relation."
+    );
+  }
+  return true;
+}
+
 
 export async function manyToOneOnUpdate<M extends Model, R extends Repo<M>>(
   this: R,

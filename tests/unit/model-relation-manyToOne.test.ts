@@ -8,9 +8,7 @@ import {
   index,
   manyToOne,
   oneToMany,
-  oneToOne,
   pk,
-  populate,
   Sequence,
 } from "../../src/index";
 import {
@@ -18,7 +16,6 @@ import {
   min,
   minlength,
   model,
-  Model,
   ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
@@ -52,7 +49,6 @@ export class TestUserModel extends BaseModel {
     },
     false
   )
-  @required()
   @minlength(1)
   phones!: TestPhoneModel[];
 
@@ -161,8 +157,6 @@ export class TestUserBidirectionalModel extends BaseModel {
     },
     true
   )
-  @required()
-  @minlength(1)
   phones!: TestPhoneBidirectionalModel[];
 
   constructor(m?: ModelArg<TestUserBidirectionalModel>) {
@@ -179,7 +173,6 @@ describe(`Complex Database`, function () {
 
   let sequenceRepository: RamRepository<Seq>;
   let userRepository: RamRepository<TestUserModel>;
-  // let userBidirectionalRepository: RamRepository<TestUserBidirectionalModel>;
   let phoneBidirectionalRepository: RamRepository<TestPhoneBidirectionalModel>;
   let phoneModelRepository: RamRepository<TestPhoneModel>;
   let phoneNoPopModelRepository: RamRepository<TestPhoneNoPopModel>;
@@ -189,7 +182,6 @@ describe(`Complex Database`, function () {
     expect(sequenceRepository).toBeDefined();
 
     userRepository = new Repository(adapter, TestUserModel);
-    // userBidirectionalRepository = new Repository(adapter, TestUserBidirectionalModel);
     phoneBidirectionalRepository = new Repository(
       adapter,
       TestPhoneBidirectionalModel
@@ -218,9 +210,7 @@ describe(`Complex Database`, function () {
 
     let createdPhone1: TestPhoneModel;
     let createdPhone2: TestPhoneModel;
-    let updatedPhone: TestPhoneModel;
     let createdUser: TestUserModel;
-    let updatedUser: TestUserModel;
 
     let userSequence: Sequence;
 
@@ -328,12 +318,6 @@ describe(`Complex Database`, function () {
       expect(createdUser.createdAt).toBeDefined();
       expect(createdUser.updatedAt).toBeDefined();
 
-      // const { user: userFromRelation } = createdPhones[0];
-      // expect(createdUser.equals(userFromRelation)).toEqual(true);
-
-      // phones.forEach((p: any) => {
-      //   testPhone(p);
-      // });
     });
     it("Creates a many to one relation using Id", async () => {
       userSequence = await adapter.Sequence({
@@ -458,16 +442,6 @@ describe(`Complex Database`, function () {
         NotFoundError
       );
     });
-    // it("Creates a phone and ensures the user in the one-to-many side is updated", async () => {
-    //   createdUser = await userRepository.create(new TestUserBiDirectionalModel(user));
-    //   let phone = {
-    //     areaCode: "351",
-    //     number: "000-0000000",
-    //     user: createdUser.id,
-    //   };
-    //   createdPhone = await userPhone.create(new TestPhoneStrongBiDirectionalModel(phone))
-
-    // });
   });
   it("Throws error when Bidirectional Relation exists where both populates are true", async () => {
     const user = {
@@ -480,8 +454,10 @@ describe(`Complex Database`, function () {
       number: "000-0000000",
       user: user,
     };
-    const createdPhone1 = await phoneBidirectionalRepository.create(
-      new TestPhoneBidirectionalModel(phone1)
-    );
+    await expect(
+      phoneBidirectionalRepository.create(
+        new TestPhoneBidirectionalModel(phone1)
+      )
+    ).rejects.toThrow(/Bidirectional populate is not allowed/);
   });
 });

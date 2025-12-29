@@ -13,11 +13,9 @@ import { Injectables } from "@decaf-ts/injectable-decorators";
 import { Service } from "../utils/Services";
 import type { Migration } from "../persistence/types";
 
-(Metadata as any).validationExceptions = function <M extends Model>(
-  this: Metadata,
-  model: Constructor<M>,
-  op: OperationKeys
-): string[] {
+(Metadata as any).validationExceptions = function validationExceptions<
+  M extends Model,
+>(this: Metadata, model: Constructor<M>, op: OperationKeys): string[] {
   const noValidation: string[] =
     Metadata.get(model, PersistenceKeys.NO_VALIDATE) || [];
   const novalidationEntries = Object.entries(noValidation)
@@ -67,11 +65,14 @@ import type { Migration } from "../persistence/types";
   );
 };
 
-(Model as any).nestedRelations = function <M extends Model>(
+(Model as any).nestedRelations = function nestedRelations<M extends Model>(
   model: Constructor<M> | M,
   existingRelations: string[] = []
 ): string[] | ExtendedRelationsMetadata {
-  if (!existingRelations?.length) existingRelations = Model.relations(model);
+  const modelName =
+    model instanceof Model ? model.constructor.name : model.name;
+  if (!existingRelations?.length)
+    existingRelations = Model.relations(model).map((m) => `${modelName}..${m}`);
   let inner: string[] = [];
   const rels = Metadata.get(model as Constructor<M>, PersistenceKeys.RELATIONS);
   if (!rels || !Object.keys(rels).length)
@@ -79,13 +80,14 @@ import type { Migration } from "../persistence/types";
   for (const prop in rels) {
     const relationMeta = rels[prop] as any;
     if (relationMeta?.class && Model.relations(relationMeta.class)) {
-      const innerModelRels = Model.relations(relationMeta.class) as string[];
-      const innerModelDotRels = innerModelRels.map((r) => `${prop}.${r}`);
-      existingRelations = [
-        ...existingRelations,
-        ...innerModelRels,
-        ...innerModelDotRels,
-      ];
+      const innerModelName =
+        relationMeta.class instanceof Model
+          ? relationMeta.class.constructor.name
+          : relationMeta.class.name;
+      const innerModelRels = Model.relations(relationMeta.class).map(
+        (m) => `${innerModelName}..${m}`
+      );
+      existingRelations = [...existingRelations, ...innerModelRels];
       inner = Model.nestedRelations(relationMeta.class, existingRelations);
     }
   }

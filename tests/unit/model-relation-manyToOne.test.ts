@@ -44,6 +44,12 @@ export class TestUserModel extends BaseModel {
   @index()
   age!: number;
 
+  @oneToMany(()=>TestPhoneModel, {
+    update: Cascade.CASCADE,
+    delete: Cascade.CASCADE,
+  }, false)
+  @required()
+  @minlength(1)
   phones!: TestPhoneModel[];
 
   constructor(m?: ModelArg<TestUserModel>) {
@@ -62,7 +68,7 @@ export class TestPhoneModel extends BaseModel {
   @required()
   number!: string;
 
-  @manyToOne(TestUserModel, {update: Cascade.CASCADE, delete: Cascade.CASCADE})
+  @manyToOne(() => TestUserModel, {update: Cascade.CASCADE, delete: Cascade.CASCADE})
   @required()
   @minlength(1)
   user!: TestUserModel | string | number;
@@ -83,12 +89,65 @@ export class TestPhoneNoPopModel extends BaseModel {
   @required()
   number!: string;
 
-  @manyToOne(TestUserModel, {update: Cascade.CASCADE, delete: Cascade.CASCADE}, false)
+  @manyToOne(() => TestUserModel, {update: Cascade.CASCADE, delete: Cascade.CASCADE}, false)
   @required()
   @minlength(1)
   user!: TestUserModel | string | number;
 
   constructor(m?: ModelArg<TestPhoneModel>) {
+    super(m);
+  }
+}
+
+@model()
+export class TestPhoneStrongBiDirectionalModel extends BaseModel {
+  @pk({ type: "Number" })
+  id!: number;
+
+  @required()
+  areaCode!: string;
+
+  @required()
+  number!: string;
+
+  @manyToOne(() => TestUserModel, {update: Cascade.CASCADE, delete: Cascade.CASCADE}, false)
+  @required()
+  @minlength(1)
+  user!: TestUserModel | string | number;
+
+  constructor(m?: ModelArg<TestPhoneModel>) {
+    super(m);
+  }
+}
+
+@model()
+export class TestUserBiDirectionalModel extends BaseModel {
+  @pk({ type: "Number" })
+  id!: number;
+
+  @required()
+  @index()
+  name!: string;
+
+  @required()
+  @email()
+  @index()
+  email!: string;
+
+  @required()
+  @min(18)
+  @index()
+  age!: number;
+
+  @oneToMany(TestPhoneModel, {
+    update: Cascade.CASCADE,
+    delete: Cascade.CASCADE,
+  })
+  @required()
+  @minlength(1)
+  phones!: TestPhoneModel[];
+
+  constructor(m?: ModelArg<TestUserModel>) {
     super(m);
   }
 }
@@ -376,5 +435,15 @@ describe(`Complex Database`, function () {
         userRepository.read(createdUser.id)
       ).rejects.toBeInstanceOf(NotFoundError);
     });
+    // it("Creates a phone and ensures the user in the one-to-many side is updated", async () => {
+    //   createdUser = await userRepository.create(new TestUserBiDirectionalModel(user));
+    //   let phone = {
+    //     areaCode: "351",
+    //     number: "000-0000000",
+    //     user: createdUser.id,
+    //   };
+    //   createdPhone = await userPhone.create(new TestPhoneStrongBiDirectionalModel(phone))
+
+    // });
   });
 });

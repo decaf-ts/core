@@ -675,6 +675,15 @@ export async function manyToOneOnCreate<M extends Model, R extends Repo<M>>(
   const propertyValue: any = model[key];
   if (!propertyValue) return;
 
+
+  const meta = Metadata.get(model.constructor as any);
+  const relationProps = Model.relations(read.constructor); // ['phones']
+  const phonesMetadata = Model.relations(read.constructor, relationProps[0]);
+  // if (phonesMetadata.key == 'relation.one-to-many') {
+
+
+// }
+
   // If it's a primitive value (ID), read the existing record
   if (typeof propertyValue !== "object") {
     const innerRepo = repositoryFromTypeMetadata(

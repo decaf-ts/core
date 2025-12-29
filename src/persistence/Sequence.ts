@@ -257,8 +257,21 @@ export class Sequence extends ContextualLoggedClass<any> {
       argz,
       this.adapter
     );
-    const { context, args } = contextArgs;
-    const current = (await this.current(...args)) as number;
+    const { context } = contextArgs;
+
+    if (this.options.type === "uuid" || this.options.type === "serial")
+      throw new UnsupportedError( // TODO just generate valid uuids/serials
+        `type ${this.options.type} is currently not suppported for this adapter`
+      );
+
+    const log = context.logger.for(this.range);
+
+    const typeName =
+      typeof this.options.type === "function" &&
+      (this.options.type as any)?.name
+        ? (this.options.type as any).name
+        : this.options.type;
+
     const incrementBy = this.parse(
       this.options.incrementBy as number
     ) as number;
@@ -266,23 +279,18 @@ export class Sequence extends ContextualLoggedClass<any> {
       (this.parse(count) as number) * incrementBy,
       context
     );
-    const range: (number | string | bigint)[] = [];
-    for (let i: number = 1; i <= count; i++) {
-      range.push(current + incrementBy * (this.parse(i) as number));
+    let range: (number | string | bigint)[] = [];
+    for (let i: number = 0; i <= count - 1; i++) {
+      range.push((next as number) - incrementBy * (this.parse(i) as number));
     }
 
-    if (this.options.type === "uuid" || this.options.type === "serial")
-      throw new UnsupportedError( // TODO just generate valid uuids/serials
-        `type ${this.options.type} is currently not suppported for this adapter`
-      );
-    const typeName =
-      typeof this.options.type === "function" &&
-      (this.options.type as any)?.name
-        ? (this.options.type as any).name
-        : this.options.type;
+    range = range.reverse();
 
     if (range[range.length - 1] !== next && typeName !== "String")
       throw new InternalError("Miscalculation of range");
+
+    log.debug(`Calculated range: ${range.join(", ")}`);
+
     return range;
   }
 

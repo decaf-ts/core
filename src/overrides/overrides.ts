@@ -1,5 +1,5 @@
 import { Constructor, Metadata } from "@decaf-ts/decoration";
-import { Model } from "@decaf-ts/decorator-validation";
+import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
 import { DBKeys, InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Adapter } from "../persistence/Adapter";
 
@@ -21,7 +21,9 @@ import type { Migration } from "../persistence/types";
   const novalidationEntries = Object.entries(noValidation)
     .filter(([, val]) => val.includes(op))
     .map(([key]) => key);
-  const nestedRels = Model.nestedRelations(model);
+  let nestedRels: string[] = [];
+  if (op === OperationKeys.CREATE || op === OperationKeys.UPDATE)
+    nestedRels = Model.nestedRelations(model);
   return [...new Set([...novalidationEntries, ...nestedRels])];
 }.bind(Metadata);
 
@@ -65,14 +67,12 @@ import type { Migration } from "../persistence/types";
   );
 };
 
-(Model as any).nestedRelations = function nestedRelations<M extends Model>(
+(Model as any).nestedRelations = function <M extends Model>(
   model: Constructor<M> | M,
   existingRelations: string[] = []
 ): string[] | ExtendedRelationsMetadata {
-  const modelName =
-    model instanceof Model ? model.constructor.name : model.name;
   if (!existingRelations?.length)
-    existingRelations = Model.relations(model).map((m) => `${modelName}..${m}`);
+    existingRelations = Model.relations(model).map((r) => `.${r}`);
   let inner: string[] = [];
   const rels = Metadata.get(model as Constructor<M>, PersistenceKeys.RELATIONS);
   if (!rels || !Object.keys(rels).length)
@@ -80,14 +80,13 @@ import type { Migration } from "../persistence/types";
   for (const prop in rels) {
     const relationMeta = rels[prop] as any;
     if (relationMeta?.class && Model.relations(relationMeta.class)) {
-      const innerModelName =
-        relationMeta.class instanceof Model
-          ? relationMeta.class.constructor.name
-          : relationMeta.class.name;
-      const innerModelRels = Model.relations(relationMeta.class).map(
-        (m) => `${innerModelName}..${m}`
-      );
-      existingRelations = [...existingRelations, ...innerModelRels];
+      const innerModelRels = Model.relations(relationMeta.class) as string[];
+      const innerModelDotRels = innerModelRels.map((r) => `${prop}.${r}`);
+      existingRelations = [
+        ...existingRelations,
+        ...innerModelRels.map((r) => `.${r}`),
+        ...innerModelDotRels,
+      ];
       inner = Model.nestedRelations(relationMeta.class, existingRelations);
     }
   }

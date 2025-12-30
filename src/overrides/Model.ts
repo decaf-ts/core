@@ -135,7 +135,7 @@ declare module "@decaf-ts/decorator-validation" {
     function generated<M extends Model>(
       model: M | Constructor<M>,
       prop: keyof M
-    ): boolean;
+    ): boolean | string;
 
     function generatedBySequence<M extends Model>(
       model: M | Constructor<M>,

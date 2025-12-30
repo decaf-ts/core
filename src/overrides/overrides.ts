@@ -97,7 +97,7 @@ import type { Migration } from "../persistence/types";
 (Model as any).generated = function generated<M extends Model>(
   model: M | Constructor<M>,
   prop: keyof M
-): boolean {
+): boolean | string {
   return !!Metadata.get(
     typeof model !== "function" ? (model.constructor as any) : model,
     Metadata.key(PersistenceKeys.GENERATED, prop as string)

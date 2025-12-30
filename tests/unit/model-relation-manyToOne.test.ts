@@ -19,6 +19,7 @@ import {
   ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
+import { PersistenceKeys } from "../../src/persistence/constants";
 
 jest.setTimeout(500000);
 
@@ -317,7 +318,6 @@ describe(`Complex Database`, function () {
       expect(createdUser.id).toBeDefined();
       expect(createdUser.createdAt).toBeDefined();
       expect(createdUser.updatedAt).toBeDefined();
-
     });
     it("Creates a many to one relation using Id", async () => {
       userSequence = await adapter.Sequence({
@@ -443,7 +443,7 @@ describe(`Complex Database`, function () {
       );
     });
   });
-  it("Throws error when Bidirectional Relation exists where both populates are true", async () => {
+  it("Throws error when Bidirectional Relation exists where both populates are true on create", async () => {
     const user = {
       name: "testuser",
       email: "test@test.com",
@@ -457,6 +457,58 @@ describe(`Complex Database`, function () {
     await expect(
       phoneBidirectionalRepository.create(
         new TestPhoneBidirectionalModel(phone1)
+      )
+    ).rejects.toThrow(/Bidirectional populate is not allowed/);
+  });
+  it("Throws error when Bidirectional Relation exists where both populates are true on update", async () => {
+    // Create with asymmetric populate
+    const user = await userRepository.create(
+      new TestUserModel({
+        name: "testuser",
+        email: "test@test.com",
+        age: 25,
+      })
+    );
+
+    const phone = await phoneModelRepository.create(
+      new TestPhoneModel({
+        areaCode: "351",
+        number: "000-0000000",
+        user: user.id,
+      })
+    );
+
+    expect(phone).toBeDefined();
+    expect(phone.user).toBeInstanceOf(TestUserModel);
+
+    const updated = await phoneModelRepository.update(
+      new TestPhoneModel({
+        ...phone,
+        number: "111-1111111",
+      })
+    );
+    expect(updated.number).toBe("111-1111111");
+
+    // Change the TestUserModel's phones property to have populate = tru
+    const { Metadata } = await import("@decaf-ts/decoration");
+    const userRelationsMeta = Metadata.get(
+      TestUserModel,
+      PersistenceKeys.RELATIONS
+    );
+    if (userRelationsMeta && userRelationsMeta.phones) {
+      // Change populate to true on the oneToMany side
+      userRelationsMeta.phones.populate = true;
+      // Use Metadata.set to actually persist the change
+      Metadata.set(TestUserModel, PersistenceKeys.RELATIONS, userRelationsMeta);
+    }
+
+    await expect(
+      phoneModelRepository.update(
+        new TestPhoneModel({
+          ...phone,
+          number: "222-2222222",
+          user: user,
+        })
       )
     ).rejects.toThrow(/Bidirectional populate is not allowed/);
   });

@@ -623,12 +623,12 @@ export function manyToMany<M extends Model>(
     .apply();
 }
 
-export function generated() {
+export function generated(type?: string) {
   return function generated(target: object, prop?: any) {
-    return propMetadata(Metadata.key(PersistenceKeys.GENERATED, prop), true)(
-      target,
-      prop
-    );
+    return propMetadata(
+      Metadata.key(PersistenceKeys.GENERATED, prop),
+      type || true
+    )(target, prop);
   };
 }
 

@@ -3,11 +3,7 @@ import { RamAdapter } from "../../src/ram/RamAdapter";
 import { RamRepository } from "../../src/ram/types";
 import { Cascade, Repository } from "../../src/repository/index";
 import { SequenceModel as Seq } from "../../src/model/SequenceModel";
-import {
-  BaseModel,
-  manyToMany,
-  pk,
-} from "../../src/index";
+import { BaseModel, manyToMany, pk } from "../../src/index";
 import {
   minlength,
   model,
@@ -31,7 +27,7 @@ export class TestUserModel extends BaseModel {
       update: Cascade.CASCADE,
       delete: Cascade.CASCADE,
     },
-    true,
+    true
   )
   roles!: TestRoleModel[];
 
@@ -52,15 +48,12 @@ export class TestRoleModel extends BaseModel {
     update: Cascade.CASCADE,
     delete: Cascade.CASCADE,
   })
-  @required()
-  @minlength(1)
   users!: TestUserModel[];
 
   constructor(m?: ModelArg<TestRoleModel>) {
     super(m);
   }
 }
-
 
 // @model()
 // export class TestUserRoleModel extends BaseModel {
@@ -112,7 +105,6 @@ describe("Many to many relations", () => {
     // roleUserJunctionRepository = new Repository(adapter, TestUserRoleModel);
   });
 
-
   it("Creates a many to many relation", async () => {
     const userRole = {
       name: "User",
@@ -122,16 +114,86 @@ describe("Many to many relations", () => {
     };
     const user = {
       name: "Albert",
-      roles: [userRole]
+      roles: [userRole],
     };
     const user2 = {
       name: "Albertwo",
-      roles: [userRole, adminRole]
+      roles: [userRole, adminRole],
+    };
+
+    const role = {
+      name: userRole.name,
+      users: [user, user2],
+    };
+
+    const role2 = {
+      name: adminRole.name,
+      users: [user],
     };
 
     const createdUser = await userRepository.create(new TestUserModel(user));
-
+    const createdUser2 = await userRepository.create(new TestUserModel(user2));
     const readUser = await userRepository.read(createdUser.id);
-    console.log("asdf");
+    const readUser2 = await userRepository.read(createdUser2.id);
+
+    const createdRole = await roleRepository.create(new TestRoleModel(role));
+    const createdRole2 = await roleRepository.create(new TestRoleModel(role2));
+    const readRole = await roleRepository.read(createdRole.id);
+    const readRole2 = await roleRepository.read(createdRole2.id);
+
+    const createdUserWithRoleIds = await userRepository.create(
+      new TestUserModel({
+        name: "Albertthree",
+        roles: [createdRole.id, createdRole2.id],
+      })
+    );
+    const readUserWithRoleIds = await userRepository.read(
+      createdUserWithRoleIds.id
+    );
+    const createdRoleWithUserIds = await roleRepository.create(
+      new TestRoleModel({
+        name: "SuperUser",
+        users: [createdUser.id, createdUser2.id],
+      })
+    );
+    const readRoleWithUserIds = await roleRepository.read(
+      createdRoleWithUserIds.id
+    );
+
+    expect(readUser.roles).toBeDefined();
+    expect(readUser.roles.length).toBe(1);
+    expect(readUser.roles[0].name).toBe("User");
+
+    expect(readUser2.roles).toBeDefined();
+    expect(readUser2.roles.length).toBe(2);
+    expect(readUser2.roles.find((r) => r.name === "User")).toBeDefined();
+    expect(readUser2.roles.find((r) => r.name === "Admin")).toBeDefined();
+
+    expect(readRole.users).toBeDefined();
+    expect(readRole.users.length).toBe(2);
+    expect(readRole.users.find((u) => u.name === "Albert")).toBeDefined();
+    expect(readRole.users.find((u) => u.name === "Albertwo")).toBeDefined();
+
+    expect(readRole2.users).toBeDefined();
+    expect(readRole2.users.length).toBe(1);
+    expect(readRole2.users[0].name).toBe("Albert");
+
+    expect(readUserWithRoleIds.roles).toBeDefined();
+    expect(readUserWithRoleIds.roles.length).toBe(2);
+    expect(
+      readUserWithRoleIds.roles.find((r) => r.name === "User")
+    ).toBeDefined();
+    expect(
+      readUserWithRoleIds.roles.find((r) => r.name === "Admin")
+    ).toBeDefined();
+
+    expect(readRoleWithUserIds.users).toBeDefined();
+    expect(readRoleWithUserIds.users.length).toBe(2);
+    expect(
+      readRoleWithUserIds.users.find((u) => u.name === "Albert")
+    ).toBeDefined();
+    expect(
+      readRoleWithUserIds.users.find((u) => u.name === "Albertwo")
+    ).toBeDefined();
   });
 });

@@ -612,7 +612,7 @@ export function manyToMany<M extends Model>(
       onCreate(manyToManyOnCreate, metadata),
       // onUpdate(manyToManyOnUpdate, metadata),
       // onDelete(manyToManyOnDelete, metadata),
-      // afterAll(populate, metadata),
+      afterAny(pop, metadata)
     );
   }
   return Decoration.for(key)

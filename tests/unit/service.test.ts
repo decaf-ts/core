@@ -32,4 +32,29 @@ describe("services", () => {
     expect(Service.get(TestService)).toBeInstanceOf(TestService);
     expect(Injectables.get(TestService)).toBeInstanceOf(TestService);
   });
+
+  @service()
+  class TestService2 extends Service {
+    constructor() {
+      super();
+    }
+
+    async initialize(
+      ...args: ContextualArgs<any>
+    ): Promise<{ config: object; client: object }> {
+      const { log } = await this.logCtx(args, this.initialize);
+      log.info(`Initializing ${this}...`);
+      return {
+        config: {},
+        client: {},
+      };
+    }
+  }
+
+  it("Registers as a service for a class without passing a service categrory", () => {
+    const services = Injectables.services();
+    expect(Object.keys(services).length).toBe(2);
+    expect(services.test).toBe(TestService);
+    expect(Object.values(services)[1]).toEqual(TestService2);
+  });
 });

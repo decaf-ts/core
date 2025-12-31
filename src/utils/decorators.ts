@@ -33,17 +33,28 @@ export const read = () => OperationGuard(OperationKeys.READ);
 export const update = () => OperationGuard(OperationKeys.UPDATE);
 export const del = () => OperationGuard(OperationKeys.DELETE);
 
-export function service(key: string | ModelConstructor<any>) {
-  key =
-    typeof key === "string"
-      ? key
-      : Metadata.Symbol(key as ModelConstructor<any>).toString();
+export function service(key?: string | ModelConstructor<any>) {
   return function service(target: any, prop?: any, descriptor?: any) {
-    Metadata.set(PersistenceKeys.SERVICE, key, target);
+    if (!descriptor) {
+      // class
+      key = key || target;
+    } else {
+      // property
+      key = key || Metadata.type(target.constructor, prop);
+    }
+
+    key =
+      typeof key === "string"
+        ? key
+        : Metadata.Symbol(
+            Metadata.constr(key as ModelConstructor<any>)
+          ).toString();
+
     const decs = [];
     if (descriptor && typeof descriptor.value === "number") {
       decs.push(inject(key));
     } else if (!descriptor && !prop) {
+      Metadata.set(PersistenceKeys.SERVICE, key, target);
       decs.push(
         injectable(key, {
           callback: (inst: any) =>
@@ -59,7 +70,7 @@ export function service(key: string | ModelConstructor<any>) {
       decs.push(inject(key));
     } else throw new Error("Invalid decorator usage. Should be impossible");
 
-    decs.push(metadata(PersistenceKeys.SERVICE, key));
+    // decs.push(metadata(PersistenceKeys.SERVICE, key));
     return apply(...decs)(target, prop, descriptor);
   };
 }

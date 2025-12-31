@@ -1,4 +1,4 @@
-import { apply, metadata, Metadata } from "@decaf-ts/decoration";
+import { apply, Metadata } from "@decaf-ts/decoration";
 import { inject, injectable } from "@decaf-ts/injectable-decorators";
 import { PersistenceKeys } from "../persistence/index";
 import type { ModelConstructor } from "@decaf-ts/decorator-validation";
@@ -46,9 +46,9 @@ export function service(key?: string | ModelConstructor<any>) {
     key =
       typeof key === "string"
         ? key
-        : Metadata.Symbol(
-            Metadata.constr(key as ModelConstructor<any>)
-          ).toString();
+        : Metadata.Symbol(Metadata.constr(key as ModelConstructor<any>))
+            .toString()
+            .replaceAll(".", "-");
 
     const decs = [];
     if (descriptor && typeof descriptor.value === "number") {

@@ -56,5 +56,8 @@ describe("services", () => {
     expect(Object.keys(services).length).toBe(2);
     expect(services.test).toBe(TestService);
     expect(Object.values(services)[1]).toEqual(TestService2);
+
+    expect(Service.get(TestService2)).toBeInstanceOf(TestService2);
+    expect(Injectables.get(TestService2)).toBeInstanceOf(TestService2);
   });
 });

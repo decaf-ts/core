@@ -181,9 +181,7 @@ export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
  * ```
  */
 export function pk(
-  opts: Partial<
-    Omit<SequenceOptions, "cycle" | "startWith" | "incrementBy">
-  > = DefaultSequenceOptions
+  opts?: Partial<Omit<SequenceOptions, "cycle" | "startWith" | "incrementBy">>
 ) {
   // We want to handle options.generated in the decorator function
   const DefaultSequenceOptionsMin = Object.assign({}, DefaultSequenceOptions);

@@ -12,7 +12,7 @@ import { Metadata } from "@decaf-ts/decoration";
 import { isClass } from "@decaf-ts/logging";
 import { AdapterFlags, ContextOf } from "../persistence/types";
 import { Context } from "../persistence/Context";
-
+import { Sequence } from "../persistence/Sequence";
 /**
  * @description Creates or updates a model instance
  * @summary Determines whether to create a new model or update an existing one based on the presence of a primary key
@@ -847,6 +847,28 @@ export async function manyToManyOnCreate<M extends Model, R extends Repo<M>>(
       `Creating or updating one-to-many model: ${JSON.stringify(propertyValue)}`
     );
     result.add(record[pkName]);
+  }
+
+  // Get the next id for the model before it is persisted so we can put it in the junction table
+  const modelPkName = Model.pk(model.constructor as ModelConstructor<M>);
+
+  let modelId = model[modelPkName];
+  if (modelId === undefined) {
+    const pkProps = Model.sequenceFor(model.constructor as ModelConstructor<M>);
+    if (!pkProps.name) {
+      pkProps.name = Model.sequenceName(model, "pk");
+    }
+    let sequence: Sequence;
+    try {
+      sequence = await this.adapter.Sequence(pkProps);
+      const modelNextId = await sequence.next(context);
+      model[modelPkName] = modelNextId as M[keyof M];
+      console.log("asdf");
+    } catch (e: any) {
+      throw new InternalError(
+        `Failed to instantiate Sequence ${pkProps.name}: ${e}`
+      );
+    }
   }
   (model as any)[key] = [...result];
 }

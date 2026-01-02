@@ -841,7 +841,7 @@ export class Repository<
       models.map(async (m) => {
         return enforceDBDecorators<M, Repository<M, A>, any>(
           this,
-          Context.childFrom(contextArgs.context),
+          contextArgs.context,
           m,
           OperationKeys.DELETE,
           OperationKeys.ON

@@ -118,7 +118,7 @@ export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
       // eslint-disable-next-line no-fallthrough
       case String:
         options.generated =
-          options.generated === undefined ? false : options.generated;
+          typeof options.generated === "undefined" ? false : options.generated;
         options.type = String;
         break;
       case Number.name || String.name.toLowerCase():
@@ -126,7 +126,7 @@ export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
       // eslint-disable-next-line no-fallthrough
       case Number:
         options.generated =
-          options.generated === undefined ? true : options.generated;
+          typeof options.generated === "undefined" ? true : options.generated;
         options.type = Number;
         break;
       case BigInt.name || BigInt.name.toLowerCase():
@@ -135,7 +135,7 @@ export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
       case BigInt:
         options.type = BigInt;
         options.generated =
-          options.generated === undefined ? true : options.generated;
+          typeof options.generated === "undefined" ? true : options.generated;
         break;
       case "uuid":
       case "serial":

@@ -185,7 +185,10 @@ export function pk(
     Omit<SequenceOptions, "cycle" | "startWith" | "incrementBy">
   > = DefaultSequenceOptions
 ) {
-  opts = Object.assign({}, DefaultSequenceOptions, opts) as SequenceOptions;
+  // We want to handle options.generated in the decorator function
+  const DefaultSequenceOptionsMin = Object.assign({}, DefaultSequenceOptions);
+  delete DefaultSequenceOptionsMin.generated;
+  opts = Object.assign({}, DefaultSequenceOptionsMin, opts) as SequenceOptions;
   return Decoration.for(DBKeys.ID)
     .define({
       decorator: pkDec,

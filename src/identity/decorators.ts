@@ -110,9 +110,9 @@ export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
         )
           throw new Error("Incorrrect option type");
         options.type = metaType;
-        break;
       }
 
+      // eslint-disable-next-line no-fallthrough
       case String.name || String.name.toLowerCase():
         console.warn(`Deprecated "${options.type}" type in options`);
       // eslint-disable-next-line no-fallthrough

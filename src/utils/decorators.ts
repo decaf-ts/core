@@ -57,6 +57,7 @@ export function service(key?: string | ModelConstructor<any>) {
       Metadata.set(PersistenceKeys.SERVICE, key, target);
       decs.push(
         injectable(key, {
+          singleton: true,
           callback: (inst: any) =>
             Object.defineProperty(inst, "name", {
               enumerable: true,

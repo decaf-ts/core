@@ -181,10 +181,15 @@ export abstract class Service<
     const services = Injectables.services();
     for (const [key, service] of Object.entries(services)) {
       try {
-        const s = new service();
-        if (s instanceof ClientBasedService) await s.boot(...ctxArgs);
+        log.verbose(`Booting ${service.name} service...`);
+        const s = Injectables.get<Service>(service as Constructor<Service>);
+        if (!s) throw new InternalError(`Failed to resolve injectable for ${key}`);
+        if (s instanceof ClientBasedService) {
+          log.verbose(`Initializing ${service.name} service...`);
+          await s.boot(...ctxArgs);
+        }
       } catch (e: unknown) {
-        log.error(`Failed to boot ${key} service`, e as Error);
+        throw new InternalError(`Failed to boot ${key} service:${e}`);
       }
     }
   }

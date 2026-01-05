@@ -38,5 +38,9 @@ describe("repository injection", () => {
 
     expect(repo).toBeDefined();
     expect(repo).toBeInstanceOf(Repo);
+
+    const created = await repo.create(new RepoInjectionModel({ name: "Test" }));
+    expect(created).toBeDefined();
+    expect(created).toBeInstanceOf(RepoInjectionModel);
   });
 });

@@ -126,7 +126,7 @@ export class InjectablesRegistry extends InjectableRegistryImp {
       let modelCtor: Constructor<any> | undefined;
       if (typeof name === "function")
         modelCtor =
-          (Model.get(name.toString()) as ModelConstructor<any>) ||
+          (Model.get(name.name) as ModelConstructor<any>) ||
           (name as Constructor<any>);
       else if (typeof name === "symbol" || typeof name === "string") {
         modelCtor = Model.get(name.toString()) as ModelConstructor<any>;

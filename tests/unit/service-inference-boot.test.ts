@@ -11,6 +11,7 @@ describe("Service injection and setup", () => {
       const cfg = args[0];
       return {
         config: cfg as any,
+        // @ts-expect-error meh
         client: client1InitMock(cfg),
       };
     }

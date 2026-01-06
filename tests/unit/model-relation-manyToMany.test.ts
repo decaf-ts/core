@@ -1,11 +1,9 @@
-import { NotFoundError } from "@decaf-ts/db-decorators";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { RamRepository } from "../../src/ram/types";
 import { Cascade, Repository } from "../../src/repository/index";
 import { SequenceModel as Seq } from "../../src/model/SequenceModel";
 import { BaseModel, manyToMany, pk } from "../../src/index";
 import {
-  minlength,
   model,
   ModelArg,
   required,

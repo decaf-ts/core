@@ -17,6 +17,7 @@ import { AdapterFlags, ContextOf } from "../persistence/types";
 import { Context } from "../persistence/Context";
 import { Sequence } from "../persistence/Sequence";
 import { pk } from "../identity";
+import { N } from "vite/dist/node/moduleRunnerTransport.d-DJ_mE5sf";
 /**
  * @description Creates or updates a model instance
  * @summary Determines whether to create a new model or update an existing one based on the presence of a primary key
@@ -846,6 +847,7 @@ export async function manyToManyOnCreate<M extends Model, R extends Repo<M>>(
     log.info(`caching: ${JSON.stringify(record)} under ${record[pkName]}`);
     await cacheModelForPopulate(context, modelA, key, record[pkName], record);
     log.info(`Creating or updating many-to-many model: ${JSON.stringify(propertyValue)}`);
+    propertyValue.id = record.id
     result.add(record[pkName]);
   }
 
@@ -858,8 +860,11 @@ export async function manyToManyOnCreate<M extends Model, R extends Repo<M>>(
 
   // Create junction table entries
   const JunctionModel = getOrCreateJunctionModel(
-    modelA.constructor as Constructor<Model>,
-    propertyValues[0].constructor as Constructor<Model>,
+    this,
+    modelA,
+    propertyValues,
+    log,
+    context,
     data
   );
 
@@ -900,6 +905,84 @@ async function getNextId<M extends Model, R extends Repo<M>>(
     );
   }
 }
+
+async function getOrCreateJunctionModel(
+  repo: R,
+  modelA: Model,
+  modelsB: Model[],
+  log: any,
+  context: ContextOf<R>,
+  metadata?: RelationsMetadata
+): Promise<Constructor<Model<false>>> {
+  const modelAName = Model.tableName(modelA);
+  const modelBName = Model.tableName(modelsB[0]);
+
+  const junctionTableName = metadata?.joinTable?.name || `${modelAName}_${modelBName}`;
+
+  const fkA = `${modelAName.toLowerCase()}_fk`;
+  const fkB = `${modelBName.toLowerCase()}_fk`;
+
+  const JunctionModel = createJunctionModel(junctionTableName, fkA, fkB);
+  Metadata.set(JunctionModel, PersistenceKeys.TABLE, junctionTableName);
+
+  for (const modelB of modelsB) {
+    log.info(`Creating or updating many-to-many junction model: ${JSON.stringify(modelB)}`);
+    let junctionRegister = {
+      [fkA]: modelA[Model.pk(modelA.constructor as Constructor) as keyof typeof modelA],
+      [fkB]: modelB[Model.pk(modelB.constructor as Constructor)as keyof typeof modelB]
+    };
+    const record = await createOrUpdate(
+      new JunctionModel(junctionRegister),
+      context,
+      repo.adapter.alias
+    );
+
+    // This read will work when the createJunctionModel works, because we need the model name to instantiate the repo
+    // const constructor = Model.get(JunctionModel.constructor.name);
+    // repository = Repository.forModel<M, Repo<M>>(
+    //   constructor as unknown as ModelConstructor<M>,
+    //   alias
+    // );
+    // let result = await repository.read(record.id);
+
+    console.log("asdf");
+  }
+
+
+  return JunctionModel;
+}
+function createJunctionModel(
+  junctionTableName: string,
+  fkA: string,
+  fkB: string
+): Constructor<Model<false>> {
+  class DynamicJunctionModel extends Model {
+    id!: number;
+    [fkA]!: number;
+    [fkB]!: number;
+
+    constructor(arg?: ModelArg<any>) {
+      super(arg);
+    }
+  }
+
+  Object.defineProperty(DynamicJunctionModel, "name", {
+    value: junctionTableName,
+    writable: false,
+  });
+
+  const prototype = DynamicJunctionModel.prototype;
+
+  // Apply the decorators
+  pk({ type: "Number" })(prototype, "id");
+  required()(prototype, fkA as any);
+  required()(prototype, fkB as any);
+
+  // Apply @model() decorator to the class
+  const DecoratedModel = model()(DynamicJunctionModel);
+
+  return DecoratedModel as Constructor<Model<false>>;
+}
 export async function manyToManyOnUpdate<M extends Model, R extends Repo<M>>(
   this: R,
   context: ContextOf<R>,
@@ -918,41 +1001,6 @@ export async function manyToManyOnUpdate<M extends Model, R extends Repo<M>>(
   ]);
 }
 
-function getOrCreateJunctionModel(
-  modelA: Constructor<Model>,
-  modelB: Constructor<Model>,
-  metadata?: RelationsMetadata
-): Constructor<Model> {
-  const modelAName = Model.tableName(modelA);
-  const modelBName = Model.tableName(modelB);
-
-  const junctionTableName = metadata?.joinTable?.name || `${modelAName}_${modelBName}`;
-
-  const fkA = `${modelAName.toLowerCase()}_fk`;
-  const fkB = `${modelBName.toLowerCase()}_fk`;
-
-  @model()
-  class JunctionModel extends Model {
-    @pk({ type: "Number" })
-    id!: number;
-
-    @required()
-    [fkA]!: number;
-
-    @required()
-    [fkB]!: number;
-
-    constructor(m?: ModelArg<JunctionModel>) {
-      super(m);
-    }
-  }
-
-  // Instead of dynamically changing the name of the class, we leave it as JunctionModel and change the name in the metadata, this should persist the users_role name in the database, gets stored in Model.tableName(JunctionModel)
-  Metadata.set(JunctionModel, PersistenceKeys.TABLE, junctionTableName);
-
-
-  return JunctionModel;
-}
 
 export async function manyToManyOnDelete<M extends Model, R extends Repo<M>>(
   this: R,

@@ -72,10 +72,10 @@ export class TestPhoneModel extends BaseModel {
   @manyToOne(() => TestUserModel, {
     update: Cascade.CASCADE,
     delete: Cascade.CASCADE,
-  })
+  }, true)
   @required()
   @minlength(1)
-  user!: TestUserModel | string | number;
+  user!: TestUserModel | number;
 
   constructor(m?: ModelArg<TestPhoneModel>) {
     super(m);
@@ -512,4 +512,9 @@ describe(`Complex Database`, function () {
       )
     ).rejects.toThrow(/Bidirectional populate is not allowed/);
   });
+  // TODO
+  // Bidirectional models test:
+  // - Persist a user
+  // - Persist a role that links to that user
+  // - Read user and see if it shows the role
 });

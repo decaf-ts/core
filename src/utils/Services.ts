@@ -10,7 +10,7 @@ import {
   type PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
 import { final, Logger, Logging } from "@decaf-ts/logging";
-import type { Constructor } from "@decaf-ts/decoration";
+import { Constructor } from "@decaf-ts/decoration";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import type {
   ContextualArgs,
@@ -29,6 +29,7 @@ import { Context } from "../persistence/Context";
 import { DefaultAdapterFlags } from "../persistence/constants";
 import { OrderDirection } from "../repository/constants";
 import { DirectionLimitOffset } from "../query/index";
+import { injectableServiceKey } from "./utils";
 
 export abstract class Service<
   C extends Context<AdapterFlags> = Context<AdapterFlags>,
@@ -142,8 +143,8 @@ export abstract class Service<
    */
   static get<A extends Service>(name: string | symbol | Constructor<A>): A {
     if (!name) throw new InternalError(`No name provided`);
-
-    const injectable = Injectables.get(name);
+    const key = injectableServiceKey(name);
+    const injectable = Injectables.get(key);
     if (injectable) return injectable as A;
 
     throw new InternalError(
@@ -183,7 +184,8 @@ export abstract class Service<
       try {
         log.verbose(`Booting ${service.name} service...`);
         const s = Injectables.get<Service>(service as Constructor<Service>);
-        if (!s) throw new InternalError(`Failed to resolve injectable for ${key}`);
+        if (!s)
+          throw new InternalError(`Failed to resolve injectable for ${key}`);
         if (s instanceof ClientBasedService) {
           log.verbose(`Initializing ${service.name} service...`);
           await s.boot(...ctxArgs);

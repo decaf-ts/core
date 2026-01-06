@@ -1,7 +1,18 @@
-import type { CrudOperations } from "@decaf-ts/db-decorators";
+import { CrudOperations, InternalError } from "@decaf-ts/db-decorators";
 import { OperationKeys } from "@decaf-ts/db-decorators";
 import type { ModelConstructor } from "@decaf-ts/decorator-validation";
-import { Metadata } from "@decaf-ts/decoration";
+import { Constructor, Metadata } from "@decaf-ts/decoration";
+
+export function injectableServiceKey(
+  name: string | symbol | Constructor
+): string {
+  if (!name) throw new InternalError(`No name provided`);
+  return typeof name === "string"
+    ? name.replaceAll(".", "-")
+    : Metadata.Symbol(Metadata.constr(name as ModelConstructor<any>))
+        .toString()
+        .replaceAll(".", "-");
+}
 
 export function promiseSequence<T>(tasks: (() => Promise<T>)[]): Promise<T[]> {
   return tasks.reduce(

@@ -90,6 +90,9 @@ describe("Service injection and setup", () => {
     @repository(Testmodel3)
     private repo!: Repo<Testmodel3>;
 
+    @service()
+    private innerService!: ToInject;
+
     constructor() {
       super();
     }
@@ -131,6 +134,8 @@ describe("Service injection and setup", () => {
     expect((toInject2 as any).service).toBeInstanceOf(CLientService3);
     expect((toInject2 as any).service2).toBeDefined();
     expect((toInject2 as any).service2).toBeInstanceOf(CLientService2);
+    expect((toInject2 as any).innerService).toBeDefined();
+    expect((toInject2 as any).innerService).toBeInstanceOf(ToInject);
     expect((toInject2 as any).repo).toBeDefined();
     expect((toInject2 as any).repo).toBeInstanceOf(Repository);
   });

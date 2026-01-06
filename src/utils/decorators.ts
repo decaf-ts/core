@@ -1,4 +1,4 @@
-import { apply, Metadata } from "@decaf-ts/decoration";
+import { apply, Metadata, prop as property } from "@decaf-ts/decoration";
 import { inject, injectable } from "@decaf-ts/injectable-decorators";
 import { PersistenceKeys } from "../persistence/index";
 import type { ModelConstructor } from "@decaf-ts/decorator-validation";
@@ -35,10 +35,11 @@ export const del = () => OperationGuard(OperationKeys.DELETE);
 
 export function service(key?: string | ModelConstructor<any>) {
   return function service(target: any, prop?: any, descriptor?: any) {
-    if (!descriptor) {
+    if (!descriptor && !prop) {
       // class
       key = key || target;
     } else {
+      property()(target, prop);
       // property
       key = key || Metadata.type(target.constructor, prop);
     }

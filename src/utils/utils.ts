@@ -39,3 +39,22 @@ export function isOperationBlocked(
 
   return !handler ? false : (handler(...args, op) ?? false);
 }
+
+/**
+ * @description Normalizes imports to handle both CommonJS and ESModule formats.
+ * @summary Utility function to handle module import differences between formats.
+ *
+ * @template T - Type of the imported module.
+ * @param {Promise<T>} importPromise - Promise returned by dynamic import.
+ * @return {Promise<T>} Normalized module.
+ *
+ * @function normalizeImport
+ *
+ * @memberOf module:core
+ */
+export async function normalizeImport<T>(
+  importPromise: Promise<T>
+): Promise<T> {
+  // CommonJS's `module.exports` is wrapped as `default` in ESModule.
+  return importPromise.then((m: any) => (m.default || m) as T);
+}

@@ -63,6 +63,9 @@ export type LoggerOf<
             LoggerOfAdapter<OBJ>
           : Logger;
 
+export type ConfOf<A extends Adapter<any, any, any, any>> =
+  A extends Adapter<infer C, any, any> ? C : never;
+
 export type FlagsOf<
   OBJ extends Repository<any, any> | Adapter<any, any, any, any> | Context<any>,
 > =

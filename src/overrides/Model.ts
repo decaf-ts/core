@@ -132,11 +132,6 @@ declare module "@decaf-ts/decorator-validation" {
       ? Promise<ModelErrorDefinition | undefined>
       : ModelErrorDefinition | undefined;
 
-    function generated<M extends Model>(
-      model: M | Constructor<M>,
-      prop: keyof M
-    ): boolean | string;
-
     function generatedBySequence<M extends Model>(
       model: M | Constructor<M>,
       prop?: keyof M

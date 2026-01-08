@@ -28,7 +28,7 @@ export class SequenceModel extends BaseModel {
   /**
    * @description Primary key identifier for the sequence
    */
-  @pk({ type: "String", generated: false })
+  @pk({ type: String, generated: false })
   id!: string;
 
   /**

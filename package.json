@@ -12,7 +12,12 @@
     "./ram": {
       "require": "./lib/ram/index.cjs",
       "import": "./lib/esm/ram/index.js",
-      "types": "./lib/esm/index.d.ts"
+      "types": "./lib/esm/ram/index.d.ts"
+    },
+    "./tasks": {
+      "require": "./lib/tasks/index.cjs",
+      "import": "./lib/esm/tasks/index.js",
+      "types": "./lib/esm/tasks/index.d.ts"
     }
   },
   "types": "lib/index.d.ts",

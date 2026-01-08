@@ -5,6 +5,7 @@ import {
   onCreateUpdate,
   onDelete,
   onUpdate,
+  generated,
   OperationKeys,
   timestamp,
 } from "@decaf-ts/db-decorators";
@@ -283,7 +284,7 @@ export function createdBy() {
       return apply(
         onCreate(createdByOnCreateUpdate),
         propMetadata(PersistenceKeys.CREATED_BY, prop),
-        generated()
+        generated(PersistenceKeys.CREATED_BY)
       )(target, prop);
     };
   }
@@ -316,7 +317,7 @@ export function updatedBy() {
       return apply(
         onUpdate(createdByOnCreateUpdate),
         propMetadata(PersistenceKeys.UPDATED_BY, prop),
-        generated()
+        generated(PersistenceKeys.UPDATED_BY)
       )(target, prop);
     };
   }
@@ -630,15 +631,6 @@ export function manyToMany<M extends Model>(
       args: [clazz, cascadeOptions, populate, joinTableOpts, fk],
     })
     .apply();
-}
-
-export function generated(type?: string) {
-  return function generated(target: object, prop?: any) {
-    return propMetadata(
-      Metadata.key(PersistenceKeys.GENERATED, prop),
-      type || true
-    )(target, prop);
-  };
 }
 
 export function noValidateOn(...ops: OperationKeys[]) {

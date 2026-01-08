@@ -12,6 +12,21 @@ import { Repository } from "../repository/Repository";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import { Service } from "../utils/Services";
 import type { Migration } from "../persistence/types";
+import { TaskHandler } from "../tasks/TaskHandler";
+import { TasksKey } from "../tasks/index";
+
+(Metadata as any).tasks = function tasks():
+  | Record<string, Constructor<TaskHandler<any, any>>>
+  | undefined {
+  return Metadata["innerGet"](Symbol.for(TasksKey));
+}.bind(Metadata);
+
+(Metadata as any).taskFor = function taskFor(
+  type: string
+): Constructor<TaskHandler<any, any>> | undefined {
+  const meta = Metadata.tasks();
+  return meta ? meta[type] : undefined;
+}.bind(Metadata);
 
 (Metadata as any).validationExceptions = function validationExceptions<
   M extends Model,
@@ -88,17 +103,7 @@ import type { Migration } from "../persistence/types";
     }
   }
   return [...new Set([...existingRelations, ...inner])];
-};
-
-(Model as any).generated = function generated<M extends Model>(
-  model: M | Constructor<M>,
-  prop: keyof M
-): boolean | string {
-  return !!Metadata.get(
-    typeof model !== "function" ? (model.constructor as any) : model,
-    Metadata.key(PersistenceKeys.GENERATED, prop as string)
-  );
-}.bind(Metadata);
+}.bind(Model);
 
 (Model as any).generatedBySequence = function generatedBySequence<
   M extends Model,
@@ -108,7 +113,7 @@ import type { Migration } from "../persistence/types";
     typeof model !== "function" ? (model.constructor as any) : model;
   const seq = Model.sequenceFor(constr);
   return !!seq.generated;
-}.bind(Metadata);
+}.bind(Model);
 
 (Metadata as any).createdBy = function createdBy<M extends Model>(
   model: M | Constructor<M>

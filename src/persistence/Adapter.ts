@@ -1,4 +1,3 @@
-import type { FlagsOf as ContextualFlagsOf } from "@decaf-ts/db-decorators";
 import {
   BaseError,
   BulkCrudOperationKeys,
@@ -43,9 +42,9 @@ import {
 } from "@decaf-ts/decoration";
 import { MigrationError } from "./errors";
 import {
+  AbsContextual,
   ContextualArgs,
   ContextualizedArgs,
-  ContextualLoggedClass,
 } from "../utils/ContextualLoggedClass";
 import { Paginator } from "../query/Paginator";
 import { PreparedStatement } from "../query/index";
@@ -181,7 +180,7 @@ export abstract class Adapter<
     QUERY,
     CONTEXT extends Context<AdapterFlags> = Context,
   >
-  extends ContextualLoggedClass<CONTEXT>
+  extends AbsContextual<CONTEXT>
   implements
     RawPagedExecutor<QUERY>,
     PersistenceObservable<CONTEXT>,
@@ -415,7 +414,7 @@ export abstract class Adapter<
    * @description The context constructor for this adapter
    * @summary Reference to the context class constructor used by this adapter
    */
-  protected readonly Context: Constructor<CONTEXT> = Context<
+  protected override readonly Context: Constructor<CONTEXT> = Context<
     FlagsOf<CONTEXT>
   > as unknown as Constructor<CONTEXT>;
 
@@ -431,28 +430,37 @@ export abstract class Adapter<
    * @return {Promise<C>} A promise that resolves to the context object
    */
   @final()
-  async context<M extends Model>(
+  override async context<M extends Model>(
     operation:
+      | ((...args: any[]) => any)
       | OperationKeys.CREATE
       | OperationKeys.READ
       | OperationKeys.UPDATE
       | OperationKeys.DELETE
       | string,
-    overrides: Partial<ContextualFlagsOf<CONTEXT>>,
+    overrides: Partial<FlagsOf<CONTEXT>>,
     model: Constructor<M> | Constructor<M>[],
-    ...args: any[]
+    ...args: any[] | [...any[], Context<any>]
   ): Promise<CONTEXT> {
     const log = this.log.for(this.context);
     log.debug(
       `Creating new context for ${operation} operation on ${model ? (Array.isArray(model) ? model.map((m) => m.name) : model.name) : "no"} model with flag overrides: ${JSON.stringify(overrides)}`
     );
+    let ctx = args.pop();
+    if (!(ctx instanceof Context)) {
+      args.push(ctx);
+      ctx = undefined;
+    }
+
     const flags = await this.flags(
-      operation,
+      typeof operation === "string" ? operation : operation.name,
       model,
       overrides as Partial<FlagsOf<CONTEXT>>,
       ...args
     );
-    return new this.Context().accumulate(flags) as unknown as CONTEXT;
+    if (ctx && !(ctx instanceof this.Context))
+      return new this.Context(ctx).accumulate(flags) as any;
+    return new this.Context().accumulate(flags) as any;
   }
 
   /**

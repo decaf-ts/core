@@ -5,12 +5,13 @@ import {
 } from "../interfaces/SequenceOptions";
 import {
   DBKeys,
+  generated,
   GroupSort,
   InternalError,
   onCreate,
   readonly,
 } from "@decaf-ts/db-decorators";
-import { generated, index } from "../model/decorators";
+import { index } from "../model/decorators";
 import type { Sequence } from "../persistence/Sequence";
 import { OrderDirection } from "../repository/constants";
 import {

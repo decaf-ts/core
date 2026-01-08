@@ -54,7 +54,7 @@ export function repository<T extends Model>(
     metadata(DBKeys.REPOSITORY, original.name)(model);
     flavour =
       flavour || Metadata.get(original.constructor, PersistenceKeys.ADAPTER);
-    Repository.register(Metadata.constr(model), original, flavour);
+    Repository.register(model, original, flavour);
     return injectable(Metadata.constr(model), {
       callback: (instance: IRepository<T>) => {
         Object.defineProperty(instance, DBKeys.CLASS, {

@@ -1,5 +1,5 @@
 import { Constructor, Metadata } from "@decaf-ts/decoration";
-import { Model } from "@decaf-ts/decorator-validation";
+import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
 import { DBKeys, InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Adapter } from "../persistence/Adapter";
 
@@ -13,17 +13,17 @@ import { Injectables } from "@decaf-ts/injectable-decorators";
 import { Service } from "../utils/Services";
 import type { Migration } from "../persistence/types";
 
-(Metadata as any).validationExceptions = function <M extends Model>(
-  this: Metadata,
-  model: Constructor<M>,
-  op: OperationKeys
-): string[] {
+(Metadata as any).validationExceptions = function validationExceptions<
+  M extends Model,
+>(this: Metadata, model: Constructor<M>, op: OperationKeys): string[] {
   const noValidation: string[] =
     Metadata.get(model, PersistenceKeys.NO_VALIDATE) || [];
   const novalidationEntries = Object.entries(noValidation)
     .filter(([, val]) => val.includes(op))
     .map(([key]) => key);
-  const nestedRels = Model.nestedRelations(model);
+  let nestedRels: string[] = [];
+  if (op === OperationKeys.CREATE || op === OperationKeys.UPDATE)
+    nestedRels = Model.nestedRelations(model);
   return [...new Set([...novalidationEntries, ...nestedRels])];
 }.bind(Metadata);
 
@@ -69,9 +69,8 @@ import type { Migration } from "../persistence/types";
 
 (Model as any).nestedRelations = function <M extends Model>(
   model: Constructor<M> | M,
-  existingRelations?: string[]
+  existingRelations: string[] = []
 ): string[] | ExtendedRelationsMetadata {
-  if (!existingRelations?.length) existingRelations = Model.relations(model);
   let inner: string[] = [];
   const rels = Metadata.get(model as Constructor<M>, PersistenceKeys.RELATIONS);
   if (!rels || !Object.keys(rels).length)
@@ -83,7 +82,6 @@ import type { Migration } from "../persistence/types";
       const innerModelDotRels = innerModelRels.map((r) => `${prop}.${r}`);
       existingRelations = [
         ...existingRelations,
-        ...innerModelRels,
         ...innerModelDotRels,
       ];
       inner = Model.nestedRelations(relationMeta.class, existingRelations);

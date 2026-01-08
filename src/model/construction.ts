@@ -928,6 +928,7 @@ async function getOrCreateJunctionModel<M extends Model, R extends Repo<M>>(
   const JunctionModel = createJunctionModel(junctionTableName, fkA, fkB);
   Metadata.set(JunctionModel, PersistenceKeys.TABLE, junctionTableName);
 
+  const recordIds: any[] = [];
   for (const modelB of modelsB) {
     log.info(
       `Creating or updating many-to-many junction model: ${JSON.stringify(modelB)}`
@@ -942,22 +943,26 @@ async function getOrCreateJunctionModel<M extends Model, R extends Repo<M>>(
           Model.pk(modelB.constructor as Constructor) as keyof typeof modelB
         ],
     };
-    const record = await createOrUpdate(
+    const record: any = await createOrUpdate(
       new JunctionModel(junctionRegister),
       context,
       this.adapter.alias
     );
-
-    // This read will work when the createJunctionModel works, because we need the model name to instantiate the repo
-    // const constructor = Model.get(JunctionModel.constructor.name);
-    // repository = Repository.forModel<M, Repo<M>>(
-    //   constructor as unknown as ModelConstructor<M>,
-    //   alias
-    // );
-    // let result = await repository.read(record.id);
-
-    console.log("asdf");
+    if (record?.id) recordIds.push(record?.id);
   }
+
+  if (recordIds.length === modelsB?.length) {
+    console.log(
+      `All junction records created successfully for table ${junctionTableName}`
+    );
+    const repository = Repository.forModel<M, Repo<M>>(
+      JunctionModel as unknown as ModelConstructor<M>
+    );
+    const results = await repository?.readAll(recordIds);
+  } else
+    console.error(
+      `Some junction records failed to be created for table ${junctionTableName}`
+    );
 
   return JunctionModel;
 }
@@ -966,17 +971,22 @@ function createJunctionModel(
   fkA: string,
   fkB: string
 ): Constructor<Model<false>> {
-  class DynamicJunctionModel extends Model {
+  // Expression; the class is anonymous but assigned to a variable
+  const DynamicJunctionModel = class extends Model {
     id!: number;
     [fkA]!: number;
     [fkB]!: number;
-
     constructor(arg?: ModelArg<any>) {
       super(arg);
     }
-  }
+  };
 
   const prototype = DynamicJunctionModel.prototype;
+
+  Object.defineProperty(DynamicJunctionModel, "name", {
+    value: junctionTableName,
+    writable: false,
+  });
 
   // Apply the decorators
   pk({ type: "Number" })(prototype, "id");
@@ -988,6 +998,7 @@ function createJunctionModel(
 
   return DecoratedModel as Constructor<Model<false>>;
 }
+
 export async function manyToManyOnUpdate<M extends Model, R extends Repo<M>>(
   this: R,
   context: ContextOf<R>,

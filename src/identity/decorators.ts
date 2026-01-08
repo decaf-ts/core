@@ -100,19 +100,17 @@ export async function pkOnCreate<
 export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
   return function pkDec(obj: any, attr: any) {
     prop()(obj, attr);
-    switch (options.type) {
-      case undefined: {
-        const metaType = Metadata.type(obj.constructor, attr);
-        if (
-          ![Number.name, String.name, BigInt.name].includes(
-            metaType?.name || metaType
-          )
+    if (!options.type) {
+      const metaType = Metadata.type(obj.constructor, attr);
+      if (
+        ![Number.name, String.name, BigInt.name].includes(
+          metaType?.name || metaType
         )
-          throw new Error("Incorrrect option type");
-        options.type = metaType;
-      }
-
-      // eslint-disable-next-line no-fallthrough
+      )
+        throw new Error("Incorrrect option type");
+      options.type = metaType;
+    }
+    switch (options.type) {
       case String.name || String.name.toLowerCase():
         console.warn(`Deprecated "${options.type}" type in options`);
       // eslint-disable-next-line no-fallthrough

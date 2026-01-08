@@ -17,7 +17,7 @@ import { AdapterFlags, ContextOf } from "../persistence/types";
 import { Context } from "../persistence/Context";
 import { Sequence } from "../persistence/Sequence";
 import { pk } from "../identity";
-import { N } from "vite/dist/node/moduleRunnerTransport.d-DJ_mE5sf";
+
 /**
  * @description Creates or updates a model instance
  * @summary Determines whether to create a new model or update an existing one based on the presence of a primary key
@@ -838,7 +838,9 @@ export async function manyToManyOnCreate<M extends Model, R extends Repo<M>>(
   const pkName = Model.pk(propertyValues[0].constructor);
   const result: Set<string> = new Set();
   for (const propertyValue of propertyValues) {
-    log.info(`Creating or updating many-to-many model: ${JSON.stringify(propertyValue)}`);
+    log.info(
+      `Creating or updating many-to-many model: ${JSON.stringify(propertyValue)}`
+    );
     const record = await createOrUpdate(
       propertyValue,
       context,
@@ -846,8 +848,10 @@ export async function manyToManyOnCreate<M extends Model, R extends Repo<M>>(
     );
     log.info(`caching: ${JSON.stringify(record)} under ${record[pkName]}`);
     await cacheModelForPopulate(context, modelA, key, record[pkName], record);
-    log.info(`Creating or updating many-to-many model: ${JSON.stringify(propertyValue)}`);
-    propertyValue.id = record.id
+    log.info(
+      `Creating or updating many-to-many model: ${JSON.stringify(propertyValue)}`
+    );
+    propertyValue.id = record.id;
     result.add(record[pkName]);
   }
 
@@ -859,10 +863,10 @@ export async function manyToManyOnCreate<M extends Model, R extends Repo<M>>(
   }
 
   // Create junction table entries
-  const JunctionModel = getOrCreateJunctionModel(
-    this,
+  const JunctionModel = await getOrCreateJunctionModel.call(
+    this as Repo<Model>,
     modelA,
-    propertyValues,
+    propertyValues as Model[],
     log,
     context,
     data
@@ -888,9 +892,7 @@ async function getNextId<M extends Model, R extends Repo<M>>(
     return modelAId;
   }
 
-  const pkProps = Model.sequenceFor(
-    modelA.constructor as ModelConstructor<M>
-  );
+  const pkProps = Model.sequenceFor(modelA.constructor as ModelConstructor<M>);
   if (!pkProps.name) {
     pkProps.name = Model.sequenceName(modelA, "pk");
   }
@@ -906,8 +908,8 @@ async function getNextId<M extends Model, R extends Repo<M>>(
   }
 }
 
-async function getOrCreateJunctionModel(
-  repo: R,
+async function getOrCreateJunctionModel<M extends Model, R extends Repo<M>>(
+  this: R,
   modelA: Model,
   modelsB: Model[],
   log: any,
@@ -917,7 +919,8 @@ async function getOrCreateJunctionModel(
   const modelAName = Model.tableName(modelA);
   const modelBName = Model.tableName(modelsB[0]);
 
-  const junctionTableName = metadata?.joinTable?.name || `${modelAName}_${modelBName}`;
+  const junctionTableName =
+    metadata?.joinTable?.name || `${modelAName}_${modelBName}`;
 
   const fkA = `${modelAName.toLowerCase()}_fk`;
   const fkB = `${modelBName.toLowerCase()}_fk`;
@@ -926,15 +929,23 @@ async function getOrCreateJunctionModel(
   Metadata.set(JunctionModel, PersistenceKeys.TABLE, junctionTableName);
 
   for (const modelB of modelsB) {
-    log.info(`Creating or updating many-to-many junction model: ${JSON.stringify(modelB)}`);
-    let junctionRegister = {
-      [fkA]: modelA[Model.pk(modelA.constructor as Constructor) as keyof typeof modelA],
-      [fkB]: modelB[Model.pk(modelB.constructor as Constructor)as keyof typeof modelB]
+    log.info(
+      `Creating or updating many-to-many junction model: ${JSON.stringify(modelB)}`
+    );
+    const junctionRegister = {
+      [fkA]:
+        modelA[
+          Model.pk(modelA.constructor as Constructor) as keyof typeof modelA
+        ],
+      [fkB]:
+        modelB[
+          Model.pk(modelB.constructor as Constructor) as keyof typeof modelB
+        ],
     };
     const record = await createOrUpdate(
       new JunctionModel(junctionRegister),
       context,
-      repo.adapter.alias
+      this.adapter.alias
     );
 
     // This read will work when the createJunctionModel works, because we need the model name to instantiate the repo
@@ -947,7 +958,6 @@ async function getOrCreateJunctionModel(
 
     console.log("asdf");
   }
-
 
   return JunctionModel;
 }
@@ -965,11 +975,6 @@ function createJunctionModel(
       super(arg);
     }
   }
-
-  Object.defineProperty(DynamicJunctionModel, "name", {
-    value: junctionTableName,
-    writable: false,
-  });
 
   const prototype = DynamicJunctionModel.prototype;
 
@@ -1000,7 +1005,6 @@ export async function manyToManyOnUpdate<M extends Model, R extends Repo<M>>(
     model,
   ]);
 }
-
 
 export async function manyToManyOnDelete<M extends Model, R extends Repo<M>>(
   this: R,

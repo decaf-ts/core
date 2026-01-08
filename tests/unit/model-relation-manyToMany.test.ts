@@ -3,11 +3,7 @@ import { RamRepository } from "../../src/ram/types";
 import { Cascade, Repository } from "../../src/repository/index";
 import { SequenceModel as Seq } from "../../src/model/SequenceModel";
 import { BaseModel, manyToMany, pk } from "../../src/index";
-import {
-  model,
-  ModelArg,
-  required,
-} from "@decaf-ts/decorator-validation";
+import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
 
 jest.setTimeout(500000);
 
@@ -105,10 +101,10 @@ describe("Many to many relations", () => {
 
   it("Creates a many to many relation", async () => {
     const userRole = {
-      name: "User",
+      name: "UserRole",
     };
     const adminRole = {
-      name: "Admin",
+      name: "AdminRole",
     };
     const user = {
       name: "Albert",
@@ -130,12 +126,8 @@ describe("Many to many relations", () => {
     };
 
     const createdUser = await userRepository.create(new TestUserModel(user));
-    const readUser= await userRepository.read(
-      createdUser.id
-    );
-    const readRole= await roleRepository.read(
-      readUser.roles[0].id
-    );
+    const readUser = await userRepository.read(createdUser.id);
+    const readRole = await roleRepository.read(readUser.roles[0].id);
     console.log("asdf");
     // const createdUser2 = await userRepository.create(new TestUserModel(user2));
     // const readUser = await userRepository.read(createdUser.id);

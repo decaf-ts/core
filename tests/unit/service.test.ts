@@ -29,8 +29,8 @@ describe("services", () => {
 
   it("Initializes", async () => {
     await Service.boot();
-    expect(Service.get(TestService)).toBeInstanceOf(TestService);
-    expect(Injectables.get(TestService)).toBeInstanceOf(TestService);
+    expect(Service.get("test")).toBeInstanceOf(TestService);
+    expect(Injectables.get("test")).toBeInstanceOf(TestService);
   });
 
   @service()

@@ -90,6 +90,7 @@ export class RamPaginator<M extends Model> extends Paginator<
       if (this._recordCount > 0) {
         const size = statement?.limit || this.size;
         this._totalPages = Math.ceil(this._recordCount / size);
+        return await this.page(page, ...ctxArgs);
       }
     } else {
       page = this.validatePage(page);

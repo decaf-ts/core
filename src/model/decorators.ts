@@ -340,6 +340,17 @@ export function updatedAt() {
   return timestamp();
 }
 
+export function getPkTypes(model: Constructor | (() => Constructor)) {
+  const resolvedClazz =
+    typeof model === "function" && model.name
+      ? (model as Constructor)
+      : (model as () => Constructor)();
+  const pk = Model.pk(resolvedClazz as Constructor);
+  return (
+    Metadata.allowedTypes(resolvedClazz as Constructor, pk as string) || []
+  );
+}
+
 /**
  * @description Defines a one-to-one relationship between models
  * @summary Decorator that establishes a one-to-one relationship between the current model and another model
@@ -387,15 +398,17 @@ export function oneToOne<M extends Model>(
     };
     if (joinColumnOpts) meta.joinTable = joinColumnOpts;
     if (fk) meta.name = fk;
-    return apply(
+    const pkTypes = getPkTypes(clazz);
+    const decs = [
       prop(),
       relation(key, meta),
-      type([clazz, String, Number, BigInt]),
+      type([clazz, ...pkTypes]),
       onCreate(oneToOneOnCreate, meta),
       onUpdate(oneToOneOnUpdate, meta),
       onDelete(oneToOneOnDelete, meta),
-      afterAny(pop, meta)
-    );
+      afterAny(pop, meta),
+    ];
+    return apply(...decs);
   }
 
   return Decoration.for(key)
@@ -457,21 +470,17 @@ export function oneToMany<M extends Model>(
     };
     if (joinTableOpts) metadata.joinTable = joinTableOpts;
     if (fk) metadata.name = fk;
-    return apply(
+    const pkTypes = getPkTypes(clazz);
+    const decs = [
       prop(),
       relation(key, metadata),
-      list([
-        clazz,
-        String,
-        Number,
-        // @ts-expect-error Bigint is not a constructor
-        BigInt,
-      ]),
+      list([clazz, ...pkTypes]),
       onCreate(oneToManyOnCreate, metadata),
       onUpdate(oneToManyOnUpdate, metadata),
       onDelete(oneToManyOnDelete, metadata),
-      afterAny(pop, metadata)
-    );
+      afterAny(pop, metadata),
+    ];
+    return apply(...decs);
   }
 
   return Decoration.for(key)
@@ -534,15 +543,17 @@ export function manyToOne<M extends Model>(
     };
     if (joinTableOpts) metadata.joinTable = joinTableOpts;
     if (fk) metadata.name = fk;
-    return apply(
+    const pkTypes = getPkTypes(clazz);
+    const decs = [
       prop(),
       relation(key, metadata),
-      type([clazz, String, Number, BigInt]),
-      onCreate(manyToOneOnCreate, metadata),
-      onUpdate(manyToOneOnUpdate, metadata),
-      onDelete(manyToOneOnDelete, metadata),
-      afterAny(pop, metadata)
-    );
+      type([clazz, ...pkTypes]),
+      onCreate(oneToManyOnCreate, metadata),
+      onUpdate(oneToManyOnUpdate, metadata),
+      onDelete(oneToManyOnDelete, metadata),
+      afterAny(pop, metadata),
+    ];
+    return apply(...decs);
   }
 
   return Decoration.for(key)
@@ -605,15 +616,17 @@ export function manyToMany<M extends Model>(
     };
     if (joinTableOpts) metadata.joinTable = joinTableOpts;
     if (fk) metadata.name = fk;
-    return apply(
+    const pkTypes = getPkTypes(clazz);
+    const decs = [
       prop(),
       relation(key, metadata),
-      list([clazz as any, String, Number, BigInt]),
-      onCreate(manyToManyOnCreate, metadata),
-      // onUpdate(manyToManyOnUpdate, metadata),
-      // onDelete(manyToManyOnDelete, metadata),
-      afterAny(pop, metadata)
-    );
+      list([clazz, ...pkTypes]),
+      onCreate(oneToManyOnCreate, metadata),
+      // onUpdate(oneToManyOnUpdate, metadata),
+      // onDelete(oneToManyOnDelete, metadata),
+      afterAny(pop, metadata),
+    ];
+    return apply(...decs);
   }
   return Decoration.for(key)
     .define({

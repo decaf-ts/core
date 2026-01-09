@@ -100,31 +100,31 @@ export async function pkOnCreate<
 export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
   return function pkDec(obj: any, attr: any) {
     prop()(obj, attr);
-    switch (options.type) {
-      case undefined: {
-        const metaType = Metadata.type(obj.constructor, attr);
-        if (
-          ![Number.name, String.name, BigInt.name].includes(
-            metaType?.name || metaType
-          )
+    if (!options.type) {
+      const metaType = Metadata.type(obj.constructor, attr);
+      if (
+        ![Number.name, String.name, BigInt.name].includes(
+          metaType?.name || metaType
         )
-          throw new Error("Incorrrect option type");
-        options.type = metaType;
-        break;
-      }
-
+      )
+        throw new Error("Incorrrect option type");
+      options.type = metaType;
+    }
+    switch (options.type) {
       case String.name || String.name.toLowerCase():
         console.warn(`Deprecated "${options.type}" type in options`);
       // eslint-disable-next-line no-fallthrough
       case String:
-        options.generated = false;
+        options.generated =
+          typeof options.generated === "undefined" ? false : options.generated;
         options.type = String;
         break;
       case Number.name || String.name.toLowerCase():
         console.warn(`Deprecated "${options.type}" type in options`);
       // eslint-disable-next-line no-fallthrough
       case Number:
-        options.generated = true;
+        options.generated =
+          typeof options.generated === "undefined" ? true : options.generated;
         options.type = Number;
         break;
       case BigInt.name || BigInt.name.toLowerCase():
@@ -132,7 +132,8 @@ export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
       // eslint-disable-next-line no-fallthrough
       case BigInt:
         options.type = BigInt;
-        options.generated = true;
+        options.generated =
+          typeof options.generated === "undefined" ? true : options.generated;
         break;
       case "uuid":
       case "serial":
@@ -178,11 +179,12 @@ export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
  * ```
  */
 export function pk(
-  opts: Partial<
-    Omit<SequenceOptions, "cycle" | "startWith" | "incrementBy">
-  > = DefaultSequenceOptions
+  opts?: Partial<Omit<SequenceOptions, "cycle" | "startWith" | "incrementBy">>
 ) {
-  opts = Object.assign({}, DefaultSequenceOptions, opts) as SequenceOptions;
+  // We want to handle options.generated in the decorator function
+  const DefaultSequenceOptionsMin = Object.assign({}, DefaultSequenceOptions);
+  delete DefaultSequenceOptionsMin.generated;
+  opts = Object.assign({}, DefaultSequenceOptionsMin, opts) as SequenceOptions;
   return Decoration.for(DBKeys.ID)
     .define({
       decorator: pkDec,

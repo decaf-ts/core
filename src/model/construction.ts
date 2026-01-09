@@ -805,8 +805,7 @@ export async function manyToManyOnCreate<M extends Model, R extends Repo<M>>(
   const propertyValues: any = modelA[key];
   if (!propertyValues || !propertyValues.length) return;
 
-  // This part works, just keeping it commented out for tests for now
-  // if (!checkBidirectionalRelational(model, data)) return;
+  if (!checkBidirectionalRelational(modelA, data)) return;
 
   const arrayType = typeof propertyValues[0];
   if (!propertyValues.every((item: any) => typeof item === arrayType))
@@ -872,7 +871,6 @@ export async function manyToManyOnCreate<M extends Model, R extends Repo<M>>(
     data
   );
 
-  // TODO: Persist junction table records
   // This will require creating junction repository and storing the relationships
   log.info(`Junction model created: ${JunctionModel.name}`);
 
@@ -893,7 +891,7 @@ async function getNextId<M extends Model, R extends Repo<M>>(
   }
 
   const pkProps = Model.sequenceFor(modelA.constructor as ModelConstructor<M>);
-  if (!pkProps.name) {
+  if (!pkProps?.name) {
     pkProps.name = Model.sequenceName(modelA, "pk");
   }
   let sequence: Sequence;
@@ -948,7 +946,7 @@ async function getOrCreateJunctionModel<M extends Model, R extends Repo<M>>(
       context,
       this.adapter.alias
     );
-    if (record?.id) recordIds.push(record?.id);
+    if (record?.id) recordIds.push(record.id);
   }
 
   if (recordIds.length === modelsB?.length) {
@@ -959,6 +957,7 @@ async function getOrCreateJunctionModel<M extends Model, R extends Repo<M>>(
       JunctionModel as unknown as ModelConstructor<M>
     );
     const results = await repository?.readAll(recordIds);
+    console.log("results:", results);
   } else
     console.error(
       `Some junction records failed to be created for table ${junctionTableName}`

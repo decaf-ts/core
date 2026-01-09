@@ -69,12 +69,15 @@ export class TestPhoneModel extends BaseModel {
   @required()
   number!: string;
 
-  @manyToOne(() => TestUserModel, {
-    update: Cascade.CASCADE,
-    delete: Cascade.CASCADE,
-  }, true)
+  @manyToOne(
+    () => TestUserModel,
+    {
+      update: Cascade.CASCADE,
+      delete: Cascade.CASCADE,
+    },
+    true
+  )
   @required()
-  @minlength(1)
   user!: TestUserModel | number;
 
   constructor(m?: ModelArg<TestPhoneModel>) {
@@ -99,7 +102,6 @@ export class TestPhoneNoPopModel extends BaseModel {
     false
   )
   @required()
-  @minlength(1)
   user!: TestUserModel | string | number;
 
   constructor(m?: ModelArg<TestPhoneModel>) {
@@ -124,7 +126,6 @@ export class TestPhoneBidirectionalModel extends BaseModel {
     true
   )
   @required()
-  @minlength(1)
   user!: TestUserBidirectionalModel | string | number;
 
   constructor(m?: ModelArg<TestPhoneBidirectionalModel>) {
@@ -209,8 +210,8 @@ describe(`Complex Database`, function () {
       user: user,
     };
 
-    let createdPhone1: TestPhoneModel;
-    let createdPhone2: TestPhoneModel;
+    let createdPhone1: TestPhoneModel | TestPhoneNoPopModel;
+    let createdPhone2: TestPhoneModel | TestPhoneNoPopModel;
     let createdUser: TestUserModel;
 
     let userSequence: Sequence;

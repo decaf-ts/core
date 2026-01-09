@@ -87,7 +87,7 @@ export async function pkOnCreate<
   if (!data.name) data.name = Model.sequenceName(model, "pk");
   let sequence: Sequence;
   try {
-    sequence = await this.adapter.Sequence(data);
+    sequence = await this.adapter.Sequence(data, this._overrides);
   } catch (e: any) {
     throw new InternalError(
       `Failed to instantiate Sequence ${data.name}: ${e}`

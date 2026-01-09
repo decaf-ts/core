@@ -277,9 +277,9 @@ export class RamAdapter extends Adapter<
     id: PrimaryKeyType,
     ctx: RamContext
   ): Promise<Record<string, any>> {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { log } = this.logCtx([ctx], this.read);
     const tableName = Model.tableName(clazz);
+    log.debug(`reading record in table ${tableName} with id ${id}`);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
     if (!this.client.get(tableName)?.has(id as any))
@@ -378,7 +378,7 @@ export class RamAdapter extends Adapter<
   ): Promise<Record<string, any>> {
     const { log } = this.logCtx([ctx], this.delete);
     const tableName = Model.tableName(clazz);
-    log.debug(`deleting record from table ${tableName} with pk ${id}`);
+    log.debug(`deleting record from table ${tableName} with id ${id}`);
 
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);

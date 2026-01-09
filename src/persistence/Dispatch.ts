@@ -14,6 +14,7 @@ import {
   ContextualizedArgs,
   ContextualLoggedClass,
   MaybeContextualArg,
+  MethodOrOperation,
 } from "../utils/ContextualLoggedClass";
 
 /**
@@ -66,31 +67,73 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
     super();
   }
 
-  protected override logCtx<ARGS extends any[] = any[]>(
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
     args: MaybeContextualArg<ContextOf<A>, ARGS>,
-    operation: ((...args: any[]) => any) | string
-  ): ContextualizedArgs<ContextOf<A>, ARGS>;
-  protected override logCtx<ARGS extends any[] = any[]>(
+    operation: METHOD
+  ): ContextualizedArgs<
+    ContextOf<A>,
+    ARGS,
+    METHOD extends string ? true : false
+  >;
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
     args: MaybeContextualArg<ContextOf<A>, ARGS>,
-    operation: ((...args: any[]) => any) | string,
+    operation: METHOD,
     allowCreate: false
-  ): ContextualizedArgs<ContextOf<A>, ARGS>;
-  protected override logCtx<ARGS extends any[] = any[]>(
+  ): ContextualizedArgs<
+    ContextOf<A>,
+    ARGS,
+    METHOD extends string ? true : false
+  >;
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
     args: MaybeContextualArg<ContextOf<A>, ARGS>,
-    opOrOverrides: ((...args: any[]) => any) | string,
+    operation: METHOD,
     allowCreate: true
-  ): Promise<ContextualizedArgs<ContextOf<A>, ARGS>>;
-  protected override logCtx<ARGS extends any[] = any[]>(
+  ): Promise<
+    ContextualizedArgs<ContextOf<A>, ARGS, METHOD extends string ? true : false>
+  >;
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
     args: MaybeContextualArg<ContextOf<A>, ARGS>,
-    operation: ((...args: any[]) => any) | string,
+    operation: METHOD,
     allowCreate: boolean = false
   ):
-    | Promise<ContextualizedArgs<ContextOf<A>, ARGS>>
-    | ContextualizedArgs<ContextOf<A>, ARGS> {
+    | Promise<
+        ContextualizedArgs<
+          ContextOf<A>,
+          ARGS,
+          METHOD extends string ? true : false
+        >
+      >
+    | ContextualizedArgs<
+        ContextOf<A>,
+        ARGS,
+        METHOD extends string ? true : false
+      > {
     if (!this.adapter) throw new InternalError("Adapter not set yet");
     return this.adapter["logCtx"](args, operation, allowCreate as any) as
-      | ContextualizedArgs<ContextOf<A>, ARGS>
-      | Promise<ContextualizedArgs<ContextOf<A>, ARGS>>;
+      | ContextualizedArgs<
+          ContextOf<A>,
+          ARGS,
+          METHOD extends string ? true : false
+        >
+      | Promise<
+          ContextualizedArgs<
+            ContextOf<A>,
+            ARGS,
+            METHOD extends string ? true : false
+          >
+        >;
   }
 
   /**

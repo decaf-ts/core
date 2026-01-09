@@ -1,5 +1,6 @@
 import { LoggedClass } from "@decaf-ts/logging";
 import {
+  BulkCrudOperationKeys,
   Contextual,
   InternalError,
   OperationKeys,
@@ -7,12 +8,21 @@ import {
 import { Context } from "../persistence/Context";
 import { FlagsOf, LoggerOf } from "../persistence/types";
 import type { Constructor } from "@decaf-ts/decoration";
-import { ModelConstructor } from "@decaf-ts/decorator-validation";
+import { PersistenceKeys } from "../persistence/index";
+import { PreparedStatementKeys } from "../query/index";
 
 export type ContextualArgs<
   C extends Context<any>,
   ARGS extends any[] = any[],
 > = [...ARGS, C];
+
+export type MethodOrOperation =
+  | ((...args: any[]) => any)
+  | string
+  | OperationKeys
+  | PersistenceKeys
+  | BulkCrudOperationKeys
+  | PreparedStatementKeys;
 
 export type MaybeContextualArg<
   C extends Context<any>,
@@ -22,59 +32,68 @@ export type MaybeContextualArg<
 export type ContextualizedArgs<
   C extends Context<any>,
   ARGS extends any[] = any[],
-> = {
-  ctx: C;
-  log: LoggerOf<C>;
-  ctxArgs: ContextualArgs<C, ARGS>;
-};
+  EXTEND extends boolean = false,
+> = EXTEND extends true
+  ? {
+      ctx: C;
+      log: LoggerOf<C>;
+      ctxArgs: ContextualArgs<C, ARGS>;
+      for: (...any: any[]) => ContextualizedArgs<C, ARGS, false>;
+    }
+  : {
+      ctx: C;
+      log: LoggerOf<C>;
+      ctxArgs: ContextualArgs<C, ARGS>;
+    };
 
 export abstract class ContextualLoggedClass<
   C extends Context<any>,
 > extends LoggedClass {
-  protected logFrom(
-    ctx: Context<any>,
-    method?: string | keyof this | ((...args: any[]) => any)
-  ) {
-    return ContextualLoggedClass.logFrom.call(this, ctx, method as any);
-  }
-
   protected logCtx<
     CONTEXT extends Context<any> = C,
     ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
   >(
     args: MaybeContextualArg<CONTEXT, ARGS>,
-    operation: ((...args: any[]) => any) | string
-  ): ContextualizedArgs<CONTEXT, ARGS>;
+    operation: METHOD
+  ): ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>;
   protected logCtx<
     CONTEXT extends Context<any> = C,
     ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
   >(
     args: MaybeContextualArg<CONTEXT, ARGS>,
-    operation: ((...args: any[]) => any) | string,
+    operation: METHOD,
     allowCreate: false,
     overrides?: Partial<FlagsOf<CONTEXT>>
-  ): ContextualizedArgs<CONTEXT, ARGS>;
+  ): ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>;
   protected logCtx<
     CONTEXT extends Context<any> = C,
     ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
   >(
     args: MaybeContextualArg<CONTEXT, ARGS>,
-    operation: ((...args: any[]) => any) | string,
+    operation: METHOD,
     allowCreate: true,
     overrides?: Partial<FlagsOf<CONTEXT>>
-  ): Promise<ContextualizedArgs<CONTEXT, ARGS>>;
+  ): Promise<
+    ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>
+  >;
   protected logCtx<
     CONTEXT extends Context<any> = C,
     CREATE extends boolean = false,
     ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
   >(
     args: MaybeContextualArg<CONTEXT, ARGS>,
-    operation: ((...args: any[]) => any) | string,
+    operation: METHOD,
     allowCreate: CREATE = false as CREATE,
     overrides?: Partial<FlagsOf<CONTEXT>>
   ):
-    | Promise<ContextualizedArgs<CONTEXT, ARGS>>
-    | ContextualizedArgs<CONTEXT, ARGS> {
+    | Promise<
+        ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>
+      >
+    | ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false> {
     return ContextualLoggedClass.logCtx.call(
       this,
       operation,
@@ -82,15 +101,21 @@ export abstract class ContextualLoggedClass<
       allowCreate,
       ...args.filter((e) => typeof e !== "undefined")
     ) as
-      | Promise<ContextualizedArgs<CONTEXT, ARGS>>
-      | ContextualizedArgs<CONTEXT, ARGS>;
+      | Promise<
+          ContextualizedArgs<
+            CONTEXT,
+            ARGS,
+            METHOD extends string ? true : false
+          >
+        >
+      | ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>;
   }
 
-  static logFrom<CONTEXT extends Context<any>, A = any>(
-    this: A,
-    ctx: CONTEXT,
-    method?: string | keyof A | ((...args: any[]) => any)
-  ) {
+  static logFrom<
+    CONTEXT extends Context<any>,
+    A = any,
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(this: A, ctx: CONTEXT, method?: METHOD | keyof A) {
     const log = (
       (this as unknown as Contextual)["context"]
         ? ctx.logger.for(this as any)
@@ -99,25 +124,32 @@ export abstract class ContextualLoggedClass<
     return method ? log.for(method as any) : log;
   }
 
-  static logCtx<CONTEXT extends Context<any>, ARGS extends any[] = any[]>(
+  static logCtx<
+    CONTEXT extends Context<any>,
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
     this: any,
-    operation: ((...args: any[]) => any) | string,
+    operation: METHOD,
     ...args: MaybeContextualArg<CONTEXT, ARGS>
-  ): ContextualizedArgs<CONTEXT, ARGS>;
+  ): ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>;
   static logCtx<
     CONTEXT extends Context<any>,
     CREATE extends boolean,
     CONTEXTUAL extends Contextual<CONTEXT> | any,
     ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
   >(
     this: CONTEXTUAL,
-    operation: ((...args: any[]) => any) | string,
+    operation: METHOD,
     overrides: Partial<FlagsOf<CONTEXT>> | undefined,
     allowCreate: CREATE = false as CREATE,
     ...args: MaybeContextualArg<CONTEXT, ARGS>
   ): CREATE extends true
-    ? Promise<ContextualizedArgs<CONTEXT, ARGS>>
-    : ContextualizedArgs<CONTEXT, ARGS> {
+    ? Promise<
+        ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>
+      >
+    : ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false> {
     const bootCtx = async function bootCtx(
       this: CONTEXTUAL,
       ...args: MaybeContextualArg<CONTEXT>
@@ -132,28 +164,71 @@ export abstract class ContextualLoggedClass<
       );
     };
 
-    const ctx: any = args.pop();
+    const response = (
+      obj: CONTEXTUAL | any,
+      resp: ContextualizedArgs<CONTEXT, ARGS>,
+      op: METHOD
+    ): METHOD extends string
+      ? ContextualizedArgs<CONTEXT, ARGS, true>
+      : ContextualizedArgs<CONTEXT, ARGS> => {
+      resp.log = obj.context
+        ? resp.log.clear().for(obj) // Reset for Contextuals
+        : resp.log.for(obj);
+
+      if (typeof op === "string") {
+        (resp as ContextualizedArgs<CONTEXT, ARGS, true>).for = (
+          method: (...args: any[]) => any
+        ) => {
+          return Object.assign(resp, { log: resp.log.for(method) });
+        };
+      } else {
+        resp.log = resp.log.for(op);
+      }
+      return resp as METHOD extends string
+        ? ContextualizedArgs<CONTEXT, ARGS, true>
+        : ContextualizedArgs<CONTEXT, ARGS>;
+    };
+
+    let ctx: any = args.pop();
     const hasContext = ctx instanceof Context;
+    if (ctx && !hasContext) {
+      args.push(ctx);
+      ctx = undefined;
+    }
     if (!allowCreate && !hasContext)
       throw new InternalError("No context provided");
     if (hasContext && !allowCreate) {
-      return {
-        log: ContextualLoggedClass.logFrom.call(this, ctx),
-        ctx: ctx,
-        ctxArgs: [...args, ctx],
-      } as CREATE extends true
-        ? Promise<ContextualizedArgs<CONTEXT, ARGS>>
-        : ContextualizedArgs<CONTEXT, ARGS>;
+      return response(
+        this,
+        {
+          log: ctx.logger,
+          ctx: ctx,
+          ctxArgs: [...args, ctx],
+        } as ContextualizedArgs<CONTEXT, ARGS>,
+        operation
+      ) as any;
     }
-    return bootCtx.call(this, ...args, ctx).then((resp) => {
-      return {
-        log: ContextualLoggedClass.logFrom.call(this, resp),
-        ctx: resp,
-        ctxArgs: [...args, resp],
-      };
-    }) as CREATE extends true
-      ? Promise<ContextualizedArgs<CONTEXT, ARGS>>
-      : ContextualizedArgs<CONTEXT, ARGS>;
+    return bootCtx
+      .call(this, ...[...args, ctx].filter(Boolean))
+      .then((resp) => {
+        return response(
+          this,
+          {
+            log: resp.logger,
+            ctx: resp,
+            ctxArgs: [...args, resp],
+          } as ContextualizedArgs<CONTEXT, ARGS>,
+          operation
+        );
+      }) as CREATE extends true
+      ? Promise<
+          ContextualizedArgs<
+            CONTEXT,
+            ARGS,
+            METHOD extends string ? true : false
+          >
+        >
+      : ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>;
   }
 }
 

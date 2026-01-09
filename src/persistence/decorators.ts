@@ -1,9 +1,15 @@
 import { PersistenceKeys } from "./constants";
 import { Model, required } from "@decaf-ts/decorator-validation";
-import { generated, onCreateUpdate, readonly } from "@decaf-ts/db-decorators";
+import {
+  generated,
+  onCreate,
+  onUpdate,
+  readonly,
+} from "@decaf-ts/db-decorators";
 import { apply, Decoration } from "@decaf-ts/decoration";
 import { ContextOfRepository } from "./types";
-import { Repository } from "../repository/Repository";
+import { Repo } from "../repository/Repository";
+import { UUID } from "./generators";
 
 /**
  * @description Handler function that sets a timestamp property to the current timestamp.
@@ -21,90 +27,47 @@ import { Repository } from "../repository/Repository";
  * @function uuidCreateUpdateHandler
  */
 export async function uuidCreateUpdateHandler<
-  M extends Model,
-  R extends Repository<M, any>,
-  V,
+  M extends Model<boolean>,
+  R extends Repo<M>,
 >(
   this: R,
   context: ContextOfRepository<R>,
-  data: V,
+  data: UUIDMetadata,
   key: keyof M,
   model: M
 ): Promise<void> {
   if (
     context.get("allowGenerationOverride") &&
-    typeof model[key] === "undefined"
+    typeof model[key] !== "undefined"
   ) {
     return;
   }
-  (model as any)[key] = context.timestamp;
+  (model as any)[key] = UUID.instance.generate(...(data.args || []));
 }
 
-/**
- * @description Automatically manages timestamp properties for tracking creation and update times.
- * @summary Marks the property as a timestamp, making it required and ensuring it's a valid date. The property will be automatically updated with the current timestamp during specified operations.
- *
- * Date Format:
- *
- * <pre>
- *      Using similar formatting as Moment.js, Class DateTimeFormatter (Java), and Class SimpleDateFormat (Java),
- *      I implemented a comprehensive solution formatDate(date, patternStr) where the code is easy to read and modify.
- *      You can display date, time, AM/PM, etc.
- *
- *      Date and Time Patterns
- *      yy = 2-digit year; yyyy = full year
- *      M = digit month; MM = 2-digit month; MMM = short month name; MMMM = full month name
- *      EEEE = full weekday name; EEE = short weekday name
- *      d = digit day; dd = 2-digit day
- *      h = hours am/pm; hh = 2-digit hours am/pm; H = hours; HH = 2-digit hours
- *      m = minutes; mm = 2-digit minutes; aaa = AM/PM
- *      s = seconds; ss = 2-digit seconds
- *      S = miliseconds
- * </pre>
- *
- * @param {OperationKeys[]} operation - The operations to act on. Defaults to {@link DBOperations.CREATE_UPDATE}
- * @param {string} [format] - The timestamp format. Defaults to {@link DEFAULT_TIMESTAMP_FORMAT}
- * @return {PropertyDecorator} A decorator function that can be applied to class properties
- * @function timestamp
- * @category Property Decorators
- * @mermaid
- * sequenceDiagram
- *   participant C as Client
- *   participant M as Model
- *   participant T as TimestampDecorator
- *   participant V as Validator
- *
- *   C->>M: Create/Update model
- *   M->>T: Process timestamp property
- *   T->>M: Apply required validation
- *   T->>M: Apply date format validation
- *
- *   alt Update operation
- *     T->>V: Register timestamp validator
- *     V->>M: Validate timestamp is newer
- *   end
- *
- *   T->>M: Set current timestamp
- *   M->>C: Return updated model
- */
-export function uuid(onUpdate: boolean = true) {
+export type UUIDMetadata = {
+  update: boolean;
+  args?: any[];
+};
+export function uuid(update: boolean = false, ...args: any[]) {
   const decorationKey = PersistenceKeys.UUID;
 
-  function uuid(onUpdate: boolean = true) {
-    const meta = { onUpdate: true };
+  function uuid(update: boolean, ...args: any[]) {
+    const meta: UUIDMetadata = { update: update, args: args };
     const decorators: any[] = [
       required(),
       generated(PersistenceKeys.UUID),
-      onCreateUpdate(uuidCreateUpdateHandler, meta),
+      onCreate(uuidCreateUpdateHandler, meta),
     ];
-    if (!onUpdate) decorators.push(readonly());
+    if (update) decorators.push(onUpdate(uuidCreateUpdateHandler, meta));
+    if (!update) decorators.push(readonly());
     return apply(...decorators);
   }
 
   return Decoration.for(decorationKey)
     .define({
       decorator: uuid,
-      args: [onUpdate],
+      args: [update, ...args],
     })
     .apply();
 }

@@ -18,6 +18,7 @@ import {
   ContextualArgs,
   ContextualizedArgs,
   MaybeContextualArg,
+  MethodOrOperation,
 } from "../utils/ContextualLoggedClass";
 import { Adapter } from "../persistence/Adapter";
 import { PersistenceKeys } from "../persistence/constants";
@@ -235,35 +236,78 @@ export class Repository<
     );
   }
 
-  protected logCtx<ARGS extends any[] = any[]>(
+  protected logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
     args: MaybeContextualArg<ContextOf<A>, ARGS>,
-    operation: ((...args: any[]) => any) | string
-  ): ContextualizedArgs<ContextOf<A>, ARGS>;
-  protected logCtx<ARGS extends any[] = any[]>(
+    operation: METHOD
+  ): ContextualizedArgs<
+    ContextOf<A>,
+    ARGS,
+    METHOD extends string ? true : false
+  >;
+  protected logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
     args: MaybeContextualArg<ContextOf<A>, ARGS>,
-    operation: ((...args: any[]) => any) | string,
+    operation: METHOD,
     allowCreate: false
-  ): ContextualizedArgs<ContextOf<A>, ARGS>;
-  protected logCtx<ARGS extends any[] = any[]>(
+  ): ContextualizedArgs<
+    ContextOf<A>,
+    ARGS,
+    METHOD extends string ? true : false
+  >;
+  protected logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
     args: MaybeContextualArg<ContextOf<A>, ARGS>,
-    operation: ((...args: any[]) => any) | string,
+    operation: METHOD,
     allowCreate: true
-  ): Promise<ContextualizedArgs<ContextOf<A>, ARGS>>;
-  protected logCtx<ARGS extends any[] = any[]>(
+  ): Promise<
+    ContextualizedArgs<ContextOf<A>, ARGS, METHOD extends string ? true : false>
+  >;
+  protected logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
     args: MaybeContextualArg<ContextOf<A>, ARGS>,
-    operation: ((...args: any[]) => any) | string,
+    operation: METHOD,
     allowCreate: boolean = false
   ):
-    | Promise<ContextualizedArgs<ContextOf<A>, ARGS>>
-    | ContextualizedArgs<ContextOf<A>, ARGS> {
-    return (this.adapter as Adapter<any, any, any, any>)["logCtx"](
+    | Promise<
+        ContextualizedArgs<
+          ContextOf<A>,
+          ARGS,
+          METHOD extends string ? true : false
+        >
+      >
+    | ContextualizedArgs<
+        ContextOf<A>,
+        ARGS,
+        METHOD extends string ? true : false
+      > {
+    const ctx = this.adapter["logCtx"](
       [this.class as any, ...args] as any,
       operation,
       allowCreate as any,
       this._overrides || {}
     ) as
-      | ContextualizedArgs<ContextOf<A>, ARGS>
-      | Promise<ContextualizedArgs<ContextOf<A>, ARGS>>;
+      | ContextualizedArgs<
+          ContextOf<A>,
+          ARGS,
+          METHOD extends string ? true : false
+        >
+      | Promise<
+          ContextualizedArgs<
+            ContextOf<A>,
+            ARGS,
+            METHOD extends string ? true : false
+          >
+        >;
+    return ctx;
   }
 
   /**

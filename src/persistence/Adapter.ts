@@ -47,6 +47,7 @@ import {
   ContextualArgs,
   ContextualizedArgs,
   MaybeContextualArg,
+  MethodOrOperation,
 } from "../utils/ContextualLoggedClass";
 import { Paginator } from "../query/Paginator";
 import { PreparedStatement } from "../query/index";
@@ -369,8 +370,11 @@ export abstract class Adapter<
    * @param {SequenceOptions} options - Configuration options for the sequence
    * @return {Promise<Sequence>} A promise that resolves to a new sequence instance
    */
-  async Sequence(options: SequenceOptions): Promise<Sequence> {
-    return new Adapter._baseSequence(options, this);
+  async Sequence(
+    options: SequenceOptions,
+    overrides?: Partial<FlagsOf<CONTEXT>>
+  ): Promise<Sequence> {
+    return new Adapter._baseSequence(options, this, overrides);
   }
 
   /**
@@ -388,10 +392,10 @@ export abstract class Adapter<
     operation: OperationKeys | string,
     model: Constructor<M> | Constructor<M>[],
     flags: Partial<FlagsOf<CONTEXT>>,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
     ...args: any[]
   ): Promise<FlagsOf<CONTEXT>> {
-    let log = (flags.logger || Logging.for(this.toString())) as Logger;
+    let log = (flags.logger || Logging.for(this as any)) as Logger;
     if (flags.correlationId)
       log = log.for({ correlationId: flags.correlationId });
 
@@ -399,6 +403,7 @@ export abstract class Adapter<
       affectedTables: (Array.isArray(model) ? model : [model]).map(
         Model.tableName
       ),
+      args: args,
       writeOperation: operation !== OperationKeys.READ,
       timestamp: new Date(),
       operation: operation,
@@ -445,11 +450,11 @@ export abstract class Adapter<
     ...args: MaybeContextualArg<Context<any>>
   ): Promise<CONTEXT> {
     const log = this.log.for(this.context);
-    log.debug(
-      `Creating new context for ${operation} operation on ${model ? (Array.isArray(model) ? model.map((m) => m.name) : model.name) : "no"} model with flag overrides: ${JSON.stringify(overrides)}`
+    log.silly(
+      `creating new context for ${operation} operation on ${model ? (Array.isArray(model) ? model.map((m) => Model.tableName(m)) : Model.tableName(model)) : "no"} table with flag overrides: ${JSON.stringify(overrides)}`
     );
     let ctx = args.pop();
-    if (!(ctx instanceof Context)) {
+    if (typeof ctx !== "undefined" && !(ctx instanceof Context)) {
       args.push(ctx);
       ctx = undefined;
     }
@@ -985,29 +990,45 @@ export abstract class Adapter<
     return this as unknown as CONN;
   }
 
-  protected override logCtx<ARGS extends any[] = any[]>(
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
     args: MaybeContextualArg<CONTEXT, ARGS>,
-    operation: ((...args: any[]) => any) | string
-  ): ContextualizedArgs<CONTEXT, ARGS>;
-  protected override logCtx<ARGS extends any[] = any[]>(
+    operation: METHOD
+  ): ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>;
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
     args: MaybeContextualArg<CONTEXT, ARGS>,
-    operation: ((...args: any[]) => any) | string,
+    operation: METHOD,
     allowCreate: false
-  ): ContextualizedArgs<CONTEXT, ARGS>;
-  protected override logCtx<ARGS extends any[] = any[]>(
+  ): ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>;
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
     args: MaybeContextualArg<CONTEXT, ARGS>,
-    operation: ((...args: any[]) => any) | string,
+    operation: METHOD,
     allowCreate: true,
     overrides?: Partial<FlagsOf<CONTEXT>>
-  ): Promise<ContextualizedArgs<CONTEXT, ARGS>>;
-  protected override logCtx<ARGS extends any[] = any[]>(
+  ): Promise<
+    ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>
+  >;
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
     args: MaybeContextualArg<CONTEXT, ARGS>,
-    operation: ((...args: any[]) => any) | string,
+    operation: METHOD,
     allowCreate: boolean = false,
     overrides?: Partial<FlagsOf<CONTEXT>>
   ):
-    | Promise<ContextualizedArgs<CONTEXT, ARGS>>
-    | ContextualizedArgs<CONTEXT, ARGS> {
+    | Promise<
+        ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>
+      >
+    | ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false> {
     return super.logCtx(args, operation, allowCreate as any, overrides);
   }
 

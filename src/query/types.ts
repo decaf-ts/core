@@ -1,5 +1,8 @@
 import { Condition } from "./Condition";
 import { OrderBySelector } from "./selectors";
+import { Model } from "@decaf-ts/decorator-validation";
+import { Constructor } from "@decaf-ts/decoration";
+import { OrderDirection } from "../repository/constants";
 
 /**
  * @description
@@ -19,6 +22,26 @@ export type QueryOptions = {
   throws?: boolean;
 };
 
+export type OrderLimitOffsetExtract = {
+  orderBy?: OrderBySelector<any>[];
+  limit?: number;
+  offset?: number;
+};
+
+export type DirectionLimitOffset = {
+  direction?: OrderDirection;
+  limit?: number;
+  offset?: number;
+  bookmark?: string | number;
+};
+
+export type PreparedStatement<M extends Model> = {
+  class: Constructor<M>;
+  method: string;
+  args: any[];
+  params: DirectionLimitOffset;
+};
+
 /**
  * @description
  * Structured query object representing parsed query clauses.
@@ -36,7 +59,7 @@ export type QueryOptions = {
 export interface QueryAssist {
   action: "find";
   select: undefined | string[];
-  where: Condition<any>;
+  where?: Condition<any>;
   groupBy?: string[];
   orderBy?: OrderBySelector<any>[];
   limit: number | undefined;

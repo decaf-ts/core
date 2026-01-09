@@ -1,17 +1,11 @@
-import {
-  Condition,
-  GroupOperator,
-  Operator,
-  Paginator,
-  QueryError,
-} from "../query";
+import { Condition, GroupOperator, Operator, QueryError } from "../query";
 import { RamContext, RawRamQuery } from "./types";
 import { Model } from "@decaf-ts/decorator-validation";
-import { RamPaginator } from "./RamPaginator";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Statement } from "../query/Statement";
 import { Metadata } from "@decaf-ts/decoration";
-import { Adapter } from "../persistence/index";
+import { Adapter, AdapterFlags } from "../persistence/index";
+import { OrderDirection } from "../repository/constants";
 
 /**
  * @description RAM-specific query statement builder
@@ -45,8 +39,8 @@ export class RamStatement<
   R,
   A extends Adapter<M, any, RawRamQuery<any>, RamContext>,
 > extends Statement<M, A, R, RawRamQuery<any>> {
-  constructor(adapter: A) {
-    super(adapter);
+  constructor(adapter: A, overrides?: Partial<AdapterFlags>) {
+    super(adapter, overrides);
   }
 
   /**
@@ -63,45 +57,93 @@ export class RamStatement<
         );
       const selector = this.orderBySelector;
       const [key, direction] = selector;
+      const normalizedDirection = String(direction).toLowerCase();
+      const directionFactor =
+        normalizedDirection === OrderDirection.ASC ? 1 : -1;
+      const value1 = el1[key as keyof Model];
+      const value2 = el2[key as keyof Model];
+
+      if (value1 === value2) return 0;
+
+      if (value1 == null || value2 == null)
+        return directionFactor * (value1 == null ? 1 : -1);
+
       const { designType: type } = Metadata.getPropDesignTypes(
         el1.constructor as any,
         key
       );
-      if (!type)
-        throw new QueryError(`type not compatible with sorting: ${type}`);
+      const resolvedType =
+        (type && type.name && type.name.toLowerCase()) || typeof value1;
 
-      switch (type.name) {
+      switch (resolvedType) {
         case "string":
-        case "String":
           return (
-            (direction === "asc" ? 1 : -1) *
-            (el1[key as keyof Model] as unknown as string).localeCompare(
-              el2[key as keyof Model] as unknown as string
+            directionFactor *
+            this.compareStrings(
+              value1 as unknown as string,
+              value2 as unknown as string
             )
           );
         case "number":
-        case "Number":
           return (
-            (direction === "asc" ? 1 : -1) *
-            ((el1[key as keyof Model] as unknown as number) -
-              (el2[key as keyof Model] as unknown as number))
+            directionFactor *
+            this.compareNumbers(
+              value1 as unknown as number,
+              value2 as unknown as number
+            )
           );
+        case "bigint":
+          return (
+            directionFactor *
+            this.compareBigInts(
+              value1 as unknown as bigint,
+              value2 as unknown as bigint
+            )
+          );
+        case "boolean":
+          return (
+            directionFactor *
+            this.compareBooleans(
+              value1 as unknown as boolean,
+              value2 as unknown as boolean
+            )
+          );
+        case "date":
         case "object":
-        case "Object":
-          if (
-            el1[key as keyof Model] instanceof Date &&
-            el2[key as keyof Model] instanceof Date
-          )
+          if (value1 instanceof Date && value2 instanceof Date) {
             return (
-              (direction === "asc" ? 1 : -1) *
-              ((el1[key as keyof Model] as unknown as Date).valueOf() -
-                (el2[key as keyof Model] as unknown as Date).valueOf())
+              directionFactor *
+              this.compareDates(value1 as Date, value2 as Date)
             );
-          throw new QueryError(`Sorting not supported for not date classes`);
+          }
+          break;
         default:
-          throw new QueryError(`sorting not supported for type ${type}`);
+          break;
       }
+
+      throw new QueryError(`sorting not supported for type ${resolvedType}`);
     };
+  }
+
+  private compareBooleans(a: boolean, b: boolean): number {
+    return a === b ? 0 : a ? 1 : -1;
+  }
+
+  private compareNumbers(a: number, b: number): number {
+    return a - b;
+  }
+
+  private compareBigInts(a: bigint, b: bigint): number {
+    if (a === b) return 0;
+    return a > b ? 1 : -1;
+  }
+
+  private compareStrings(a: string, b: string): number {
+    return a.localeCompare(b);
+  }
+
+  private compareDates(a: Date, b: Date): number {
+    return a.valueOf() - b.valueOf();
   }
 
   /**
@@ -126,27 +168,6 @@ export class RamStatement<
     };
     if (this.orderBySelector) result.sort = this.getSort();
     return result as RawRamQuery<any>;
-  }
-
-  /**
-   * @description Creates a paginator for the query
-   * @summary Builds the query and wraps it in a RamPaginator to enable pagination of results.
-   * This allows retrieving large result sets in smaller chunks.
-   * @param {number} size - The page size (number of results per page)
-   * @return {Promise<Paginator<M, R, RawRamQuery<M>>>} A promise that resolves to a paginator for the query
-   */
-  async paginate(size: number): Promise<Paginator<M, R, RawRamQuery<any>>> {
-    try {
-      const query = this.build();
-      return new RamPaginator<M, R>(
-        this.adapter,
-        query,
-        size,
-        this.fromSelector
-      );
-    } catch (e: any) {
-      throw new InternalError(e);
-    }
   }
 
   /**

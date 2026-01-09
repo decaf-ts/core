@@ -14,6 +14,19 @@ declare module "@decaf-ts/decorator-validation" {
      * @summary Retrieves the names of all properties marked as relations in the model hierarchy.
      * @template M - The model type that extends Model.
      * @param {M | Constructor<M>} model - The model instance or constructor.
+     * @param {string[]} existingRelations - Optional parameter, the existing relations to be included.
+     * @return {string[]} An array of property names that are relations.
+     */
+    function nestedRelations<M extends Model>(
+      model: Constructor<M> | M,
+      existingRelations?: string[]
+    ): string[];
+
+    /**
+     * @description Gets all relation properties defined on a model.
+     * @summary Retrieves the names of all properties marked as relations in the model hierarchy.
+     * @template M - The model type that extends Model.
+     * @param {M | Constructor<M>} model - The model instance or constructor.
      * @return {string[]} An array of property names that are relations.
      */
     function relations<M extends Model>(m: Constructor<M> | M): string[];
@@ -29,6 +42,22 @@ declare module "@decaf-ts/decorator-validation" {
       m: Constructor<M> | M,
       prop: keyof M
     ): ExtendedRelationsMetadata;
+
+    /**
+     * @description Gets all relation properties defined on a model.
+     * @summary Retrieves the names of all properties marked as relations in the model hierarchy.
+     * @template M - The model type that extends Model.
+     * @param {M | Constructor<M>} model - The model instance or constructor.
+     * @return {string[]} An array of property names that are relations.
+     */
+    function generated<M extends Model>(
+      m: Constructor<M> | M,
+      prop: keyof M
+    ): boolean;
+
+    function createdBy<M extends Model>(m: Constructor<M> | M): keyof M;
+
+    function updatedBy<M extends Model>(m: Constructor<M> | M): keyof M;
 
     /**
      * @description Gets all relation properties defined on a model.
@@ -102,13 +131,23 @@ declare module "@decaf-ts/decorator-validation" {
     ): M extends Model<true>
       ? Promise<ModelErrorDefinition | undefined>
       : ModelErrorDefinition | undefined;
+
+    function generated<M extends Model>(
+      model: M | Constructor<M>,
+      prop: keyof M
+    ): boolean | string;
+
+    function generatedBySequence<M extends Model>(
+      model: M | Constructor<M>,
+      prop?: keyof M
+    ): boolean;
   }
 
-  export interface Model {
-    hasErrorsOn<M extends Model<boolean>>(
-      op: OperationKeys.CREATE | OperationKeys.UPDATE | string
-    ): M extends Model<true>
-      ? Promise<ModelErrorDefinition | undefined>
-      : ModelErrorDefinition | undefined;
-  }
+  // export interface Model {
+  //   hasErrorsOn<M extends Model<boolean>>(
+  //     op: OperationKeys.CREATE | OperationKeys.UPDATE | string
+  //   ): M extends Model<true>
+  //     ? Promise<ModelErrorDefinition | undefined>
+  //     : ModelErrorDefinition | undefined;
+  // }
 }

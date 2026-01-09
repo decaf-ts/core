@@ -278,13 +278,17 @@ export async function createdByOnCreateUpdate<
  * ```
  */
 export function createdBy() {
-  const key = PersistenceKeys.CREATED_BY;
-
   function createdBy() {
-    return apply(onCreate(createdByOnCreateUpdate), propMetadata(key, {}));
+    return function createdBy(target: object, prop?: any) {
+      return apply(
+        onCreate(createdByOnCreateUpdate),
+        propMetadata(PersistenceKeys.CREATED_BY, prop),
+        generated()
+      )(target, prop);
+    };
   }
 
-  return Decoration.for(key)
+  return Decoration.for(PersistenceKeys.CREATED_BY)
     .define({
       decorator: createdBy,
       args: [],
@@ -307,11 +311,16 @@ export function createdBy() {
  * ```
  */
 export function updatedBy() {
-  const key = PersistenceKeys.UPDATED_BY;
   function updatedBy() {
-    return apply(onUpdate(createdByOnCreateUpdate), propMetadata(key, {}));
+    return function updatedBy(target: object, prop?: any) {
+      return apply(
+        onUpdate(createdByOnCreateUpdate),
+        propMetadata(PersistenceKeys.UPDATED_BY, prop),
+        generated()
+      )(target, prop);
+    };
   }
-  return Decoration.for(key)
+  return Decoration.for(PersistenceKeys.UPDATED_BY)
     .define({
       decorator: updatedBy,
       args: [],
@@ -325,6 +334,17 @@ export function createdAt() {
 
 export function updatedAt() {
   return timestamp();
+}
+
+export function getPkTypes(model: Constructor | (() => Constructor)) {
+  const resolvedClazz =
+    typeof model === "function" && model.name
+      ? (model as Constructor)
+      : (model as () => Constructor)();
+  const pk = Model.pk(resolvedClazz as Constructor);
+  return (
+    Metadata.allowedTypes(resolvedClazz as Constructor, pk as string) || []
+  );
 }
 
 /**
@@ -374,15 +394,17 @@ export function oneToOne<M extends Model>(
     };
     if (joinColumnOpts) meta.joinTable = joinColumnOpts;
     if (fk) meta.name = fk;
-    return apply(
+    const pkTypes = getPkTypes(clazz);
+    const decs = [
       prop(),
       relation(key, meta),
-      type([clazz, String, Number, BigInt]),
+      type([clazz, ...pkTypes]),
       onCreate(oneToOneOnCreate, meta),
       onUpdate(oneToOneOnUpdate, meta),
       onDelete(oneToOneOnDelete, meta),
-      afterAny(pop, meta)
-    );
+      afterAny(pop, meta),
+    ];
+    return apply(...decs);
   }
 
   return Decoration.for(key)
@@ -444,21 +466,17 @@ export function oneToMany<M extends Model>(
     };
     if (joinTableOpts) metadata.joinTable = joinTableOpts;
     if (fk) metadata.name = fk;
-    return apply(
+    const pkTypes = getPkTypes(clazz);
+    const decs = [
       prop(),
       relation(key, metadata),
-      list([
-        clazz,
-        String,
-        Number,
-        // @ts-expect-error Bigint is not a constructor
-        BigInt,
-      ]),
+      list([clazz, ...pkTypes]),
       onCreate(oneToManyOnCreate, metadata),
       onUpdate(oneToManyOnUpdate, metadata),
       onDelete(oneToManyOnDelete, metadata),
-      afterAny(pop, metadata)
-    );
+      afterAny(pop, metadata),
+    ];
+    return apply(...decs);
   }
 
   return Decoration.for(key)
@@ -521,15 +539,17 @@ export function manyToOne<M extends Model>(
     };
     if (joinTableOpts) metadata.joinTable = joinTableOpts;
     if (fk) metadata.name = fk;
-    return apply(
+    const pkTypes = getPkTypes(clazz);
+    const decs = [
       prop(),
       relation(key, metadata),
-      type([clazz, String, Number, BigInt])
+      type([clazz, ...pkTypes]),
       // onCreate(oneToManyOnCreate, metadata),
       // onUpdate(oneToManyOnUpdate, metadata),
       // onDelete(oneToManyOnDelete, metadata),
       // afterAny(pop, metadata),
-    );
+    ];
+    return apply(...decs);
   }
 
   return Decoration.for(key)
@@ -592,15 +612,17 @@ export function manyToMany<M extends Model>(
     };
     if (joinTableOpts) metadata.joinTable = joinTableOpts;
     if (fk) metadata.name = fk;
-    return apply(
+    const pkTypes = getPkTypes(clazz);
+    const decs = [
       prop(),
       relation(key, metadata),
-      list([clazz as any, String, Number, BigInt])
+      list([clazz, ...pkTypes]),
       // onCreate(oneToManyOnCreate, metadata),
       // onUpdate(oneToManyOnUpdate, metadata),
       // onDelete(oneToManyOnDelete, metadata),
       // afterAll(populate, metadata),
-    );
+    ];
+    return apply(...decs);
   }
   return Decoration.for(key)
     .define({
@@ -608,6 +630,15 @@ export function manyToMany<M extends Model>(
       args: [clazz, cascadeOptions, populate, joinTableOpts, fk],
     })
     .apply();
+}
+
+export function generated(type?: string) {
+  return function generated(target: object, prop?: any) {
+    return propMetadata(
+      Metadata.key(PersistenceKeys.GENERATED, prop),
+      type || true
+    )(target, prop);
+  };
 }
 
 export function noValidateOn(...ops: OperationKeys[]) {

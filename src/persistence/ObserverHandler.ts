@@ -2,7 +2,6 @@ import { Observer } from "../interfaces";
 import { EventIds, ObserverFilter, PersistenceObservable } from "./types";
 import {
   BulkCrudOperationKeys,
-  Context,
   InternalError,
   OperationKeys,
 } from "@decaf-ts/db-decorators";
@@ -10,6 +9,7 @@ import { Model } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
 import { Adapter } from "./Adapter";
 import { ContextualArgs } from "../utils/ContextualLoggedClass";
+import { Context } from "./Context";
 
 /**
  * @description Manages a collection of observers for database events

@@ -1,36 +1,38 @@
 import {
-  RamFlags,
-  RawRamQuery,
-  RamStorage,
   RamConfig,
   RamContext,
+  RamFlags,
+  RamStorage,
+  RawRamQuery,
 } from "./types";
 import { RamStatement } from "./RamStatement";
 import { Repository } from "../repository/Repository";
 import { Dispatch } from "../persistence/Dispatch";
-import { Adapter, PersistenceKeys, Sequence } from "../persistence";
+import {
+  Adapter,
+  AdapterFlags,
+  PersistenceKeys,
+  RawResult,
+  Sequence,
+} from "../persistence";
 import { Lock } from "@decaf-ts/transactional-decorators";
 import { hashObj, Model } from "@decaf-ts/decorator-validation";
 import {
   BaseError,
   ConflictError,
-  OperationKeys,
+  DBKeys,
   InternalError,
   NotFoundError,
   onCreate,
   onCreateUpdate,
-  DBKeys,
-  Context,
+  OperationKeys,
   PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
 import { createdByOnRamCreateUpdate } from "./handlers";
 import { RamFlavour } from "./constants";
-import {
-  Constructor,
-  Decoration,
-  Metadata,
-  propMetadata,
-} from "@decaf-ts/decoration";
+import type { Constructor } from "@decaf-ts/decoration";
+import { Decoration, Metadata, propMetadata } from "@decaf-ts/decoration";
+import { RamPaginator } from "./RamPaginator";
 
 /**
  * @description In-memory adapter for data persistence
@@ -122,8 +124,6 @@ export class RamAdapter extends Adapter<
     return super.Dispatch() as Dispatch<RamAdapter>;
   }
 
-  override Context: Constructor<RamContext> = Context;
-
   private indexes: Record<
     string,
     Record<string | number, Record<string, any>>
@@ -162,9 +162,6 @@ export class RamAdapter extends Adapter<
   } {
     const ctx = args.pop();
     const prepared = super.prepare(model, ...args, ctx);
-    delete prepared.record[
-      Model.pk(model.constructor as Constructor<M>) as any
-    ];
     return prepared;
   }
 
@@ -227,7 +224,6 @@ export class RamAdapter extends Adapter<
     const log = ctx.logger.for(this.create);
     const tableName = Model.tableName(clazz);
     log.debug(`creating record in table ${tableName} with id ${id}`);
-    await this.lock.acquire();
     if (!this.client.has(tableName)) this.client.set(tableName, new Map());
     if (
       this.client.get(tableName) &&
@@ -236,6 +232,8 @@ export class RamAdapter extends Adapter<
       throw new ConflictError(
         `Record with id ${id} already exists in table ${tableName}`
       );
+
+    await this.lock.acquire();
     this.client.get(tableName)?.set(id as any, model);
     this.lock.release();
     return model;
@@ -322,13 +320,14 @@ export class RamAdapter extends Adapter<
     const tableName = Model.tableName(clazz);
     log.debug(`updating record in table ${tableName} with id ${id}`);
 
-    await this.lock.acquire();
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
     if (!this.client.get(tableName)?.has(id as any))
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
+
+    await this.lock.acquire();
     this.client.get(tableName)?.set(id as any, model);
     this.lock.release();
     return model;
@@ -373,15 +372,18 @@ export class RamAdapter extends Adapter<
     const tableName = Model.tableName(clazz);
     log.debug(`deleting record from table ${tableName} with pk ${id}`);
 
-    await this.lock.acquire();
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.client.get(tableName)?.has(id as string))
+    if (!this.client.get(tableName)?.has(id as any))
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
-    const natived = this.client.get(tableName)?.get(id as string);
-    this.client.get(tableName)?.delete(id as string);
+
+    await this.lock.acquire();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const table = this.client.get(tableName);
+    const natived = this.client.get(tableName)?.get(id as any);
+    this.client.get(tableName)?.delete(id as any);
     this.lock.release();
     return natived;
   }
@@ -445,7 +447,11 @@ export class RamAdapter extends Adapter<
    *   end
    *   RamAdapter-->>Caller: result
    */
-  async raw<R>(rawInput: RawRamQuery<any>, ctx: RamContext): Promise<R> {
+  async raw<R, D extends boolean>(
+    rawInput: RawRamQuery<any>,
+    docsOnly: D = true as D,
+    ctx: RamContext
+  ): Promise<RawResult<R, D>> {
     const log = ctx.logger.for(this.raw);
     log.debug(`performing raw query: ${JSON.stringify(rawInput)}`);
 
@@ -469,6 +475,8 @@ export class RamAdapter extends Adapter<
 
     result = where ? result.filter(where) : result;
 
+    const count = result.length;
+
     if (sort) result = result.sort(sort);
 
     if (skip) result = result.slice(skip);
@@ -484,7 +492,11 @@ export class RamAdapter extends Adapter<
       );
     }
 
-    return result as unknown as R;
+    if (docsOnly) return result as unknown as RawResult<R, D>;
+    return {
+      data: result,
+      count: count,
+    } as RawResult<R, D>;
   }
 
   /**
@@ -507,16 +519,22 @@ export class RamAdapter extends Adapter<
    * @template M - The model type for the statement
    * @return {RamStatement<M, any>} A new statement builder instance
    */
-  Statement<M extends Model<boolean>>(): RamStatement<
-    M,
-    any,
-    Adapter<any, any, RawRamQuery<M>, RamContext>
-  > {
+  Statement<M extends Model<boolean>>(
+    overrides?: Partial<AdapterFlags>
+  ): RamStatement<M, any, Adapter<any, any, RawRamQuery<M>, RamContext>> {
     return new RamStatement<
       M,
       any,
       Adapter<any, any, RawRamQuery<M>, RamContext>
-    >(this);
+    >(this as any, overrides);
+  }
+
+  Paginator<M extends Model<boolean>>(
+    query: RawRamQuery,
+    size: number,
+    clazz: Constructor<M>
+  ): RamPaginator<M> {
+    return new RamPaginator(this, query, size, clazz);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

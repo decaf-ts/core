@@ -1,3 +1,6 @@
+import { DefaultRepositoryFlags } from "@decaf-ts/db-decorators";
+import { AdapterFlags } from "./types";
+
 /**
  * @description Persistence-related constant keys
  * @summary Enum containing string constants used throughout the persistence layer for metadata, relations, and other persistence-related operations
@@ -67,4 +70,19 @@ export enum PersistenceKeys {
   STATEMENT = "statement",
 
   QUERY = "query",
+
+  GENERATED = "generated",
 }
+
+export const DefaultAdapterFlags: AdapterFlags = Object.assign(
+  {},
+  DefaultRepositoryFlags,
+  {
+    allowGenerationOverride: false,
+    enforceUpdateValidation: true,
+    allowRawStatements: true,
+    forcePrepareSimpleQueries: false,
+    forcePrepareComplexQueries: false,
+    cacheForPopulate: {},
+  }
+) as AdapterFlags;

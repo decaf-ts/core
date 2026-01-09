@@ -1,11 +1,11 @@
-import { apply, metadata, Metadata } from "@decaf-ts/decoration";
+import { apply, Metadata, prop as property } from "@decaf-ts/decoration";
 import { inject, injectable } from "@decaf-ts/injectable-decorators";
 import { PersistenceKeys } from "../persistence/index";
 import type { ModelConstructor } from "@decaf-ts/decorator-validation";
 import type { CrudOperations } from "@decaf-ts/db-decorators";
-import { isOperationBlocked } from "./utils";
+import { injectableServiceKey, isOperationBlocked } from "./utils";
 import { OperationKeys } from "@decaf-ts/db-decorators";
-import type { ModelService } from "./Services";
+import { ModelService } from "./Services";
 
 function OperationGuard(op: CrudOperations) {
   return function (
@@ -33,19 +33,27 @@ export const read = () => OperationGuard(OperationKeys.READ);
 export const update = () => OperationGuard(OperationKeys.UPDATE);
 export const del = () => OperationGuard(OperationKeys.DELETE);
 
-export function service(key: string | ModelConstructor<any>) {
-  key =
-    typeof key === "string"
-      ? key
-      : Metadata.Symbol(key as ModelConstructor<any>).toString();
+export function service(key?: string | ModelConstructor<any>) {
   return function service(target: any, prop?: any, descriptor?: any) {
-    Metadata.set(PersistenceKeys.SERVICE, key, target);
+    if (!descriptor && !prop) {
+      // class
+      key = key || target;
+    } else {
+      property()(target, prop);
+      // property
+      key = key || Metadata.type(target.constructor, prop);
+    }
+
+    key = injectableServiceKey(key as any);
+
     const decs = [];
     if (descriptor && typeof descriptor.value === "number") {
       decs.push(inject(key));
     } else if (!descriptor && !prop) {
+      Metadata.set(PersistenceKeys.SERVICE, key, target);
       decs.push(
         injectable(key, {
+          singleton: true,
           callback: (inst: any) =>
             Object.defineProperty(inst, "name", {
               enumerable: true,
@@ -59,7 +67,7 @@ export function service(key: string | ModelConstructor<any>) {
       decs.push(inject(key));
     } else throw new Error("Invalid decorator usage. Should be impossible");
 
-    decs.push(metadata(PersistenceKeys.SERVICE, key));
+    // decs.push(metadata(PersistenceKeys.SERVICE, key));
     return apply(...decs)(target, prop, descriptor);
   };
 }

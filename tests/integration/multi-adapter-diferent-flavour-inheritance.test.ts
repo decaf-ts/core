@@ -29,6 +29,7 @@ class Base1 extends Model {
   }
 }
 
+Adapter.setCurrent("dummy");
 @uses("dummy")
 class Base2 extends Model {
   @pk({ type: "Number", generated: true })
@@ -44,6 +45,8 @@ class Base2 extends Model {
     super(arg);
   }
 }
+
+Adapter.setCurrent(RamFlavour);
 @uses(RamFlavour)
 @model()
 class Model1 extends Base1 {
@@ -51,6 +54,7 @@ class Model1 extends Base1 {
     super(arg);
   }
 }
+Adapter.setCurrent("dummy");
 @uses("dummy")
 @model()
 class Model2 extends Base2 {
@@ -58,6 +62,8 @@ class Model2 extends Base2 {
     super(arg);
   }
 }
+
+Adapter.setCurrent(RamFlavour);
 
 describe("Multi Adapter full test with inheritance (explicit @uses in base class)", () => {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

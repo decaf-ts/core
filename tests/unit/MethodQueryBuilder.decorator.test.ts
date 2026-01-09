@@ -1,5 +1,5 @@
 import { MethodQueryBuilderRepo } from "./MethodQueryBuilderRepo";
-import { OrderDirection, QueryError } from "../../src/index";
+import { OrderDirection, QueryError } from "../../src";
 // import { RamAdapter } from "../../src/ram/RamAdapter";
 // const ramAdapter = new RamAdapter();
 
@@ -32,7 +32,8 @@ describe("MethodQueryBuilder Decorator", () => {
       expect(result.every((u) => u.age >= 22 && u.age <= 24)).toBe(true);
     });
 
-    it("should filter with Between", async () => {
+    // between deprecated
+    it.skip("should filter with Between", async () => {
       const result = await userRepo.findByAgeBetween(25, 35);
       expect(result.every((u) => u.age >= 25 && u.age <= 35)).toBe(true);
     });
@@ -69,9 +70,10 @@ describe("MethodQueryBuilder Decorator", () => {
 
   describe("OrderBy", () => {
     it("should order by name ascending", async () => {
-      const orderByResult = await userRepo.findByActiveOrderByNameAsc(true, [
-        ["name", OrderDirection.ASC],
-      ]);
+      const orderByResult = await userRepo.findByActiveOrderByName(
+        true,
+        OrderDirection.ASC
+      );
       const names = orderByResult.map((r) => r.name);
       expect(names).toEqual([...names].sort());
 
@@ -81,15 +83,16 @@ describe("MethodQueryBuilder Decorator", () => {
       expect(noOrderByNames).not.toEqual(names);
     });
 
-    it("should order by age desc then by country dsc", async () => {
-      const orderByResult = await userRepo.findByActive(true, [
-        ["age", OrderDirection.DSC],
-        ["country", OrderDirection.DSC],
-      ]);
+    it("should order by name descending", async () => {
+      const orderByResult = await userRepo.findByActiveOrderByName(
+        true,
+        OrderDirection.DSC
+      );
 
       const sorted = [...orderByResult].sort((a, b) => {
-        if (a.age !== b.age) return b.age - a.age; // age desc
-        return b.country.localeCompare(a.country); // country dsc
+        return b.name.localeCompare(a.name);
+        // if (a.age !== b.age) return b.age - a.age; // age desc
+        // return b.country.localeCompare(a.country); // country dsc
       });
 
       // const ages = orderByResult.map((r) => r.age);
@@ -196,8 +199,13 @@ describe("MethodQueryBuilder Decorator", () => {
     const cases = [
       {
         name: "orderBy",
-        args: [10, [["age", OrderDirection.ASC]]],
+        args: [10, OrderDirection.ASC],
         message: "OrderBy is not allowed for this query",
+      },
+      {
+        name: "orderBy",
+        args: [10, "AnyInvalidOrderDirection"],
+        message: `Invalid OrderBy direction AnyInvalidOrderDirection. Expected one of: ${Object.values(OrderDirection).join(", ")}.`,
       },
       {
         name: "limit",
@@ -211,10 +219,10 @@ describe("MethodQueryBuilder Decorator", () => {
       },
     ];
 
-    cases.forEach(({ name, args, message }) => {
-      it(`should throw if ${name} not allowed`, async () => {
+    cases.forEach(({ name, args, message }, idx) => {
+      it(`should throw if ${name} not allowed (${idx + 1})`, async () => {
         try {
-          await userRepo.findByAgeGreaterThanThenThrows(...args);
+          await userRepo.findByAgeGreaterOrderByName(...args);
           fail(`Expected ${name} to throw but it did not`);
         } catch (err: any) {
           expect(err).toBeInstanceOf(QueryError);

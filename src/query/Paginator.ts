@@ -1,9 +1,19 @@
 import { PagingError } from "./errors";
-import { Adapter } from "../persistence";
+import {
+  Adapter,
+  Context,
+  PersistenceKeys,
+  prefixMethod,
+  UnsupportedError,
+} from "../persistence";
 import { Model } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
 import { LoggedClass } from "@decaf-ts/logging";
-import { MaybeContextualArg } from "../utils/index";
+import { ContextualArgs, MaybeContextualArg } from "../utils/index";
+import { DirectionLimitOffset, PreparedStatement } from "./types";
+import { PreparedStatementKeys } from "./constants";
+import { Repository } from "../repository/Repository";
+import { SerializationError } from "@decaf-ts/db-decorators";
 
 /**
  * @description Handles pagination for database queries
@@ -69,6 +79,7 @@ export abstract class Paginator<
   protected _currentPage!: number;
   protected _totalPages!: number;
   protected _recordCount!: number;
+  protected _bookmark?: number | string;
   protected limit!: number;
 
   private _statement?: Q;
@@ -86,19 +97,97 @@ export abstract class Paginator<
   }
 
   protected get statement() {
-    if (!this._statement) this._statement = this.prepare(this.query);
+    if (!this._statement) this._statement = this.prepare(this.query as Q);
     return this._statement;
   }
 
   protected constructor(
     protected readonly adapter: Adapter<any, any, Q, any>,
-    protected readonly query: Q,
+    protected readonly query: Q | PreparedStatement<M>,
     readonly size: number,
     protected readonly clazz: Constructor<M>
   ) {
     super();
+    prefixMethod(this, this.page, this.pagePrefix, this.page.name);
   }
 
+  protected isPreparedStatement() {
+    const query = this.query as PreparedStatement<any>;
+    return (
+      query.method &&
+      query.method.match(
+        new RegExp(
+          `${PreparedStatementKeys.FIND_BY}|${PreparedStatementKeys.LIST_BY}`,
+          "gi"
+        )
+      )
+    );
+  }
+
+  protected async pagePrefix(page?: number, ...args: MaybeContextualArg<any>) {
+    const contextArgs = await Context.args<M, any>(
+      PersistenceKeys.QUERY,
+      this.clazz,
+      args,
+      this.adapter
+    );
+
+    return [page, ...contextArgs.args];
+  }
+
+  protected async pagePrepared(
+    page?: number,
+    ...argz: ContextualArgs<any>
+  ): Promise<M[]> {
+    const repo = Repository.forModel(this.clazz, this.adapter.alias);
+    const statement = this.query as PreparedStatement<M>;
+    const { method, args, params } = statement;
+    const regexp = new RegExp(
+      `^${PreparedStatementKeys.FIND_BY}|${PreparedStatementKeys.LIST_BY}`,
+      "gi"
+    );
+    if (!method.match(regexp))
+      throw new UnsupportedError(
+        `Method ${method} is not supported for pagination`
+      );
+    regexp.lastIndex = 0;
+    const pagedMethod = method.replace(regexp, PreparedStatementKeys.PAGE_BY);
+
+    const preparedArgs = [pagedMethod, ...args];
+    let preparedParams: DirectionLimitOffset = {
+      limit: this.size,
+      offset: page,
+      bookmark: this._bookmark,
+    };
+    if (
+      pagedMethod === PreparedStatementKeys.PAGE_BY &&
+      preparedArgs.length <= 2
+    ) {
+      preparedArgs.push(params.direction);
+    } else {
+      preparedParams = {
+        direction: params.direction,
+        limit: this.size,
+        offset: page,
+        bookmark: this._bookmark,
+      };
+    }
+
+    preparedArgs.push(preparedParams);
+
+    const result = await repo.statement(
+      ...(preparedArgs as [string, any]),
+      ...argz
+    );
+    return this.apply(result);
+  }
+  /**
+   * @description Prepares a statement for pagination
+   * @summary Modifies the raw query statement to include pagination parameters.
+   * This protected method sets the limit parameter on the query to match the page size.
+   * @param {RawRamQuery<M>} rawStatement - The original query statement
+   * @return {RawRamQuery<M>} The modified query with pagination parameters
+   */
   protected abstract prepare(rawStatement: Q): Q;
 
   async next(...args: MaybeContextualArg<any>) {
@@ -121,5 +210,67 @@ export abstract class Paginator<
     return page;
   }
 
-  abstract page(page?: number, ...args: MaybeContextualArg<any>): Promise<R[]>;
+  async page(page: number = 1, ...args: MaybeContextualArg<any>): Promise<R> {
+    const { ctxArgs } = this.adapter["logCtx"](args, this.page);
+    if (this.isPreparedStatement())
+      return (await this.pagePrepared(page, ...ctxArgs)) as R;
+    throw new UnsupportedError(
+      "Raw support not available without subclassing this"
+    );
+  }
+
+  serialize(data: M[], toString: boolean = false): string | SerializedPage<M> {
+    const serialization: SerializedPage<M> = {
+      data: data,
+      current: this.current,
+      total: this.total,
+      count: this.count,
+      bookmark: this._bookmark,
+    };
+    try {
+      return toString ? JSON.stringify(serialization) : serialization;
+    } catch (e: unknown) {
+      throw new SerializationError(e as Error);
+    }
+  }
+
+  apply(serialization: string | SerializedPage<M>): M[] {
+    const ser =
+      typeof serialization === "string"
+        ? Paginator.deserialize<M>(serialization)
+        : serialization;
+
+    this._currentPage = ser.current;
+    this._totalPages = ser.total;
+    this._recordCount = ser.count;
+    this._bookmark = ser.bookmark;
+    return ser.data;
+  }
+
+  static deserialize<M extends Model>(str: string): SerializedPage<M> {
+    try {
+      return JSON.parse(str);
+    } catch (e: unknown) {
+      throw new SerializationError(e as Error);
+    }
+  }
+
+  static isSerializedPage(obj: SerializedPage<any> | any) {
+    return (
+      obj &&
+      typeof obj === "object" &&
+      Array.isArray(obj.data) &&
+      typeof obj.total === "number" &&
+      typeof obj.current === "number" &&
+      typeof obj.count === "number"
+    );
+  }
 }
+
+export type SerializedPage<M extends Model> = {
+  current: number;
+  total: number;
+  count: number;
+  data: M[];
+  bookmark?: number | string;
+};

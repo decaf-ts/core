@@ -2,6 +2,7 @@ import { AttributeOption, ConditionBuilderOption } from "./options";
 import {
   ConditionalAsync,
   Model,
+  ModelArg,
   ModelErrorDefinition,
   required,
 } from "@decaf-ts/decorator-validation";
@@ -49,15 +50,25 @@ export class Condition<M extends Model<any>> extends Model<InferAsync<M>> {
   @required()
   protected comparison?: any = undefined;
 
+  private constructor(arg: ModelArg<Condition<any>>);
   private constructor(
     attr1: string | Condition<M>,
     operator: Operator | GroupOperator,
     comparison: any
+  );
+  private constructor(
+    attr1: string | Condition<M> | ModelArg<Condition<any>>,
+    operator?: Operator | GroupOperator,
+    comparison?: any
   ) {
     super();
-    this.attr1 = attr1;
-    this.operator = operator;
-    this.comparison = comparison;
+    if (!operator && !comparison) {
+      Model.fromModel(this, attr1 as any);
+    } else {
+      this.attr1 = attr1 as string | Condition<any>;
+      this.operator = operator;
+      this.comparison = comparison;
+    }
   }
 
   /**
@@ -381,5 +392,9 @@ export class Condition<M extends Model<any>> extends Model<InferAsync<M>> {
    */
   static builder<M extends Model>(): ConditionBuilderOption<M> {
     return new Condition.Builder<M>();
+  }
+
+  static from(obj: ModelArg<Condition<any>>) {
+    return new Condition(obj);
   }
 }

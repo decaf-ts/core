@@ -8,6 +8,7 @@ import {
   methodMetadata,
 } from "@decaf-ts/decoration";
 import { PersistenceKeys } from "../persistence/constants";
+import type { Repo } from "../repository";
 
 export function prepared() {
   function prepared() {
@@ -41,8 +42,8 @@ export function query(options: QueryOptions = {}) {
                 const { select, where, groupBy, orderBy, limit, offset } =
                   MethodQueryBuilder.build(target.name, ...args);
 
-                let stmt = (thisArg as any).select(select) as any;
-                if (where) stmt = stmt.where(where);
+                let stmt = (thisArg as Repo<any>).select(select as any);
+                if (where) stmt = stmt.where(where) as any;
                 // if (orderBy) stmt = stmt.orderBy(orderBy[0]);
                 if (groupBy) {
                   // group by not implemented yet
@@ -62,9 +63,9 @@ export function query(options: QueryOptions = {}) {
                   // keep the order to ensure the expected behavior
                   {
                     key: "orderBy",
-                    value: (orderBy || [])[0],
+                    value: (orderBy || [])[0], // orderBy only supports one sentence
                     allowed: allowOrderBy,
-                  }, // orderBy only supports one sentence
+                  },
                   { key: "limit", value: limit, allowed: allowLimit },
                   { key: "offset", value: offset, allowed: allowOffset },
                 ];
@@ -76,7 +77,7 @@ export function query(options: QueryOptions = {}) {
                         `${param.key[0].toUpperCase() + param.key.slice(1)} is not allowed for this query`
                       );
                     } else if (param.allowed) {
-                      stmt = stmt[param.key](param.value);
+                      stmt = (stmt as any)[param.key](param.value);
                     }
                   }
                 }
@@ -88,8 +89,18 @@ export function query(options: QueryOptions = {}) {
         };
       }
 
+      const fields = MethodQueryBuilder.getFieldsFromMethodName(prop);
+      // const paramNames = descriptor.value
+      //   .toString()
+      //   .match(/\(([^)]*)\)/)?.[1]
+      //   .split(",")
+      //   .map((x) => x.trim())
+      //   .filter(Boolean);
       return apply(
-        methodMetadata(Metadata.key(PersistenceKeys.QUERY, prop), options),
+        methodMetadata(Metadata.key(PersistenceKeys.QUERY, prop), {
+          ...options,
+          fields,
+        }),
         prepared(),
         innerQuery(options)
       )(obj, prop, descriptor);

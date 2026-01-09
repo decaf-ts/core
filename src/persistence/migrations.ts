@@ -1,11 +1,12 @@
 import { ContextOf, Migration } from "./types";
 import { Adapter } from "./Adapter";
-import { Context, InternalError } from "@decaf-ts/db-decorators";
+import { InternalError } from "@decaf-ts/db-decorators";
 import { LoggedClass } from "@decaf-ts/logging";
 import { PersistenceKeys } from "./constants";
 import { Decoration, Metadata, metadata } from "@decaf-ts/decoration";
 import { MigrationRuleError } from "./errors";
 import { Model } from "@decaf-ts/decorator-validation";
+import { Context } from "./Context";
 
 export function prefixMethod(
   obj: any,

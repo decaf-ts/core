@@ -1,6 +1,5 @@
 import {
   BulkCrudOperationKeys,
-  Context,
   DefaultSeparator,
   enforceDBDecorators,
   InternalError,
@@ -11,28 +10,37 @@ import {
   wrapMethodWithContext,
   reduceErrorsToPrint,
   PrimaryKeyType,
+  NotFoundError,
+  wrapMethodWithContextForUpdate,
 } from "@decaf-ts/db-decorators";
-import { type Observer } from "../interfaces/Observer";
-import { Adapter } from "../persistence/Adapter";
-import { Model } from "@decaf-ts/decorator-validation";
-import { PersistenceKeys } from "../persistence/constants";
-import { OrderDirection } from "./constants";
-import { type SequenceOptions } from "../interfaces/SequenceOptions";
-import { Queriable } from "../interfaces/Queriable";
-import { Condition } from "../query/Condition";
-import { WhereOption } from "../query/options";
-import { OrderBySelector, SelectSelector } from "../query/selectors";
-import { ObserverHandler } from "../persistence/ObserverHandler";
-import { final } from "@decaf-ts/logging";
+import { final, Logger } from "@decaf-ts/logging";
 import {
-  type ContextOf,
+  ContextualizedArgs,
+  MaybeContextualArg,
+} from "../utils/ContextualLoggedClass";
+import { Adapter } from "../persistence/Adapter";
+import { Context } from "../persistence/Context";
+import { PersistenceKeys } from "../persistence/constants";
+import { ObserverHandler } from "../persistence/ObserverHandler";
+import { QueryError } from "../query/errors";
+import type { DirectionLimitOffset, QueryOptions } from "../query/types";
+import { OrderBySelector, SelectSelector } from "../query/selectors";
+import { WhereOption } from "../query/options";
+import { Condition } from "../query/Condition";
+import { Queriable } from "../interfaces/Queriable";
+import { SequenceOptions } from "../interfaces/SequenceOptions";
+import { OrderDirection } from "./constants";
+import type {
+  ContextOf,
   EventIds,
-  type FlagsOf,
-  type InferredAdapterConfig,
-  type ObserverFilter,
+  FlagsOf,
+  InferredAdapterConfig,
+  ObserverFilter,
   PersistenceObservable,
   PersistenceObserver,
 } from "../persistence/types";
+import type { FlagsOf as ContextualFlagsOf } from "@decaf-ts/db-decorators";
+import type { Observer } from "../interfaces/Observer";
 import {
   Constructor,
   DecorationKeys,
@@ -40,14 +48,10 @@ import {
   Metadata,
   uses,
 } from "@decaf-ts/decoration";
-import type { Logger } from "@decaf-ts/logging";
-import type {
-  ContextualizedArgs,
-  MaybeContextualArg,
-} from "../utils/ContextualLoggedClass";
-import { QueryError } from "../query/errors";
-import { type QueryOptions } from "../query/types";
+import { Model } from "@decaf-ts/decorator-validation";
 import { prepared } from "../query/decorators";
+import { PreparedStatementKeys } from "../query/constants";
+import { Paginator, SerializedPage } from "../query/index";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.
@@ -137,7 +141,17 @@ export class Repository<
 
   private readonly _adapter!: A;
   private _tableName!: string;
-  protected _overrides?: Partial<FlagsOf<A>>;
+
+  protected _overrides: Partial<FlagsOf<ContextOf<A>>> &
+    Partial<ContextualFlagsOf<ContextOf<A>>> = {
+    allowGenerationOverride: false,
+    allowRawStatements: true,
+    forcePrepareSimpleQueries: false,
+    forcePrepareComplexQueries: false,
+    ignoreDevSafeGuards: false,
+    mergeForUpdate: true,
+    applyUpdateValidation: true,
+  } as any;
 
   private logger!: Logger;
 
@@ -202,16 +216,22 @@ export class Repository<
         }
       }
     }
-    [this.createAll, this.readAll, this.updateAll, this.deleteAll].forEach(
-      (m) => {
-        const name = m.name;
-        wrapMethodWithContext(
-          this,
-          (this as any)[name + "Prefix"],
-          m,
-          (this as any)[name + "Suffix"]
-        );
-      }
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
+    [this.createAll, this.readAll, this.deleteAll].forEach((m) => {
+      const name = m.name;
+      wrapMethodWithContext(
+        self,
+        (self as any)[name + "Prefix"],
+        m,
+        (self as any)[name + "Suffix"]
+      );
+    });
+    wrapMethodWithContextForUpdate(
+      self,
+      (self as any)[this.updateAll.name + "Prefix"],
+      this.updateAll,
+      (self as any)[this.updateAll.name + "Suffix"]
     );
   }
 
@@ -228,7 +248,7 @@ export class Repository<
    * @param {Partial<F>} flags - The flags to override.
    * @return {Repository} A proxy of this repository with overridden flags.
    */
-  override(flags: Partial<FlagsOf<A>>): this {
+  override(flags: Partial<FlagsOf<ContextOf<A>>>): this {
     return new Proxy(this, {
       get: (target: typeof this, p: string | symbol, receiver: any) => {
         const result = Reflect.get(target, p, receiver);
@@ -291,11 +311,10 @@ export class Repository<
       this.adapter,
       this._overrides || {}
     );
-    const shouldRunHandlers =
-      contextArgs.context.get("ignoreHandlers") !== false;
-    const shouldValidate = !contextArgs.context.get("ignoreValidation");
+    const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
+    const ignoreValidate = contextArgs.context.get("ignoreValidation");
     model = new this.class(model);
-    if (shouldRunHandlers)
+    if (!ignoreHandlers)
       await enforceDBDecorators<M, Repository<M, A>, any>(
         this,
         contextArgs.context,
@@ -304,7 +323,7 @@ export class Repository<
         OperationKeys.ON
       );
 
-    if (shouldValidate) {
+    if (!ignoreValidate) {
       const errors = await Promise.resolve(
         model.hasErrors(
           ...(contextArgs.context.get("ignoredValidationProperties") || [])
@@ -335,17 +354,6 @@ export class Repository<
     let { record, id, transient } = this.adapter.prepare(model, ctx);
     record = await this.adapter.create(this.class, id, record, ...ctxArgs);
     return this.adapter.revert<M>(record, this.class, id, transient, ctx);
-  }
-
-  /**
-   * @description Post-creation hook.
-   * @summary Executes after a model is created to perform additional operations.
-   * @param {M} model - The created model.
-   * @param {C} context - The operation context.
-   * @return {Promise<M>} The processed model.
-   */
-  override async createSuffix(model: M, context: ContextOf<A>): Promise<M> {
-    return super.createSuffix(model, context);
   }
 
   /**
@@ -404,18 +412,17 @@ export class Repository<
       this.adapter,
       this._overrides || {}
     );
-    const shouldRunHandlers =
-      contextArgs.context.get("ignoreHandlers") !== false;
-    const shouldValidate = !contextArgs.context.get("ignoreValidation");
+    const ignoreHandlers = contextArgs.context.get("ignoreHandlers");
+    const ignoreValidate = contextArgs.context.get("ignoreValidation");
     if (!models.length) return [models, ...contextArgs.args];
     const opts = Model.sequenceFor(models[0]);
     let ids: (string | number | bigint | undefined)[] = [];
-    if (opts.type) {
+    if (Model.generatedBySequence(this.class)) {
       if (!opts.name) opts.name = Model.sequenceName(models[0], "pk");
       ids = await (
         await this.adapter.Sequence(opts)
       ).range(models.length, ...contextArgs.args);
-    } else {
+    } else if (!Model.generated(this.class, this.pk)) {
       ids = models.map((m, i) => {
         if (typeof m[this.pk] === "undefined")
           throw new InternalError(
@@ -423,6 +430,8 @@ export class Repository<
           );
         return m[this.pk] as string;
       });
+    } else {
+      // do nothing. The pk is tagged as generated, so it'll be handled by some other decorator
     }
 
     models = await Promise.all(
@@ -438,7 +447,7 @@ export class Repository<
           ) as M[keyof M];
         }
 
-        if (shouldRunHandlers)
+        if (!ignoreHandlers)
           await enforceDBDecorators<M, Repository<M, A>, any>(
             this,
             contextArgs.context,
@@ -450,7 +459,7 @@ export class Repository<
       })
     );
 
-    if (shouldValidate) {
+    if (!ignoreValidate) {
       const ignoredProps =
         contextArgs.context.get("ignoredValidationProperties") || [];
 
@@ -604,7 +613,7 @@ export class Repository<
   protected override async updatePrefix(
     model: M,
     ...args: MaybeContextualArg<ContextOf<A>>
-  ): Promise<[M, ...args: any[], ContextOf<A>]> {
+  ): Promise<[M, ...args: any[], ContextOf<A>, M | undefined]> {
     const contextArgs = await Context.args(
       OperationKeys.UPDATE,
       this.class,
@@ -612,17 +621,22 @@ export class Repository<
       this.adapter,
       this._overrides || {}
     );
-    const shouldRunHandlers =
-      contextArgs.context.get("ignoreHandlers") !== false;
-    const shouldValidate = !contextArgs.context.get("ignoreValidation");
+    const ctx = contextArgs.context;
+    const ignoreHandlers = ctx.get("ignoreHandlers");
+    const ignoreValidate = ctx.get("ignoreValidation");
     const pk = model[this.pk] as string;
     if (!pk)
       throw new InternalError(
         `No value for the Id is defined under the property ${this.pk as string}`
       );
-    const oldModel = await this.read(pk, ...contextArgs.args);
-    model = Model.merge(oldModel, model, this.class);
-    if (shouldRunHandlers)
+    let oldModel: M | undefined;
+    if (ctx.get("applyUpdateValidation")) {
+      oldModel = await this.read(pk as string, ctx);
+      if (ctx.get("mergeForUpdate"))
+        model = Model.merge(oldModel, model, this.class);
+    }
+
+    if (!ignoreHandlers)
       await enforceDBDecorators(
         this,
         contextArgs.context,
@@ -632,17 +646,16 @@ export class Repository<
         oldModel
       );
 
-    if (shouldValidate) {
+    if (!ignoreValidate) {
       const errors = await Promise.resolve(
         model.hasErrors(
           oldModel,
-          ...Model.relations(this.class),
           ...(contextArgs.context.get("ignoredValidationProperties") || [])
         )
       );
       if (errors) throw new ValidationError(errors.toString());
     }
-    return [model, ...contextArgs.args];
+    return [model, ...contextArgs.args, oldModel];
   }
 
   /**
@@ -691,7 +704,7 @@ export class Repository<
   protected override async updateAllPrefix(
     models: M[],
     ...args: MaybeContextualArg<ContextOf<A>>
-  ): Promise<[M[], ...args: any[], ContextOf<A>]> {
+  ): Promise<[M[], ...args: any[], ContextOf<A>, M[] | undefined]> {
     const contextArgs = await Context.args<M, ContextOf<A>>(
       OperationKeys.UPDATE,
       this.class,
@@ -699,20 +712,26 @@ export class Repository<
       this.adapter,
       this._overrides || {}
     );
-    const shouldRunHandlers =
-      contextArgs.context.get("ignoreHandlers") !== false;
-    const shouldValidate = !contextArgs.context.get("ignoreValidation");
+
+    const context = contextArgs.context;
+
+    const ignoreHandlers = context.get("ignoreHandlers");
+    const ignoreValidate = context.get("ignoreValidation");
     const ids = models.map((m) => {
       const id = m[this.pk] as string;
       if (!id) throw new InternalError("missing id on update operation");
       return id;
     });
-    const oldModels = await this.readAll(ids, ...contextArgs.args);
-    models = models.map((m, i) => {
-      m = Model.merge(oldModels[i], m, this.class);
-      return m;
-    });
-    if (shouldRunHandlers)
+    let oldModels: M[] | undefined;
+    if (context.get("applyUpdateValidation")) {
+      oldModels = await this.readAll(ids as string[], context);
+      if (context.get("mergeForUpdate"))
+        models = models.map((m, i) =>
+          Model.merge((oldModels as any)[i], m, this.class)
+        );
+    }
+
+    if (!ignoreHandlers)
       await Promise.all(
         models.map((m, i) =>
           enforceDBDecorators<M, Repository<M, A>, any>(
@@ -721,26 +740,33 @@ export class Repository<
             m,
             OperationKeys.UPDATE,
             OperationKeys.ON,
-            oldModels[i]
+            oldModels ? oldModels[i] : undefined
           )
         )
       );
 
-    if (shouldValidate) {
-      const ignoredProps =
-        contextArgs.context.get("ignoredValidationProperties") || [];
+    if (!ignoreValidate) {
+      const ignoredProps = context.get("ignoredValidationProperties") || [];
+      let modelsValidation: any;
+      if (!context.get("applyUpdateValidation")) {
+        modelsValidation = await Promise.resolve(
+          models.map((m) => m.hasErrors(...ignoredProps))
+        );
+      } else {
+        modelsValidation = await Promise.all(
+          models.map((m, i) =>
+            Promise.resolve(
+              m.hasErrors((oldModels as any)[i] as any, ...ignoredProps)
+            )
+          )
+        );
+      }
 
-      const errors = await Promise.all(
-        models.map((m, i) =>
-          Promise.resolve(m.hasErrors(oldModels[i], m, ...ignoredProps))
-        )
-      );
-
-      const errorMessages = reduceErrorsToPrint(errors);
+      const errorMessages = reduceErrorsToPrint(modelsValidation);
 
       if (errorMessages) throw new ValidationError(errorMessages);
     }
-    return [models, ...contextArgs.args];
+    return [models, ...contextArgs.args, oldModels];
   }
 
   /**
@@ -879,7 +905,7 @@ export class Repository<
     selector?: readonly [...S]
   ): WhereOption<M, M[]> | WhereOption<M, Pick<M, S[number]>[]> {
     return this.adapter
-      .Statement<M>()
+      .Statement<M>(this._overrides)
       .select(selector as readonly [...S])
       .from(this.class);
   }
@@ -899,13 +925,22 @@ export class Repository<
     orderBy: keyof M,
     order: OrderDirection = OrderDirection.ASC,
     limit?: number,
-    skip?: number
+    skip?: number,
+    ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<M[]> {
+    const contextArgs = await Context.args<M, ContextOf<A>>(
+      PersistenceKeys.QUERY,
+      this.class,
+      args,
+      this.adapter,
+      this._overrides || {}
+    );
+    const { ctx } = this.logCtx(contextArgs.args, this.query);
     const sort: OrderBySelector<M> = [orderBy, order as OrderDirection];
     const query = this.select().where(condition).orderBy(sort);
     if (limit) query.limit(limit);
     if (skip) query.offset(skip);
-    return query.execute();
+    return query.execute(ctx);
   }
 
   @prepared()
@@ -915,7 +950,7 @@ export class Repository<
     ...args: MaybeContextualArg<ContextOf<A>>
   ) {
     const contextArgs = await Context.args<M, ContextOf<A>>(
-      "list",
+      PreparedStatementKeys.LIST_BY,
       this.class,
       args,
       this.adapter,
@@ -934,11 +969,18 @@ export class Repository<
   async paginateBy(
     key: keyof M,
     order: OrderDirection,
-    size: number,
+    ref: Omit<DirectionLimitOffset, "direction"> = {
+      offset: 1,
+      limit: 10,
+    },
     ...args: MaybeContextualArg<ContextOf<A>>
-  ) {
+  ): Promise<SerializedPage<M>> {
+    // eslint-disable-next-line prefer-const
+    let { offset, bookmark, limit } = ref;
+    if (!offset && !bookmark)
+      throw new QueryError(`PaginateBy needs a page or a bookmark`);
     const contextArgs = await Context.args<M, ContextOf<A>>(
-      "paginateBy",
+      PreparedStatementKeys.PAGE_BY,
       this.class,
       args,
       this.adapter,
@@ -946,11 +988,33 @@ export class Repository<
     );
     const { log, ctxArgs } = this.logCtx(contextArgs.args, this.paginateBy);
     log.verbose(
-      `paginating ${Model.tableName(this.class)} with page size ${size}`
+      `paginating ${Model.tableName(this.class)} with page size ${limit}`
     );
-    return this.select()
-      .orderBy([key, order])
-      .paginate(size, ...ctxArgs);
+
+    let paginator: Paginator<M>;
+    if (bookmark) {
+      paginator = await this.override({
+        forcePrepareComplexQueries: false,
+        forcePrepareSimpleQueries: false,
+      } as any)
+        .select()
+        .where(this.attr(Model.pk(this.class)).gt(bookmark))
+        .orderBy([key, order])
+        .paginate(limit as number, ...ctxArgs);
+      offset = 1;
+    } else if (offset) {
+      paginator = await this.override({
+        forcePrepareComplexQueries: false,
+        forcePrepareSimpleQueries: false,
+      } as any)
+        .select()
+        .orderBy([key, order])
+        .paginate(limit as number, ...ctxArgs);
+    } else {
+      throw new QueryError(`PaginateBy needs a page or a bookmark`);
+    }
+    const paged = await paginator.page(offset, ...ctxArgs);
+    return paginator.serialize(paged) as SerializedPage<M>;
   }
 
   @prepared()
@@ -960,13 +1024,38 @@ export class Repository<
     ...args: MaybeContextualArg<ContextOf<A>>
   ) {
     const contextArgs = await Context.args<M, ContextOf<A>>(
-      "findOneBy",
+      PreparedStatementKeys.FIND_ONE_BY,
       this.class,
       args,
       this.adapter,
       this._overrides || {}
     );
     const { log, ctxArgs } = this.logCtx(contextArgs.args, this.findOneBy);
+    log.verbose(
+      `finding ${Model.tableName(this.class)} with ${key as string} ${value}`
+    );
+    const result = await this.select()
+      .where(this.attr(key).eq(value))
+      .limit(1)
+      .execute(...ctxArgs);
+    if (!result.length) throw new NotFoundError(`No results found`);
+    return result[0];
+  }
+
+  @prepared()
+  async findBy(
+    key: keyof M,
+    value: any,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ) {
+    const contextArgs = await Context.args<M, ContextOf<A>>(
+      PreparedStatementKeys.FIND_BY,
+      this.class,
+      args,
+      this.adapter,
+      this._overrides || {}
+    );
+    const { log, ctxArgs } = this.logCtx(contextArgs.args, this.findBy);
     log.verbose(
       `finding ${Model.tableName(this.class)} with ${key as string} ${value}`
     );
@@ -979,7 +1068,7 @@ export class Repository<
     if (!Repository.statements(this, name as keyof typeof this))
       throw new QueryError(`Invalid prepared statement requested ${name}`);
     const contextArgs = await Context.args<M, ContextOf<A>>(
-      "statement",
+      PersistenceKeys.STATEMENT,
       this.class,
       args,
       this.adapter,
@@ -1236,6 +1325,7 @@ export class Repository<
     );
     return (method ? meta : Object.keys(meta)) || false;
   }
+
   static queries<R extends Repository<any, any>, K extends keyof R>(
     repo: Constructor<R> | R,
     method?: K

@@ -1,53 +1,31 @@
 import { Constructor, Metadata } from "@decaf-ts/decoration";
-import { Model } from "@decaf-ts/decorator-validation";
+import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
 import { DBKeys, InternalError, OperationKeys } from "@decaf-ts/db-decorators";
-import {
-  Adapter,
-  type Migration,
-  PersistenceKeys,
-  UnsupportedError,
-} from "../persistence/index";
+import { Adapter } from "../persistence/Adapter";
+
+import { PersistenceKeys } from "../persistence/constants";
+import { UnsupportedError } from "../persistence/errors";
 import { type ExtendedRelationsMetadata } from "../model";
-import { SequenceOptions } from "../interfaces/index";
-import { IndexMetadata, Repository } from "../repository/index";
+import { SequenceOptions } from "../interfaces/SequenceOptions";
+import { IndexMetadata } from "../repository/types";
+import { Repository } from "../repository/Repository";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import { Service } from "../utils/Services";
+import type { Migration } from "../persistence/types";
 
-(Metadata as any).validationExceptions = function <M extends Model>(
-  this: Metadata,
-  model: Constructor<M>,
-  op: OperationKeys
-): string[] {
-  const noValidation: Record<string, OperationKeys[]> | undefined =
-    Metadata.get(model, PersistenceKeys.NO_VALIDATE);
-  if (!noValidation) return [];
-
-  return Object.entries(noValidation)
+(Metadata as any).validationExceptions = function validationExceptions<
+  M extends Model,
+>(this: Metadata, model: Constructor<M>, op: OperationKeys): string[] {
+  const noValidation: string[] =
+    Metadata.get(model, PersistenceKeys.NO_VALIDATE) || [];
+  const novalidationEntries = Object.entries(noValidation)
     .filter(([, val]) => val.includes(op))
     .map(([key]) => key);
+  let nestedRels: string[] = [];
+  if (op === OperationKeys.CREATE || op === OperationKeys.UPDATE)
+    nestedRels = Model.nestedRelations(model);
+  return [...new Set([...novalidationEntries, ...nestedRels])];
 }.bind(Metadata);
-
-(Model as any).shouldValidateNestedHandler = function <M extends Model>(
-  model: M,
-  property: keyof M
-): boolean {
-  const metadata: any = Metadata.get(model.constructor as Constructor<M>);
-  if (!metadata) return false;
-  const relations = metadata[PersistenceKeys.RELATIONS];
-  const relation = metadata[PersistenceKeys.RELATION];
-  if (Array.isArray(relations) && relations?.includes(property)) {
-    const relationName = Object.keys(relation)[0];
-    const relationClassName = Model.isPropertyModel(model, property as string);
-
-    return (
-      relation[relationName]?.class !== relationClassName
-      // TODO: Revisit this
-      // ||
-      // relation[relationName]?.populate !== false
-    );
-  }
-  return true;
-}.bind(Model);
 
 (Metadata as any).migrationsFor = function <
   A extends Adapter<any, any, any, any>,
@@ -88,6 +66,77 @@ import { Service } from "../utils/Services";
     ) || []
   );
 };
+
+(Model as any).nestedRelations = function <M extends Model>(
+  model: Constructor<M> | M,
+  existingRelations: string[] = []
+): string[] | ExtendedRelationsMetadata {
+  let inner: string[] = [];
+  const rels = Metadata.get(model as Constructor<M>, PersistenceKeys.RELATIONS);
+  if (!rels || !Object.keys(rels).length)
+    return [...new Set([...existingRelations])];
+  for (const prop in rels) {
+    const relationMeta = rels[prop] as any;
+    if (relationMeta?.class && Model.relations(relationMeta.class)) {
+      const innerModelRels = Model.relations(relationMeta.class) as string[];
+      const innerModelDotRels = innerModelRels.map((r) => `${prop}.${r}`);
+      existingRelations = [
+        ...existingRelations,
+        ...innerModelDotRels,
+      ];
+      inner = Model.nestedRelations(relationMeta.class, existingRelations);
+    }
+  }
+  return [...new Set([...existingRelations, ...inner])];
+};
+
+(Model as any).generated = function generated<M extends Model>(
+  model: M | Constructor<M>,
+  prop: keyof M
+): boolean | string {
+  return !!Metadata.get(
+    typeof model !== "function" ? (model.constructor as any) : model,
+    Metadata.key(PersistenceKeys.GENERATED, prop as string)
+  );
+}.bind(Metadata);
+
+(Model as any).generatedBySequence = function generatedBySequence<
+  M extends Model,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+>(model: M | Constructor<M>, prop?: keyof M): boolean {
+  const constr =
+    typeof model !== "function" ? (model.constructor as any) : model;
+  const seq = Model.sequenceFor(constr);
+  return !!seq.generated;
+}.bind(Metadata);
+
+(Metadata as any).createdBy = function createdBy<M extends Model>(
+  model: M | Constructor<M>
+): keyof M {
+  const meta = Metadata.get(
+    typeof model !== "function" ? (model.constructor as any) : model,
+    PersistenceKeys.CREATED_BY
+  );
+  if (!meta)
+    throw new InternalError(
+      `No createdBy metadata found for model. did you use @createdBy()?`
+    );
+  return meta;
+}.bind(Metadata);
+
+(Metadata as any).updatedBy = function updatedBy<M extends Model>(
+  model: M | Constructor<M>
+): keyof M {
+  const meta = Metadata.get(
+    typeof model !== "function" ? (model.constructor as any) : model,
+    PersistenceKeys.UPDATED_BY
+  );
+  if (!meta)
+    throw new InternalError(
+      `No updatedBy metadata found for model. did you use @updatedBy()?`
+    );
+  return meta;
+}.bind(Metadata);
 
 (Model as any).tableName = function <M extends Model>(
   model: Constructor<M> | M

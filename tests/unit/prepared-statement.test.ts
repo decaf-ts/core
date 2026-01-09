@@ -68,19 +68,26 @@ describe("prepared statements", () => {
 
     expect(res1).toEqual(res2);
 
-    const res11 = await repo.paginateBy("attr1", OrderDirection.DSC, 5);
+    const res11 = await repo.paginateBy("attr1", OrderDirection.DSC, {
+      offset: 1,
+      limit: 5,
+    });
 
-    const res22 = await repo.statement("paginateBy", "attr1", "desc", 5);
+    const res22 = await repo.statement("paginateBy", "attr1", "desc", {
+      limit: 5,
+      offset: 1,
+    });
 
     expect(JSON.parse(JSON.stringify(res11))).toEqual(
       JSON.parse(JSON.stringify(res22))
     );
 
-    const page1 = await res11.page();
-    const page11 = await res22.page();
+    const page1 = res11.data;
+    const page11 = res22.data;
 
     expect(page1).toEqual(page11);
   });
+
   it("fails for unprepared statements", async () => {
     const repo: RamRepository<TestBulkModel> = Repository.forModel<
       TestBulkModel,
@@ -89,6 +96,19 @@ describe("prepared statements", () => {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const res1 = await repo.select().execute();
+
+    await expect(repo.statement("select")).rejects.toThrowError(QueryError);
+  });
+
+  it("prepares in the statement itself", async () => {
+    const repo: RamRepository<TestBulkModel> = Repository.forModel<
+      TestBulkModel,
+      RamRepository<TestBulkModel>
+    >(TestBulkModel);
+
+    const prepared = await repo.select().prepare();
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const result = await prepared.execute();
 
     await expect(repo.statement("select")).rejects.toThrowError(QueryError);
   });

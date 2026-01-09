@@ -1,9 +1,8 @@
 import { RawRamQuery } from "./types";
 import { Paginator } from "../query";
 import { Model } from "@decaf-ts/decorator-validation";
-import { Adapter } from "../persistence";
-import { Constructor } from "@decaf-ts/decoration";
-import { Context, OperationKeys } from "@decaf-ts/db-decorators";
+import { Adapter, RawResult } from "../persistence";
+import type { Constructor } from "@decaf-ts/decoration";
 import { MaybeContextualArg } from "../utils/index";
 
 /**
@@ -34,13 +33,13 @@ import { MaybeContextualArg } from "../utils/index";
  * const secondPage = await paginator.page(2);
  * ```
  */
-export class RamPaginator<M extends Model, R> extends Paginator<
+export class RamPaginator<M extends Model> extends Paginator<
   M,
-  R,
+  M[],
   RawRamQuery<M>
 > {
   constructor(
-    adapter: Adapter<any, RawRamQuery<M>, any, any>,
+    adapter: Adapter<any, any, RawRamQuery<M>, any>,
     query: RawRamQuery<M>,
     size: number,
     clazz: Constructor<M>
@@ -69,35 +68,41 @@ export class RamPaginator<M extends Model, R> extends Paginator<
    * @param {number} [page=1] - The page number to retrieve (1-based)
    * @return {Promise<R[]>} A promise that resolves to an array of results for the requested page
    */
-  async page(page: number = 1, ...args: MaybeContextualArg<any>): Promise<R[]> {
-    const contextArgs = await Context.args<M, any>(
-      OperationKeys.READ,
-      this.clazz,
-      args,
-      this.adapter
-    );
+  override async page(
+    page: number = 1,
+    ...args: MaybeContextualArg<any>
+  ): Promise<M[]> {
+    const { ctx, ctxArgs } = this.adapter["logCtx"](args, this.page);
+    if (this.isPreparedStatement()) {
+      return this.pagePrepared(page, ...ctxArgs);
+    }
+
     const statement = this.prepare(this.statement);
+    let results: RawResult<any, any>;
     if (!this._recordCount || !this._totalPages) {
       this._totalPages = this._recordCount = 0;
-      const results: R[] =
-        (await this.adapter.raw(
-          { ...statement, limit: undefined },
-          contextArgs.context
-        )) || [];
-      this._recordCount = results.length;
+      results = await this.adapter.raw<any, false>(
+        { ...statement, limit: undefined },
+        false,
+        ctx
+      );
+      this._recordCount = results.count || results.data.length;
       if (this._recordCount > 0) {
         const size = statement?.limit || this.size;
         this._totalPages = Math.ceil(this._recordCount / size);
       }
+    } else {
+      page = this.validatePage(page);
+      statement.skip = (page - 1) * this.size;
+      results = await this.adapter.raw<any, true>(
+        statement,
+        true,
+        ...args,
+        ctx
+      );
     }
 
-    page = this.validatePage(page);
-    statement.skip = (page - 1) * this.size;
-    const results: any[] = await this.adapter.raw(
-      statement,
-      await this.adapter.context(OperationKeys.READ, {}, this.clazz)
-    );
     this._currentPage = page;
-    return results;
+    return results.data || results;
   }
 }

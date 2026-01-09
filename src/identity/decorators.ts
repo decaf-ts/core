@@ -10,7 +10,7 @@ import {
   onCreate,
   readonly,
 } from "@decaf-ts/db-decorators";
-import { index } from "../model/decorators";
+import { generated, index } from "../model/decorators";
 import type { Sequence } from "../persistence/Sequence";
 import { OrderDirection } from "../repository/constants";
 import {
@@ -20,8 +20,8 @@ import {
   prop,
   propMetadata,
 } from "@decaf-ts/decoration";
-import { ContextOf } from "../persistence/types";
 import { Repository } from "../repository/Repository";
+import { ContextOf } from "../persistence/types";
 const defaultPkPriority = 60; // Default priority for primary key to run latter than other properties
 
 /**
@@ -100,31 +100,31 @@ export async function pkOnCreate<
 export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
   return function pkDec(obj: any, attr: any) {
     prop()(obj, attr);
-    switch (options.type) {
-      case undefined: {
-        const metaType = Metadata.type(obj.constructor, attr);
-        if (
-          ![Number.name, String.name, BigInt.name].includes(
-            metaType?.name || metaType
-          )
+    if (!options.type) {
+      const metaType = Metadata.type(obj.constructor, attr);
+      if (
+        ![Number.name, String.name, BigInt.name].includes(
+          metaType?.name || metaType
         )
-          throw new Error("Incorrrect option type");
-        options.type = metaType;
-        break;
-      }
-
+      )
+        throw new Error("Incorrrect option type");
+      options.type = metaType;
+    }
+    switch (options.type) {
       case String.name || String.name.toLowerCase():
         console.warn(`Deprecated "${options.type}" type in options`);
       // eslint-disable-next-line no-fallthrough
       case String:
-        options.generated = false;
+        options.generated =
+          typeof options.generated === "undefined" ? false : options.generated;
         options.type = String;
         break;
       case Number.name || String.name.toLowerCase():
         console.warn(`Deprecated "${options.type}" type in options`);
       // eslint-disable-next-line no-fallthrough
       case Number:
-        options.generated = true;
+        options.generated =
+          typeof options.generated === "undefined" ? true : options.generated;
         options.type = Number;
         break;
       case BigInt.name || BigInt.name.toLowerCase():
@@ -132,7 +132,8 @@ export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
       // eslint-disable-next-line no-fallthrough
       case BigInt:
         options.type = BigInt;
-        options.generated = true;
+        options.generated =
+          typeof options.generated === "undefined" ? true : options.generated;
         break;
       case "uuid":
       case "serial":
@@ -145,14 +146,15 @@ export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
       options.generated = true;
     }
 
-    return apply(
+    const decs = [
       index([OrderDirection.ASC, OrderDirection.DSC]),
       required(),
       readonly(),
-      // Model.pk neeeds to get the pk property name from the first property of Metatada[DBKeys.ID] ---> { [DBKeys.ID]: { [attr]:options }}
       propMetadata(Metadata.key(DBKeys.ID, attr), options),
-      onCreate(pkOnCreate, options, groupsort)
-    )(obj, attr);
+      onCreate(pkOnCreate, options, groupsort),
+    ];
+    if (options.generated) decs.push(generated());
+    return apply(...decs)(obj, attr);
   };
 }
 
@@ -177,12 +179,12 @@ export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
  * ```
  */
 export function pk(
-  opts: Omit<
-    SequenceOptions,
-    "cycle" | "startWith" | "incrementBy"
-  > = DefaultSequenceOptions
+  opts?: Partial<Omit<SequenceOptions, "cycle" | "startWith" | "incrementBy">>
 ) {
-  opts = Object.assign({}, DefaultSequenceOptions, opts) as SequenceOptions;
+  // We want to handle options.generated in the decorator function
+  const DefaultSequenceOptionsMin = Object.assign({}, DefaultSequenceOptions);
+  delete DefaultSequenceOptionsMin.generated;
+  opts = Object.assign({}, DefaultSequenceOptionsMin, opts) as SequenceOptions;
   return Decoration.for(DBKeys.ID)
     .define({
       decorator: pkDec,

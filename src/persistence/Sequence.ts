@@ -7,7 +7,6 @@ import { UnsupportedError } from "./errors";
 import { Constructor } from "@decaf-ts/decoration";
 import {
   ConflictError,
-  Context,
   InternalError,
   NotFoundError,
   OperationKeys,
@@ -20,6 +19,8 @@ import { Adapter } from "./Adapter";
 import { Repo, Repository } from "../repository/Repository";
 import { SequenceModel } from "../model/SequenceModel";
 import { Serial, UUID } from "./generators";
+import { Context } from "./Context";
+import { MultiLock } from "@decaf-ts/transactional-decorators";
 
 /**
  * @description Abstract base class for sequence generation
@@ -69,6 +70,7 @@ import { Serial, UUID } from "./generators";
  */
 export class Sequence extends ContextualLoggedClass<any> {
   protected repo: Repo<SequenceModel>;
+  protected static readonly lock = new MultiLock();
 
   /**
    * @description Creates a new sequence instance
@@ -103,7 +105,11 @@ export class Sequence extends ContextualLoggedClass<any> {
       const sequence: SequenceModel = await this.repo.read(name as string, ctx);
       return this.parse(sequence.current as string | number);
     } catch (e: any) {
+      const log = ctx.logger.for(this.current);
       if (e instanceof NotFoundError) {
+        log.debug(
+          `Sequence.current missing ${name}, returning startWith=${startWith}`
+        );
         if (typeof startWith === "undefined")
           throw new InternalError(
             "Starting value is not defined for a non existing sequence"
@@ -131,65 +137,87 @@ export class Sequence extends ContextualLoggedClass<any> {
    * @return A promise that resolves to the new sequence value after incrementing
    */
   protected async increment(
-    current: string | number | bigint,
     count: number | undefined,
     ctx: Context<any>
   ): Promise<string | number | bigint> {
+    const log = ctx.logger.for(this.increment);
     const { type, incrementBy, name } = this.options;
-    let next: string | number | bigint;
-    const toIncrementBy = count || incrementBy;
-    if (toIncrementBy % incrementBy !== 0)
-      throw new InternalError(
-        `Value to increment does not consider the incrementBy setting: ${incrementBy}`
-      );
-    const typeName =
-      typeof type === "function" && (type as any)?.name
-        ? (type as any).name
-        : type;
-    switch (typeName) {
-      case Number.name:
-        next = (this.parse(current) as number) + toIncrementBy;
-        break;
-      case BigInt.name:
-        next = (this.parse(current) as bigint) + BigInt(toIncrementBy);
-        break;
-      case String.name:
-        next = this.parse(current);
-        break;
-      case "serial":
-        next = Serial.instance.generate(current as string);
-        break;
-      case "uuid":
-        next = UUID.instance.generate(current as string);
-        break;
-      default:
-        throw new InternalError("Should never happen");
-    }
-    let seq: SequenceModel;
-    // const repo = this.repo.override({
-    //   ignoredValidationProperties: ["updatedAt"],
-    // });
-    try {
-      seq = await this.repo.update(
-        new SequenceModel({ id: name, current: next }),
-        ctx
-      );
-    } catch (e: any) {
-      if (!(e instanceof NotFoundError)) {
-        throw e;
-      }
-      try {
-        seq = await this.repo.create(
-          new SequenceModel({ id: name, current: next }),
-          ctx
-        );
-      } catch (e: unknown) {
-        if (!(e instanceof ConflictError) || type !== "uuid") throw e;
-        return this.increment(current, count, ctx); // retries uuids in case of conflict
-      }
-    }
+    if (!name) throw new InternalError("Sequence name is required");
 
-    return seq.current as string | number | bigint;
+    return Sequence.lock.execute(async () => {
+      const toIncrementBy = count || incrementBy;
+      if (toIncrementBy % incrementBy !== 0)
+        throw new InternalError(
+          `Value to increment does not consider the incrementBy setting: ${incrementBy}`
+        );
+      const typeName =
+        typeof type === "function" && (type as any)?.name
+          ? (type as any).name
+          : type;
+      const currentValue = await this.current(ctx);
+
+      const performUpsert = async (
+        next: string | number | bigint
+      ): Promise<SequenceModel> => {
+        try {
+          return await this.repo.update(
+            new SequenceModel({ id: name, current: next }),
+            ctx
+          );
+        } catch (e: any) {
+          if (e instanceof NotFoundError) {
+            log.debug(
+              `Sequence create ${name} current=${currentValue as any} next=${next as any}`
+            );
+            return this.repo.create(
+              new SequenceModel({ id: name, current: next }),
+              ctx
+            );
+          }
+          throw e;
+        }
+      };
+
+      const incrementSerial = (
+        base: string | number | bigint
+      ): string | number | bigint => {
+        switch (typeName) {
+          case Number.name:
+            return (this.parse(base) as number) + toIncrementBy;
+          case BigInt.name:
+            return (this.parse(base) as bigint) + BigInt(toIncrementBy);
+          case String.name:
+            return this.parse(base);
+          case "serial":
+            return Serial.instance.generate(base as string);
+          default:
+            throw new InternalError("Should never happen");
+        }
+      };
+
+      if (typeName === "uuid") {
+        while (true) {
+          const next = UUID.instance.generate(currentValue as string);
+          try {
+            const result = await performUpsert(next);
+            log.debug(
+              `Sequence uuid increment ${name} current=${currentValue as any} next=${next as any}`
+            );
+            return result.current as string | number | bigint;
+          } catch (e: unknown) {
+            if (e instanceof ConflictError) continue;
+            throw e;
+          }
+        }
+      }
+
+      const next = incrementSerial(currentValue);
+      const seq = await performUpsert(next);
+      log.debug(
+        `Sequence.increment ${name} current=${currentValue as any} next=${next as any}`
+      );
+      return seq.current as string | number | bigint;
+    }, name);
   }
 
   /**
@@ -207,9 +235,8 @@ export class Sequence extends ContextualLoggedClass<any> {
       argz,
       this.adapter
     );
-    const { context, args } = contextArgs;
-    const current = await this.current(...args);
-    return this.increment(current, undefined, context);
+    const { context } = contextArgs;
+    return this.increment(undefined, context);
   }
 
   /**
@@ -230,33 +257,40 @@ export class Sequence extends ContextualLoggedClass<any> {
       argz,
       this.adapter
     );
-    const { context, args } = contextArgs;
-    const current = (await this.current(...args)) as number;
-    const incrementBy = this.parse(
-      this.options.incrementBy as number
-    ) as number;
-    const next: string | number | bigint = await this.increment(
-      current,
-      (this.parse(count) as number) * incrementBy,
-      context
-    );
-    const range: (number | string | bigint)[] = [];
-    for (let i: number = 1; i <= count; i++) {
-      range.push(current + incrementBy * (this.parse(i) as number));
-    }
+    const { context } = contextArgs;
 
     if (this.options.type === "uuid" || this.options.type === "serial")
-      throw new UnsupportedError(
+      throw new UnsupportedError( // TODO just generate valid uuids/serials
         `type ${this.options.type} is currently not suppported for this adapter`
       );
+
+    const log = context.logger.for(this.range);
+
     const typeName =
       typeof this.options.type === "function" &&
       (this.options.type as any)?.name
         ? (this.options.type as any).name
         : this.options.type;
 
+    const incrementBy = this.parse(
+      this.options.incrementBy as number
+    ) as number;
+    const next: string | number | bigint = await this.increment(
+      (this.parse(count) as number) * incrementBy,
+      context
+    );
+    let range: (number | string | bigint)[] = [];
+    for (let i: number = 0; i <= count - 1; i++) {
+      range.push((next as number) - incrementBy * (this.parse(i) as number));
+    }
+
+    range = range.reverse();
+
     if (range[range.length - 1] !== next && typeName !== "String")
       throw new InternalError("Miscalculation of range");
+
+    log.debug(`Calculated range: ${range.join(", ")}`);
+
     return range;
   }
 

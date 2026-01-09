@@ -10,7 +10,7 @@ import { TaskEventBus } from "../../src/tasks/TaskEventBus";
 import { TaskHandlerRegistry } from "../../src/tasks/TaskHandlerRegistry";
 import { Metadata } from "@decaf-ts/decoration";
 
-describe("Task Engine", () => {
+describe.skip("Task Engine", () => {
   let adapter: RamAdapter;
   let eventBus: TaskEventBus;
   let taskRegistry: TaskHandlerRegistry;

@@ -125,14 +125,12 @@ export abstract class Paginator<
   }
 
   protected async pagePrefix(page?: number, ...args: MaybeContextualArg<any>) {
-    const contextArgs = await Context.args<M, any>(
-      PersistenceKeys.QUERY,
-      this.clazz,
+    const { ctxArgs } = await this.adapter["logCtx"](
       args,
-      this.adapter
+      PersistenceKeys.QUERY,
+      true
     );
-
-    return [page, ...contextArgs.args];
+    return [page, ...ctxArgs];
   }
 
   protected async pagePrepared(

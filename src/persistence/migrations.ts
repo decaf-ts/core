@@ -1,12 +1,10 @@
 import { ContextOf, Migration } from "./types";
 import { Adapter } from "./Adapter";
 import { InternalError } from "@decaf-ts/db-decorators";
-import { LoggedClass } from "@decaf-ts/logging";
 import { PersistenceKeys } from "./constants";
 import { Decoration, Metadata, metadata } from "@decaf-ts/decoration";
 import { MigrationRuleError } from "./errors";
-import { Model } from "@decaf-ts/decorator-validation";
-import { Context } from "./Context";
+import { AbsContextual } from "../utils/ContextualLoggedClass";
 
 export function prefixMethod(
   obj: any,
@@ -43,7 +41,7 @@ export abstract class AbsMigration<
     A extends Adapter<any, any, any, any>,
     QUERYRUNNER = ConnectionForAdapter<A>,
   >
-  extends LoggedClass
+  extends AbsContextual<ContextOf<A>>
   implements Migration<QUERYRUNNER, A>
 {
   transaction = true;
@@ -96,24 +94,21 @@ export abstract class AbsMigration<
         qr = qrOrAdapter;
         qrOrAdapter = this.adapter;
       }
-      const ctx = await Context.args<any, ContextOf<A>>(
-        "migration",
-        Model as any,
+      const { ctx, log } = await this.logCtx(
         [name],
-        qrOrAdapter
+        PersistenceKeys.MIGRATION,
+        true
       );
       const allowed = await this.enforceRules(
         qr,
         qrOrAdapter as A,
-        ctx.context
+        ctx as ContextOf<A>
       );
       if (!allowed) {
-        ctx.context.logger.verbose(
-          `Skipping migration ${this.constructor.name} due to rules`
-        );
+        log.verbose(`Skipping migration ${this.constructor.name} due to rules`);
         throw new MigrationRuleError("Migration skipped for rule enforcement");
       }
-      return [qr, qrOrAdapter, ctx.context];
+      return [qr, qrOrAdapter, ctx as ContextOf<A>];
     }.bind(this);
   }
 

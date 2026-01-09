@@ -4,6 +4,7 @@ import {
   InternalError,
   OperationKeys,
   PrimaryKeyType,
+  ValidationError,
 } from "@decaf-ts/db-decorators";
 import { type Observer } from "../interfaces/Observer";
 import {
@@ -45,6 +46,7 @@ import {
   AbsContextual,
   ContextualArgs,
   ContextualizedArgs,
+  MaybeContextualArg,
 } from "../utils/ContextualLoggedClass";
 import { Paginator } from "../query/Paginator";
 import { PreparedStatement } from "../query/index";
@@ -178,7 +180,7 @@ export abstract class Adapter<
     CONF,
     CONN,
     QUERY,
-    CONTEXT extends Context<AdapterFlags> = Context,
+    CONTEXT extends Context<AdapterFlags> = Context<AdapterFlags>,
   >
   extends AbsContextual<CONTEXT>
   implements
@@ -414,9 +416,9 @@ export abstract class Adapter<
    * @description The context constructor for this adapter
    * @summary Reference to the context class constructor used by this adapter
    */
-  protected override readonly Context: Constructor<CONTEXT> = Context<
-    FlagsOf<CONTEXT>
-  > as unknown as Constructor<CONTEXT>;
+  protected override get Context(): Constructor<CONTEXT> {
+    return Context<FlagsOf<CONTEXT>> as unknown as Constructor<CONTEXT>;
+  }
 
   /**
    * @description Creates a context for a database operation
@@ -440,7 +442,7 @@ export abstract class Adapter<
       | string,
     overrides: Partial<FlagsOf<CONTEXT>>,
     model: Constructor<M> | Constructor<M>[],
-    ...args: any[] | [...any[], Context<any>]
+    ...args: MaybeContextualArg<Context<any>>
   ): Promise<CONTEXT> {
     const log = this.log.for(this.context);
     log.debug(
@@ -606,9 +608,11 @@ export abstract class Adapter<
     model: Record<string, any>[],
     ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
-    if (id.length !== model.length)
-      throw new InternalError("Ids and models must have the same length");
     const { log, ctxArgs } = this.logCtx(args, this.createAll);
+    if (!id || !model)
+      throw new ValidationError("Ids and models cannot be null or undefined");
+    if (id.length !== model.length)
+      throw new ValidationError("Ids and models must have the same length");
     const tableLabel = Model.tableName(clazz);
     log.debug(`Creating ${id.length} entries ${tableLabel} table`);
     return promiseSequence(
@@ -685,9 +689,9 @@ export abstract class Adapter<
     model: Record<string, any>[],
     ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
+    const { log, ctxArgs } = this.logCtx(args, this.updateAll);
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
-    const { log, ctxArgs } = this.logCtx(args, this.updateAll);
     const tableLabel = Model.tableName(clazz);
     log.debug(`Updating ${id.length} entries ${tableLabel} table`);
     return promiseSequence(
@@ -724,10 +728,7 @@ export abstract class Adapter<
     id: PrimaryKeyType[],
     ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
-    const { log, ctxArgs } = Adapter.logCtx<CONTEXT, ContextualArgs<CONTEXT>>(
-      args,
-      this.deleteAll
-    );
+    const { log, ctxArgs } = this.logCtx(args, this.deleteAll);
     log.debug(`Deleting ${id.length} entries from ${tableName} table`);
     return promiseSequence(
       id.map((i) => () => this.delete(tableName, i, ...ctxArgs))
@@ -812,10 +813,7 @@ export abstract class Adapter<
       throw new InternalError(
         "ObserverHandler not initialized. Did you register any observables?"
       );
-    const { log, ctxArgs } = Adapter.logCtx<CONTEXT, ContextualArgs<CONTEXT>>(
-      args,
-      this.updateObservers
-    );
+    const { log, ctxArgs } = this.logCtx(args, this.updateObservers);
 
     log.verbose(
       `Updating ${this.observerHandler.count()} observers for adapter ${this.alias}: Event: `
@@ -838,7 +836,8 @@ export abstract class Adapter<
     id: EventIds,
     ...args: ContextualArgs<CONTEXT>
   ) {
-    return this.updateObservers(table, event, id, ...args);
+    const { ctxArgs } = this.logCtx(args, this.refresh);
+    return this.updateObservers(table, event, id, ...ctxArgs);
   }
 
   /**
@@ -925,35 +924,6 @@ export abstract class Adapter<
 
   static decoration(): void {}
 
-  /**
-   * @description retrieves the context from args and returns it, the logger and the args (with context at the end)
-   * @summary NOTE: if the last argument was a context, this removes the context from the arg list
-   * @param args
-   * @param method
-   */
-  static override logCtx<
-    CONTEXT extends Context<any>,
-    ARGS extends any[] = any[],
-  >(this: any, args: ARGS, method: string): ContextualizedArgs<CONTEXT, ARGS>;
-  static override logCtx<
-    CONTEXT extends Context<any>,
-    ARGS extends any[] = any[],
-  >(
-    this: any,
-    args: ARGS,
-    method: (...args: any[]) => any
-  ): ContextualizedArgs<CONTEXT, ARGS>;
-  static override logCtx<
-    CONTEXT extends Context<any>,
-    ARGS extends any[] = any[],
-  >(
-    this: any,
-    args: ARGS,
-    method: ((...args: any[]) => any) | string
-  ): ContextualizedArgs<CONTEXT, ARGS> {
-    return super.logCtx<CONTEXT, ARGS>(args, method as any);
-  }
-
   protected proxies?: Record<string, typeof this>;
 
   /**
@@ -1015,18 +985,49 @@ export abstract class Adapter<
     return this as unknown as CONN;
   }
 
-  async migrate(...args: [...any[], CONTEXT]): Promise<void>;
+  protected override logCtx<ARGS extends any[] = any[]>(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: ((...args: any[]) => any) | string
+  ): ContextualizedArgs<CONTEXT, ARGS>;
+  protected override logCtx<ARGS extends any[] = any[]>(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: ((...args: any[]) => any) | string,
+    allowCreate: false
+  ): ContextualizedArgs<CONTEXT, ARGS>;
+  protected override logCtx<ARGS extends any[] = any[]>(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: ((...args: any[]) => any) | string,
+    allowCreate: true,
+    overrides?: Partial<FlagsOf<CONTEXT>>
+  ): Promise<ContextualizedArgs<CONTEXT, ARGS>>;
+  protected override logCtx<ARGS extends any[] = any[]>(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: ((...args: any[]) => any) | string,
+    allowCreate: boolean = false,
+    overrides?: Partial<FlagsOf<CONTEXT>>
+  ):
+    | Promise<ContextualizedArgs<CONTEXT, ARGS>>
+    | ContextualizedArgs<CONTEXT, ARGS> {
+    return super.logCtx(args, operation, allowCreate as any, overrides);
+  }
+
+  async migrate(...args: MaybeContextualArg<CONTEXT>): Promise<void>;
   async migrate(
     migrations:
       | Constructor<Migration<any, any>>[]
       | CONTEXT = this.migrations(),
-    ...args: [...any[], CONTEXT]
+    ...args: MaybeContextualArg<CONTEXT>
   ): Promise<void> {
     if (migrations instanceof Context) {
       args = [migrations as unknown as CONTEXT];
       migrations = this.migrations();
     }
-    const { ctx } = Adapter.logCtx<CONTEXT>(args, this.migrate);
+    const { ctx } = Adapter.logCtx<CONTEXT>(
+      this.migrate,
+      undefined,
+      true,
+      ...args
+    );
     const qr = await this.getQueryRunner();
     for (const migration of migrations) {
       try {

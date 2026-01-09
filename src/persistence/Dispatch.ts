@@ -11,7 +11,9 @@ import { AdapterDispatch, ContextOf, EventIds } from "./types";
 import { Constructor } from "@decaf-ts/decoration";
 import {
   ContextualArgs,
+  ContextualizedArgs,
   ContextualLoggedClass,
+  MaybeContextualArg,
 } from "../utils/ContextualLoggedClass";
 
 /**
@@ -64,6 +66,33 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
     super();
   }
 
+  protected override logCtx<ARGS extends any[] = any[]>(
+    args: MaybeContextualArg<ContextOf<A>, ARGS>,
+    operation: ((...args: any[]) => any) | string
+  ): ContextualizedArgs<ContextOf<A>, ARGS>;
+  protected override logCtx<ARGS extends any[] = any[]>(
+    args: MaybeContextualArg<ContextOf<A>, ARGS>,
+    operation: ((...args: any[]) => any) | string,
+    allowCreate: false
+  ): ContextualizedArgs<ContextOf<A>, ARGS>;
+  protected override logCtx<ARGS extends any[] = any[]>(
+    args: MaybeContextualArg<ContextOf<A>, ARGS>,
+    opOrOverrides: ((...args: any[]) => any) | string,
+    allowCreate: true
+  ): Promise<ContextualizedArgs<ContextOf<A>, ARGS>>;
+  protected override logCtx<ARGS extends any[] = any[]>(
+    args: MaybeContextualArg<ContextOf<A>, ARGS>,
+    operation: ((...args: any[]) => any) | string,
+    allowCreate: boolean = false
+  ):
+    | Promise<ContextualizedArgs<ContextOf<A>, ARGS>>
+    | ContextualizedArgs<ContextOf<A>, ARGS> {
+    if (!this.adapter) throw new InternalError("Adapter not set yet");
+    return this.adapter["logCtx"](args, operation, allowCreate as any) as
+      | ContextualizedArgs<ContextOf<A>, ARGS>
+      | Promise<ContextualizedArgs<ContextOf<A>, ARGS>>;
+  }
+
   /**
    * @description Initializes the dispatch by proxying adapter methods
    * @summary Sets up proxies on the adapter's CRUD methods to intercept operations and notify observers.
@@ -100,7 +129,9 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
    *     end
    *   end
    */
-  protected async initialize(): Promise<void> {
+  protected async initialize(
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<void> {
     if (!this.adapter) {
       // Gracefully skip initialization when no adapter is observed yet.
       // Some tests or setups may construct a Dispatch before calling observe().
@@ -110,6 +141,8 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
         .verbose(`No adapter observed for dispatch; skipping initialization`);
       return;
     }
+    const { log } = await this.logCtx(args, this.initialize, true);
+    log.verbose(`Initializing ${this.adapter}'s event Dispatch`);
     const adapter = this.adapter as Adapter<any, any, any, any>;
     (
       [
@@ -236,7 +269,7 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
     model: Constructor<any> | string,
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds,
-    ...args: [...any, ContextOf<A>]
+    ...args: ContextualArgs<ContextOf<A>>
   ): Promise<void> {
     const table = typeof model === "string" ? model : Model.tableName(model);
     const { log, ctxArgs } = this.logCtx(args, this.updateObservers);

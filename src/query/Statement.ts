@@ -143,8 +143,8 @@ export abstract class Statement<
             execArgs = [...execArgs, ctx];
           }
           const { ctx, ctxArgs } = Adapter.logCtx<ContextOf<A>>(
-            execArgs,
-            m.name
+            m.name,
+            ...execArgs
           );
 
           const forceSimple = ctx.get("forcePrepareSimpleQueries");

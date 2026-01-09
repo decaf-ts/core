@@ -7,6 +7,7 @@ import {
 import { Context } from "../persistence/Context";
 import { FlagsOf, LoggerOf } from "../persistence/types";
 import type { Constructor } from "@decaf-ts/decoration";
+import { ModelConstructor } from "@decaf-ts/decorator-validation";
 
 export type ContextualArgs<
   C extends Context<any>,
@@ -30,98 +31,105 @@ export type ContextualizedArgs<
 export abstract class ContextualLoggedClass<
   C extends Context<any>,
 > extends LoggedClass {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  protected logFor(ctx: C, ...args: any[]): LoggerOf<C> {
-    return ctx.logger.for(this) as LoggerOf<C>;
+  protected logFrom(
+    ctx: Context<any>,
+    method?: string | keyof this | ((...args: any[]) => any)
+  ) {
+    return ContextualLoggedClass.logFrom.call(this, ctx, method as any);
   }
-  //
-  // protected logCtx<ARGS extends any[]>(
-  //   args: ARGS,
-  //   method: ((...args: any[]) => any) | string
-  // ): ContextualizedArgs<any, ARGS> {
-  //   return ContextualLoggedClass.logCtx.call(
-  //     this,
-  //     args,
-  //     method as any
-  //   ) as ContextualizedArgs<C, ARGS>;
-  // }
 
-  protected logCtx<CONTEXT extends Context<any>, ARGS extends any[] = any[]>(
-    args: ARGS | [...ARGS, Context<any>],
-    operation: (...args: any[]) => any | string
-  ): ContextualizedArgs<CONTEXT, ARGS>;
-  protected logCtx<CONTEXT extends Context<any>, ARGS extends any[] = any[]>(
-    args: ARGS | [...ARGS, Context<any>],
-    operation: (...args: any[]) => any | string,
-    allowCreate: false
-  ): ContextualizedArgs<CONTEXT, ARGS>;
-  protected logCtx<CONTEXT extends Context<any>, ARGS extends any[] = any[]>(
-    args: ARGS | [...ARGS, Context<any>],
-    operation: (...args: any[]) => any | string,
-    allowCreate: true
-  ): Promise<ContextualizedArgs<CONTEXT, ARGS>>;
   protected logCtx<
-    CONTEXT extends Context<any>,
-    CREATE extends boolean,
+    CONTEXT extends Context<any> = C,
     ARGS extends any[] = any[],
   >(
-    args: ARGS | [...ARGS, Context<any>],
-    operation: (...args: any[]) => any | string,
-    allowCreate: CREATE = false as CREATE
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: ((...args: any[]) => any) | string
+  ): ContextualizedArgs<CONTEXT, ARGS>;
+  protected logCtx<
+    CONTEXT extends Context<any> = C,
+    ARGS extends any[] = any[],
+  >(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: ((...args: any[]) => any) | string,
+    allowCreate: false,
+    overrides?: Partial<FlagsOf<CONTEXT>>
+  ): ContextualizedArgs<CONTEXT, ARGS>;
+  protected logCtx<
+    CONTEXT extends Context<any> = C,
+    ARGS extends any[] = any[],
+  >(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: ((...args: any[]) => any) | string,
+    allowCreate: true,
+    overrides?: Partial<FlagsOf<CONTEXT>>
+  ): Promise<ContextualizedArgs<CONTEXT, ARGS>>;
+  protected logCtx<
+    CONTEXT extends Context<any> = C,
+    CREATE extends boolean = false,
+    ARGS extends any[] = any[],
+  >(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: ((...args: any[]) => any) | string,
+    allowCreate: CREATE = false as CREATE,
+    overrides?: Partial<FlagsOf<CONTEXT>>
   ):
     | Promise<ContextualizedArgs<CONTEXT, ARGS>>
     | ContextualizedArgs<CONTEXT, ARGS> {
     return ContextualLoggedClass.logCtx.call(
       this,
-      operation as any,
-      {} as Partial<FlagsOf<CONTEXT>>,
+      operation,
+      overrides || {},
       allowCreate,
-      ...args
+      ...args.filter((e) => typeof e !== "undefined")
     ) as
       | Promise<ContextualizedArgs<CONTEXT, ARGS>>
       | ContextualizedArgs<CONTEXT, ARGS>;
   }
 
-  protected static logCtx<CONTEXT extends Context<any>, ARGS extends any[]>(
+  static logFrom<CONTEXT extends Context<any>, A = any>(
+    this: A,
+    ctx: CONTEXT,
+    method?: string | keyof A | ((...args: any[]) => any)
+  ) {
+    const log = (
+      (this as unknown as Contextual)["context"]
+        ? ctx.logger.for(this as any)
+        : ctx.logger.clear().for(this as any)
+    ) as LoggerOf<CONTEXT>;
+    return method ? log.for(method as any) : log;
+  }
+
+  static logCtx<CONTEXT extends Context<any>, ARGS extends any[] = any[]>(
     this: any,
-    operation: (...args: any[]) => any | string,
-    ...args: ARGS | [...ARGS, Context<any>]
+    operation: ((...args: any[]) => any) | string,
+    ...args: MaybeContextualArg<CONTEXT, ARGS>
   ): ContextualizedArgs<CONTEXT, ARGS>;
-  protected static logCtx<
+  static logCtx<
     CONTEXT extends Context<any>,
     CREATE extends boolean,
     CONTEXTUAL extends Contextual<CONTEXT> | any,
     ARGS extends any[] = any[],
   >(
     this: CONTEXTUAL,
-    operation: (...args: any[]) => any | string,
+    operation: ((...args: any[]) => any) | string,
     overrides: Partial<FlagsOf<CONTEXT>> | undefined,
     allowCreate: CREATE = false as CREATE,
-    ...args: ARGS | [...ARGS, Context<any>]
+    ...args: MaybeContextualArg<CONTEXT, ARGS>
   ): CREATE extends true
     ? Promise<ContextualizedArgs<CONTEXT, ARGS>>
     : ContextualizedArgs<CONTEXT, ARGS> {
     const bootCtx = async function bootCtx(
       this: CONTEXTUAL,
-      ctx?: Context<any>
+      ...args: MaybeContextualArg<CONTEXT>
     ) {
       if (!this) throw new InternalError("No contextual provided");
       if (!(this as any)["context"])
         throw new InternalError("Invalid contextual provided");
       return (this as unknown as Contextual<CONTEXT>).context(
         typeof operation === "string" ? operation : operation.name,
-        overrides || {},
-        ctx
+        overrides || ({} as Partial<FlagsOf<CONTEXT>>),
+        ...args
       );
-    };
-
-    const confLogger = function (this: CONTEXTUAL, ctx: Context<any>) {
-      const log = (
-        (this as Contextual)["context"]
-          ? ctx.logger.for(this as any).for(operation)
-          : ctx.logger.clear().for(operation)
-      ) as LoggerOf<CONTEXT>;
-      return log;
     };
 
     const ctx: any = args.pop();
@@ -130,16 +138,16 @@ export abstract class ContextualLoggedClass<
       throw new InternalError("No context provided");
     if (hasContext && !allowCreate) {
       return {
-        log: confLogger.call(this, ctx),
+        log: ContextualLoggedClass.logFrom.call(this, ctx),
         ctx: ctx,
         ctxArgs: [...args, ctx],
       } as CREATE extends true
         ? Promise<ContextualizedArgs<CONTEXT, ARGS>>
         : ContextualizedArgs<CONTEXT, ARGS>;
     }
-    return bootCtx.call(this, ctx).then((resp) => {
+    return bootCtx.call(this, ...args, ctx).then((resp) => {
       return {
-        log: confLogger.call(this, resp),
+        log: ContextualLoggedClass.logFrom.call(this, resp),
         ctx: resp,
         ctxArgs: [...args, resp],
       };
@@ -147,39 +155,6 @@ export abstract class ContextualLoggedClass<
       ? Promise<ContextualizedArgs<CONTEXT, ARGS>>
       : ContextualizedArgs<CONTEXT, ARGS>;
   }
-  //
-  // protected static logCtx<CONTEXT extends Context<any>, ARGS extends any[]>(
-  //   this: any,
-  //   args: ARGS,
-  //   method: string
-  // ): ContextualizedArgs<CONTEXT, ARGS>;
-  // protected static logCtx<CONTEXT extends Context<any>, ARGS extends any[]>(
-  //   this: any,
-  //   args: ARGS,
-  //   method: (...args: any[]) => any
-  // ): ContextualizedArgs<CONTEXT, ARGS>;
-  // protected static logCtx<CONTEXT extends Context<any>, ARGS extends any[]>(
-  //   this: any,
-  //   args: ARGS,
-  //   method: ((...args: any[]) => any) | string
-  // ): ContextualizedArgs<CONTEXT, ARGS> {
-  //   if (args.length < 1) throw new InternalError("No context provided");
-  //   const ctx = args.pop() as CONTEXT;
-  //   if (!(ctx instanceof BaseContext))
-  //     throw new InternalError("No context provided");
-  //   if (args.filter((a) => a instanceof BaseContext).length > 1)
-  //     throw new Error("here");
-  //   const log = (
-  //     this
-  //       ? ctx.logger.for(this).for(method)
-  //       : ctx.logger.clear().for(this).for(method)
-  //   ) as LoggerOf<CONTEXT>;
-  //   return {
-  //     ctx: ctx,
-  //     log: method ? (log.for(method) as LoggerOf<CONTEXT>) : log,
-  //     ctxArgs: [...args, ctx],
-  //   };
-  // }
 }
 
 export abstract class AbsContextual<C extends Context<any>>
@@ -194,9 +169,12 @@ export abstract class AbsContextual<C extends Context<any>>
    * @description The context constructor for this adapter
    * @summary Reference to the context class constructor used by this adapter
    */
-  protected readonly Context: Constructor<C> = Context<
+  private readonly _Context: Constructor<C> = Context<
     FlagsOf<C>
   > as unknown as Constructor<C>;
+  protected get Context(): Constructor<C> {
+    return this._Context;
+  }
 
   async context(
     operation:
@@ -207,7 +185,7 @@ export abstract class AbsContextual<C extends Context<any>>
       | OperationKeys.DELETE
       | string,
     overrides: Partial<FlagsOf<C>>,
-    ...args: any[] | [...any[], Context<any>]
+    ...args: MaybeContextualArg<Context<any>, any[]>
   ): Promise<C> {
     const log = this.log.for(this.context);
     log.debug(

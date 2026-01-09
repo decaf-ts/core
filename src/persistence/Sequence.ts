@@ -93,19 +93,12 @@ export class Sequence extends ContextualLoggedClass<any> {
   async current(
     ...args: MaybeContextualArg<any>
   ): Promise<string | number | bigint> {
-    const contextArgs = await Context.args<any, any>(
-      OperationKeys.READ,
-      SequenceModel,
-      args,
-      this.adapter
-    );
-    const ctx = contextArgs.context;
+    const { log, ctx } = await this.logCtx(args, OperationKeys.READ, true);
     const { name, startWith } = this.options;
     try {
       const sequence: SequenceModel = await this.repo.read(name as string, ctx);
       return this.parse(sequence.current as string | number);
     } catch (e: any) {
-      const log = ctx.logger.for(this.current);
       if (e instanceof NotFoundError) {
         log.debug(
           `Sequence.current missing ${name}, returning startWith=${startWith}`
@@ -229,14 +222,8 @@ export class Sequence extends ContextualLoggedClass<any> {
   async next(
     ...argz: MaybeContextualArg<any>
   ): Promise<number | string | bigint> {
-    const contextArgs = await Context.args(
-      OperationKeys.UPDATE,
-      SequenceModel,
-      argz,
-      this.adapter
-    );
-    const { context } = contextArgs;
-    return this.increment(undefined, context);
+    const { ctx } = await this.logCtx(argz, OperationKeys.UPDATE, true);
+    return this.increment(undefined, ctx);
   }
 
   /**
@@ -251,20 +238,12 @@ export class Sequence extends ContextualLoggedClass<any> {
     count: number,
     ...argz: MaybeContextualArg<any>
   ): Promise<(number | string | bigint)[]> {
-    const contextArgs = await Context.args(
-      OperationKeys.UPDATE,
-      SequenceModel,
-      argz,
-      this.adapter
-    );
-    const { context } = contextArgs;
+    const { ctx, log } = await this.logCtx(argz, OperationKeys.UPDATE, true);
 
     if (this.options.type === "uuid" || this.options.type === "serial")
       throw new UnsupportedError( // TODO just generate valid uuids/serials
         `type ${this.options.type} is currently not suppported for this adapter`
       );
-
-    const log = context.logger.for(this.range);
 
     const typeName =
       typeof this.options.type === "function" &&
@@ -277,7 +256,7 @@ export class Sequence extends ContextualLoggedClass<any> {
     ) as number;
     const next: string | number | bigint = await this.increment(
       (this.parse(count) as number) * incrementBy,
-      context
+      ctx
     );
     let range: (number | string | bigint)[] = [];
     for (let i: number = 0; i <= count - 1; i++) {

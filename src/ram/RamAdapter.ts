@@ -33,6 +33,7 @@ import { RamFlavour } from "./constants";
 import type { Constructor } from "@decaf-ts/decoration";
 import { Decoration, Metadata, propMetadata } from "@decaf-ts/decoration";
 import { RamPaginator } from "./RamPaginator";
+import { ContextualArgs } from "../utils/index";
 
 /**
  * @description In-memory adapter for data persistence
@@ -83,8 +84,14 @@ export class RamAdapter extends Adapter<
   RawRamQuery,
   RamContext
 > {
-  constructor(conf: RamConfig = {} as any, alias?: string) {
+  constructor(
+    conf: RamConfig = {
+      lock: new Lock(),
+    } as any,
+    alias?: string
+  ) {
     super(conf, RamFlavour, alias);
+    this.lock = conf.lock;
   }
 
   /**
@@ -129,7 +136,7 @@ export class RamAdapter extends Adapter<
     Record<string | number, Record<string, any>>
   > = {};
 
-  private lock = new Lock();
+  private lock: Lock;
 
   /**
    * @description Indexes models in the RAM adapter
@@ -219,9 +226,9 @@ export class RamAdapter extends Adapter<
     clazz: Constructor<M>,
     id: PrimaryKeyType,
     model: Record<string, any>,
-    ctx: RamContext
+    ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
-    const log = ctx.logger.for(this.create);
+    const { log } = this.logCtx(args, this.create);
     const tableName = Model.tableName(clazz);
     log.debug(`creating record in table ${tableName} with id ${id}`);
     if (!this.client.has(tableName)) this.client.set(tableName, new Map());
@@ -268,9 +275,10 @@ export class RamAdapter extends Adapter<
   async read<M extends Model>(
     clazz: Constructor<M>,
     id: PrimaryKeyType,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ctx: RamContext
   ): Promise<Record<string, any>> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { log } = this.logCtx([ctx], this.read);
     const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
@@ -316,7 +324,7 @@ export class RamAdapter extends Adapter<
     model: Record<string, any>,
     ctx: RamContext
   ): Promise<Record<string, any>> {
-    const log = ctx.logger.for(this.update);
+    const { log } = this.logCtx([ctx], this.update);
     const tableName = Model.tableName(clazz);
     log.debug(`updating record in table ${tableName} with id ${id}`);
 
@@ -368,7 +376,7 @@ export class RamAdapter extends Adapter<
     id: PrimaryKeyType,
     ctx: RamContext
   ): Promise<Record<string, any>> {
-    const log = ctx.logger.for(this.delete);
+    const { log } = this.logCtx([ctx], this.delete);
     const tableName = Model.tableName(clazz);
     log.debug(`deleting record from table ${tableName} with pk ${id}`);
 
@@ -452,7 +460,7 @@ export class RamAdapter extends Adapter<
     docsOnly: D = true as D,
     ctx: RamContext
   ): Promise<RawResult<R, D>> {
-    const log = ctx.logger.for(this.raw);
+    const { log } = this.logCtx([ctx], this.raw);
     log.debug(`performing raw query: ${JSON.stringify(rawInput)}`);
 
     const { where, sort, limit, skip, from } = rawInput;

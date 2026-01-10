@@ -99,7 +99,9 @@ export class RamPaginator<M extends Model> extends Paginator<
     }
 
     this._currentPage = page;
-    this._bookmark = results[results.length - 1][Model.pk(this.clazz)];
+    this._bookmark = results.length
+      ? results[results.length - 1][Model.pk(this.clazz)]
+      : undefined;
     return results.data || results;
   }
 }

@@ -142,7 +142,7 @@ export abstract class Paginator<
     bookmark?: any,
     ...argz: ContextualArgs<any>
   ): Promise<M[]> {
-    const { log } = this.adapter["logCtx"](
+    const { log, ctx, ctxArgs } = this.adapter["logCtx"](
       bookmark && !(bookmark instanceof Context)
         ? [...argz]
         : [bookmark, ...argz],
@@ -189,12 +189,9 @@ export abstract class Paginator<
 
     preparedArgs.push(preparedParams);
 
-    if (argz.find((a) => Array.isArray(a) && a.length === 0))
-      throw new Error("Invalid argument: empty array found");
-
     const result = await repo.statement(
       ...(preparedArgs as [string, any]),
-      ...argz
+      ...ctxArgs
     );
     return this.apply(result);
   }

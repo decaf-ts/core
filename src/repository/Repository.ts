@@ -143,8 +143,7 @@ export class Repository<
   private readonly _adapter!: A;
   private _tableName!: string;
 
-  protected _overrides: Partial<FlagsOf<ContextOf<A>>> &
-    Partial<ContextualFlagsOf<ContextOf<A>>> = {
+  protected _overrides: Partial<FlagsOf<ContextOf<A>>> = {
     allowGenerationOverride: false,
     allowRawStatements: true,
     forcePrepareSimpleQueries: false,

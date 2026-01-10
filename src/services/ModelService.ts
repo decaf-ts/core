@@ -167,7 +167,7 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
   //   order: OrderDirection = OrderDirection.ASC,
   //   limit?: number,
   //   skip?: number,
-  //   ...args: MaybeContextualArg<ContextOfRepository<R>>
+  //   ...args: MaybeContextualArg<ContextOf<R>>
   // ): Promise<M[]> {
   //   const { ctxArgs } = await this.logCtx(args, this.query, true);
   //   return this.repo.query(condition, orderBy, order, limit, skip, ...ctxArgs);

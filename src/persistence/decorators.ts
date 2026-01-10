@@ -7,7 +7,7 @@ import {
   readonly,
 } from "@decaf-ts/db-decorators";
 import { apply, Decoration } from "@decaf-ts/decoration";
-import { ContextOfRepository } from "./types";
+import { ContextOf } from "./types";
 import { Repo } from "../repository/Repository";
 import { UUID } from "./generators";
 
@@ -31,7 +31,7 @@ export async function uuidCreateUpdateHandler<
   R extends Repo<M>,
 >(
   this: R,
-  context: ContextOfRepository<R>,
+  context: ContextOf<R>,
   data: UUIDMetadata,
   key: keyof M,
   model: M

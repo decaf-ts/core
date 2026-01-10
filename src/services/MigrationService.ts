@@ -6,13 +6,14 @@ import { Context } from "../persistence/Context";
 import { PersistenceKeys } from "../persistence/constants";
 import { MigrationError } from "../persistence/errors";
 import { AdapterFlags, ContextOf, FlagsOf } from "../persistence/types";
+
 import {
   ContextualArgs,
   ContextualizedArgs,
   ContextualLoggedClass,
   MaybeContextualArg,
   MethodOrOperation,
-} from "../utils/index";
+} from "../utils/ContextualLoggedClass";
 import { style } from "@decaf-ts/logging";
 import { DefaultFlavour, Metadata } from "@decaf-ts/decoration";
 import { InternalError } from "@decaf-ts/db-decorators";

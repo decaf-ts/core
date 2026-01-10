@@ -391,16 +391,18 @@ export abstract class Adapter<
    */
   protected async flags<M extends Model>(
     operation: OperationKeys | string,
-    model: Constructor<M> | Constructor<M>[],
+    model: Constructor<M> | Constructor<M>[] | undefined,
     flags: Partial<FlagsOf<CONTEXT>>,
     ...args: any[]
   ): Promise<FlagsOf<CONTEXT>> {
     if (typeof model === "string") {
-      throw new Error("Model must be a constructor or array of constructors");
+      throw new InternalError(
+        "Model must be a constructor or array of constructors or undefined. this should be impossible"
+      );
     }
     flags.correlationId =
       flags.correlationId ||
-      `${Model.tableName(Array.isArray(model) ? model[0] : model)}-${operation}-${UUID.instance.generate()}`;
+      `${model ? Model.tableName(Array.isArray(model) ? model[0] : model) + " -" : ""} ${operation}-${UUID.instance.generate()}`;
     const log = (flags.logger || Logging.for(this as any)) as Logger;
     log.setConfig({ correlationId: flags.correlationId });
     return Object.assign({}, DefaultAdapterFlags, flags, {
@@ -420,12 +422,14 @@ export abstract class Adapter<
       writeOperation: operation !== OperationKeys.READ,
       timestamp: new Date(),
       operation: operation,
-      ignoredValidationProperties: Metadata.validationExceptions(
-        Array.isArray(model) && model[0]
-          ? (model[0] as Constructor)
-          : (model as Constructor),
-        operation as any
-      ),
+      ignoredValidationProperties: model
+        ? Metadata.validationExceptions(
+            Array.isArray(model) && model[0]
+              ? (model[0] as Constructor)
+              : (model as Constructor),
+            operation as any
+          )
+        : [],
       logger: log,
     }) as unknown as FlagsOf<CONTEXT>;
   }

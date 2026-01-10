@@ -460,7 +460,7 @@ export class RamAdapter extends Adapter<
     docsOnly: D = true as D,
     ...args: ContextualArgs<RamContext>
   ): Promise<RawResult<R, D>> {
-    const { log } = this.logCtx(args, this.raw);
+    const { log, ctx } = this.logCtx(args, this.raw);
     log.debug(`performing raw query: ${JSON.stringify(rawInput)}`);
 
     const { where, sort, limit, skip, from } = rawInput;
@@ -471,23 +471,20 @@ export class RamAdapter extends Adapter<
     const id = Model.pk(from);
     const props = Metadata.get(from, Metadata.key(DBKeys.ID, id as string));
 
-    // let result: any[] = Array.from(collection.entries()).map(([pk, r]) =>
-    //   this.revert(
-    //     r,
-    //     from,
-    //     Sequence.parseValue(props.type as any, pk as string) as string,
-    //     undefined,
-    //     ctx
-    //   )
-    // );
-
-    let result: any[] = Array.from(collection.entries());
+    let result: any[] = Array.from(collection.entries()).map(([pk, r]) =>
+      this.revert(
+        r,
+        from,
+        Sequence.parseValue(props.type as any, pk as string) as string,
+        undefined,
+        ctx
+      )
+    );
+    if (sort) result = result.sort(sort);
 
     result = where ? result.filter(where) : result;
 
     const count = result.length;
-
-    if (sort) result = result.sort(sort);
 
     if (skip) result = result.slice(skip);
     if (limit) result = result.slice(0, limit);

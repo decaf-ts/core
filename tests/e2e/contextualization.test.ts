@@ -497,10 +497,10 @@ describe("Contextualization", () => {
               break;
             case PreparedStatementKeys.PAGE_BY:
               m = "name";
-              args = [OrderDirection.DSC, { limit: 10, offset: 1 }];
+              args = [OrderDirection.DSC, { limit: 3, offset: 1 }];
               break;
             case PreparedStatementKeys.LIST_BY:
-              m = "version";
+              m = "id";
               args = [OrderDirection.DSC];
               break;
             case PreparedStatementKeys.FIND_ONE_BY:
@@ -562,11 +562,19 @@ describe("Contextualization", () => {
               expect(current).toBeDefined();
               expect(current).toBeInstanceOf(Array);
               expect(current.length).toBe(1);
-              expect(current[0].equals(cachedBulk[0])).toBe(true);
+              expect(current[0].equals(cachedBulk[2])).toBe(true);
               break;
             case PreparedStatementKeys.PAGE_BY:
               expect(current).toBeDefined();
-              expect(current).toBeInstanceOf(Paginator);
+              expect(current).toBeInstanceOf(Object);
+              expect(current).toEqual(
+                expect.objectContaining({
+                  bookmark: undefined,
+                  count: 10,
+                  current: 1,
+                  data: cachedBulk.slice(0, 3).reverse(),
+                })
+              );
               break;
             case PreparedStatementKeys.LIST_BY:
               expect(current).toBeDefined();
@@ -579,13 +587,15 @@ describe("Contextualization", () => {
             case PreparedStatementKeys.FIND_ONE_BY:
               expect(current).toBeDefined();
               expect(current).toBeInstanceOf(TestContextRepoModel);
-              expect(current.equals(cachedBulk[0])).toBe(true);
+              expect(current.equals(cachedBulk[2])).toBe(true);
               break;
             case PersistenceKeys.STATEMENT:
               expect(current).toBeDefined();
               expect(current).toBeInstanceOf(Array);
               expect(current.length).toBe(1);
-              expect(current[0].equals(cachedBulk[4])).toBe(true);
+              expect(
+                current[0].equals(cachedBulk[cachedBulk.length - (4 + 1)])
+              ).toBe(true);
               break;
             case PersistenceKeys.QUERY:
               expect(current).toBeDefined();

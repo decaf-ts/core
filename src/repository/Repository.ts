@@ -1039,11 +1039,9 @@ export class Repository<
     let { offset, bookmark, limit } = ref;
     if (!offset && !bookmark)
       throw new QueryError(`PaginateBy needs a page or a bookmark`);
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      PreparedStatementKeys.PAGE_BY,
-      true
-    );
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.PAGE_BY, true)
+    ).for(this.paginateBy);
     log.verbose(
       `paginating ${Model.tableName(this.class)} with page size ${limit}`
     );

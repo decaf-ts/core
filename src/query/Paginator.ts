@@ -1,7 +1,6 @@
 import { PagingError } from "./errors";
 import {
   Adapter,
-  Context,
   PersistenceKeys,
   prefixMethod,
   UnsupportedError,
@@ -126,10 +125,11 @@ export abstract class Paginator<
 
   protected async pagePrefix(page?: number, ...args: MaybeContextualArg<any>) {
     const { ctxArgs } = await this.adapter["logCtx"](
-      args,
+      [this.clazz, args],
       PersistenceKeys.QUERY,
       true
     );
+    ctxArgs.shift();
     return [page, ...ctxArgs];
   }
 

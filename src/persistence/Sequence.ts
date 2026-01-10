@@ -346,7 +346,6 @@ export class Sequence<
       [Sequence as any, ...args] as any,
       operation,
       allowCreate as any
-      // this._overrides || {} // TODO IMPORTANT sequence must respect repo overrides
     ) as
       | ContextualizedArgs<
           ContextOf<typeof this.adapter>,

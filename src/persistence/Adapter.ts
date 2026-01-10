@@ -52,6 +52,7 @@ import {
 import { Paginator } from "../query/Paginator";
 import { PreparedStatement } from "../query/index";
 import { promiseSequence } from "../utils/utils";
+import { UUID } from "./generators";
 
 const flavourResolver = Decoration["flavourResolver"].bind(Decoration);
 Decoration["flavourResolver"] = (obj: object) => {
@@ -392,12 +393,11 @@ export abstract class Adapter<
     operation: OperationKeys | string,
     model: Constructor<M> | Constructor<M>[],
     flags: Partial<FlagsOf<CONTEXT>>,
-
     ...args: any[]
   ): Promise<FlagsOf<CONTEXT>> {
-    let log = (flags.logger || Logging.for(this as any)) as Logger;
-    if (flags.correlationId)
-      log = log.for({ correlationId: flags.correlationId });
+    const log = (flags.logger || Logging.for(this as any)) as Logger;
+    flags.correlationId =
+      flags.correlationId || `${operation}-${UUID.instance.generate()}`;
 
     return Object.assign({}, DefaultAdapterFlags, flags, {
       affectedTables: (Array.isArray(model) ? model : [model]).map(
@@ -413,7 +413,7 @@ export abstract class Adapter<
           : (model as Constructor),
         operation as any
       ),
-      logger: log,
+      logger: log.for({ correlationId: flags.correlationId }),
     }) as unknown as FlagsOf<CONTEXT>;
   }
 
@@ -465,8 +465,12 @@ export abstract class Adapter<
       overrides as Partial<FlagsOf<CONTEXT>>,
       ...args
     );
-    if (ctx && !(ctx instanceof this.Context))
-      return new this.Context(ctx).accumulate(flags) as any;
+    if (ctx) {
+      return new this.Context(ctx).accumulate({
+        ...flags,
+        parentContext: ctx,
+      }) as any;
+    }
     return new this.Context().accumulate(flags) as any;
   }
 

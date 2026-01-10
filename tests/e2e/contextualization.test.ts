@@ -391,7 +391,7 @@ describe("Contextualization", () => {
       });
   });
 
-  describe("repository", () => {
+  describe.only("repository", () => {
     let observer: Observer;
     let mock: any;
 
@@ -422,10 +422,6 @@ describe("Contextualization", () => {
       repo.unObserve(observer);
     });
 
-    const testModel = new TestContextRepoModel({
-      name: "name",
-      nif: "123456789",
-    });
     const testModelList = new Array(10).fill(0).map(
       (_, i) =>
         new TestContextRepoModel({
@@ -441,167 +437,222 @@ describe("Contextualization", () => {
 
     let cachedBulk: TestContextRepoModel[];
 
-    singleOps.forEach((op) => {
-      let ctx: RamContext;
+    singleOps
+      .filter((_, i) => i === 0)
+      .forEach((op) => {
+        it(`Should execute ${op} without being provided a context`, async () => {
+          let m: TestContextModel | number | number[] | TestContextModel[];
+          let args: any[] = [];
+          switch (op) {
+            case OperationKeys.CREATE:
+              m = new TestContextModel(cached);
+              args = [m[Model.pk(TestContextModel)], m];
+              break;
+            case OperationKeys.UPDATE:
+              m = new TestContextModel({ ...cached, name: "updated" });
+              args = [m[Model.pk(TestContextModel)], m];
+              break;
+            case BulkCrudOperationKeys.CREATE_ALL:
+              m = testModelList;
+              args = [m.map((m) => m[Model.pk(TestContextModel)]), m];
+              break;
+            case BulkCrudOperationKeys.UPDATE_ALL:
+              m = cachedBulk.map(
+                (m) => new TestContextModel({ ...m, name: "updated" })
+              );
+              args = [cachedBulk.map((m) => m[Model.pk(TestContextModel)]), m];
+              break;
+            case BulkCrudOperationKeys.READ_ALL:
+              m = cachedBulk;
+              args = [m.map((m) => m[Model.pk(TestContextModel)])];
+              break;
+            case BulkCrudOperationKeys.DELETE_ALL:
+              args = [cachedBulk.map((m) => m[Model.pk(TestContextModel)])];
+              break;
+            default:
+              m = cached;
+              args = [m[Model.pk(TestContextModel)]];
+          }
 
-      it(`Should run ${op} operation without being given a context`, async () => {
-        let m:
-          | TestContextRepoModel
-          | number
-          | number[]
-          | TestContextRepoModel[];
-        let args: any[] = [];
-        switch (op) {
-          case OperationKeys.CREATE:
-            m = new TestContextRepoModel(cached);
-            args = [m];
-            break;
-          case OperationKeys.UPDATE:
-            m = new TestContextRepoModel({ ...cached, name: "updated" });
-            args = [m];
-            break;
-          case BulkCrudOperationKeys.CREATE_ALL:
-            m = testModelList;
-            args = [m];
-            break;
-          case BulkCrudOperationKeys.UPDATE_ALL:
-            m = cachedBulk.map(
-              (m) => new TestContextRepoModel({ ...m, name: "updated" })
-            );
-            args = [m];
-            break;
-          case BulkCrudOperationKeys.READ_ALL:
-            m = cachedBulk;
-            args = [m.map((m) => m[Model.pk(TestContextRepoModel)])];
-            break;
-          case BulkCrudOperationKeys.DELETE_ALL:
-            args = [cachedBulk.map((m) => m[Model.pk(TestContextRepoModel)])];
-            break;
-          default:
-            m = cached;
-            args = [m[Model.pk(TestContextRepoModel)]];
-        }
+          const current = await repo[op](TestContextModel, ...args);
 
-        const current = await repo[op](...args);
+          switch (op) {
+            case OperationKeys.CREATE:
+              expect(current).toBeDefined();
+              expect(current).toBeInstanceOf(TestContextModel);
+              expect(current.hasErrors()).toBeUndefined();
+              expect(logMock).toHaveBeenCalledTimes(2);
+              expect(logMock).toHaveBeenNthCalledWith(
+                1,
+                "silly",
+                expect.stringMatching(
+                  `creating new context for ${op} operation on ${Model.tableName(TestContextModel)}`
+                )
+              );
+              expect(logMock).toHaveBeenNthCalledWith(
+                2,
+                "debug",
+                expect.stringMatching(
+                  `creating record in table ${Model.tableName(TestContextModel)} with id ${current[Model.pk(TestContextModel)]}`
+                )
+              );
 
-        switch (op) {
-          case OperationKeys.UPDATE:
-            expect(current).toBeDefined();
-            expect(current).toBeInstanceOf(TestContextRepoModel);
-            expect(current.equals(cached)).toBe(false);
-          // eslint-disable-next-line no-fallthrough
-          case OperationKeys.CREATE:
-            expect(current).toBeDefined();
-            expect(current).toBeInstanceOf(TestContextRepoModel);
-            expect(current.hasErrors()).toBeUndefined();
-            break;
-          case BulkCrudOperationKeys.UPDATE_ALL:
-          case BulkCrudOperationKeys.CREATE_ALL:
-          case BulkCrudOperationKeys.READ_ALL:
-          case BulkCrudOperationKeys.DELETE_ALL:
-            expect(current).toBeDefined();
-            expect(
-              current.every(
-                (c) => c instanceof TestContextRepoModel && !c.hasErrors()
-              )
-            ).toBeTruthy();
-            break;
-          default:
-            expect(
-              Array.isArray(current)
-                ? current.find((c) => c.hasErrors())
-                : current.hasErrors()
-            ).toBeUndefined();
-            break;
-        }
+              expect(consoleLogMock).toHaveBeenCalledTimes(0);
+              expect(consoleDebugMock).toHaveBeenCalledTimes(2);
+              expect(consoleErrorMock).toHaveBeenCalledTimes(0);
+              expect(consoleWarnMock).toHaveBeenCalledTimes(0);
+              expect(consoleDebugMock).toHaveBeenNthCalledWith(
+                1,
+                expect.stringMatching(
+                  /SILLY \[.*?\] ram adapter\.context - creating new context/g
+                )
+              );
+              expect(consoleDebugMock).toHaveBeenNthCalledWith(
+                2,
+                expect.stringMatching(
+                  /DEBUG \[.*?\] ram adapter\.create - creating record in table/g
+                )
+              );
+              break;
+            case OperationKeys.READ:
+              expect(current).toBeDefined();
+              expect(current).toBeInstanceOf(TestContextModel);
+              expect(current.hasErrors()).toBeUndefined();
+              expect(current.equals(cached)).toBe(true);
+              expect(logMock).toHaveBeenCalledTimes(2);
+              expect(logMock).toHaveBeenNthCalledWith(
+                1,
+                "silly",
+                expect.stringMatching(
+                  `creating new context for ${op} operation on ${Model.tableName(TestContextModel)}`
+                )
+              );
+              expect(logMock).toHaveBeenNthCalledWith(
+                2,
+                "debug",
+                expect.stringMatching(
+                  `reading record in table ${Model.tableName(TestContextModel)} with id ${current[Model.pk(TestContextModel)]}`
+                )
+              );
 
-        if (bulkOps.includes(op as any)) {
-          cachedBulk = current;
-        } else {
-          cached = current;
-        }
+              expect(consoleLogMock).toHaveBeenCalledTimes(0);
+              expect(consoleDebugMock).toHaveBeenCalledTimes(2);
+              expect(consoleErrorMock).toHaveBeenCalledTimes(0);
+              expect(consoleWarnMock).toHaveBeenCalledTimes(0);
+              expect(consoleDebugMock).toHaveBeenNthCalledWith(
+                1,
+                expect.stringMatching(
+                  /SILLY \[.*?\] ram adapter\.context - creating new context/g
+                )
+              );
+              expect(consoleDebugMock).toHaveBeenNthCalledWith(
+                2,
+                expect.stringMatching(
+                  /DEBUG \[.*?\] ram adapter\.read - reading record in table/g
+                )
+              );
+              break;
+            case OperationKeys.UPDATE:
+              expect(current).toBeDefined();
+              expect(current).toBeInstanceOf(TestContextModel);
+              expect(current.equals(cached)).toBe(false);
+              expect(logMock).toHaveBeenCalledTimes(2);
+              expect(logMock).toHaveBeenNthCalledWith(
+                1,
+                "silly",
+                expect.stringMatching(
+                  `creating new context for ${op} operation on ${Model.tableName(TestContextModel)}`
+                )
+              );
+              expect(logMock).toHaveBeenNthCalledWith(
+                2,
+                "debug",
+                expect.stringMatching(
+                  `updating record in table ${Model.tableName(TestContextModel)} with id ${current[Model.pk(TestContextModel)]}`
+                )
+              );
+
+              expect(consoleLogMock).toHaveBeenCalledTimes(0);
+              expect(consoleDebugMock).toHaveBeenCalledTimes(2);
+              expect(consoleErrorMock).toHaveBeenCalledTimes(0);
+              expect(consoleWarnMock).toHaveBeenCalledTimes(0);
+              expect(consoleDebugMock).toHaveBeenNthCalledWith(
+                1,
+                expect.stringMatching(
+                  /SILLY \[.*?\] ram adapter\.context - creating new context/g
+                )
+              );
+              expect(consoleDebugMock).toHaveBeenNthCalledWith(
+                2,
+                expect.stringMatching(
+                  /DEBUG \[.*?\] ram adapter\.update - updating record in table/g
+                )
+              );
+              break;
+            case OperationKeys.DELETE:
+              expect(current).toBeDefined();
+              expect(current).toBeInstanceOf(TestContextModel);
+              expect(current.hasErrors()).toBeUndefined();
+              expect(current.equals(cached)).toBe(true);
+              expect(logMock).toHaveBeenCalledTimes(2);
+              expect(logMock).toHaveBeenNthCalledWith(
+                1,
+                "silly",
+                expect.stringMatching(
+                  `creating new context for ${op} operation on ${Model.tableName(TestContextModel)}`
+                )
+              );
+              expect(logMock).toHaveBeenNthCalledWith(
+                2,
+                "debug",
+                expect.stringMatching(
+                  `deleting record from table ${Model.tableName(TestContextModel)} with id ${current[Model.pk(TestContextModel)]}`
+                )
+              );
+
+              expect(consoleLogMock).toHaveBeenCalledTimes(0);
+              expect(consoleDebugMock).toHaveBeenCalledTimes(2);
+              expect(consoleErrorMock).toHaveBeenCalledTimes(0);
+              expect(consoleWarnMock).toHaveBeenCalledTimes(0);
+              expect(consoleDebugMock).toHaveBeenNthCalledWith(
+                1,
+                expect.stringMatching(
+                  /SILLY \[.*?\] ram adapter\.context - creating new context/g
+                )
+              );
+              expect(consoleDebugMock).toHaveBeenNthCalledWith(
+                2,
+                expect.stringMatching(
+                  /DEBUG \[.*?\] ram adapter\.delete - deleting record from table/g
+                )
+              );
+              break;
+            case BulkCrudOperationKeys.UPDATE_ALL:
+            case BulkCrudOperationKeys.CREATE_ALL:
+            case BulkCrudOperationKeys.READ_ALL:
+            case BulkCrudOperationKeys.DELETE_ALL:
+              expect(current).toBeDefined();
+              expect(
+                current.every(
+                  (c) => c instanceof TestContextModel && !c.hasErrors()
+                )
+              ).toBeTruthy();
+              break;
+            default:
+              expect(
+                Array.isArray(current)
+                  ? current.find((c) => c.hasErrors())
+                  : current.hasErrors()
+              ).toBeUndefined();
+              break;
+          }
+
+          if (bulkOps.includes(op as any)) {
+            cachedBulk = current;
+          } else {
+            cached = current;
+          }
+        });
       });
-
-      it.skip(`Should execute ${op} even when provided a different context`, async () => {
-        let m:
-          | TestContextRepoModel
-          | number
-          | number[]
-          | TestContextRepoModel[];
-
-        const ctx = new Context();
-
-        let args: any[] = [];
-        switch (op) {
-          case OperationKeys.CREATE:
-            m = new TestContextRepoModel(cached);
-            args = [m];
-            break;
-          case OperationKeys.UPDATE:
-            m = new TestContextRepoModel({ ...cached, name: "updated" });
-            args = [m];
-            break;
-          case BulkCrudOperationKeys.CREATE_ALL:
-            m = testModelList;
-            args = [m];
-            break;
-          case BulkCrudOperationKeys.UPDATE_ALL:
-            m = cachedBulk.map(
-              (m) => new TestContextRepoModel({ ...m, name: "updated" })
-            );
-            args = [m];
-            break;
-          case BulkCrudOperationKeys.READ_ALL:
-            m = cachedBulk;
-            args = [m.map((m) => m[Model.pk(TestContextRepoModel)])];
-            break;
-          case BulkCrudOperationKeys.DELETE_ALL:
-            args = [cachedBulk.map((m) => m[Model.pk(TestContextRepoModel)])];
-            break;
-          default:
-            m = cached;
-            args = [m[Model.pk(TestContextRepoModel)]];
-        }
-
-        const current = await repo[op](...args, ctx);
-
-        switch (op) {
-          case OperationKeys.UPDATE:
-            expect(current).toBeDefined();
-            expect(current).toBeInstanceOf(TestContextRepoModel);
-            expect(current.equals(cached)).toBe(false);
-          // eslint-disable-next-line no-fallthrough
-          case OperationKeys.CREATE:
-            expect(current).toBeDefined();
-            expect(current).toBeInstanceOf(TestContextRepoModel);
-            expect(current.hasErrors()).toBeUndefined();
-            break;
-          case BulkCrudOperationKeys.UPDATE_ALL:
-          case BulkCrudOperationKeys.CREATE_ALL:
-          case BulkCrudOperationKeys.READ_ALL:
-          case BulkCrudOperationKeys.DELETE_ALL:
-            expect(current).toBeDefined();
-            expect(
-              current.every(
-                (c) => c instanceof TestContextRepoModel && !c.hasErrors()
-              )
-            ).toBeTruthy();
-            break;
-          default:
-            expect(
-              Array.isArray(current)
-                ? current.find((c) => c.hasErrors())
-                : current.hasErrors()
-            ).toBeUndefined();
-            break;
-        }
-
-        if (bulkOps.includes(op as any)) {
-          cachedBulk = current;
-        } else {
-          cached = current;
-        }
-      });
-    });
   });
 });

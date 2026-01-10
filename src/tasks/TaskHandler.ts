@@ -2,7 +2,10 @@ import { ITaskHandler } from "./types";
 import { TasksKey } from "./constants";
 import { Metadata } from "@decaf-ts/decoration";
 import { InternalError, wrapMethodWithContext } from "@decaf-ts/db-decorators";
-import { AbsContextual, MaybeContextualArg } from "../utils/index";
+import {
+  AbsContextual,
+  MaybeContextualArg,
+} from "../utils/ContextualLoggedClass";
 import { TaskContext } from "./TaskContext";
 
 export abstract class TaskHandler<I, O>

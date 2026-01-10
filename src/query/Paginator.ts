@@ -8,7 +8,10 @@ import {
 import { Model } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
 import { LoggedClass } from "@decaf-ts/logging";
-import { ContextualArgs, MaybeContextualArg } from "../utils/index";
+import {
+  ContextualArgs,
+  MaybeContextualArg,
+} from "../utils/ContextualLoggedClass";
 import { DirectionLimitOffset, PreparedStatement } from "./types";
 import { PreparedStatementKeys } from "./constants";
 import { Repository } from "../repository/Repository";
@@ -172,6 +175,9 @@ export abstract class Paginator<
     }
 
     preparedArgs.push(preparedParams);
+
+    if (argz.find((a) => Array.isArray(a) && a.length === 0))
+      throw new Error("Invalid argument: empty array found");
 
     const result = await repo.statement(
       ...(preparedArgs as [string, any]),

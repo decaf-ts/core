@@ -1,4 +1,5 @@
-import { ClientBasedService, MaybeContextualArg } from "../utils/index";
+import { MaybeContextualArg } from "../utils/ContextualLoggedClass";
+import { ClientBasedService } from "../services/services";
 import { TaskEngine, TaskEngineConfig } from "./TaskEngine";
 import { Adapter, ContextOf } from "../persistence/index";
 import { InternalError } from "@decaf-ts/db-decorators";

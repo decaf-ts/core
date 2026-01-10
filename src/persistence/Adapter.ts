@@ -400,9 +400,17 @@ export abstract class Adapter<
         "Model must be a constructor or array of constructors or undefined. this should be impossible"
       );
     }
+    const targetModel = Array.isArray(model)
+      ? model.length
+        ? model[0]
+        : undefined
+      : model;
+    const correlationPrefix = targetModel
+      ? `${Model.tableName(targetModel)} - `
+      : "";
     flags.correlationId =
       flags.correlationId ||
-      `${model ? Model.tableName(Array.isArray(model) ? model[0] : model) + " -" : ""} ${operation}-${UUID.instance.generate()}`;
+      `${correlationPrefix}${operation}-${UUID.instance.generate()}`;
     const log = (flags.logger || Logging.for(this as any)) as Logger;
     log.setConfig({ correlationId: flags.correlationId });
     return Object.assign({}, DefaultAdapterFlags, flags, {
@@ -1058,20 +1066,30 @@ export abstract class Adapter<
       args = [migrations as unknown as CONTEXT];
       migrations = this.migrations();
     }
-    const { ctx } = Adapter.logCtx<CONTEXT>(
-      this.migrate,
-      undefined,
-      true,
-      ...args
-    );
+    const { ctxArgs } = this.logCtx(args, PersistenceKeys.MIGRATION);
+    let m: Migration<any, any>;
+
     const qr = await this.getQueryRunner();
     for (const migration of migrations) {
       try {
-        const m = new migration();
-        await m.up(qr, this, ctx);
-        await m.down(qr, this, ctx);
+        m = new migration();
       } catch (e: unknown) {
-        throw new MigrationError(e as Error);
+        throw new InternalError(e);
+      }
+      try {
+        await m.up(qr, this, ...ctxArgs);
+      } catch (e: unknown) {
+        throw new MigrationError(e);
+      }
+      try {
+        await m.migrate(qr, this, ...ctxArgs);
+      } catch (e: unknown) {
+        throw new MigrationError(e);
+      }
+      try {
+        await m.down(qr, this, ...ctxArgs);
+      } catch (e: unknown) {
+        throw new MigrationError(e);
       }
     }
   }

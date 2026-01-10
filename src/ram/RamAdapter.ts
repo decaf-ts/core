@@ -33,7 +33,7 @@ import { RamFlavour } from "./constants";
 import type { Constructor } from "@decaf-ts/decoration";
 import { Decoration, Metadata, propMetadata } from "@decaf-ts/decoration";
 import { RamPaginator } from "./RamPaginator";
-import { ContextualArgs } from "../utils/index";
+import { ContextualArgs } from "../utils/ContextualLoggedClass";
 
 /**
  * @description In-memory adapter for data persistence
@@ -91,7 +91,7 @@ export class RamAdapter extends Adapter<
     alias?: string
   ) {
     super(conf, RamFlavour, alias);
-    this.lock = conf.lock;
+    this.lock = conf.lock || new Lock();
   }
 
   /**

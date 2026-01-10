@@ -1,6 +1,6 @@
 import "@decaf-ts/injectable-decorators";
 import { Repository } from "../repository/Repository";
-import type { Service } from "../utils/Services";
+import type { Service } from "../services/services";
 import { Constructor } from "@decaf-ts/decoration";
 
 declare module "@decaf-ts/injectable-decorators" {

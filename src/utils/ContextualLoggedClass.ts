@@ -1,4 +1,4 @@
-import { LoggedClass, Logger } from "@decaf-ts/logging";
+import { LoggedClass, Logger, Logging } from "@decaf-ts/logging";
 import {
   BulkCrudOperationKeys,
   Contextual,
@@ -180,9 +180,10 @@ export abstract class ContextualLoggedClass<
       ? ContextualizedArgs<CONTEXT, ARGS, true>
       : ContextualizedArgs<CONTEXT, ARGS> => {
       // resp.log = ContextualLoggedClass.logFrom(obj, resp.log, ctx, op) as any;
+      const baseLog = resp.log; // || Logging.get();
       resp.log = obj.context
-        ? resp.log.clear().for(obj) // Reset for Contextuals
-        : resp.log.for(obj);
+        ? baseLog.clear().for(obj) // Reset for Contextuals
+        : baseLog.for(obj);
 
       if (typeof op === "string") {
         (resp as ContextualizedArgs<CONTEXT, ARGS, true>).for = (

@@ -3,7 +3,7 @@ import { Paginator } from "../query";
 import { Model } from "@decaf-ts/decorator-validation";
 import { Adapter, RawResult } from "../persistence";
 import type { Constructor } from "@decaf-ts/decoration";
-import { MaybeContextualArg } from "../utils/index";
+import { MaybeContextualArg } from "../utils/ContextualLoggedClass";
 
 /**
  * @description RAM-specific paginator implementation

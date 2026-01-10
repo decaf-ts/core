@@ -37,7 +37,7 @@ import {
   type ContextualArgs,
   ContextualLoggedClass,
   type MaybeContextualArg,
-} from "../utils/index";
+} from "../utils/ContextualLoggedClass";
 import { DirectionLimitOffset, PreparedStatement, QueryClause } from "./types";
 import { GroupOperator, Operator, PreparedStatementKeys } from "./constants";
 import { OrderDirection } from "../repository/constants";

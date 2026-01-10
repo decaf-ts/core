@@ -10,7 +10,7 @@ import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { IndexMetadata } from "../repository/types";
 import { Repository } from "../repository/Repository";
 import { Injectables } from "@decaf-ts/injectable-decorators";
-import { Service } from "../utils/Services";
+import { Service } from "../services/services";
 import type { Migration } from "../persistence/types";
 import { TaskHandler } from "../tasks/TaskHandler";
 import { TasksKey } from "../tasks/index";

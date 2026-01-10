@@ -39,6 +39,9 @@ export type ContextOf<
       ? ContextOfRepository<OBJ>
       : never;
 
+export type ConfigOf<OBJ extends Adapter<any, any, any, any>> =
+  OBJ extends Adapter<infer C, any, any, any> ? C : never;
+
 export type LoggerOfAdapter<A extends Adapter<any, any, any, any>> =
   A extends Adapter<any, any, any, infer C> ? LoggerOfContext<C> : never;
 
@@ -134,9 +137,25 @@ export interface AdapterDispatch<A extends Adapter<any, any, any, any>>
 }
 
 export interface Migration<QUERYRUNNER, A extends Adapter<any, any, any, any>> {
+  flavour?: string;
+  precedence: Migration<any, any> | Migration<any, any>[] | null;
+  reference: string;
   transaction: boolean;
-  up(qr: QUERYRUNNER, adapter?: A, ctx?: ContextOf<A>): Promise<void>;
-  down(qr: QUERYRUNNER, adapter?: A, ctx?: ContextOf<A>): Promise<void>;
+  up(
+    qr: QUERYRUNNER,
+    adapter: A,
+    ...args: ContextualArgs<ContextOf<A>>
+  ): Promise<void>;
+  migrate(
+    qr: QUERYRUNNER,
+    adapter: A,
+    ...args: ContextualArgs<ContextOf<A>>
+  ): Promise<void>;
+  down(
+    qr: QUERYRUNNER,
+    adapter: A,
+    ...args: ContextualArgs<ContextOf<A>>
+  ): Promise<void>;
 }
 
 export type RepositoryFor<A extends Adapter<any, any, any, any>> =
@@ -156,6 +175,8 @@ export type AdapterFlags<LOG extends Logger = Logger> = RepositoryFlags<LOG> & {
   forcePrepareComplexQueries: boolean;
   cacheForPopulate: Record<string, any>;
   observeFullResult: boolean;
+  paginateByBookmark: boolean;
+  dryRun: boolean;
 };
 
 export type RawResult<R, D extends boolean> = D extends true

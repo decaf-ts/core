@@ -1035,11 +1035,11 @@ export class Repository<
     },
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<SerializedPage<M>> {
-    // eslint-disable-next-line prefer-const
-    let { offset, bookmark, limit } = ref;
+    const requestedPage = ref.offset || 1;
+    const { offset, bookmark, limit } = ref;
     if (!offset && !bookmark)
       throw new QueryError(`PaginateBy needs a page or a bookmark`);
-    const { log, ctxArgs } = (
+    const { log, ctx, ctxArgs } = (
       await this.logCtx(args, PreparedStatementKeys.PAGE_BY, true)
     ).for(this.paginateBy);
     log.verbose(
@@ -1047,16 +1047,21 @@ export class Repository<
     );
 
     let paginator: Paginator<M>;
-    if (bookmark) {
+    if (bookmark && ctx.get("paginateByBookmark")) {
       paginator = await this.override({
         forcePrepareComplexQueries: false,
         forcePrepareSimpleQueries: false,
       } as any)
         .select()
-        .where(this.attr(Model.pk(this.class)).gt(bookmark))
+        .where(
+          (() => {
+            return order === OrderDirection.ASC
+              ? this.attr(Model.pk(this.class)).gt(bookmark)
+              : this.attr(Model.pk(this.class)).lt(bookmark);
+          })()
+        )
         .orderBy([key, order])
         .paginate(limit as number, ...ctxArgs);
-      offset = 1;
     } else if (offset) {
       paginator = await this.override({
         forcePrepareComplexQueries: false,
@@ -1068,8 +1073,11 @@ export class Repository<
     } else {
       throw new QueryError(`PaginateBy needs a page or a bookmark`);
     }
-    const paged = await paginator.page(offset, ...ctxArgs);
-    return paginator.serialize(paged) as SerializedPage<M>;
+    const paginatePage = bookmark ? 1 : requestedPage;
+    const paged = await paginator.page(paginatePage, ...ctxArgs);
+    const serialization = paginator.serialize(paged) as SerializedPage<M>;
+    // if (bookmark) serialization.current = requestedPage;
+    return serialization;
   }
 
   @prepared()

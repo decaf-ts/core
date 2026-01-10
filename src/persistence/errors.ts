@@ -24,19 +24,19 @@ import { InternalError } from "@decaf-ts/db-decorators";
  * ```
  */
 export class UnsupportedError extends InternalError {
-  constructor(msg: string | Error) {
+  constructor(msg: string | Error | unknown) {
     super(msg, UnsupportedError.name, 500);
   }
 }
 
 export class MigrationError extends InternalError {
-  constructor(msg: string | Error, name = MigrationError.name) {
+  constructor(msg: string | Error | unknown, name = MigrationError.name) {
     super(msg, name, 500);
   }
 }
 
 export class MigrationRuleError extends MigrationError {
-  constructor(msg: string | Error) {
+  constructor(msg: string | Error | unknown) {
     super(msg, MigrationRuleError.name);
   }
 }

@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Lock } from "@decaf-ts/transactional-decorators";
 import { hashObj, Model } from "@decaf-ts/decorator-validation";
 import {
   BaseError,
@@ -12,7 +11,6 @@ import {
   DBKeys,
   PrimaryKeyType,
   ContextOfRepository,
-  Context,
   RepositoryFlags,
 } from "@decaf-ts/db-decorators";
 import {
@@ -41,7 +39,9 @@ import {
   Sequence,
   UnsupportedError,
   Paginator,
+  Context,
 } from "../../src/index";
+import { Lock } from "@decaf-ts/transactional-decorators";
 import { Adapter } from "../../src/persistence/Adapter";
 
 /**
@@ -124,7 +124,7 @@ export class DummyAdapter extends Adapter<
     super(conf, "dummy", alias);
   }
 
-  Paginator<M>(
+  Paginator<M extends Model>(
     query: PreparedStatement<M> | RawRamQuery<any>,
     size: number,
     clazz: Constructor<M>
@@ -171,8 +171,6 @@ export class DummyAdapter extends Adapter<
   ): Promise<RamFlags> {
     return Object.assign(await super.flags(operation, model, flags), {
       UUID: this.config.user || "" + Date.now(),
-      lock: this.lock,
-      isLocked: false,
     }) as RamFlags;
   }
 
@@ -184,31 +182,6 @@ export class DummyAdapter extends Adapter<
     string,
     Record<string | number, Record<string, any>>
   > = {};
-
-  private lock = new Lock();
-
-  protected readonly Context: Constructor<TransactionalContext> =
-    TransactionalContext;
-
-  async context<M extends Model>(
-    operation:
-      | OperationKeys.CREATE
-      | OperationKeys.READ
-      | OperationKeys.UPDATE
-      | OperationKeys.DELETE
-      | string,
-    overrides: Partial<FlagsOf<TransactionalContext>>,
-    model: Constructor<M> | Constructor<M>[],
-    ...args
-  ): Promise<TransactionalContext> {
-    const ctx = (await super.context(
-      operation,
-      overrides,
-      model,
-      ...args
-    )) as TransactionalContext;
-    return ctx;
-  }
 
   /**
    * @description Indexes models in the RAM adapter

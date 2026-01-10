@@ -46,7 +46,7 @@ class TestCountryModelRepo extends Repository<TestCountryModel, any> {
       await this.logCtx(args, PreparedStatementKeys.PAGE_BY, true)
     ).for(this.paginateByIdBiggerOrderById);
 
-    const direction = params.direction || OrderDirection.DESC;
+    const direction = params.direction || OrderDirection.DSC;
     const paginator: Paginator<TestCountryModel> = await this.override({
       forcePrepareSimpleQueries: false,
       forcePrepareComplexQueries: false,
@@ -157,7 +157,7 @@ describe(`Pagination`, function () {
     );
   });
 
-  it("paginates with prepared statemetns", async () => {
+  it("paginates with prepared statements", async () => {
     const paginator: Paginator<TestCountryModel> = await repo
       .override({
         forcePrepareSimpleQueries: true,

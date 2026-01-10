@@ -2,6 +2,7 @@ import { CrudOperations, InternalError } from "@decaf-ts/db-decorators";
 import { OperationKeys } from "@decaf-ts/db-decorators";
 import type { ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
+import { MigrationRuleError } from "../persistence/errors";
 
 export function injectableServiceKey(
   name: string | symbol | Constructor
@@ -57,4 +58,32 @@ export async function normalizeImport<T>(
 ): Promise<T> {
   // CommonJS's `module.exports` is wrapped as `default` in ESModule.
   return importPromise.then((m: any) => (m.default || m) as T);
+}
+
+export function prefixMethod(
+  obj: any,
+  after: (...args: any[]) => any,
+  prefix: (...args: any[]) => any,
+  afterName?: string
+) {
+  async function wrapper(this: any, ...args: any[]) {
+    let results: any[];
+    try {
+      results = await Promise.resolve(prefix.call(this, ...args));
+    } catch (e: unknown) {
+      if (e instanceof MigrationRuleError) return;
+      throw e;
+    }
+    return Promise.resolve(after.apply(this, results));
+  }
+
+  const wrapped = wrapper.bind(obj);
+  const name = afterName ? afterName : after.name;
+  Object.defineProperty(wrapped, "name", {
+    enumerable: true,
+    configurable: true,
+    writable: false,
+    value: name,
+  });
+  obj[name] = wrapped;
 }

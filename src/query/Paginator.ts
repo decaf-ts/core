@@ -1,10 +1,9 @@
 import { PagingError } from "./errors";
-import {
-  Adapter,
-  PersistenceKeys,
-  prefixMethod,
-  UnsupportedError,
-} from "../persistence";
+import { Adapter } from "../persistence/Adapter";
+import { Context } from "../persistence/Context";
+import { PersistenceKeys } from "../persistence/constants";
+import { prefixMethod } from "../utils/utils";
+import { UnsupportedError } from "../persistence/errors";
 import { Model } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
 import { LoggedClass } from "@decaf-ts/logging";
@@ -144,7 +143,9 @@ export abstract class Paginator<
     ...argz: ContextualArgs<any>
   ): Promise<M[]> {
     const { log } = this.adapter["logCtx"](
-      bookmark ? [...argz] : [bookmark, ...argz],
+      bookmark && !(bookmark instanceof Context)
+        ? [...argz]
+        : [bookmark, ...argz],
       this.pagePrepared
     );
     log.debug(

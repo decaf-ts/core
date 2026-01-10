@@ -62,5 +62,5 @@ export type RamContext = Context<RamFlags>;
 
 export type RamConfig = {
   user: string;
-  lock: Lock;
+  lock?: Lock;
 };

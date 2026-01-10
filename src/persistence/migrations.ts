@@ -19,34 +19,7 @@ import {
 } from "../utils/ContextualLoggedClass";
 import { ClientBasedService } from "../services/services";
 import { style } from "@decaf-ts/logging";
-
-export function prefixMethod(
-  obj: any,
-  after: (...args: any[]) => any,
-  prefix: (...args: any[]) => any,
-  afterName?: string
-) {
-  async function wrapper(this: any, ...args: any[]) {
-    let results: any[];
-    try {
-      results = await Promise.resolve(prefix.call(this, ...args));
-    } catch (e: unknown) {
-      if (e instanceof MigrationRuleError) return;
-      throw e;
-    }
-    return Promise.resolve(after.apply(this, results));
-  }
-
-  const wrapped = wrapper.bind(obj);
-  const name = afterName ? afterName : after.name;
-  Object.defineProperty(wrapped, "name", {
-    enumerable: true,
-    configurable: true,
-    writable: false,
-    value: name,
-  });
-  obj[name] = wrapped;
-}
+import { prefixMethod } from "../utils/utils";
 
 export type ConnectionForAdapter<A extends Adapter<any, any, any, any>> =
   A extends Adapter<any, any, infer CONN, any> ? CONN : never;

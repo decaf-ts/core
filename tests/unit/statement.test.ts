@@ -202,6 +202,7 @@ describe("Statement execution strategy", () => {
       "name",
       "asc",
       expect.objectContaining({
+        // bookmark: undefined
         limit: 2,
         offset: 1,
       }),

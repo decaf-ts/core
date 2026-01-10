@@ -151,7 +151,8 @@ export abstract class Paginator<
     log.debug(
       `Running paged prepared statement ${page} page${bookmark ? ` - bookmark ${bookmark}` : ""}`
     );
-    if (bookmark) this._bookmark = bookmark;
+
+    if (bookmark && !(bookmark instanceof Context)) this._bookmark = bookmark;
     const repo = Repository.forModel(this.clazz, this.adapter.alias);
     const statement = this.query as PreparedStatement<M>;
     const { method, args, params } = statement;

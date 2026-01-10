@@ -127,19 +127,30 @@ export abstract class Paginator<
   }
 
   protected async pagePrefix(page?: number, ...args: MaybeContextualArg<any>) {
-    const { ctxArgs } = await this.adapter["logCtx"](
-      [this.clazz, args],
-      PersistenceKeys.QUERY,
-      true
-    );
+    const { ctxArgs } = (
+      await this.adapter["logCtx"](
+        [this.clazz, ...args],
+        PersistenceKeys.QUERY,
+        true
+      )
+    ).for(this.pagePrefix);
     ctxArgs.shift();
     return [page, ...ctxArgs];
   }
 
   protected async pagePrepared(
-    page?: number,
+    page: number,
+    bookmark?: any,
     ...argz: ContextualArgs<any>
   ): Promise<M[]> {
+    const { log } = this.adapter["logCtx"](
+      bookmark ? [...argz] : [bookmark, ...argz],
+      this.pagePrepared
+    );
+    log.debug(
+      `Running paged prepared statement ${page} page${bookmark ? ` - bookmark ${bookmark}` : ""}`
+    );
+    if (bookmark) this._bookmark = bookmark;
     const repo = Repository.forModel(this.clazz, this.adapter.alias);
     const statement = this.query as PreparedStatement<M>;
     const { method, args, params } = statement;
@@ -214,8 +225,12 @@ export abstract class Paginator<
     return page;
   }
 
-  async page(page: number = 1, ...args: MaybeContextualArg<any>): Promise<R> {
-    const { ctxArgs } = this.adapter["logCtx"](args, this.page);
+  async page(
+    page: number = 1,
+    bookmark?: any,
+    ...args: MaybeContextualArg<any>
+  ): Promise<R> {
+    const { ctxArgs } = this.adapter["logCtx"]([bookmark, ...args], this.page);
     if (this.isPreparedStatement())
       return (await this.pagePrepared(page, ...ctxArgs)) as R;
     throw new UnsupportedError(

@@ -1072,8 +1072,7 @@ export class Repository<
     } else {
       throw new QueryError(`PaginateBy needs a page or a bookmark`);
     }
-    const paginatePage = bookmark ? 1 : requestedPage;
-    const paged = await paginator.page(paginatePage, ...ctxArgs);
+    const paged = await paginator.page(requestedPage, bookmark, ...ctxArgs);
     const serialization = paginator.serialize(paged) as SerializedPage<M>;
     // if (bookmark) serialization.current = requestedPage;
     return serialization;

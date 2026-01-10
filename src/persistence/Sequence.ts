@@ -139,9 +139,9 @@ export class Sequence<
    */
   protected async increment(
     count: number | undefined,
-    ctx: Context<any>
+    context: Context<any>
   ): Promise<string | number | bigint> {
-    const log = ctx.logger.for(this.increment);
+    const { log, ctx } = this.adapter["logCtx"]([context], this.increment);
     const { type, incrementBy, name } = this.options;
     if (!name) throw new InternalError("Sequence name is required");
 
@@ -230,7 +230,9 @@ export class Sequence<
   async next(
     ...argz: MaybeContextualArg<any>
   ): Promise<number | string | bigint> {
-    const { ctx } = await this.logCtx(argz, OperationKeys.UPDATE, true);
+    const { ctx } = (await this.logCtx(argz, OperationKeys.UPDATE, true)).for(
+      this.next
+    );
     return this.increment(undefined, ctx);
   }
 
@@ -246,7 +248,9 @@ export class Sequence<
     count: number,
     ...argz: MaybeContextualArg<any>
   ): Promise<(number | string | bigint)[]> {
-    const { ctx, log } = await this.logCtx(argz, OperationKeys.UPDATE, true);
+    const { ctx, log } = (
+      await this.logCtx(argz, OperationKeys.UPDATE, true)
+    ).for(this.range);
 
     if (this.options.type === "uuid" || this.options.type === "serial")
       throw new UnsupportedError( // TODO just generate valid uuids/serials

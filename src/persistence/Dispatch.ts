@@ -233,28 +233,32 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
       // @ts-expect-error because there are read only properties
       adapter[toWrap] = new Proxy(adapter[toWrap], {
         apply: async (target: any, thisArg: A, argArray: any[]) => {
-          const { log, ctxArgs } = thisArg["logCtx"](argArray, target);
-          const [tableName, ids] = argArray;
-          const result = await target.apply(thisArg, ctxArgs);
+          const { log, ctxArgs, ctx } = thisArg["logCtx"](
+            argArray.slice(3 - (4 - argArray.length), argArray.length),
+            target
+          );
+          const [tableName, ids, payload] = argArray;
+          const result = await target.apply(thisArg, [
+            tableName,
+            ids,
+            payload,
+            ...ctxArgs,
+          ]);
 
-          this.updateObservers(
+          const resultArgs: [string, string, EventIds] = [
             tableName,
             bulkToSingle(toWrap),
-            ids as EventIds,
-            result,
-            ...(ctxArgs.slice(argArray.length) as ContextualArgs<ContextOf<A>>)
-          )
-            .then(() => {
-              log.verbose(
-                `Observer refresh dispatched by ${toWrap} for ${tableName}`
-              );
-              log.debug(`pks: ${ids}`);
-            })
-            .catch((e: unknown) =>
-              log.error(
-                `Failed to dispatch observer refresh for ${toWrap} on ${tableName}: ${e}`
-              )
-            );
+            ids,
+          ];
+
+          if (ctx.get("observeFullResult")) {
+            resultArgs.push(result);
+          }
+          this.updateObservers(...resultArgs, ...ctxArgs).catch((e: unknown) =>
+            log.error(
+              `Failed to dispatch observer refresh for ${toWrap} on ${tableName.name || tableName} for ${ids}: ${e}`
+            )
+          );
           return result;
         },
       });
@@ -316,22 +320,30 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
     id: EventIds,
     ...args: ContextualArgs<ContextOf<A>>
   ): Promise<void> {
-    const table = typeof model === "string" ? model : Model.tableName(model);
-    const { log, ctxArgs } = this.logCtx(args, this.updateObservers);
+    if (!model)
+      throw new InternalError(`Model must be provided for observer update`);
+    const table =
+      model && typeof model === "string" ? model : Model.tableName(model);
+    const { log, ctxArgs, ctx } = this.logCtx(args, this.updateObservers);
     if (!this.adapter) {
       log.verbose(
         `No adapter observed for dispatch; skipping observer update for ${table}:${event}`
       );
       return;
     }
+
     try {
       log.debug(
-        `Dispatching ${event} from table ${table} for ${event} with id: ${JSON.stringify(id)}`
+        `dispatching observer refresh for ${event}:${table}: ${id}${ctx.get("observeFullResult") ? " - including result" : ""}`
       );
       await this.adapter.refresh(model, event, id, ...ctxArgs);
     } catch (e: unknown) {
       throw new InternalError(`Failed to refresh dispatch: ${e}`);
     }
+  }
+
+  override toString() {
+    return `${this.adapter ? this.adapter.toString() : "uninitialized"} event dispatch`;
   }
 }
 

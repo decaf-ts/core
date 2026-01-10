@@ -839,12 +839,7 @@ export abstract class Adapter<
       throw new InternalError(
         "ObserverHandler not initialized. Did you register any observables?"
       );
-    const { log, ctxArgs } = this.logCtx(args, this.updateObservers);
-
-    log.silly(
-      `Updating ${this.observerHandler.count()} observers for adapter ${this.alias}: Event: `
-    );
-    await this.observerHandler.updateObservers(table, event, id, ...ctxArgs);
+    await this.observerHandler.updateObservers(table, event, id, ...args);
   }
 
   /**
@@ -862,8 +857,7 @@ export abstract class Adapter<
     id: EventIds,
     ...args: ContextualArgs<CONTEXT>
   ) {
-    const { ctxArgs } = this.logCtx(args, this.refresh);
-    return this.updateObservers(table, event, id, ...ctxArgs);
+    return this.updateObservers(table, event, id, ...args);
   }
 
   /**

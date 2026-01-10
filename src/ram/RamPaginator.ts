@@ -82,7 +82,7 @@ export class RamPaginator<M extends Model> extends Paginator<
     if (!this._recordCount || !this._totalPages) {
       this._totalPages = this._recordCount = 0;
       results = await this.adapter.raw<any, false>(
-        { ...statement, limit: undefined },
+        { ...statement, limit: Number.MAX_SAFE_INTEGER },
         false,
         ctx
       );
@@ -95,15 +95,11 @@ export class RamPaginator<M extends Model> extends Paginator<
     } else {
       page = this.validatePage(page);
       statement.skip = (page - 1) * this.size;
-      results = await this.adapter.raw<any, true>(
-        statement,
-        true,
-        ...args,
-        ctx
-      );
+      results = await this.adapter.raw<any, true>(statement, true, ...ctxArgs);
     }
 
     this._currentPage = page;
+    this._bookmark = results[results.length - 1][Model.pk(this.clazz)];
     return results.data || results;
   }
 }

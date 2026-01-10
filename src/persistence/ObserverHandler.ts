@@ -135,6 +135,8 @@ export class ObserverHandler implements PersistenceObservable<any> {
   ): Promise<void> {
     const { log, ctxArgs } = Adapter.logCtx<Context>(
       this.updateObservers,
+      undefined,
+      false,
       ...args
     );
     const results = await Promise.allSettled(

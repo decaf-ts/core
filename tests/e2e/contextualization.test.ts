@@ -1,6 +1,9 @@
 import {
   column,
+  Condition,
+  createdAt,
   Observer,
+  OrderDirection,
   PersistenceKeys,
   pk,
   PreparedStatementKeys,
@@ -8,10 +11,6 @@ import {
   RamRepository,
   Repository,
   table,
-  createdAt,
-  OrderDirection,
-  Condition,
-  Paginator,
 } from "../../src";
 import {
   BulkCrudOperationKeys,
@@ -522,7 +521,7 @@ describe("Contextualization", () => {
               args = [];
           }
 
-          const current = await repo[op](m, ...args);
+          let current = await repo[op](m, ...args);
 
           switch (op) {
             case OperationKeys.CREATE:
@@ -569,10 +568,27 @@ describe("Contextualization", () => {
               expect(current).toBeInstanceOf(Object);
               expect(current).toEqual(
                 expect.objectContaining({
-                  bookmark: undefined,
+                  bookmark: 9,
                   count: 10,
                   current: 1,
-                  data: cachedBulk.slice(0, 3).reverse(),
+                  data: cachedBulk.slice(cachedBulk.length - 3).reverse(),
+                })
+              );
+              current = await repo.paginateBy("name", OrderDirection.DSC, {
+                limit: 3,
+                offset: 2,
+                bookmark: current.bookmark,
+              });
+              expect(current).toBeDefined();
+              expect(current).toBeInstanceOf(Object);
+              expect(current).toEqual(
+                expect.objectContaining({
+                  bookmark: 9,
+                  count: 10,
+                  current: 2,
+                  data: cachedBulk
+                    .slice(cachedBulk.length - 3 - 3, 3)
+                    .reverse(),
                 })
               );
               break;

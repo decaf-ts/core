@@ -83,5 +83,6 @@ export const DefaultAdapterFlags: AdapterFlags = Object.assign(
     forcePrepareSimpleQueries: false,
     forcePrepareComplexQueries: false,
     cacheForPopulate: {},
+    observeFullResult: true,
   }
 ) as AdapterFlags;

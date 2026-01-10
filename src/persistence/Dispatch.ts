@@ -184,7 +184,9 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
         .verbose(`No adapter observed for dispatch; skipping initialization`);
       return;
     }
-    const { log } = await this.logCtx(args, this.initialize, true);
+    const { log } = (await this.logCtx(args, "initialization", true)).for(
+      this.initialize
+    );
     log.verbose(`Initializing ${this.adapter}'s event Dispatch`);
     const adapter = this.adapter as Adapter<any, any, any, any>;
     (

@@ -307,7 +307,13 @@ export class Repository<
             METHOD extends string ? true : false
           >
         >;
-    return ctx;
+    function squashArgs(ctx: ContextualizedArgs<ContextOf<A>>) {
+      ctx.ctxArgs.shift(); // removes added model to args
+      return ctx as any;
+    }
+
+    if (!(ctx instanceof Promise)) return squashArgs(ctx);
+    return ctx.then(squashArgs);
   }
 
   /**
@@ -372,13 +378,14 @@ export class Repository<
     model: M,
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<[M, ...any[], ContextOf<A>]> {
-    const { ctx, ctxArgs } = await this.logCtx(
-      args,
-      OperationKeys.CREATE,
-      true
-    );
+    const { ctx, ctxArgs, log } = (
+      await this.logCtx(args, OperationKeys.CREATE, true)
+    ).for(this.createPrefix);
     const ignoreHandlers = ctx.get("ignoreHandlers");
     const ignoreValidate = ctx.get("ignoreValidation");
+    log.silly(
+      `handlerSetting: ${ignoreHandlers}, validationSetting: ${ignoreValidate}`
+    );
     model = new this.class(model);
     if (!ignoreHandlers)
       await enforceDBDecorators<M, Repository<M, A>, any>(
@@ -390,9 +397,9 @@ export class Repository<
       );
 
     if (!ignoreValidate) {
-      const errors = await Promise.resolve(
-        model.hasErrors(...(ctx.get("ignoredValidationProperties") || []))
-      );
+      const propsToIgnore = ctx.get("ignoredValidationProperties") || [];
+      log.silly(`ignored validation properties: ${propsToIgnore}`);
+      const errors = await Promise.resolve(model.hasErrors(...propsToIgnore));
       if (errors) throw new ValidationError(errors.toString());
     }
 
@@ -469,14 +476,15 @@ export class Repository<
     models: M[],
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<[M[], ...any[], ContextOf<A>]> {
-    const { ctx, ctxArgs } = await this.logCtx(
-      args,
-      BulkCrudOperationKeys.CREATE_ALL,
-      true
-    );
+    const { ctx, ctxArgs, log } = (
+      await this.logCtx(args, BulkCrudOperationKeys.CREATE_ALL, true)
+    ).for(this.createAllPrefix);
 
     const ignoreHandlers = ctx.get("ignoreHandlers");
     const ignoreValidate = ctx.get("ignoreValidation");
+    log.silly(
+      `handlerSetting: ${ignoreHandlers}, validationSetting: ${ignoreValidate}`
+    );
     if (!models.length) return [models, ...ctxArgs];
     const opts = Model.sequenceFor(models[0]);
     let ids: (string | number | bigint | undefined)[] = [];
@@ -523,10 +531,10 @@ export class Repository<
     );
 
     if (!ignoreValidate) {
-      const ignoredProps = ctx.get("ignoredValidationProperties") || [];
-
+      const propsToIgnore = ctx.get("ignoredValidationProperties") || [];
+      log.silly(`ignored validation properties: ${propsToIgnore}`);
       const errors = await Promise.all(
-        models.map((m) => Promise.resolve(m.hasErrors(...ignoredProps)))
+        models.map((m) => Promise.resolve(m.hasErrors(...propsToIgnore)))
       );
 
       const errorMessages = reduceErrorsToPrint(errors);
@@ -547,17 +555,22 @@ export class Repository<
     key: PrimaryKeyType,
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<[PrimaryKeyType, ...any[], ContextOf<A>]> {
-    const { ctx, ctxArgs } = await this.logCtx(args, OperationKeys.READ, true);
+    const { ctx, ctxArgs, log } = (
+      await this.logCtx(args, OperationKeys.READ, true)
+    ).for(this.readPrefix);
 
+    const ignoreHandlers = ctx.get("ignoreHandlers");
+    log.silly(`handlerSetting: ${ignoreHandlers}`);
     const model: M = new this.class();
     model[this.pk] = key as M[keyof M];
-    await enforceDBDecorators<M, Repository<M, A>, any>(
-      this,
-      ctx,
-      model,
-      OperationKeys.READ,
-      OperationKeys.ON
-    );
+    if (!ignoreHandlers)
+      await enforceDBDecorators<M, Repository<M, A>, any>(
+        this,
+        ctx,
+        model,
+        OperationKeys.READ,
+        OperationKeys.ON
+      );
     return [key, ...ctxArgs];
   }
 
@@ -592,25 +605,26 @@ export class Repository<
     keys: PrimaryKeyType[],
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<[PrimaryKeyType[], ...any[], ContextOf<A>]> {
-    const { ctx, ctxArgs } = await this.logCtx(
-      args,
-      BulkCrudOperationKeys.READ_ALL,
-      true
-    );
+    const { ctx, ctxArgs, log } = (
+      await this.logCtx(args, BulkCrudOperationKeys.READ_ALL, true)
+    ).for(this.readAllPrefix);
 
-    await Promise.all(
-      keys.map(async (k) => {
-        const m = new this.class();
-        m[this.pk] = k as M[keyof M];
-        return enforceDBDecorators<M, Repository<M, A>, any>(
-          this,
-          ctx,
-          m,
-          OperationKeys.READ,
-          OperationKeys.ON
-        );
-      })
-    );
+    const ignoreHandlers = ctx.get("ignoreHandlers");
+    log.silly(`handlerSetting: ${ignoreHandlers}`);
+    if (!ignoreHandlers)
+      await Promise.all(
+        keys.map(async (k) => {
+          const m = new this.class();
+          m[this.pk] = k as M[keyof M];
+          return enforceDBDecorators<M, Repository<M, A>, any>(
+            this,
+            ctx,
+            m,
+            OperationKeys.READ,
+            OperationKeys.ON
+          );
+        })
+      );
     return [keys, ...ctxArgs];
   }
 
@@ -670,14 +684,15 @@ export class Repository<
     model: M,
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<[M, ...args: any[], ContextOf<A>, M | undefined]> {
-    const { ctx, ctxArgs } = await this.logCtx(
-      args,
-      OperationKeys.UPDATE,
-      true
-    );
+    const { ctx, ctxArgs, log } = (
+      await this.logCtx(args, OperationKeys.UPDATE, true)
+    ).for(this.updatePrefix);
 
     const ignoreHandlers = ctx.get("ignoreHandlers");
     const ignoreValidate = ctx.get("ignoreValidation");
+    log.silly(
+      `handlerSetting: ${ignoreHandlers}, validationSetting: ${ignoreValidate}`
+    );
     const pk = model[this.pk] as string;
     if (!pk)
       throw new InternalError(
@@ -701,11 +716,10 @@ export class Repository<
       );
 
     if (!ignoreValidate) {
+      const propsToIgnore = ctx.get("ignoredValidationProperties") || [];
+      log.silly(`ignored validation properties: ${propsToIgnore}`);
       const errors = await Promise.resolve(
-        model.hasErrors(
-          oldModel,
-          ...(ctx.get("ignoredValidationProperties") || [])
-        )
+        model.hasErrors(oldModel, ...propsToIgnore)
       );
       if (errors) throw new ValidationError(errors.toString());
     }
@@ -724,7 +738,7 @@ export class Repository<
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<M[]> {
     const { ctx, log, ctxArgs } = this.logCtx(args, this.updateAll);
-    log.debug(
+    log.verbose(
       `Updating ${models.length} new ${this.class.name} in table ${Model.tableName(this.class)}`
     );
 
@@ -759,14 +773,15 @@ export class Repository<
     models: M[],
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<[M[], ...args: any[], ContextOf<A>, M[] | undefined]> {
-    const { ctx, ctxArgs } = await this.logCtx(
-      args,
-      BulkCrudOperationKeys.UPDATE_ALL,
-      true
-    );
+    const { ctx, ctxArgs, log } = (
+      await this.logCtx(args, BulkCrudOperationKeys.UPDATE_ALL, true)
+    ).for(this.updateAllPrefix);
 
     const ignoreHandlers = ctx.get("ignoreHandlers");
     const ignoreValidate = ctx.get("ignoreValidation");
+    log.silly(
+      `handlerSetting: ${ignoreHandlers}, ignoredValidation: ${ignoreValidate}`
+    );
     const ids = models.map((m) => {
       const id = m[this.pk] as string;
       if (!id) throw new InternalError("missing id on update operation");
@@ -797,6 +812,7 @@ export class Repository<
 
     if (!ignoreValidate) {
       const ignoredProps = ctx.get("ignoredValidationProperties") || [];
+      log.silly(`ignored validation properties: ${ignoredProps}`);
       let modelsValidation: any;
       if (!ctx.get("applyUpdateValidation")) {
         modelsValidation = await Promise.resolve(
@@ -830,19 +846,23 @@ export class Repository<
     key: PrimaryKeyType,
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<[PrimaryKeyType, ...any[], ContextOf<A>]> {
-    const { ctx, ctxArgs } = await this.logCtx(
-      args,
-      OperationKeys.DELETE,
-      true
-    );
-    const model = await this.read(key, ...ctxArgs);
-    await enforceDBDecorators<M, Repository<M, A>, any>(
-      this,
-      ctx,
-      model,
-      OperationKeys.DELETE,
-      OperationKeys.ON
-    );
+    const { ctx, ctxArgs, log } = (
+      await this.logCtx(args, OperationKeys.DELETE, true)
+    ).for(this.deletePrefix);
+
+    const ignoreHandlers = ctx.get("ignoreHandlers");
+    log.silly(`handlerSetting: ${ignoreHandlers}`);
+    if (!ignoreHandlers) {
+      const model = await this.read(key, ...ctxArgs);
+      await enforceDBDecorators<M, Repository<M, A>, any>(
+        this,
+        ctx,
+        model,
+        OperationKeys.DELETE,
+        OperationKeys.ON
+      );
+    }
+
     return [key, ...ctxArgs];
   }
 
@@ -877,23 +897,27 @@ export class Repository<
     keys: PrimaryKeyType[],
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<[PrimaryKeyType[], ...any[], ContextOf<A>]> {
-    const { ctx, ctxArgs } = await this.logCtx(
-      args,
-      BulkCrudOperationKeys.DELETE_ALL,
-      true
-    );
-    const models = await this.readAll(keys, ...ctxArgs);
-    await Promise.all(
-      models.map(async (m) => {
-        return enforceDBDecorators<M, Repository<M, A>, any>(
-          this,
-          ctx,
-          m,
-          OperationKeys.DELETE,
-          OperationKeys.ON
-        );
-      })
-    );
+    const { ctx, ctxArgs, log } = (
+      await this.logCtx(args, BulkCrudOperationKeys.DELETE_ALL, true)
+    ).for(this.deleteAllPrefix);
+
+    const ignoreHandlers = ctx.get("ignoreHandlers");
+    log.silly(`handlerSetting: ${ignoreHandlers}`);
+    if (!ignoreHandlers) {
+      const models = await this.readAll(keys, ...ctxArgs);
+      await Promise.all(
+        models.map(async (m) => {
+          return enforceDBDecorators<M, Repository<M, A>, any>(
+            this,
+            ctx,
+            m,
+            OperationKeys.DELETE,
+            OperationKeys.ON
+          );
+        })
+      );
+    }
+
     return [keys, ...ctxArgs];
   }
 
@@ -974,7 +998,9 @@ export class Repository<
     skip?: number,
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<M[]> {
-    const { ctxArgs } = await this.logCtx(args, PersistenceKeys.QUERY, true);
+    const { ctxArgs } = (
+      await this.logCtx(args, PersistenceKeys.QUERY, true)
+    ).for(this.query);
     const sort: OrderBySelector<M> = [orderBy, order as OrderDirection];
     const query = this.select().where(condition).orderBy(sort);
     if (limit) query.limit(limit);
@@ -988,11 +1014,9 @@ export class Repository<
     order: OrderDirection,
     ...args: MaybeContextualArg<ContextOf<A>>
   ) {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      PreparedStatementKeys.LIST_BY,
-      true
-    );
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.LIST_BY, true)
+    ).for(this.listBy);
     log.verbose(
       `listing ${Model.tableName(this.class)} by ${key as string} ${order}`
     );
@@ -1056,11 +1080,9 @@ export class Repository<
     value: any,
     ...args: MaybeContextualArg<ContextOf<A>>
   ) {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      PreparedStatementKeys.FIND_ONE_BY,
-      true
-    );
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.FIND_ONE_BY, true)
+    ).for(this.findOneBy);
     log.verbose(
       `finding ${Model.tableName(this.class)} with ${key as string} ${value}`
     );
@@ -1078,11 +1100,9 @@ export class Repository<
     value: any,
     ...args: MaybeContextualArg<ContextOf<A>>
   ) {
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      PreparedStatementKeys.FIND_BY,
-      true
-    );
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.FIND_BY, true)
+    ).for(this.findBy);
     log.verbose(
       `finding ${Model.tableName(this.class)} with ${key as string} ${value}`
     );
@@ -1094,11 +1114,9 @@ export class Repository<
   async statement(name: string, ...args: MaybeContextualArg<ContextOf<A>>) {
     if (!Repository.statements(this, name as keyof typeof this))
       throw new QueryError(`Invalid prepared statement requested ${name}`);
-    const { log, ctxArgs } = await this.logCtx(
-      args,
-      PersistenceKeys.STATEMENT,
-      true
-    );
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PersistenceKeys.STATEMENT, true)
+    ).for(this.statement);
     log.verbose(`Executing prepared statement ${name}`);
     return (this as any)[name](...ctxArgs);
   }

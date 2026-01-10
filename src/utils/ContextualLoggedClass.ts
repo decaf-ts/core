@@ -1,4 +1,4 @@
-import { LoggedClass } from "@decaf-ts/logging";
+import { LoggedClass, Logger } from "@decaf-ts/logging";
 import {
   BulkCrudOperationKeys,
   Contextual,
@@ -113,15 +113,23 @@ export abstract class ContextualLoggedClass<
 
   static logFrom<
     CONTEXT extends Context<any>,
-    A = any,
+    A = any | Contextual<CONTEXT>,
     METHOD extends MethodOrOperation = MethodOrOperation,
-  >(this: A, ctx: CONTEXT, method?: METHOD | keyof A) {
-    const log = (
-      (this as unknown as Contextual)["context"]
-        ? ctx.logger.for(this as any)
-        : ctx.logger.clear().for(this as any)
-    ) as LoggerOf<CONTEXT>;
-    return method ? log.for(method as any) : log;
+  >(
+    obj: A,
+    logger: LoggerOf<any>,
+    ctx: CONTEXT,
+    method?: METHOD | keyof A
+  ): Logger {
+    const log = (obj as Contextual)["context"]
+      ? logger.clear().for(obj as any) // Reset for Contextuals
+      : logger.for(obj);
+    // const log = (
+    //   (this as unknown as Contextual)["context"]
+    //     ? ctx.logger.for(this as any)
+    //     : ctx.logger.clear().for(this as any)
+    // ) as LoggerOf<CONTEXT>;
+    return (method ? log.for(method as any) : log) as Logger;
   }
 
   static logCtx<
@@ -171,6 +179,7 @@ export abstract class ContextualLoggedClass<
     ): METHOD extends string
       ? ContextualizedArgs<CONTEXT, ARGS, true>
       : ContextualizedArgs<CONTEXT, ARGS> => {
+      // resp.log = ContextualLoggedClass.logFrom(obj, resp.log, ctx, op) as any;
       resp.log = obj.context
         ? resp.log.clear().for(obj) // Reset for Contextuals
         : resp.log.for(obj);

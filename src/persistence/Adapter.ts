@@ -395,14 +395,27 @@ export abstract class Adapter<
     flags: Partial<FlagsOf<CONTEXT>>,
     ...args: any[]
   ): Promise<FlagsOf<CONTEXT>> {
-    const log = (flags.logger || Logging.for(this as any)) as Logger;
+    if (typeof model === "string") {
+      throw new Error("Model must be a constructor or array of constructors");
+    }
     flags.correlationId =
-      flags.correlationId || `${operation}-${UUID.instance.generate()}`;
-
+      flags.correlationId ||
+      `${Model.tableName(Array.isArray(model) ? model[0] : model)}-${operation}-${UUID.instance.generate()}`;
+    const log = (flags.logger || Logging.for(this as any)) as Logger;
+    log.setConfig({ correlationId: flags.correlationId });
     return Object.assign({}, DefaultAdapterFlags, flags, {
-      affectedTables: (Array.isArray(model) ? model : [model]).map(
-        Model.tableName
-      ),
+      affectedTables: model
+        ? [
+            ...new Set([
+              ...(Array.isArray(model) ? model : [model]).filter(Boolean),
+              ...(flags.affectedTables
+                ? Array.isArray(flags.affectedTables)
+                  ? flags.affectedTables
+                  : [flags.affectedTables]
+                : []),
+            ]),
+          ]
+        : flags.affectedTables,
       args: args,
       writeOperation: operation !== OperationKeys.READ,
       timestamp: new Date(),
@@ -413,7 +426,7 @@ export abstract class Adapter<
           : (model as Constructor),
         operation as any
       ),
-      logger: log.for({ correlationId: flags.correlationId }),
+      logger: log,
     }) as unknown as FlagsOf<CONTEXT>;
   }
 
@@ -776,9 +789,9 @@ export abstract class Adapter<
       });
     this.observerHandler!.observe(observer, filter);
     const log = this.log.for(this.observe);
-    log.verbose(`Registering new observer ${observer.toString()}`);
+    log.silly(`Registering new observer ${observer.toString()}`);
     if (!this.dispatch) {
-      log.info(`Creating dispatch for ${this.alias}`);
+      log.verbose(`Creating dispatch for ${this.alias}`);
       this.dispatch = this.Dispatch();
       this.dispatch.observe(this);
     }
@@ -799,7 +812,7 @@ export abstract class Adapter<
     this.observerHandler.unObserve(observer);
     this.log
       .for(this.unObserve)
-      .verbose(`Observer ${observer.toString()} removed`);
+      .debug(`Observer ${observer.toString()} removed`);
   }
 
   /**
@@ -824,7 +837,7 @@ export abstract class Adapter<
       );
     const { log, ctxArgs } = this.logCtx(args, this.updateObservers);
 
-    log.verbose(
+    log.silly(
       `Updating ${this.observerHandler.count()} observers for adapter ${this.alias}: Event: `
     );
     await this.observerHandler.updateObservers(table, event, id, ...ctxArgs);

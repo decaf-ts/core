@@ -1,5 +1,5 @@
 import { Constructor, Metadata } from "@decaf-ts/decoration";
-import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
+import { Model } from "@decaf-ts/decorator-validation";
 import { DBKeys, InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Adapter } from "../persistence/Adapter";
 
@@ -95,10 +95,7 @@ import { TasksKey } from "../tasks/index";
     if (relationMeta?.class && Model.relations(relationMeta.class)) {
       const innerModelRels = Model.relations(relationMeta.class) as string[];
       const innerModelDotRels = innerModelRels.map((r) => `${prop}.${r}`);
-      existingRelations = [
-        ...existingRelations,
-        ...innerModelDotRels,
-      ];
+      existingRelations = [...existingRelations, ...innerModelDotRels];
       inner = Model.nestedRelations(relationMeta.class, existingRelations);
     }
   }

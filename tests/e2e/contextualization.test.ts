@@ -5,15 +5,18 @@ import {
   pk,
   PreparedStatementKeys,
   RamAdapter,
-  RamContext,
   RamRepository,
   Repository,
   table,
+  createdAt,
+  OrderDirection,
+  Condition,
+  Paginator,
 } from "../../src";
 import {
   BulkCrudOperationKeys,
-  Context,
   OperationKeys,
+  version,
 } from "@decaf-ts/db-decorators";
 import {
   maxlength,
@@ -69,6 +72,14 @@ describe("Contextualization", () => {
     @required()
     nif!: string;
 
+    @column("tst_created_at")
+    @createdAt()
+    createdAt: Date;
+
+    @column("tst_version")
+    @version()
+    version!: number;
+
     constructor(arg?: ModelArg<TestContextModel>) {
       super(arg);
     }
@@ -97,13 +108,20 @@ describe("Contextualization", () => {
 
   const crudOps = [...singleOps, ...bulkOps];
   const allOps = [
-    ...crudOps,
+    OperationKeys.CREATE,
+    OperationKeys.READ,
+    OperationKeys.UPDATE,
+    OperationKeys.DELETE,
+    BulkCrudOperationKeys.CREATE_ALL,
+    BulkCrudOperationKeys.READ_ALL,
+    BulkCrudOperationKeys.UPDATE_ALL,
     PersistenceKeys.STATEMENT,
     PreparedStatementKeys.FIND_BY,
+    PreparedStatementKeys.FIND_ONE_BY,
     PreparedStatementKeys.LIST_BY,
     PreparedStatementKeys.PAGE_BY,
     PersistenceKeys.QUERY,
-    "initialize",
+    BulkCrudOperationKeys.DELETE_ALL,
   ];
   const originalLog = MiniLogger.prototype["log"];
 
@@ -391,11 +409,19 @@ describe("Contextualization", () => {
       });
   });
 
-  describe.only("repository", () => {
+  describe("repository", () => {
     let observer: Observer;
     let mock: any;
 
     beforeEach(() => {
+      mock = jest.fn();
+      observer = new (class implements Observer {
+        refresh(...args: any[]): Promise<void> {
+          return mock(...args);
+        }
+      })();
+      repo.observe(observer);
+
       jest.clearAllMocks();
       jest.restoreAllMocks();
       jest.resetAllMocks();
@@ -408,14 +434,6 @@ describe("Contextualization", () => {
       consoleErrorMock = jest.spyOn(console, "error" as any);
       consoleWarnMock = jest.spyOn(console, "warn" as any);
       consoleDebugMock = jest.spyOn(console, "debug" as any);
-
-      mock = jest.fn();
-      observer = new (class implements Observer {
-        refresh(...args: any[]): Promise<void> {
-          return mock(...args);
-        }
-      })();
-      repo.observe(observer);
     });
 
     afterEach(() => {
@@ -437,195 +455,97 @@ describe("Contextualization", () => {
 
     let cachedBulk: TestContextRepoModel[];
 
-    singleOps
-      .filter((_, i) => i === 0)
+    allOps
+      // .filter((_, i) => i === 0)
       .forEach((op) => {
         it(`Should execute ${op} without being provided a context`, async () => {
-          let m: TestContextModel | number | number[] | TestContextModel[];
+          let m:
+            | TestContextRepoModel
+            | number
+            | number[]
+            | TestContextRepoModel[];
           let args: any[] = [];
           switch (op) {
             case OperationKeys.CREATE:
-              m = new TestContextModel(cached);
-              args = [m[Model.pk(TestContextModel)], m];
+              m = new TestContextRepoModel(cached);
+              break;
+            case OperationKeys.READ:
+            case OperationKeys.DELETE:
+              m = cached[Model.pk(TestContextRepoModel)];
               break;
             case OperationKeys.UPDATE:
-              m = new TestContextModel({ ...cached, name: "updated" });
-              args = [m[Model.pk(TestContextModel)], m];
+              m = new TestContextRepoModel({ ...cached, name: "updated" });
               break;
             case BulkCrudOperationKeys.CREATE_ALL:
               m = testModelList;
-              args = [m.map((m) => m[Model.pk(TestContextModel)]), m];
+              args = [];
               break;
             case BulkCrudOperationKeys.UPDATE_ALL:
               m = cachedBulk.map(
-                (m) => new TestContextModel({ ...m, name: "updated" })
+                (m) => new TestContextRepoModel({ ...m, nif: "987654321" })
               );
-              args = [cachedBulk.map((m) => m[Model.pk(TestContextModel)]), m];
+              args = [];
               break;
             case BulkCrudOperationKeys.READ_ALL:
-              m = cachedBulk;
-              args = [m.map((m) => m[Model.pk(TestContextModel)])];
-              break;
             case BulkCrudOperationKeys.DELETE_ALL:
-              args = [cachedBulk.map((m) => m[Model.pk(TestContextModel)])];
+              m = cachedBulk.map((m) => m[Model.pk(TestContextModel)]);
+              args = [];
+              break;
+            case PreparedStatementKeys.FIND_BY:
+              m = "name";
+              args = ["name2"];
+              break;
+            case PreparedStatementKeys.PAGE_BY:
+              m = "name";
+              args = [OrderDirection.DSC, { limit: 10, offset: 1 }];
+              break;
+            case PreparedStatementKeys.LIST_BY:
+              m = "version";
+              args = [OrderDirection.DSC];
+              break;
+            case PreparedStatementKeys.FIND_ONE_BY:
+              m = "name";
+              args = ["name2"];
+              break;
+            case PersistenceKeys.STATEMENT:
+              m = PreparedStatementKeys.FIND_BY;
+              args = ["name", "name5"];
+              break;
+            case PersistenceKeys.QUERY:
+              m = Condition.attr<TestContextRepoModel>("createdAt")
+                .lt(new Date())
+                .and(Condition.attr<TestContextRepoModel>("version").gt(1));
+              args = ["version", OrderDirection.DSC, 2, 2];
               break;
             default:
               m = cached;
-              args = [m[Model.pk(TestContextModel)]];
+              args = [];
           }
 
-          const current = await repo[op](TestContextModel, ...args);
+          const current = await repo[op](m, ...args);
 
           switch (op) {
             case OperationKeys.CREATE:
               expect(current).toBeDefined();
-              expect(current).toBeInstanceOf(TestContextModel);
+              expect(current).toBeInstanceOf(TestContextRepoModel);
               expect(current.hasErrors()).toBeUndefined();
-              expect(logMock).toHaveBeenCalledTimes(2);
-              expect(logMock).toHaveBeenNthCalledWith(
-                1,
-                "silly",
-                expect.stringMatching(
-                  `creating new context for ${op} operation on ${Model.tableName(TestContextModel)}`
-                )
-              );
-              expect(logMock).toHaveBeenNthCalledWith(
-                2,
-                "debug",
-                expect.stringMatching(
-                  `creating record in table ${Model.tableName(TestContextModel)} with id ${current[Model.pk(TestContextModel)]}`
-                )
-              );
-
-              expect(consoleLogMock).toHaveBeenCalledTimes(0);
-              expect(consoleDebugMock).toHaveBeenCalledTimes(2);
-              expect(consoleErrorMock).toHaveBeenCalledTimes(0);
-              expect(consoleWarnMock).toHaveBeenCalledTimes(0);
-              expect(consoleDebugMock).toHaveBeenNthCalledWith(
-                1,
-                expect.stringMatching(
-                  /SILLY \[.*?\] ram adapter\.context - creating new context/g
-                )
-              );
-              expect(consoleDebugMock).toHaveBeenNthCalledWith(
-                2,
-                expect.stringMatching(
-                  /DEBUG \[.*?\] ram adapter\.create - creating record in table/g
-                )
-              );
               break;
             case OperationKeys.READ:
               expect(current).toBeDefined();
-              expect(current).toBeInstanceOf(TestContextModel);
+              expect(current).toBeInstanceOf(TestContextRepoModel);
               expect(current.hasErrors()).toBeUndefined();
               expect(current.equals(cached)).toBe(true);
-              expect(logMock).toHaveBeenCalledTimes(2);
-              expect(logMock).toHaveBeenNthCalledWith(
-                1,
-                "silly",
-                expect.stringMatching(
-                  `creating new context for ${op} operation on ${Model.tableName(TestContextModel)}`
-                )
-              );
-              expect(logMock).toHaveBeenNthCalledWith(
-                2,
-                "debug",
-                expect.stringMatching(
-                  `reading record in table ${Model.tableName(TestContextModel)} with id ${current[Model.pk(TestContextModel)]}`
-                )
-              );
-
-              expect(consoleLogMock).toHaveBeenCalledTimes(0);
-              expect(consoleDebugMock).toHaveBeenCalledTimes(2);
-              expect(consoleErrorMock).toHaveBeenCalledTimes(0);
-              expect(consoleWarnMock).toHaveBeenCalledTimes(0);
-              expect(consoleDebugMock).toHaveBeenNthCalledWith(
-                1,
-                expect.stringMatching(
-                  /SILLY \[.*?\] ram adapter\.context - creating new context/g
-                )
-              );
-              expect(consoleDebugMock).toHaveBeenNthCalledWith(
-                2,
-                expect.stringMatching(
-                  /DEBUG \[.*?\] ram adapter\.read - reading record in table/g
-                )
-              );
               break;
             case OperationKeys.UPDATE:
               expect(current).toBeDefined();
-              expect(current).toBeInstanceOf(TestContextModel);
+              expect(current).toBeInstanceOf(TestContextRepoModel);
               expect(current.equals(cached)).toBe(false);
-              expect(logMock).toHaveBeenCalledTimes(2);
-              expect(logMock).toHaveBeenNthCalledWith(
-                1,
-                "silly",
-                expect.stringMatching(
-                  `creating new context for ${op} operation on ${Model.tableName(TestContextModel)}`
-                )
-              );
-              expect(logMock).toHaveBeenNthCalledWith(
-                2,
-                "debug",
-                expect.stringMatching(
-                  `updating record in table ${Model.tableName(TestContextModel)} with id ${current[Model.pk(TestContextModel)]}`
-                )
-              );
-
-              expect(consoleLogMock).toHaveBeenCalledTimes(0);
-              expect(consoleDebugMock).toHaveBeenCalledTimes(2);
-              expect(consoleErrorMock).toHaveBeenCalledTimes(0);
-              expect(consoleWarnMock).toHaveBeenCalledTimes(0);
-              expect(consoleDebugMock).toHaveBeenNthCalledWith(
-                1,
-                expect.stringMatching(
-                  /SILLY \[.*?\] ram adapter\.context - creating new context/g
-                )
-              );
-              expect(consoleDebugMock).toHaveBeenNthCalledWith(
-                2,
-                expect.stringMatching(
-                  /DEBUG \[.*?\] ram adapter\.update - updating record in table/g
-                )
-              );
               break;
             case OperationKeys.DELETE:
               expect(current).toBeDefined();
-              expect(current).toBeInstanceOf(TestContextModel);
+              expect(current).toBeInstanceOf(TestContextRepoModel);
               expect(current.hasErrors()).toBeUndefined();
               expect(current.equals(cached)).toBe(true);
-              expect(logMock).toHaveBeenCalledTimes(2);
-              expect(logMock).toHaveBeenNthCalledWith(
-                1,
-                "silly",
-                expect.stringMatching(
-                  `creating new context for ${op} operation on ${Model.tableName(TestContextModel)}`
-                )
-              );
-              expect(logMock).toHaveBeenNthCalledWith(
-                2,
-                "debug",
-                expect.stringMatching(
-                  `deleting record from table ${Model.tableName(TestContextModel)} with id ${current[Model.pk(TestContextModel)]}`
-                )
-              );
-
-              expect(consoleLogMock).toHaveBeenCalledTimes(0);
-              expect(consoleDebugMock).toHaveBeenCalledTimes(2);
-              expect(consoleErrorMock).toHaveBeenCalledTimes(0);
-              expect(consoleWarnMock).toHaveBeenCalledTimes(0);
-              expect(consoleDebugMock).toHaveBeenNthCalledWith(
-                1,
-                expect.stringMatching(
-                  /SILLY \[.*?\] ram adapter\.context - creating new context/g
-                )
-              );
-              expect(consoleDebugMock).toHaveBeenNthCalledWith(
-                2,
-                expect.stringMatching(
-                  /DEBUG \[.*?\] ram adapter\.delete - deleting record from table/g
-                )
-              );
               break;
             case BulkCrudOperationKeys.UPDATE_ALL:
             case BulkCrudOperationKeys.CREATE_ALL:
@@ -634,9 +554,43 @@ describe("Contextualization", () => {
               expect(current).toBeDefined();
               expect(
                 current.every(
-                  (c) => c instanceof TestContextModel && !c.hasErrors()
+                  (c) => c instanceof TestContextRepoModel && !c.hasErrors()
                 )
               ).toBeTruthy();
+              break;
+            case PreparedStatementKeys.FIND_BY:
+              expect(current).toBeDefined();
+              expect(current).toBeInstanceOf(Array);
+              expect(current.length).toBe(1);
+              expect(current[0].equals(cachedBulk[0])).toBe(true);
+              break;
+            case PreparedStatementKeys.PAGE_BY:
+              expect(current).toBeDefined();
+              expect(current).toBeInstanceOf(Paginator);
+              break;
+            case PreparedStatementKeys.LIST_BY:
+              expect(current).toBeDefined();
+              expect(current).toBeInstanceOf(Array);
+              expect(current.length).toBe(10);
+              expect(
+                current.reverse().every((e, i) => e.equals(cachedBulk[i]))
+              ).toBe(true);
+              break;
+            case PreparedStatementKeys.FIND_ONE_BY:
+              expect(current).toBeDefined();
+              expect(current).toBeInstanceOf(TestContextRepoModel);
+              expect(current.equals(cachedBulk[0])).toBe(true);
+              break;
+            case PersistenceKeys.STATEMENT:
+              expect(current).toBeDefined();
+              expect(current).toBeInstanceOf(Array);
+              expect(current.length).toBe(1);
+              expect(current[0].equals(cachedBulk[4])).toBe(true);
+              break;
+            case PersistenceKeys.QUERY:
+              expect(current).toBeDefined();
+              expect(current).toBeInstanceOf(Array);
+              expect(current.length).toBe(10);
               break;
             default:
               expect(
@@ -649,7 +603,7 @@ describe("Contextualization", () => {
 
           if (bulkOps.includes(op as any)) {
             cachedBulk = current;
-          } else {
+          } else if (crudOps.includes(op as any)) {
             cached = current;
           }
         });

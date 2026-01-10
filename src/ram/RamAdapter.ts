@@ -275,9 +275,9 @@ export class RamAdapter extends Adapter<
   async read<M extends Model>(
     clazz: Constructor<M>,
     id: PrimaryKeyType,
-    ctx: RamContext
+    ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
-    const { log } = this.logCtx([ctx], this.read);
+    const { log } = this.logCtx(args, this.read);
     const tableName = Model.tableName(clazz);
     log.debug(`reading record in table ${tableName} with id ${id}`);
     if (!this.client.has(tableName))
@@ -322,9 +322,9 @@ export class RamAdapter extends Adapter<
     clazz: Constructor<M>,
     id: PrimaryKeyType,
     model: Record<string, any>,
-    ctx: RamContext
+    ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
-    const { log } = this.logCtx([ctx], this.update);
+    const { log } = this.logCtx(args, this.update);
     const tableName = Model.tableName(clazz);
     log.debug(`updating record in table ${tableName} with id ${id}`);
 
@@ -374,9 +374,9 @@ export class RamAdapter extends Adapter<
   async delete<M extends Model>(
     clazz: Constructor<M>,
     id: PrimaryKeyType,
-    ctx: RamContext
+    ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
-    const { log } = this.logCtx([ctx], this.delete);
+    const { log } = this.logCtx(args, this.delete);
     const tableName = Model.tableName(clazz);
     log.debug(`deleting record from table ${tableName} with id ${id}`);
 
@@ -458,9 +458,9 @@ export class RamAdapter extends Adapter<
   async raw<R, D extends boolean>(
     rawInput: RawRamQuery<any>,
     docsOnly: D = true as D,
-    ctx: RamContext
+    ...args: ContextualArgs<RamContext>
   ): Promise<RawResult<R, D>> {
-    const { log } = this.logCtx([ctx], this.raw);
+    const { log } = this.logCtx(args, this.raw);
     log.debug(`performing raw query: ${JSON.stringify(rawInput)}`);
 
     const { where, sort, limit, skip, from } = rawInput;
@@ -471,15 +471,17 @@ export class RamAdapter extends Adapter<
     const id = Model.pk(from);
     const props = Metadata.get(from, Metadata.key(DBKeys.ID, id as string));
 
-    let result: any[] = Array.from(collection.entries()).map(([pk, r]) =>
-      this.revert(
-        r,
-        from,
-        Sequence.parseValue(props.type as any, pk as string) as string,
-        undefined,
-        ctx
-      )
-    );
+    // let result: any[] = Array.from(collection.entries()).map(([pk, r]) =>
+    //   this.revert(
+    //     r,
+    //     from,
+    //     Sequence.parseValue(props.type as any, pk as string) as string,
+    //     undefined,
+    //     ctx
+    //   )
+    // );
+
+    let result: any[] = Array.from(collection.entries());
 
     result = where ? result.filter(where) : result;
 

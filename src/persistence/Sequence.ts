@@ -342,23 +342,30 @@ export class Sequence<
         ARGS,
         METHOD extends string ? true : false
       > {
-    return this.adapter["logCtx"](
-      [Sequence as any, ...args] as any,
+    const ctx = this.adapter["logCtx"](
+      [SequenceModel, ...args] as any,
       operation,
       allowCreate as any
     ) as
       | ContextualizedArgs<
-          ContextOf<typeof this.adapter>,
+          ContextOf<A>,
           ARGS,
           METHOD extends string ? true : false
         >
       | Promise<
           ContextualizedArgs<
-            ContextOf<typeof this.adapter>,
+            ContextOf<A>,
             ARGS,
             METHOD extends string ? true : false
           >
         >;
+    function squashArgs(ctx: ContextualizedArgs<ContextOf<A>>) {
+      ctx.ctxArgs.shift(); // removes added model to args
+      return ctx as any;
+    }
+
+    if (!(ctx instanceof Promise)) return squashArgs(ctx);
+    return ctx.then(squashArgs);
   }
 
   /**

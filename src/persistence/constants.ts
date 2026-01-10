@@ -9,6 +9,7 @@ import { AdapterFlags } from "./types";
  * @memberOf module:core
  */
 export enum PersistenceKeys {
+  PERSISTENCE = "persistence",
   /** @description Key for index metadata */
   INDEX = "index",
 

@@ -6,14 +6,14 @@ import { Context } from "../persistence/Context";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Constructor } from "@decaf-ts/decoration";
 
-export abstract class PersistenceService<
+export class PersistenceService<
   A extends Adapter<any, any, any, any>,
 > extends ClientBasedService<
   A[],
   [Constructor<A>, ConfigOf<A>, ...args: any[]][],
   ContextOf<A>
 > {
-  protected constructor() {
+  constructor() {
     super();
   }
 

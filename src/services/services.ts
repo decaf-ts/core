@@ -4,7 +4,9 @@ import { Logging, Logger, final } from "@decaf-ts/logging";
 import {
   ContextualArgs,
   ContextualizedArgs,
+  ContextualLoggedClass,
   MaybeContextualArg,
+  MethodOrOperation,
 } from "../utils/ContextualLoggedClass";
 import {
   Contextual,
@@ -15,11 +17,14 @@ import { Constructor } from "@decaf-ts/decoration";
 import { DefaultAdapterFlags } from "../persistence/constants";
 import { injectableServiceKey } from "../utils/utils";
 import { Injectables } from "@decaf-ts/injectable-decorators";
+import { UUID } from "../persistence/generators";
 
 export abstract class Service<
   C extends Context<AdapterFlags> = Context<AdapterFlags>,
-> {
-  protected constructor(readonly name?: string) {}
+> extends ContextualLoggedClass<C> {
+  protected constructor(readonly name?: string) {
+    super();
+  }
 
   /**
    * @description Creates repository flags for an operation
@@ -27,21 +32,21 @@ export abstract class Service<
    * @template F - The Repository Flags type
    * @template M - The model type
    * @param {OperationKeys} operation - The type of operation being performed
-   * @param {Constructor<M>} model - The model constructor
    * @param {Partial<F>} flags - Custom flag overrides
    * @param {...any[]} args - Additional arguments
    * @return {Promise<F>} The complete set of flags
    */
   protected async flags(
-    operation: OperationKeys | string,
+    operation: string,
     flags: Partial<FlagsOf<C>>,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<FlagsOf<C>> {
-    let log = (flags.logger || Logging.for(this.toString())) as Logger;
-    if (flags.correlationId)
-      log = log.for({ correlationId: flags.correlationId });
+    flags.correlationId =
+      flags.correlationId || `${operation}-${UUID.instance.generate()}`;
+    const log = (flags.logger || Logging.for(this as any)) as Logger;
+    log.setConfig({ correlationId: flags.correlationId });
     return Object.assign({}, DefaultAdapterFlags, flags, {
+      args: args,
       timestamp: new Date(),
       operation: operation,
       logger: log,
@@ -57,66 +62,94 @@ export abstract class Service<
   > as unknown as Constructor<C>;
 
   async context(
-    operation:
-      | OperationKeys.CREATE
-      | OperationKeys.READ
-      | OperationKeys.UPDATE
-      | OperationKeys.DELETE
-      | string,
-    overrides: Partial<FlagsOf<C>>,
-    ...args: any[]
-  ): Promise<C> {
-    const normalizedOverrides = overrides as Partial<FlagsOf<C>>;
-    const flags = await this.flags(operation, normalizedOverrides, ...args);
-    return new this.Context().accumulate(flags) as unknown as C;
-  }
-
-  protected async logCtx<ARGS extends any[]>(
-    args: ARGS,
-    method: ((...args: any[]) => any) | string,
-    allowCreate = false
-  ): Promise<ContextualizedArgs<any, ARGS>> {
-    return (await Service.logCtx.bind(this)(
-      args,
-      method as any,
-      allowCreate
-    )) as ContextualizedArgs<C, ARGS>;
-  }
-
-  protected static async logCtx<
-    CONTEXT extends Context<any>,
-    ARGS extends any[],
-  >(
-    this: Contextual,
-    args: ARGS,
     operation: ((...args: any[]) => any) | string,
-    allowCreate: boolean = false,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    ...argz: any[]
-  ): Promise<ContextualizedArgs<CONTEXT, ARGS>> {
-    const bootCtx = async function bootCtx(this: Contextual) {
-      if (!allowCreate) throw new InternalError("No context provided");
-      return this.context(
-        typeof operation === "string" ? operation : operation.name,
-        {}
-      );
-    }.bind(this);
-
-    if (args.length < 1) {
-      args = [await bootCtx()] as ARGS;
+    overrides: Partial<FlagsOf<C>>,
+    ...args: MaybeContextualArg<Context<any>>
+  ): Promise<C> {
+    const log = this.log.for(this.context);
+    log.silly(
+      `creating new context for ${operation} operation with flag overrides: ${JSON.stringify(overrides)}`
+    );
+    let ctx = args.pop();
+    if (typeof ctx !== "undefined" && !(ctx instanceof Context)) {
+      args.push(ctx);
+      ctx = undefined;
     }
-    const ctx = args.pop() as CONTEXT;
-    if (!(ctx instanceof Context)) args = [...args, await bootCtx()] as ARGS;
-    const log = (
-      this
-        ? ctx.logger.for(this).for(operation)
-        : ctx.logger.clear().for(this).for(operation)
-    ) as LoggerOf<CONTEXT>;
-    return {
-      ctx: ctx,
-      log: operation ? (log.for(operation) as LoggerOf<CONTEXT>) : log,
-      ctxArgs: [...args, ctx],
-    };
+
+    const flags = await this.flags(
+      typeof operation === "string" ? operation : operation.name,
+      overrides as Partial<FlagsOf<C>>,
+      ...args
+    );
+    if (ctx) {
+      return new this.Context(ctx).accumulate({
+        ...flags,
+        parentContext: ctx,
+      }) as any;
+    }
+    return new this.Context().accumulate(flags) as any;
+  }
+
+  protected override logCtx<
+    CONTEXT extends Context<any> = C,
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: METHOD
+  ): ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>;
+  protected override logCtx<
+    CONTEXT extends Context<any> = C,
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: METHOD,
+    allowCreate: false,
+    overrides?: Partial<FlagsOf<CONTEXT>>
+  ): ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>;
+  protected override logCtx<
+    CONTEXT extends Context<any> = C,
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: METHOD,
+    allowCreate: true,
+    overrides?: Partial<FlagsOf<CONTEXT>>
+  ): Promise<
+    ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>
+  >;
+  protected override logCtx<
+    CONTEXT extends Context<any> = C,
+    CREATE extends boolean = false,
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: METHOD,
+    allowCreate: CREATE = false as CREATE,
+    overrides?: Partial<FlagsOf<CONTEXT>>
+  ):
+    | Promise<
+        ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>
+      >
+    | ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false> {
+    return ContextualLoggedClass.logCtx.call(
+      this,
+      operation,
+      overrides || {},
+      allowCreate,
+      ...args.filter((e) => typeof e !== "undefined")
+    ) as
+      | Promise<
+          ContextualizedArgs<
+            CONTEXT,
+            ARGS,
+            METHOD extends string ? true : false
+          >
+        >
+      | ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>;
   }
 
   /**
@@ -140,30 +173,9 @@ export abstract class Service<
   static async boot<C extends Context<any> = any>(
     ...args: MaybeContextualArg<C>
   ): Promise<void> {
-    const factory: Contextual = {
-      async context(
-        operation:
-          | OperationKeys.CREATE
-          | OperationKeys.READ
-          | OperationKeys.UPDATE
-          | OperationKeys.DELETE
-          | string
-      ): Promise<Context<any>> {
-        return new Context().accumulate(
-          Object.assign({}, DefaultAdapterFlags, {
-            timestamp: new Date(),
-            operation: operation,
-            logger: Logging.get(),
-          })
-        );
-      },
-    };
-
-    const { log, ctxArgs } = await this.logCtx.bind(factory)(
-      args,
-      this.boot,
-      true
-    );
+    const { log, ctxArgs } = await this.logCtx.bind(
+      this as unknown as Contextual
+    )(this.boot, { args: args }, true);
     const services = Injectables.services();
     for (const [key, service] of Object.entries(services)) {
       try {

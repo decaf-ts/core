@@ -1,11 +1,22 @@
-import { RamAdapter, RamFlavour } from "../../src/ram";
-const adapter = new RamAdapter();
-import { AbsMigration, Adapter, migration } from "../../src";
+import { RamAdapter, RamConfig, RamContext, RamFlavour } from "../../src/ram";
+import {
+  AbsMigration,
+  ContextualArgs,
+  migration,
+  MigrationService,
+  PersistenceService,
+} from "../../src";
 import { Context } from "@decaf-ts/db-decorators";
-import { Logger } from "@decaf-ts/logging";
 
 const f1 = jest.fn();
+const fMigrate = jest.fn();
 const f2 = jest.fn();
+
+class OtherAdapter extends RamAdapter {
+  constructor(cfg?: RamConfig) {
+    super(cfg, "other");
+  }
+}
 
 @migration(RamFlavour, [async () => true])
 class RamMigration extends AbsMigration<RamAdapter, any> {
@@ -18,36 +29,106 @@ class RamMigration extends AbsMigration<RamAdapter, any> {
     return {};
   }
 
-  async up(runner: object, adapter: RamAdapter, log: Logger): Promise<void> {
+  async up(
+    runner: object,
+    adapter: RamAdapter,
+    ...args: ContextualArgs<RamContext>
+  ): Promise<void> {
+    const { log } = this.logCtx(args, this.up);
     f1(runner, adapter, log);
   }
 
-  async down(runner: object, adapter: RamAdapter, log: Logger): Promise<void> {
+  async migrate(
+    runner: object,
+    adapter: RamAdapter,
+    ...args: ContextualArgs<RamContext>
+  ): Promise<void> {
+    const { log } = this.logCtx(args, this.migrate);
+    fMigrate(runner, adapter, log);
+  }
+
+  async down(
+    runner: object,
+    adapter: RamAdapter,
+    ...args: ContextualArgs<RamContext>
+  ): Promise<void> {
+    const { log } = this.logCtx(args, this.down);
+    f2(runner, adapter, log);
+  }
+}
+
+@migration("other", [async () => true])
+class OtherMigration extends AbsMigration<OtherAdapter, any> {
+  constructor() {
+    super();
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  protected getQueryRunner(conn: any): any {
+    return {};
+  }
+
+  async up(
+    runner: object,
+    adapter: RamAdapter,
+    ...args: ContextualArgs<RamContext>
+  ): Promise<void> {
+    const { log } = this.logCtx(args, this.up);
+    f1(runner, adapter, log);
+  }
+
+  async migrate(
+    runner: object,
+    adapter: RamAdapter,
+    ...args: ContextualArgs<RamContext>
+  ): Promise<void> {
+    const { log } = this.logCtx(args, this.migrate);
+    fMigrate(runner, adapter, log);
+  }
+
+  async down(
+    runner: object,
+    adapter: RamAdapter,
+    ...args: ContextualArgs<RamContext>
+  ): Promise<void> {
+    const { log } = this.logCtx(args, this.down);
     f2(runner, adapter, log);
   }
 }
 
 describe("Adapter migrations", () => {
+  let service: PersistenceService<any>;
+
   beforeAll(async () => {
     console.log(RamMigration.name);
   });
 
-  it("retrieves the migrations for an adapter", () => {
-    const migrations = adapter.migrations();
-    expect(migrations).toBeDefined();
-    expect(migrations.length).toBe(1);
+  it("boots the persistence service", async () => {
+    service = new PersistenceService();
+    await service.boot([
+      [RamAdapter, { user: "hi" }],
+      [OtherAdapter, { user: "hello" }],
+    ]);
   });
 
-  it("runs the up migration", async () => {
-    const ctx = await adapter.context(
-      "migration",
-      {},
-      Adapter.models(RamFlavour)
-    );
-    await adapter.migrate(ctx);
+  it("loads the migration service", async () => {
+    const migrations = new MigrationService();
+    await migrations.boot();
+    expect(migrations).toBeInstanceOf(MigrationService);
+  });
+
+  it("runs migrations", async () => {
     expect(f1).toHaveBeenCalled();
     expect(f2).toHaveBeenCalled();
-    expect(f1).toHaveBeenCalledWith({}, adapter, expect.any(Context));
-    expect(f2).toHaveBeenCalledWith({}, adapter, expect.any(Context));
+    expect(f1).toHaveBeenCalledWith(
+      {},
+      expect.any(RamAdapter),
+      expect.any(Context)
+    );
+    expect(f2).toHaveBeenCalledWith(
+      {},
+      expect.any(OtherAdapter),
+      expect.any(Context)
+    );
   });
 });

@@ -1,5 +1,4 @@
 import { DefaultMigrationConfig } from "../migrations/constants";
-import { migration } from "../migrations/decorators";
 import { Migration, MigrationConfig } from "../migrations/types";
 import { ClientBasedService, Service } from "./services";
 import { Adapter } from "../persistence/Adapter";
@@ -15,10 +14,9 @@ import {
   MethodOrOperation,
 } from "../utils/index";
 import { style } from "@decaf-ts/logging";
-import { Metadata } from "@decaf-ts/decoration";
+import { DefaultFlavour, Metadata } from "@decaf-ts/decoration";
 import { InternalError } from "@decaf-ts/db-decorators";
 
-@migration(null)
 export class MigrationService<
     PERSIST extends boolean,
     A extends Adapter<any, any, any, any> = any,
@@ -381,3 +379,14 @@ export class MigrationService<
     return ctx;
   }
 }
+
+const current =
+  Metadata["innerGet"](Symbol.for(PersistenceKeys.MIGRATION), DefaultFlavour) ||
+  [];
+
+Metadata.set(PersistenceKeys.MIGRATION, DefaultFlavour, [
+  ...current,
+  {
+    class: MigrationService,
+  },
+]);

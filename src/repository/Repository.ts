@@ -40,7 +40,6 @@ import type {
   PersistenceObservable,
   PersistenceObserver,
 } from "../persistence/types";
-import type { FlagsOf as ContextualFlagsOf } from "@decaf-ts/db-decorators";
 import type { Observer } from "../interfaces/Observer";
 import {
   Constructor,

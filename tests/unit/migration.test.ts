@@ -98,7 +98,7 @@ class OtherMigration extends AbsMigration<OtherAdapter, any> {
 
 describe("Adapter migrations", () => {
   let service: PersistenceService<any>;
-
+  let migrations: MigrationService<any>;
   beforeAll(async () => {
     console.log(RamMigration.name);
   });
@@ -112,12 +112,13 @@ describe("Adapter migrations", () => {
   });
 
   it("loads the migration service", async () => {
-    const migrations = new MigrationService();
+    migrations = new MigrationService();
     await migrations.boot();
     expect(migrations).toBeInstanceOf(MigrationService);
   });
 
   it("runs migrations", async () => {
+    await migrations.migrate();
     expect(f1).toHaveBeenCalled();
     expect(f2).toHaveBeenCalled();
     expect(f1).toHaveBeenCalledWith(

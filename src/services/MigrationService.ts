@@ -1,240 +1,22 @@
-import { AdapterFlags, ContextOf, FlagsOf, Migration } from "./types";
-import { Adapter } from "./Adapter";
-import { InternalError, operation } from "@decaf-ts/db-decorators";
-import { DefaultAdapterFlags, PersistenceKeys } from "./constants";
+import { DefaultMigrationConfig } from "../migrations/constants";
+import { migration } from "../migrations/decorators";
+import { Migration, MigrationConfig } from "../migrations/types";
+import { ClientBasedService, Service } from "./services";
+import { Adapter } from "../persistence/Adapter";
+import { Context } from "../persistence/Context";
+import { PersistenceKeys } from "../persistence/constants";
+import { MigrationError } from "../persistence/errors";
+import { AdapterFlags, ContextOf, FlagsOf } from "../persistence/types";
 import {
-  Constructor,
-  Decoration,
-  DefaultFlavour,
-  Metadata,
-  metadata,
-} from "@decaf-ts/decoration";
-import { MigrationError, MigrationRuleError } from "./errors";
-import {
-  AbsContextual,
   ContextualArgs,
   ContextualizedArgs,
   ContextualLoggedClass,
   MaybeContextualArg,
   MethodOrOperation,
-} from "../utils/ContextualLoggedClass";
-import { ClientBasedService, Service } from "../services/services";
-import { log, style } from "@decaf-ts/logging";
-import { prefixMethod } from "../utils/utils";
-import { Context } from "./Context";
-
-export type ConnectionForAdapter<A extends Adapter<any, any, any, any>> =
-  A extends Adapter<any, any, infer CONN, any> ? CONN : never;
-
-export abstract class AbsMigration<
-    A extends Adapter<any, any, any, any>,
-    QUERYRUNNER = ConnectionForAdapter<A>,
-  >
-  extends AbsContextual<ContextOf<A>>
-  implements Migration<QUERYRUNNER, A>
-{
-  private _reference?: string;
-  private _precedence?: Migration<any, any>;
-
-  transaction = true;
-
-  get reference() {
-    if (!this._reference)
-      throw new InternalError(
-        `No reference defined for ${this.constructor.name}. did you use @migration()?`
-      );
-    return this._reference;
-  }
-
-  get precedence() {
-    if (typeof this._precedence === "undefined")
-      throw new InternalError(
-        `No precedence defined for ${this.constructor.name}. did you use @migration()?`
-      );
-    return this._precedence;
-  }
-
-  protected constructor() {
-    super();
-    [this.up, this.down].forEach((m) => {
-      const name = m.name;
-      prefixMethod(this, m, this.prefix(name));
-    });
-  }
-
-  protected get adapter(): A {
-    const meta = Metadata.get(
-      this.constructor as any,
-      PersistenceKeys.MIGRATION
-    );
-    if (!meta)
-      throw new InternalError(
-        `No migration metadata for ${this.constructor.name}`
-      );
-    const flavour: string = meta.flavour;
-    return Adapter.get(flavour) as A;
-  }
-
-  protected abstract getQueryRunner(conn: ConnectionForAdapter<A>): QUERYRUNNER;
-
-  private async enforceRules(qr: QUERYRUNNER, adapter: A, ctx: ContextOf<A>) {
-    const rules: MigrationRule<any, any>[] = Metadata.get(
-      this.constructor as any,
-      PersistenceKeys.MIGRATION
-    )?.rules;
-    if (!rules || !rules.length) return true;
-    for (const rule of rules) {
-      const result = await rule(qr, adapter, ctx);
-      if (!result) return false;
-    }
-    return true;
-  }
-
-  private prefix(name: string) {
-    return async function preffix(
-      this: AbsMigration<A, QUERYRUNNER>,
-      qrOrAdapter: QUERYRUNNER | A
-    ): Promise<[QUERYRUNNER, A, ContextOf<A>]> {
-      let qr: QUERYRUNNER;
-      if (qrOrAdapter instanceof Adapter) {
-        qr = this.getQueryRunner(qrOrAdapter.client);
-      } else {
-        qr = qrOrAdapter;
-        qrOrAdapter = this.adapter;
-      }
-      const { ctx, log } = await this.logCtx(
-        [name],
-        PersistenceKeys.MIGRATION,
-        true
-      );
-      const allowed = await this.enforceRules(
-        qr,
-        qrOrAdapter as A,
-        ctx as ContextOf<A>
-      );
-      if (!allowed) {
-        log.verbose(`Skipping migration ${this.constructor.name} due to rules`);
-        throw new MigrationRuleError("Migration skipped for rule enforcement");
-      }
-      return [qr, qrOrAdapter, ctx as ContextOf<A>];
-    }.bind(this);
-  }
-
-  abstract down(
-    qr: QUERYRUNNER,
-    adapter: A,
-    ...args: ContextualArgs<ContextOf<A>>
-  ): Promise<void>;
-
-  abstract migrate(
-    qr: QUERYRUNNER,
-    adapter: A,
-    ...args: ContextualArgs<ContextOf<A>>
-  ): Promise<void>;
-
-  abstract up(qr: QUERYRUNNER, adapter: A, ctx: ContextOf<A>): Promise<void>;
-}
-
-export type MigrationRule<
-  A extends Adapter<any, any, any, any> = any,
-  QUERYRUNNER = ConnectionForAdapter<A>,
-> = (qr: QUERYRUNNER, adapter: A, ctx: ContextOf<A>) => Promise<boolean>;
-
-export type MigrationMetadata = {
-  precedence?: Migration<any, any>;
-  flavour: string;
-  rules?: MigrationRule[];
-};
-
-export function migration(): (target: object) => any;
-export function migration(
-  precedence: Constructor<Migration<any, any>> | null
-): (target: object) => any;
-export function migration(flavour: string): (target: object) => any;
-export function migration(
-  flavour: string,
-  rules?: MigrationRule[]
-): (target: object) => any;
-export function migration(
-  precedence: Constructor<Migration<any, any>>,
-  flavour: string
-): (target: object) => any;
-export function migration(
-  precedence: Constructor<Migration<any, any>>,
-  flavour: string,
-  rules?: MigrationRule[]
-): (target: object) => any;
-export function migration(
-  precedence?: Constructor<Migration<any, any>> | string | null,
-  flavour?: string | MigrationRule[],
-  rules?: MigrationRule[]
-): (target: object) => any {
-  function innerMigration(
-    precedence?: Constructor<Migration<any, any>> | string | null,
-    flavour?: string | MigrationRule[],
-    rules?: MigrationRule[]
-  ): (original: object) => void {
-    return function (original: object) {
-      if (flavour && typeof flavour !== "string") {
-        if (flavour && Array.isArray(flavour)) {
-          rules = flavour;
-          flavour = undefined;
-        }
-      }
-
-      if (typeof precedence === "string") {
-        flavour = precedence;
-        precedence = undefined;
-      }
-
-      if (typeof precedence === "undefined" && precedence !== null)
-        precedence = MigrationService;
-
-      flavour =
-        flavour ||
-        Metadata.flavourOf(original as Constructor) ||
-        (precedence === null ? flavour : undefined) ||
-        undefined;
-
-      const current =
-        Metadata["innerGet"](
-          Symbol.for(PersistenceKeys.MIGRATION),
-          flavour || DefaultFlavour
-        ) || [];
-      Metadata.set(PersistenceKeys.MIGRATION, flavour || DefaultFlavour, [
-        ...current,
-        {
-          class: original,
-        },
-      ]);
-      return metadata(PersistenceKeys.MIGRATION, {
-        precedence: precedence,
-        flavour: flavour || DefaultFlavour,
-        rules: rules,
-      })(original);
-    };
-  }
-
-  return Decoration.for(PersistenceKeys.MIGRATION)
-    .define({
-      decorator: innerMigration,
-      args: [precedence, flavour, rules],
-    })
-    .apply();
-}
-
-export type MigrationConfig<PERSIST extends boolean> = AdapterFlags<any> & {
-  persistMigrationSteps: PERSIST;
-  persistenceFlavour?: string;
-};
-
-export const DefaultMigrationConfig: MigrationConfig<true> = Object.assign(
-  {},
-  DefaultAdapterFlags,
-  {
-    persistMigrationSteps: true,
-  }
-) as MigrationConfig<true>;
+} from "../utils/index";
+import { style } from "@decaf-ts/logging";
+import { Metadata } from "@decaf-ts/decoration";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 @migration(null)
 export class MigrationService<
@@ -248,7 +30,7 @@ export class MigrationService<
   implements Migration<any, any>
 {
   flavour?: string;
-  readonly reference: string = "";
+  readonly reference: string = MigrationService.name;
   readonly precedence: Migration<any, any> | Migration<any, any>[] | null =
     null;
   transaction!: boolean;
@@ -261,18 +43,14 @@ export class MigrationService<
     config: MigrationConfig<PERSIST>;
     client: PERSIST extends boolean ? A : void;
   }> {
-    const { log, ctx, ctxArgs } = await this.logCtx(
-      args,
-      this.initialize,
-      true
-    );
+    const { log, ctx } = await this.logCtx(args, this.initialize, true);
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const persistence = Service.get(PersistenceKeys.PERSISTENCE);
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: unknown) {
-      if (!ctx.get("ignoreDevSafeguards"))
+      if (!ctx.get("ignoreDevSafeGuards"))
         log.warn(
           `Persistence service not available. this may indicate poor initialization of the persistence layer (or not)`
         );
@@ -370,37 +148,54 @@ export class MigrationService<
   }
 
   async migrate(
-    qr: any,
-    adapter: any,
-    migrations: Constructor<Migration<any, any>>[],
-    ...args: ContextualArgs<ContextOf<any>>
+    qr?: any,
+    adapter?: any,
+    ...args: MaybeContextualArg<ContextOf<any>>
   ): Promise<void> {
     const { ctxArgs, ctx, log } = (
       await this.logCtx(args, PersistenceKeys.MIGRATION, true)
     ).for(this.migrate);
     // const qr = await this.getQueryRunner();
     let m: Migration<any, any>;
-    const breakOnError = ctx.get("breakOnError");
-    const migs: Record<string, Constructor<Migration<any, any>>> = Metadata[
-      "innerGet"
-    ](Symbol.for(PersistenceKeys.MIGRATION));
-    for (const [, migration] of Object.entries(migs)) {
-      try {
-        m = new migration();
-        log.silly(`migration ${m.reference} instantiated`);
-      } catch (e: unknown) {
-        throw new InternalError(
-          `failed to create migration ${migration.name}: ${e}`
-        );
-      }
+    const migrations: Migration<any, any>[] = Object.entries(
+      Metadata.migrations()
+    )
+      .map(([flavour, migs]) =>
+        migs.map((mig) => {
+          try {
+            log.silly(`loading migration ${mig.name} of flavour ${flavour}`);
+            m = new mig();
+            log.verbose(`migration ${m.reference} instantiated`, 1);
+          } catch (e: unknown) {
+            throw new InternalError(
+              `failed to create migration ${mig.name}: ${e}`
+            );
+          }
+          return m;
+        })
+      )
+      .flat();
 
+    let sortedMigrations: Migration<any, any>[];
+    try {
+      sortedMigrations = this.sort(migrations);
+    } catch (e: unknown) {
+      throw new InternalError(`Failed to sort migrations: ${e}`);
+    }
+    log.debug(
+      `sorted migration before execution: ${sortedMigrations.map((s) => s.reference)}`
+    );
+
+    const breakOnError = ctx.get("breakOnHandlerError");
+
+    for (const m of sortedMigrations) {
       let adapter: Adapter<any, any, any, any>;
       let qr: any;
       try {
         adapter = Adapter.get(m.flavour) as any;
         if (!adapter)
           throw new InternalError(
-            `failed to create migration ${m.reference}. did you call Service.boot()?`
+            `failed to create migration ${m.reference}. did you call Service.boot() or use the Persistence Service??`
           );
         qr = adapter.client;
       } catch (e: unknown) {

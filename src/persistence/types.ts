@@ -136,28 +136,6 @@ export interface AdapterDispatch<A extends Adapter<any, any, any, any>>
   ): Promise<void>;
 }
 
-export interface Migration<QUERYRUNNER, A extends Adapter<any, any, any, any>> {
-  flavour?: string;
-  precedence: Migration<any, any> | Migration<any, any>[] | null;
-  reference: string;
-  transaction: boolean;
-  up(
-    qr: QUERYRUNNER,
-    adapter: A,
-    ...args: ContextualArgs<ContextOf<A>>
-  ): Promise<void>;
-  migrate(
-    qr: QUERYRUNNER,
-    adapter: A,
-    ...args: ContextualArgs<ContextOf<A>>
-  ): Promise<void>;
-  down(
-    qr: QUERYRUNNER,
-    adapter: A,
-    ...args: ContextualArgs<ContextOf<A>>
-  ): Promise<void>;
-}
-
 export type RepositoryFor<A extends Adapter<any, any, any, any>> =
   A extends Adapter<any, any, any, any> ? ReturnType<A["repository"]> : never;
 

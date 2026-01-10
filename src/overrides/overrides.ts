@@ -11,9 +11,9 @@ import { IndexMetadata } from "../repository/types";
 import { Repository } from "../repository/Repository";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import { Service } from "../services/services";
-import type { Migration } from "../persistence/types";
 import { TaskHandler } from "../tasks/TaskHandler";
 import { TasksKey } from "../tasks/index";
+import { type Migration } from "../migrations/types";
 
 (Metadata as any).tasks = function tasks():
   | Record<string, Constructor<TaskHandler<any, any>>>
@@ -53,6 +53,25 @@ import { TasksKey } from "../tasks/index";
   );
   return migrations.map(
     (m: { class: Constructor<Migration<any, A>> }) => m.class
+  );
+}.bind(Metadata);
+
+(Metadata as any).migrations = function migrations(): Record<
+  string,
+  Constructor<Migration<any, any>>[]
+> {
+  const migrations: Record<
+    string,
+    { class: Constructor<Migration<any, any>> }[]
+  > = Metadata["innerGet"](Symbol.for(PersistenceKeys.MIGRATION));
+  return Object.entries(migrations).reduce(
+    (accm: Record<string, any>, [flavour, migrations]) => {
+      accm[flavour] = migrations.map(
+        (m: { class: Constructor<Migration<any, any>> }) => m.class
+      );
+      return accm;
+    },
+    {}
   );
 }.bind(Metadata);
 

@@ -26,7 +26,6 @@ import {
   type AdapterFlags,
   type EventIds,
   FlagsOf,
-  Migration,
   type ObserverFilter,
   PersistenceObservable,
   PersistenceObserver,
@@ -41,7 +40,6 @@ import {
   DefaultFlavour,
   Metadata,
 } from "@decaf-ts/decoration";
-import { MigrationError } from "./errors";
 import {
   AbsContextual,
   ContextualArgs,
@@ -1053,44 +1051,5 @@ export abstract class Adapter<
       >
     | ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false> {
     return super.logCtx(args, operation, allowCreate as any, overrides);
-  }
-
-  async migrate(...args: MaybeContextualArg<CONTEXT>): Promise<void>;
-  async migrate(
-    migrations:
-      | Constructor<Migration<any, any>>[]
-      | CONTEXT = this.migrations(),
-    ...args: MaybeContextualArg<CONTEXT>
-  ): Promise<void> {
-    if (migrations instanceof Context) {
-      args = [migrations as unknown as CONTEXT];
-      migrations = this.migrations();
-    }
-    const { ctxArgs } = this.logCtx(args, PersistenceKeys.MIGRATION);
-    let m: Migration<any, any>;
-
-    const qr = await this.getQueryRunner();
-    for (const migration of migrations) {
-      try {
-        m = new migration();
-      } catch (e: unknown) {
-        throw new InternalError(e);
-      }
-      try {
-        await m.up(qr, this, ...ctxArgs);
-      } catch (e: unknown) {
-        throw new MigrationError(e);
-      }
-      try {
-        await m.migrate(qr, this, ...ctxArgs);
-      } catch (e: unknown) {
-        throw new MigrationError(e);
-      }
-      try {
-        await m.down(qr, this, ...ctxArgs);
-      } catch (e: unknown) {
-        throw new MigrationError(e);
-      }
-    }
   }
 }

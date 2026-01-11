@@ -141,10 +141,11 @@ export class MigrationService<
       const size2 = precedences2.length;
       const res = size1 - size2;
       if (res === 0) {
-        // return migration1.reference.localeCompare(migration2.reference);
-        throw new InternalError(
-          `Unable to sort migration precedence between ${migration1.reference} and ${migration2.reference}. should not be possible`
-        );
+        if (migration1.reference === migration2.reference)
+          throw new InternalError(
+            `Unable to sort migration precedence between ${migration1.reference} and ${migration2.reference}. should not be possible`
+          );
+        return migration1.reference.localeCompare(migration2.reference);
       }
 
       return res;
@@ -192,28 +193,29 @@ export class MigrationService<
       let adapter: Adapter<any, any, any, any>;
       let qr: any;
       try {
-        adapter = Adapter.get(m.flavour) as any;
+        const meta = Metadata.get(m.constructor as any, PersistenceKeys.MIGRATION);
+        const flavour = meta?.flavour || m.flavour;
+        adapter = Adapter.get(flavour) as any;
         if (!adapter)
           throw new InternalError(
             `failed to create migration ${m.reference}. did you call Service.boot() or use the Persistence Service??`
           );
         qr = adapter.client;
       } catch (e: unknown) {
-        console.error("migration init error", e);
         if (breakOnError)
           throw new InternalError(
-            `Failed to load ${m.flavour} adapter to migrate: ${e}`
+            `Failed to load adapter to migrate ${m.reference}: ${e}`
           );
         log.warn(
           style(
-            `Failed to load ${m.flavour} adapter to migrate. skipping ${m.reference}`
+            `Failed to load adapter to migrate. skipping ${m.reference}`
           ).red.bold
         );
         continue;
       }
 
       try {
-        await m.up(qr, this, ...ctxArgs);
+        await m.up(qr, adapter, ...ctxArgs);
       } catch (e: unknown) {
         if (breakOnError)
           throw new MigrationError(
@@ -226,7 +228,7 @@ export class MigrationService<
         continue;
       }
       try {
-        await m.migrate(qr, this, ...ctxArgs);
+        await m.migrate(qr, adapter, ...ctxArgs);
       } catch (e: unknown) {
         if (breakOnError)
           throw new MigrationError(`failed to migrate ${m.reference}: ${e}`);
@@ -234,7 +236,7 @@ export class MigrationService<
         continue;
       }
       try {
-        await m.down(qr, this, ...ctxArgs);
+        await m.down(qr, adapter, ...ctxArgs);
       } catch (e: unknown) {
         if (breakOnError)
           throw new MigrationError(
@@ -361,7 +363,8 @@ export class MigrationService<
           >;
     }
 
-    const ctx = this.client["logCtx"](
+    const ctx = this.client["logCtx"].call(
+      this.client,
       args,
       operation,
       allowCreate as any,

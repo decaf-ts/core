@@ -8,8 +8,7 @@ import { RelationsMetadata } from "./types";
 import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 import { PersistenceKeys } from "../persistence/constants";
 import { Cascade } from "../repository/constants";
-import { Metadata } from "@decaf-ts/decoration";
-import { isClass } from "@decaf-ts/logging";
+import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { AdapterFlags, ContextOf } from "../persistence/types";
 import { Context } from "../persistence/Context";
 
@@ -227,13 +226,17 @@ export async function oneToOneOnCreate<M extends Model, R extends Repo<M>>(
       key,
       this.adapter.alias
     );
-    const read = await innerRepo.read(propertyValue);
+    const read = await innerRepo.read(propertyValue, context);
     await cacheModelForPopulate(context, model, key, propertyValue, read);
     (model as any)[key] = propertyValue;
     return;
   }
+  const constructor: Constructor = (
+    typeof data.class === "function" && !data.class.name
+      ? (data.class as () => Constructor)()
+      : data.class
+  ) as Constructor;
 
-  const constructor = isClass(data.class) ? data.class : data.class();
   if (!constructor)
     throw new InternalError(`Could not find model ${data.class}`);
   const repo: Repo<any> = Repository.forModel(constructor, this.adapter.alias);

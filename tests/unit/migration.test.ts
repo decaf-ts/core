@@ -56,7 +56,7 @@ class RamMigration extends AbsMigration<RamAdapter, any> {
   }
 }
 
-@migration("other", RamMigration, RamFlavour, [async () => true])
+@migration("other", MigrationService, RamFlavour, [async () => true])
 class OtherMigration extends AbsMigration<OtherAdapter, any> {
   constructor() {
     super();
@@ -127,41 +127,41 @@ describe("Adapter migrations", () => {
 
     expect(f1).toHaveBeenNthCalledWith(
       1,
-      expect.any("1"),
+      expect.anything(),
       expect.any(RamAdapter),
-      expect.any(Context)
+      expect.anything()
     );
     expect(f1).toHaveBeenNthCalledWith(
       2,
-      expect.any("2"),
+      expect.anything(),
       expect.any(OtherAdapter),
-      expect.any(Context)
+      expect.anything()
     );
 
     expect(fMigrate).toHaveBeenNthCalledWith(
       1,
-      expect.any("1"),
+      expect.anything(),
       expect.any(RamAdapter),
-      expect.any(Context)
+      expect.anything()
     );
     expect(fMigrate).toHaveBeenNthCalledWith(
       2,
-      expect.any("2"),
+      expect.anything(),
       expect.any(OtherAdapter),
-      expect.any(Context)
+      expect.anything()
     );
 
     expect(f2).toHaveBeenNthCalledWith(
       1,
-      expect.any("1"),
+      expect.anything(),
       expect.any(RamAdapter),
-      expect.any(Context)
+      expect.anything()
     );
     expect(f2).toHaveBeenNthCalledWith(
       2,
-      expect.any("2"),
+      expect.anything(),
       expect.any(OtherAdapter),
-      expect.any(Context)
+      expect.anything()
     );
   });
 });

@@ -89,7 +89,7 @@ export function migration(
       Metadata.set(
         [PersistenceKeys.MIGRATION, PersistenceKeys.BY_KEY].join("-"),
         finalFlavour || DefaultFlavour,
-        [...current, original]
+        [...current, { class: original }]
       );
 
       Metadata.set(PersistenceKeys.MIGRATION, reference, original);

@@ -66,9 +66,9 @@ import { type Migration } from "../migrations/types";
   > = Metadata["innerGet"](
     Symbol.for([PersistenceKeys.MIGRATION, PersistenceKeys.BY_KEY].join("-"))
   );
-  return Object.entries(migrations)
-    .map(([, v]) => Object.entries(v))
-    .flat();
+  return Object.values(migrations)
+    .flat()
+    .map((m) => [m.class.name, m.class]);
 }.bind(Metadata);
 
 (Metadata as any).relations = function <M extends Model>(

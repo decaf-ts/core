@@ -208,8 +208,9 @@ export class Repository<
     return super.pkProps;
   }
 
-  readonly filters = getFilters(this);
-
+  get filters() {
+    return getFilters(this);
+  }
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor(adapter?: A, clazz?: Constructor<M>, ...args: any[]) {
     super(clazz);

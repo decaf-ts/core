@@ -401,7 +401,7 @@ export abstract class Statement<
     const [attrFromOrderBy, sort] = order;
 
     const params: DirectionLimitOffset = {
-      direction: sort,
+      direction: sort as any,
     };
 
     if (this.limitSelector) params.limit = this.limitSelector;

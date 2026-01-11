@@ -181,11 +181,11 @@ export abstract class Service<
       ...args
     );
     ctx = ctx
-      ? (new Service.prototype.Context(ctx).accumulate({
+      ? (new Context(ctx).accumulate({
           ...flags,
           parentContext: ctx,
         }) as any)
-      : (new Service.prototype.Context().accumulate(flags) as any);
+      : (new Context().accumulate(flags) as any);
 
     args = [...args, ctx];
 

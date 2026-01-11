@@ -75,6 +75,8 @@ export enum PersistenceKeys {
   UUID = "uuid",
 
   INITIALIZATION = "initialization",
+
+  BY_KEY = "by-key",
 }
 
 export const DefaultAdapterFlags: AdapterFlags = Object.assign(

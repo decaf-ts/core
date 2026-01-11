@@ -16,6 +16,11 @@ export function migration(
 ): (target: object) => any;
 export function migration(
   reference: string,
+  flavour: string,
+  rules?: MigrationRule[]
+): (target: object) => any;
+export function migration(
+  reference: string,
   precedence: Constructor<Migration<any, any>>,
   flavour: string
 ): (target: object) => any;
@@ -58,7 +63,7 @@ export function migration(
           flavour || DefaultFlavour
         ) || [];
       Metadata.set(
-        PersistenceKeys.MIGRATION,
+        [PersistenceKeys.MIGRATION, PersistenceKeys.BY_KEY].join("-"),
         (flavour as string) || DefaultFlavour,
         [...current, original]
       );

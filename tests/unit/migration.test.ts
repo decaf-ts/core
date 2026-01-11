@@ -17,7 +17,7 @@ class OtherAdapter extends RamAdapter {
   }
 }
 
-@migration(RamFlavour, [async () => true])
+@migration("one", RamFlavour, [async () => true])
 class RamMigration extends AbsMigration<RamAdapter, any> {
   constructor() {
     super();
@@ -56,7 +56,7 @@ class RamMigration extends AbsMigration<RamAdapter, any> {
   }
 }
 
-@migration("other", [async () => true])
+@migration("other", RamFlavour, [async () => true])
 class OtherMigration extends AbsMigration<OtherAdapter, any> {
   constructor() {
     super();

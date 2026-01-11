@@ -1,7 +1,5 @@
 import {
   ClientBasedService,
-  RamAdapter,
-  RamFlavour,
   Repo,
   Repository,
   repository,
@@ -10,6 +8,7 @@ import {
 } from "../../src/index";
 import { model, Model, ModelArg } from "@decaf-ts/decorator-validation";
 import { uses } from "@decaf-ts/decoration";
+import { RamAdapter, RamFlavour } from "../../src/ram/index";
 
 describe("Service injection and setup", () => {
   const client1InitMock = jest.fn(() => ({ initialized: true }));

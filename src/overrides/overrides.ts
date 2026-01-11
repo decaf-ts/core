@@ -63,7 +63,9 @@ import { type Migration } from "../migrations/types";
   const migrations: Record<
     string,
     Record<string, Constructor<Migration<any, any>>>
-  > = Metadata["innerGet"](Symbol.for(PersistenceKeys.MIGRATION));
+  > = Metadata["innerGet"](
+    Symbol.for([PersistenceKeys.MIGRATION, PersistenceKeys.BY_KEY].join("-"))
+  );
   return Object.entries(migrations)
     .map(([, v]) => Object.entries(v))
     .flat();

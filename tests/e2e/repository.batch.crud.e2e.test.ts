@@ -157,7 +157,7 @@ describe("e2e Repository test", () => {
     });
   });
 
-  describe.skip("Bulk Crud", () => {
+  describe("Bulk Crud", () => {
     it("Creates in bulk", async () => {
       const models = new Array(10).fill(0).map(() => {
         const id = generateGtin();

@@ -29,7 +29,7 @@ import { Logging, LogLevel, MiniLogger } from "@decaf-ts/logging";
 
 Logging.setConfig({ level: LogLevel.silly, style: false });
 
-describe.skip("Contextualization", () => {
+describe("Contextualization", () => {
   let adapter: RamAdapter;
 
   @table("tst_user")

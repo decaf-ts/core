@@ -73,7 +73,7 @@ describe("Model Services", () => {
     expect(obj.service).toBeInstanceOf(TestUserService);
   });
 
-  it.skip("acts as a repo", async () => {
+  it("acts as a repo", async () => {
     const model = new TestModel({
       name: "test_name",
       nif: "123123123",

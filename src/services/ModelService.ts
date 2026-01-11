@@ -2,13 +2,23 @@ import { type Constructor } from "@decaf-ts/decoration";
 import { Model, type ModelConstructor } from "@decaf-ts/decorator-validation";
 import { type Repo, Repository } from "../repository/Repository";
 import { Service } from "./services";
-import type { ContextOf } from "../persistence/types";
+import type {
+  AllOperationKeys,
+  ContextOf,
+  EventIds,
+  ObserverFilter,
+  PersistenceObservable,
+  PersistenceObserver,
+} from "../persistence/types";
 import {
+  BulkCrudOperationKeys,
   InternalError,
   type IRepository,
+  OperationKeys,
   type PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
 import type {
+  ContextualArgs,
   ContextualizedArgs,
   MaybeContextualArg,
   MethodOrOperation,
@@ -16,6 +26,7 @@ import type {
 import { create, del, service, read, update } from "../utils/decorators";
 import { OrderDirection } from "../repository/constants";
 import { type DirectionLimitOffset } from "../query/types";
+import { type Observer } from "../interfaces";
 
 export type ArrayMode = "one" | "many";
 
@@ -30,7 +41,10 @@ const resolveAlias = (
 
 export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
   extends Service
-  implements IRepository<M, ContextOf<R>>
+  implements
+    IRepository<M, ContextOf<R>>,
+    PersistenceObservable<ContextOf<R>>,
+    PersistenceObserver<ContextOf<R>>
 {
   protected _repository!: R;
 
@@ -240,6 +254,31 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
       }
     }
     return new DecoratedService() as S;
+  }
+
+  override refresh(
+    table: Constructor<M>,
+    event: OperationKeys | BulkCrudOperationKeys | string,
+    id: EventIds,
+    ...args: ContextualArgs<ContextOf<R>>
+  ): Promise<void> {
+    return this.repo.refresh(table, event, id, ...args);
+  }
+  override observe(observer: Observer, filter?: ObserverFilter): void {
+    return this.repo.observe(observer, filter);
+  }
+
+  override unObserve(observer: Observer): void {
+    return this.repo.unObserve(observer);
+  }
+
+  override updateObservers(
+    model: Constructor,
+    operation: AllOperationKeys,
+    ids: EventIds,
+    ...args: ContextualArgs<ContextOf<R>>
+  ) {
+    return this.repo.updateObservers(model, operation, ids, ...args);
   }
 
   protected override logCtx<

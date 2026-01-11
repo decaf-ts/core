@@ -12,6 +12,8 @@ import { Model } from "@decaf-ts/decorator-validation";
 import { ContextualArgs } from "../utils";
 import { Context } from "./Context";
 import { Repository } from "../repository/Repository";
+import { PersistenceKeys } from "./constants";
+import { PreparedStatementKeys } from "../query/index";
 
 export type FlagsOfContext<C extends Context<any>> =
   C extends Context<infer F> ? F : never;
@@ -115,10 +117,10 @@ export type EventIds =
   | bigint[];
 
 export type ObserverFilter = (
-  table: string | Constructor,
-  event: OperationKeys | BulkCrudOperationKeys | string,
+  table: Constructor,
+  event: AllOperationKeys,
   id: EventIds,
-  ...args: [...any[], Context<any>]
+  ...args: ContextualArgs<any>
 ) => boolean;
 
 export type InferredAdapterConfig<A> =
@@ -160,3 +162,10 @@ export type AdapterFlags<LOG extends Logger = Logger> = RepositoryFlags<LOG> & {
 export type RawResult<R, D extends boolean> = D extends true
   ? R
   : { data: R; count?: number };
+
+export type AllOperationKeys =
+  | OperationKeys
+  | BulkCrudOperationKeys
+  | PersistenceKeys
+  | PreparedStatementKeys
+  | string;

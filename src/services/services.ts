@@ -1,6 +1,14 @@
-import { AdapterFlags, FlagsOf } from "../persistence/types";
+import type {
+  AdapterFlags,
+  AllOperationKeys,
+  EventIds,
+  FlagsOf,
+  ObserverFilter,
+  PersistenceObservable,
+  PersistenceObserver,
+} from "../persistence/types";
 import { Context } from "../persistence/Context";
-import { Logging, Logger, final } from "@decaf-ts/logging";
+import { Logging, type Logger, final } from "@decaf-ts/logging";
 import {
   ContextualArgs,
   ContextualizedArgs,
@@ -14,12 +22,93 @@ import { DefaultAdapterFlags, PersistenceKeys } from "../persistence/constants";
 import { injectableServiceKey } from "../utils/utils";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import { UUID } from "../persistence/generators";
+import type { Observer } from "../interfaces/Observer";
+import { ObserverHandler } from "../persistence/ObserverHandler";
 
 export abstract class Service<
-  C extends Context<AdapterFlags> = Context<AdapterFlags>,
-> extends ContextualLoggedClass<C> {
+    C extends Context<AdapterFlags> = Context<AdapterFlags>,
+  >
+  extends ContextualLoggedClass<C>
+  implements PersistenceObservable<C>, PersistenceObserver<C>
+{
+  protected observers: Observer[] = [];
+
+  protected observerHandler?: ObserverHandler;
+
   protected constructor(readonly name?: string) {
     super();
+  }
+
+  /**
+   * @description Registers an observer for this repository.
+   * @summary Adds an observer that will be notified of changes to models in this repository.
+   * @param {Observer} observer - The observer to register.
+   * @param {ObserverFilter} [filter] - Optional filter to limit which events the observer receives.
+   * @return {void}
+   * @see {Observable#observe}
+   */
+  @final()
+  observe(observer: Observer, filter?: ObserverFilter): void {
+    if (!this.observerHandler)
+      Object.defineProperty(this, "observerHandler", {
+        value: new ObserverHandler(),
+        writable: false,
+      });
+    const log = this.log.for(this.observe);
+    this.observerHandler!.observe(observer, filter);
+    log.verbose(
+      `Registered new observer ${observer.constructor.name || observer.toString()}`
+    );
+  }
+
+  /**
+   * @description Unregisters an observer from this repository.
+   * @summary Removes an observer so it will no longer receive notifications of changes.
+   * @param {Observer} observer - The observer to unregister.
+   * @return {void}
+   * @throws {InternalError} If the observer handler is not initialized.
+   * @see {Observable#unObserve}
+   */
+  @final()
+  unObserve(observer: Observer): void {
+    if (!this.observerHandler)
+      throw new InternalError(
+        "ObserverHandler not initialized. Did you register any observables? or are you unregistering whe you shouldn't"
+      );
+    this.observerHandler.unObserve(observer);
+    const log = this.log.for(this.unObserve);
+    log.verbose(`Observer ${observer.toString()} removed`);
+    if (!this.observerHandler.count()) {
+      delete this.observerHandler;
+      log.verbose(`No longer being observed`);
+    }
+  }
+
+  /**
+   * @description Notifies all observers of an event.
+   * @summary Updates all registered observers with information about a database event.
+   * @param {string} table - The table name where the event occurred.
+   * @param {OperationKeys|BulkCrudOperationKeys|string} event - The type of event that occurred.
+   * @param {EventIds} id - The ID or IDs of the affected records.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<void>} A promise that resolves when all observers have been notified.
+   * @throws {InternalError} If the observer handler is not initialized.
+   */
+  async updateObservers(
+    table: Constructor<any> | string,
+    event: AllOperationKeys,
+    id: EventIds,
+    ...args: ContextualArgs<C>
+  ): Promise<void> {
+    if (!this.observerHandler)
+      throw new InternalError(
+        "ObserverHandler not initialized. Did you register any observables?"
+      );
+    const { log, ctxArgs } = this.logCtx(args, this.updateObservers);
+    log.verbose(
+      `Updating ${this.observerHandler.count()} observers for ${this}`
+    );
+    await this.observerHandler.updateObservers(table, event, id, ...ctxArgs);
   }
 
   /**
@@ -47,6 +136,24 @@ export abstract class Service<
       operation: operation,
       logger: log,
     }) as unknown as FlagsOf<C>;
+  }
+
+  /**
+   * @description Alias for updateObservers.
+   * @summary Notifies all observers of an event (alias for updateObservers).
+   * @param {string} table - The table name where the event occurred.
+   * @param {OperationKeys|BulkCrudOperationKeys|string} event - The type of event that occurred.
+   * @param {EventIds} id - The ID or IDs of the affected records.
+   * @param {...any[]} args - Additional arguments.
+   * @return {Promise<void>} A promise that resolves when all observers have been notified.
+   */
+  async refresh(
+    table: Constructor<any> | string,
+    event: AllOperationKeys,
+    id: EventIds,
+    ...args: ContextualArgs<C>
+  ): Promise<void> {
+    return this.updateObservers(table, event, id, ...args);
   }
 
   /**

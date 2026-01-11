@@ -441,7 +441,6 @@ export class TaskEngine<
     type: TaskEventType,
     payload: any
   ): Promise<TaskEventModel> {
-    // const id = `${taskId}:${ts.toISOString()}:${Math.random().toString(16).slice(2)}`;
     const evt = new TaskEventModel({ taskId, type, payload });
     return await this.events.create(evt);
   }

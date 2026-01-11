@@ -1,7 +1,12 @@
 import { MaybeContextualArg } from "../utils/ContextualLoggedClass";
 import { ClientBasedService } from "../services/services";
 import { TaskEngine, TaskEngineConfig } from "./TaskEngine";
-import { Adapter, ContextOf, PersistenceKeys } from "../persistence/index";
+import {
+  Adapter,
+  Context,
+  ContextOf,
+  PersistenceKeys,
+} from "../persistence/index";
 import { InternalError } from "@decaf-ts/db-decorators";
 
 export class TaskService<
@@ -14,10 +19,12 @@ export class TaskService<
   override async initialize(
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<{ config: TaskEngineConfig<A>; client: TaskEngine<A> }> {
+    const cfg = args.shift() as TaskEngineConfig<A> | any;
+    if (!cfg || cfg instanceof Context)
+      throw new InternalError(`No/invalid config provided`);
     const { log } = (
       await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
     ).for(this.initialize);
-    const cfg = args.pop() as TaskEngineConfig<A> | any;
     if (!cfg.adapter) throw new InternalError(`No adapter provided`);
     log.info(`Initializing Task Engine...`);
     const client: TaskEngine<A> = new TaskEngine(cfg);

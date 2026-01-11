@@ -32,9 +32,9 @@ export function migration(
 ): (target: object) => any;
 export function migration(
   reference: string,
-  precedence: Constructor<Migration<any, any>> | string | null,
-  flavour: string | MigrationRule[],
-  rules: MigrationRule[]
+  precedence?: Constructor<Migration<any, any>> | string | null,
+  flavour?: string | MigrationRule[],
+  rules?: MigrationRule[]
 ): (target: object) => any {
   function innerMigration(
     precedence?: Constructor<Migration<any, any>> | string | null,
@@ -42,37 +42,53 @@ export function migration(
     rules?: MigrationRule[]
   ): (original: object) => void {
     return function (original: object) {
-      if (flavour && typeof flavour !== "string") {
-        if (flavour && Array.isArray(flavour)) {
-          rules = flavour;
-          flavour = undefined;
-        }
+      const usedPrecedenceAsFlavour = typeof precedence === "string";
+      const hasExplicitPrecedence =
+        !usedPrecedenceAsFlavour && typeof precedence !== "undefined";
+
+      let parsedPrecedence:
+        | Constructor<Migration<any, any>>
+        | string
+        | null
+        | undefined = precedence;
+      let parsedFlavour: string | undefined;
+      let parsedRules: MigrationRule[] | undefined;
+
+      if (Array.isArray(flavour)) {
+        parsedRules = flavour;
+      } else {
+        parsedFlavour = flavour;
+        parsedRules = rules;
       }
 
       if (typeof precedence === "string") {
-        flavour = precedence;
-        precedence = undefined;
+        parsedFlavour = precedence;
+        parsedPrecedence = undefined;
       }
 
-      if (typeof precedence === "undefined" && precedence !== null)
-        precedence = MigrationService;
+      if (parsedPrecedence === undefined && parsedPrecedence !== null)
+        parsedPrecedence = MigrationService;
 
-      flavour =
-        flavour ||
-        Metadata.flavourOf(original as Constructor) ||
-        (precedence === null ? flavour : undefined) ||
-        undefined;
+      const fallbackFlavour =
+        Metadata.flavourOf(original as Constructor) || DefaultFlavour;
+      const preferReferenceFlavour =
+        hasExplicitPrecedence &&
+        parsedPrecedence === MigrationService &&
+        reference &&
+        reference !== parsedFlavour;
+      const finalFlavour =
+        (preferReferenceFlavour ? reference : parsedFlavour) || fallbackFlavour;
 
       const current =
         Metadata["innerGet"](
           Symbol.for(
             [PersistenceKeys.MIGRATION, PersistenceKeys.BY_KEY].join("-")
           ),
-          (flavour as string) || DefaultFlavour
+          finalFlavour || DefaultFlavour
         ) || [];
       Metadata.set(
         [PersistenceKeys.MIGRATION, PersistenceKeys.BY_KEY].join("-"),
-        (flavour as string) || DefaultFlavour,
+        finalFlavour || DefaultFlavour,
         [...current, original]
       );
 
@@ -80,9 +96,9 @@ export function migration(
 
       return metadata(PersistenceKeys.MIGRATION, {
         reference: reference || (original as Constructor).name,
-        precedence: precedence,
-        flavour: flavour || DefaultFlavour,
-        rules: rules,
+        precedence: parsedPrecedence,
+        flavour: finalFlavour || DefaultFlavour,
+        rules: parsedRules,
       })(original);
     };
   }

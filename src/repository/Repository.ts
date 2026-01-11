@@ -32,6 +32,7 @@ import { Queriable } from "../interfaces/Queriable";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { OrderDirection } from "./constants";
 import type {
+  AllOperationKeys,
   ContextOf,
   EventIds,
   FlagsOf,
@@ -52,6 +53,11 @@ import { Model } from "@decaf-ts/decorator-validation";
 import { prepared } from "../query/decorators";
 import { PreparedStatementKeys } from "../query/constants";
 import { Paginator, SerializedPage } from "../query/index";
+import {
+  AvailableFilters,
+  DefaultRepositoryFilters,
+  getFilters,
+} from "../persistence/event-filters";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.
@@ -201,6 +207,8 @@ export class Repository<
   protected override get pkProps(): SequenceOptions {
     return super.pkProps;
   }
+
+  readonly filters = getFilters(this);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor(adapter?: A, clazz?: Constructor<M>, ...args: any[]) {
@@ -1206,7 +1214,7 @@ export class Repository<
    */
   async updateObservers(
     table: Constructor<M> | string,
-    event: OperationKeys | BulkCrudOperationKeys | string,
+    event: AllOperationKeys,
     id: EventIds,
     ...args: ContextualArgs<ContextOf<A>>
   ): Promise<void> {
@@ -1247,8 +1255,8 @@ export class Repository<
    * @return {Promise<void>} A promise that resolves when all observers have been notified.
    */
   async refresh(
-    table: Constructor<M>,
-    event: OperationKeys | BulkCrudOperationKeys | string,
+    table: Constructor<M> | string,
+    event: AllOperationKeys,
     id: EventIds,
     ...args: ContextualArgs<ContextOf<A>>
   ): Promise<void> {

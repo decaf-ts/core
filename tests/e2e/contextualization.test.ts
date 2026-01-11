@@ -1,3 +1,4 @@
+import { RamAdapter, RamRepository } from "../../src/ram";
 import {
   column,
   Condition,
@@ -7,8 +8,7 @@ import {
   PersistenceKeys,
   pk,
   PreparedStatementKeys,
-  RamAdapter,
-  RamRepository,
+  Repo,
   Repository,
   table,
 } from "../../src";
@@ -84,7 +84,7 @@ describe("Contextualization", () => {
     }
   }
 
-  let repo: RamRepository<TestContextModel>;
+  let repo: Repo<TestContextModel>;
 
   const singleOps = [
     OperationKeys.CREATE,
@@ -100,6 +100,7 @@ describe("Contextualization", () => {
     BulkCrudOperationKeys.DELETE_ALL,
   ];
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const transactionals = [
     ...singleOps.filter((o) => o !== OperationKeys.READ),
     ...bulkOps.filter((o) => o !== BulkCrudOperationKeys.READ_ALL),
@@ -132,7 +133,7 @@ describe("Contextualization", () => {
 
   beforeAll(async () => {
     adapter = new RamAdapter();
-    repo = Repository.forModel(TestContextRepoModel);
+    repo = Repository.forModel(TestContextRepoModel) as RamRepository<any>;
   });
 
   describe("adapter", () => {
@@ -462,7 +463,8 @@ describe("Contextualization", () => {
             | TestContextRepoModel
             | number
             | number[]
-            | TestContextRepoModel[];
+            | TestContextRepoModel[]
+            | any;
           let args: any[] = [];
           switch (op) {
             case OperationKeys.CREATE:

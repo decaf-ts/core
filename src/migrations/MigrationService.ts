@@ -1,6 +1,6 @@
-import { DefaultMigrationConfig } from "../migrations/constants";
-import { Migration, MigrationConfig } from "../migrations/types";
-import { ClientBasedService, Service } from "./services";
+import { DefaultMigrationConfig } from "./constants";
+import { Migration, MigrationConfig } from "./types";
+import { ClientBasedService, Service } from "../services/services";
 import { Adapter } from "../persistence/Adapter";
 import { Context } from "../persistence/Context";
 import { PersistenceKeys } from "../persistence/constants";
@@ -42,7 +42,9 @@ export class MigrationService<
     config: MigrationConfig<PERSIST>;
     client: PERSIST extends boolean ? A : void;
   }> {
-    const { log, ctx } = await this.logCtx(args, this.initialize, true);
+    const { log, ctx } = (
+      await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
+    ).for(this.initialize);
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -138,10 +140,13 @@ export class MigrationService<
       const size1 = precedences1.length;
       const size2 = precedences2.length;
       const res = size1 - size2;
-      if (res === 0)
+      if (res === 0) {
+        // return migration1.reference.localeCompare(migration2.reference);
         throw new InternalError(
           `Unable to sort migration precedence between ${migration1.reference} and ${migration2.reference}. should not be possible`
         );
+      }
+
       return res;
     });
   }
@@ -156,24 +161,20 @@ export class MigrationService<
     ).for(this.migrate);
     // const qr = await this.getQueryRunner();
     let m: Migration<any, any>;
-    const migrations: Migration<any, any>[] = Object.entries(
-      Metadata.migrations()
-    )
-      .map(([flavour, migs]) =>
-        migs.map((mig) => {
-          try {
-            log.silly(`loading migration ${mig.name} of flavour ${flavour}`);
-            m = new mig();
-            log.verbose(`migration ${m.reference} instantiated`, 1);
-          } catch (e: unknown) {
-            throw new InternalError(
-              `failed to create migration ${mig.name}: ${e}`
-            );
-          }
-          return m;
-        })
-      )
-      .flat();
+
+    const toBoot = Metadata.migrations();
+    const migrations: Migration<any, any>[] = [];
+    for (const [reference, mig] of toBoot) {
+      try {
+        log.silly(`loading migration ${reference}...`);
+        m = new mig();
+        if (m instanceof MigrationService) await m.boot(...ctxArgs);
+        log.verbose(`migration ${m.reference} instantiated`, 1);
+      } catch (e: unknown) {
+        throw new InternalError(`failed to create migration ${mig.name}: ${e}`);
+      }
+      migrations.push(m);
+    }
 
     let sortedMigrations: Migration<any, any>[];
     try {
@@ -198,6 +199,7 @@ export class MigrationService<
           );
         qr = adapter.client;
       } catch (e: unknown) {
+        console.error("migration init error", e);
         if (breakOnError)
           throw new InternalError(
             `Failed to load ${m.flavour} adapter to migrate: ${e}`

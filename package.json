@@ -9,15 +9,20 @@
       "import": "./lib/esm/index.js",
       "types": "./lib/index.d.ts"
     },
+    "./migrations": {
+      "require": "./lib/migrations/index.cjs",
+      "import": "./lib/esm/migrations/index.js",
+      "types": "./lib/migrations/index.d.ts"
+    },
     "./ram": {
       "require": "./lib/ram/index.cjs",
       "import": "./lib/esm/ram/index.js",
-      "types": "./lib/esm/ram/index.d.ts"
+      "types": "./lib/ram/index.d.ts"
     },
     "./tasks": {
       "require": "./lib/tasks/index.cjs",
       "import": "./lib/esm/tasks/index.js",
-      "types": "./lib/esm/tasks/index.d.ts"
+      "types": "./lib/tasks/index.d.ts"
     }
   },
   "types": "lib/index.d.ts",

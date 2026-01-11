@@ -34,7 +34,7 @@ declare module "@decaf-ts/decoration" {
       CONTEXT extends Context<FLAGS> = Context<FLAGS>,
     >(adapter?: A): Constructor<Migration<any, A>>[];
 
-    function migrations(): Record<string, Constructor<Migration<any, any>>[]>;
+    function migrations(): [string, Constructor<Migration<any, any>>][];
 
     function relations<M extends Model>(
       m: Constructor<M>

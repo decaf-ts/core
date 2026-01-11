@@ -1,5 +1,5 @@
+import "../../src/overrides/index";
 import { RamAdapter } from "../../src/ram";
-import "../../src/overrides";
 import { TaskEngine, TaskEngineConfig } from "../../src/tasks/TaskEngine";
 import { TaskHandler } from "../../src/tasks/TaskHandler";
 import { task } from "../../src/tasks/decorators";

@@ -1,4 +1,4 @@
-import { AdapterFlags, FlagsOf, LoggerOf } from "../persistence/types";
+import { AdapterFlags, FlagsOf } from "../persistence/types";
 import { Context } from "../persistence/Context";
 import { Logging, Logger, final } from "@decaf-ts/logging";
 import {
@@ -8,13 +8,9 @@ import {
   MaybeContextualArg,
   MethodOrOperation,
 } from "../utils/ContextualLoggedClass";
-import {
-  Contextual,
-  InternalError,
-  OperationKeys,
-} from "@decaf-ts/db-decorators";
+import { InternalError } from "@decaf-ts/db-decorators";
 import { Constructor } from "@decaf-ts/decoration";
-import { DefaultAdapterFlags } from "../persistence/constants";
+import { DefaultAdapterFlags, PersistenceKeys } from "../persistence/constants";
 import { injectableServiceKey } from "../utils/utils";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import { UUID } from "../persistence/generators";
@@ -173,9 +169,27 @@ export abstract class Service<
   static async boot<C extends Context<any> = any>(
     ...args: MaybeContextualArg<C>
   ): Promise<void> {
-    const { log, ctxArgs } = await this.logCtx.bind(
-      this as unknown as Contextual
-    )(this.boot, { args: args }, true);
+    let ctx = args.pop();
+    if (typeof ctx !== "undefined" && !(ctx instanceof Context)) {
+      args.push(ctx);
+      ctx = undefined;
+    }
+
+    const flags = await Service.prototype.flags(
+      PersistenceKeys.INITIALIZATION,
+      {},
+      ...args
+    );
+    ctx = ctx
+      ? (new Service.prototype.Context(ctx).accumulate({
+          ...flags,
+          parentContext: ctx,
+        }) as any)
+      : (new Service.prototype.Context().accumulate(flags) as any);
+
+    args = [...args, ctx];
+
+    const { log, ctxArgs } = Service.prototype.logCtx(args, this.boot);
     const services = Injectables.services();
     for (const [key, service] of Object.entries(services)) {
       try {

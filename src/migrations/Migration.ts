@@ -21,18 +21,32 @@ export abstract class AbsMigration<
   transaction = true;
 
   get reference() {
-    if (!this._reference)
-      throw new InternalError(
-        `No reference defined for ${this.constructor.name}. did you use @migration()?`
+    if (!this._reference) {
+      const meta = Metadata.get(
+        this.constructor as any,
+        PersistenceKeys.MIGRATION
       );
+      this._reference = meta.reference;
+      if (!this._reference)
+        throw new InternalError(
+          `No precedence defined for ${this.constructor.name}. did you use @migration()?`
+        );
+    }
     return this._reference;
   }
 
   get precedence() {
-    if (typeof this._precedence === "undefined")
-      throw new InternalError(
-        `No precedence defined for ${this.constructor.name}. did you use @migration()?`
+    if (typeof this._precedence === "undefined") {
+      const meta = Metadata.get(
+        this.constructor as any,
+        PersistenceKeys.MIGRATION
       );
+      this._precedence = meta._precedence;
+      if (!this._precedence)
+        throw new InternalError(
+          `No precedence defined for ${this.constructor.name}. did you use @migration()?`
+        );
+    }
     return this._precedence;
   }
 

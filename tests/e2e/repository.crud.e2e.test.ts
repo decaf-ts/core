@@ -6,11 +6,12 @@ import { Context, NotFoundError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Product } from "./models/Product";
 import { generateGtin } from "./models/gtin";
 import { Model } from "@decaf-ts/decorator-validation";
-import { Observer, PersistenceKeys, RamRepository } from "../../src/index";
+import { Observer, PersistenceKeys } from "../../src/index";
 import { Constructor } from "@decaf-ts/decoration";
 import { Logging, LogLevel, style } from "@decaf-ts/logging";
 import { ProductStrength } from "./models/ProductStrength";
 import { Market } from "./models/Market";
+import { RamRepository } from "../../src/ram/index";
 
 Logging.setConfig({ level: LogLevel.debug });
 

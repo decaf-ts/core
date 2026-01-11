@@ -5,6 +5,7 @@ import { MaybeContextualArg } from "../utils/ContextualLoggedClass";
 import { Context } from "../persistence/Context";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Constructor } from "@decaf-ts/decoration";
+import { PersistenceKeys } from "../persistence/index";
 
 export class PersistenceService<
   A extends Adapter<any, any, any, any>,
@@ -31,7 +32,9 @@ export class PersistenceService<
       !cfgs.every((c) => Array.isArray(c))
     )
       throw new InternalError(`Missing/invalid configuration`);
-    const { log } = await this.logCtx(args, this.initialize, true);
+    const { log } = (
+      await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
+    ).for(this.initialize);
     const clients: A[] = cfgs.map(([constr, cfg, ...args]) => {
       try {
         log.silly(

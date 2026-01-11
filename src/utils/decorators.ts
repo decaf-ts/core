@@ -8,11 +8,7 @@ import { OperationKeys } from "@decaf-ts/db-decorators";
 import { ModelService } from "../services/ModelService";
 
 function OperationGuard(op: CrudOperations) {
-  return function (
-    target: any,
-    _propertyKey: string | symbol,
-    descriptor: PropertyDescriptor
-  ) {
+  return function (target: any, _propertyKey?: any, descriptor?: any) {
     const original = descriptor.value;
     descriptor.value = function (...args: any[]) {
       const ModelConstr = (this as ModelService<any, any>).class;

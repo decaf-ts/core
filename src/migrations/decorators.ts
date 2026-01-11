@@ -7,27 +7,20 @@ import {
 } from "@decaf-ts/decoration";
 import { Migration, MigrationRule } from "./types";
 import { PersistenceKeys } from "../persistence/constants";
-import { MigrationService } from "../services/MigrationService";
+import { MigrationService } from "./MigrationService";
 
-export function migration(): (target: object) => any;
+export function migration(reference: string): (target: object) => any;
 export function migration(
+  reference: string,
   precedence: Constructor<Migration<any, any>> | null
 ): (target: object) => any;
-export function migration(flavour: string): (target: object) => any;
 export function migration(
-  flavour: string,
-  rules?: MigrationRule[]
-): (target: object) => any;
-export function migration(
+  reference: string,
   precedence: Constructor<Migration<any, any>>,
   flavour: string
 ): (target: object) => any;
 export function migration(
-  precedence: Constructor<Migration<any, any>>,
-  flavour: string,
-  rules?: MigrationRule[]
-): (target: object) => any;
-export function migration(
+  reference: string,
   precedence?: Constructor<Migration<any, any>> | string | null,
   flavour?: string | MigrationRule[],
   rules?: MigrationRule[]
@@ -67,14 +60,13 @@ export function migration(
       Metadata.set(
         PersistenceKeys.MIGRATION,
         (flavour as string) || DefaultFlavour,
-        [
-          ...current,
-          {
-            class: original,
-          },
-        ]
+        [...current, original]
       );
+
+      Metadata.set(PersistenceKeys.MIGRATION, reference, original);
+
       return metadata(PersistenceKeys.MIGRATION, {
+        reference: reference || (original as Constructor).name,
         precedence: precedence,
         flavour: flavour || DefaultFlavour,
         rules: rules,

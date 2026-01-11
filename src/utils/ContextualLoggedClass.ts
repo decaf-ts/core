@@ -1,4 +1,4 @@
-import { LoggedClass, Logger, Logging } from "@decaf-ts/logging";
+import { LoggedClass, Logger } from "@decaf-ts/logging";
 import {
   BulkCrudOperationKeys,
   Contextual,
@@ -281,6 +281,17 @@ export abstract class AbsContextual<C extends Context<any>>
       args.push(ctx);
       ctx = undefined;
     }
+
+    // const operationName =
+    //   typeof operation === "string" ? operation : operation.name;
+    const hasFlags = typeof (this as any).flags === "function";
+    // const flags = hasFlags
+    //   ? await (this as any).flags(
+    //       operationName,
+    //       overrides as Partial<FlagsOf<C>>,
+    //       ...args
+    //     )
+    //   : (overrides as FlagsOf<C>);
 
     if (ctx && !(ctx instanceof this.Context))
       return new this.Context(ctx).accumulate(overrides) as C;

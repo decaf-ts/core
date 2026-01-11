@@ -56,23 +56,17 @@ import { type Migration } from "../migrations/types";
   );
 }.bind(Metadata);
 
-(Metadata as any).migrations = function migrations(): Record<
+(Metadata as any).migrations = function migrations(): [
   string,
-  Constructor<Migration<any, any>>[]
-> {
+  Constructor<Migration<any, any>>,
+][] {
   const migrations: Record<
     string,
-    { class: Constructor<Migration<any, any>> }[]
+    Record<string, Constructor<Migration<any, any>>>
   > = Metadata["innerGet"](Symbol.for(PersistenceKeys.MIGRATION));
-  return Object.entries(migrations).reduce(
-    (accm: Record<string, any>, [flavour, migrations]) => {
-      accm[flavour] = migrations.map(
-        (m: { class: Constructor<Migration<any, any>> }) => m.class
-      );
-      return accm;
-    },
-    {}
-  );
+  return Object.entries(migrations)
+    .map(([, v]) => Object.entries(v))
+    .flat();
 }.bind(Metadata);
 
 (Metadata as any).relations = function <M extends Model>(

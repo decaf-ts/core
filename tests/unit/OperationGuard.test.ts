@@ -1,20 +1,9 @@
-import {
-  Adapter,
-  BaseModel,
-  column,
-  ModelService,
-  pk,
-  RamAdapter,
-  RamFlavour,
-  read,
-  table,
-} from "../../src";
+import { BaseModel, column, ModelService, pk, read, table } from "../../src";
 import { BlockOperations, OperationKeys } from "@decaf-ts/db-decorators";
 import { model, type ModelArg, required } from "@decaf-ts/decorator-validation";
 import { uses } from "@decaf-ts/decoration";
+import { RamAdapter, RamFlavour } from "../../src/ram/index";
 
-RamAdapter.decoration();
-Adapter.setCurrent(RamFlavour);
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const adapter = new RamAdapter();
 const DB_FAVLOUR = RamFlavour;
@@ -102,7 +91,7 @@ describe("OperationGuard decorators", () => {
     });
 
     it("should throw on update when UPDATE is blocked", async () => {
-      expect(() => service.update("id-1", { name: "t" } as any)).toThrow(
+      expect(() => service.update("id-1" as any, { name: "t" } as any)).toThrow(
         `Operation "update" is blocked by @BlockOperations for ${FullyBlockedProduct.name}.`
       );
     });
@@ -165,7 +154,7 @@ describe("OperationGuard decorators", () => {
 
     it("should throw on update when UPDATE is blocked", async () => {
       const service = ModelService.forModel(PartiallyBlockedProduct);
-      expect(() => service.update("id-1", { name: "t" } as any)).toThrow(
+      expect(() => service.update("id-1" as any, { name: "t" } as any)).toThrow(
         `Operation "update" is blocked by @BlockOperations for ${PartiallyBlockedProduct.name}`
       );
     });

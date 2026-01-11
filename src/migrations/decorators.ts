@@ -65,8 +65,10 @@ export function migration(
 
       const current =
         Metadata["innerGet"](
-          Symbol.for(PersistenceKeys.MIGRATION),
-          flavour || DefaultFlavour
+          Symbol.for(
+            [PersistenceKeys.MIGRATION, PersistenceKeys.BY_KEY].join("-")
+          ),
+          (flavour as string) || DefaultFlavour
         ) || [];
       Metadata.set(
         [PersistenceKeys.MIGRATION, PersistenceKeys.BY_KEY].join("-"),

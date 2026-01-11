@@ -53,11 +53,7 @@ import { Model } from "@decaf-ts/decorator-validation";
 import { prepared } from "../query/decorators";
 import { PreparedStatementKeys } from "../query/constants";
 import { Paginator, SerializedPage } from "../query/index";
-import {
-  AvailableFilters,
-  DefaultRepositoryFilters,
-  getFilters,
-} from "../persistence/event-filters";
+import { getFilters } from "../persistence/event-filters";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.

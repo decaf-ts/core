@@ -117,7 +117,7 @@ export type EventIds =
   | bigint[];
 
 export type ObserverFilter = (
-  table: Constructor,
+  table: Constructor | string,
   event: AllOperationKeys,
   id: EventIds,
   ...args: ContextualArgs<any>

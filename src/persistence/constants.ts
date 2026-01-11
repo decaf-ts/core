@@ -4,7 +4,7 @@ import {
   OperationKeys,
 } from "@decaf-ts/db-decorators";
 import { AdapterFlags } from "./types";
-import { PreparedStatementKeys } from "../query/index";
+import { PreparedStatementKeys } from "../query/constants";
 
 /**
  * @description Persistence-related constant keys

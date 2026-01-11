@@ -24,13 +24,10 @@ import type {
 } from "./options";
 import { Paginatable } from "../interfaces/Paginatable";
 import { Paginator } from "./Paginator";
-import {
-  Adapter,
-  AdapterFlags,
-  type ContextOf,
-  PersistenceKeys,
-  UnsupportedError,
-} from "../persistence";
+import { Adapter } from "../persistence/Adapter";
+import type { AdapterFlags, ContextOf } from "../persistence/types";
+import { PersistenceKeys } from "../persistence/constants";
+import { UnsupportedError } from "../persistence/errors";
 import { QueryError } from "./errors";
 import { Constructor } from "@decaf-ts/decoration";
 import {

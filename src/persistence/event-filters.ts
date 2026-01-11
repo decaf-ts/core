@@ -51,7 +51,7 @@ export function onlyOnFilter(
   ops: AllOperationKeys[]
 ): ObserverFilter {
   return (
-    table: Constructor,
+    table: Constructor | string,
     event: AllOperationKeys,
     id: EventIds,
     ...args: ContextualArgs<any>
@@ -68,7 +68,10 @@ export function onlyOnFilter(
       `filtering ${event} event for${table ? ` ${Model.tableName(table) || table}` : ``} ${id}`
     );
     return (
-      Metadata.constr(clazz) === Metadata.constr(table) && ops.includes(event)
+      (typeof table === "string"
+        ? table === Model.tableName(clazz) || table === clazz.constructor.name
+        : Metadata.constr(clazz) === Metadata.constr(table)) &&
+      ops.includes(event)
     );
   };
 }

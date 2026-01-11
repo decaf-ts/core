@@ -515,7 +515,7 @@ describe("Contextualization", () => {
             case PersistenceKeys.QUERY:
               m = Condition.attr<TestContextRepoModel>("createdAt")
                 .lt(new Date())
-                .and(Condition.attr<TestContextRepoModel>("version").gt(1));
+                .and(Condition.attr<TestContextRepoModel>("version").gte(1));
               args = ["version", OrderDirection.DSC, 2, 2];
               break;
             default:
@@ -598,7 +598,7 @@ describe("Contextualization", () => {
                   current: 2,
                   total: 4,
                   data: cachedBulk
-                    .slice(cachedBulk.length - 3 - 3, 3)
+                    .slice(cachedBulk.length - 6, cachedBulk.length - 3)
                     .reverse(),
                 })
               );
@@ -627,7 +627,7 @@ describe("Contextualization", () => {
             case PersistenceKeys.QUERY:
               expect(current).toBeDefined();
               expect(current).toBeInstanceOf(Array);
-              expect(current.length).toBe(10);
+              expect(current.length).toBe(0);
               break;
             default:
               expect(

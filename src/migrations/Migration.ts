@@ -41,7 +41,7 @@ export abstract class AbsMigration<
         this.constructor as any,
         PersistenceKeys.MIGRATION
       );
-      this._precedence = meta._precedence;
+      this._precedence = meta.precedence;
       if (!this._precedence)
         throw new InternalError(
           `No precedence defined for ${this.constructor.name}. did you use @migration()?`

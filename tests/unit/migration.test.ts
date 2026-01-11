@@ -34,7 +34,7 @@ class RamMigration extends AbsMigration<RamAdapter, any> {
     ...args: ContextualArgs<RamContext>
   ): Promise<void> {
     const { log } = this.logCtx(args, this.up);
-    f1(runner, adapter, log);
+    f1("1", adapter, log);
   }
 
   async migrate(
@@ -43,7 +43,7 @@ class RamMigration extends AbsMigration<RamAdapter, any> {
     ...args: ContextualArgs<RamContext>
   ): Promise<void> {
     const { log } = this.logCtx(args, this.migrate);
-    fMigrate(runner, adapter, log);
+    fMigrate("1", adapter, log);
   }
 
   async down(
@@ -52,11 +52,11 @@ class RamMigration extends AbsMigration<RamAdapter, any> {
     ...args: ContextualArgs<RamContext>
   ): Promise<void> {
     const { log } = this.logCtx(args, this.down);
-    f2(runner, adapter, log);
+    f2("1", adapter, log);
   }
 }
 
-@migration("other", RamFlavour, [async () => true])
+@migration("other", RamMigration, RamFlavour, [async () => true])
 class OtherMigration extends AbsMigration<OtherAdapter, any> {
   constructor() {
     super();
@@ -72,8 +72,9 @@ class OtherMigration extends AbsMigration<OtherAdapter, any> {
     adapter: RamAdapter,
     ...args: ContextualArgs<RamContext>
   ): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { log } = this.logCtx(args, this.up);
-    f1(runner, adapter, log);
+    f1("2", adapter, ...args);
   }
 
   async migrate(
@@ -81,8 +82,9 @@ class OtherMigration extends AbsMigration<OtherAdapter, any> {
     adapter: RamAdapter,
     ...args: ContextualArgs<RamContext>
   ): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { log } = this.logCtx(args, this.migrate);
-    fMigrate(runner, adapter, log);
+    fMigrate("2", adapter, ...args);
   }
 
   async down(
@@ -90,8 +92,9 @@ class OtherMigration extends AbsMigration<OtherAdapter, any> {
     adapter: RamAdapter,
     ...args: ContextualArgs<RamContext>
   ): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { log } = this.logCtx(args, this.down);
-    f2(runner, adapter, log);
+    f2("2", adapter, ...args);
   }
 }
 
@@ -118,15 +121,45 @@ describe("Adapter migrations", () => {
 
   it("runs migrations", async () => {
     await migrations.migrate();
-    expect(f1).toHaveBeenCalled();
-    expect(f2).toHaveBeenCalled();
-    expect(f1).toHaveBeenCalledWith(
-      {},
+    expect(f1).toHaveBeenCalledTimes(2);
+    expect(fMigrate).toHaveBeenCalledTimes(2);
+    expect(f2).toHaveBeenCalledTimes(2);
+
+    expect(f1).toHaveBeenNthCalledWith(
+      1,
+      expect.any("1"),
       expect.any(RamAdapter),
       expect.any(Context)
     );
-    expect(f2).toHaveBeenCalledWith(
-      {},
+    expect(f1).toHaveBeenNthCalledWith(
+      2,
+      expect.any("2"),
+      expect.any(OtherAdapter),
+      expect.any(Context)
+    );
+
+    expect(fMigrate).toHaveBeenNthCalledWith(
+      1,
+      expect.any("1"),
+      expect.any(RamAdapter),
+      expect.any(Context)
+    );
+    expect(fMigrate).toHaveBeenNthCalledWith(
+      2,
+      expect.any("2"),
+      expect.any(OtherAdapter),
+      expect.any(Context)
+    );
+
+    expect(f2).toHaveBeenNthCalledWith(
+      1,
+      expect.any("1"),
+      expect.any(RamAdapter),
+      expect.any(Context)
+    );
+    expect(f2).toHaveBeenNthCalledWith(
+      2,
+      expect.any("2"),
       expect.any(OtherAdapter),
       expect.any(Context)
     );

@@ -29,6 +29,12 @@ export function migration(
   precedence?: Constructor<Migration<any, any>> | string | null,
   flavour?: string | MigrationRule[],
   rules?: MigrationRule[]
+): (target: object) => any;
+export function migration(
+  reference: string,
+  precedence: Constructor<Migration<any, any>> | string | null,
+  flavour: string | MigrationRule[],
+  rules: MigrationRule[]
 ): (target: object) => any {
   function innerMigration(
     precedence?: Constructor<Migration<any, any>> | string | null,

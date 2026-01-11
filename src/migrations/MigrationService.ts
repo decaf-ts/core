@@ -389,7 +389,5 @@ const current =
 
 Metadata.set(PersistenceKeys.MIGRATION, DefaultFlavour, [
   ...current,
-  {
-    class: MigrationService,
-  },
+  MigrationService,
 ]);

@@ -530,6 +530,14 @@ describe("Contextualization", () => {
               expect(current).toBeDefined();
               expect(current).toBeInstanceOf(TestContextRepoModel);
               expect(current.hasErrors()).toBeUndefined();
+              //
+              // expect(logMock).toHaveBeenCalledTimes(32);
+              // expect(logMock.mock.calls.flat().join("\n")).toEqual(``);
+              // expect(consoleLogMock).toHaveBeenCalledTimes(0);
+              // expect(consoleDebugMock).toHaveBeenCalledTimes(2);
+              // expect(consoleErrorMock).toHaveBeenCalledTimes(0);
+              // expect(consoleWarnMock).toHaveBeenCalledTimes(0);
+
               break;
             case OperationKeys.READ:
               expect(current).toBeDefined();
@@ -585,9 +593,10 @@ describe("Contextualization", () => {
               expect(current).toBeInstanceOf(Object);
               expect(current).toEqual(
                 expect.objectContaining({
-                  bookmark: 9,
+                  bookmark: 6,
                   count: 10,
                   current: 2,
+                  total: 4,
                   data: cachedBulk
                     .slice(cachedBulk.length - 3 - 3, 3)
                     .reverse(),

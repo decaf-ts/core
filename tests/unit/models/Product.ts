@@ -2,14 +2,8 @@ import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { model, required, url } from "@decaf-ts/decorator-validation";
 import { uses } from "@decaf-ts/decoration";
 import { FabricIdentifiedModel } from "./FabricIdentifiedModel";
-import {
-  column,
-  index,
-  OrderDirection,
-  pk,
-  RamFlavour,
-  table,
-} from "../../../src/index";
+import { column, index, OrderDirection, pk, table } from "../../../src/index";
+import { RamFlavour } from "../../../src/ram/index";
 
 // @BlockOperations([OperationKeys.DELETE])
 @uses(RamFlavour)

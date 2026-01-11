@@ -1,6 +1,5 @@
 import { RamAdapter, RamConfig, RamContext, RamFlavour } from "../../src/ram";
 import { ContextualArgs, PersistenceService } from "../../src";
-import { Context } from "@decaf-ts/db-decorators";
 import {
   AbsMigration,
   migration,

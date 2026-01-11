@@ -1,16 +1,14 @@
-import { NotFoundError } from "@decaf-ts/db-decorators";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { RamRepository } from "../../src/ram/types";
 import { Cascade, Repository } from "../../src/repository/index";
 import { SequenceModel as Seq } from "../../src/model/SequenceModel";
-import { BaseModel, oneToMany, oneToOne, pk, Sequence } from "../../src/index";
+import { oneToMany, oneToOne, pk, Sequence } from "../../src/index";
 import {
   list,
   minlength,
   model,
   Model,
   ModelArg,
-  option,
   required,
 } from "@decaf-ts/decorator-validation";
 import { TestAddressModel, TestCountryModel, TestUserModel } from "./models";

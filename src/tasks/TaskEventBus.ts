@@ -1,4 +1,5 @@
 import { TaskEventModel } from "./models/TaskEventModel";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Observable } from "../interfaces/Observable";
 
 export class TaskEventBus {

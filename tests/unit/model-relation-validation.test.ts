@@ -11,7 +11,7 @@ import {
   ModelArg,
   required,
 } from "@decaf-ts/decorator-validation";
-import { TestAddressModel, TestCountryModel, TestUserModel } from "./models";
+import { TestAddressModel, TestUserModel } from "./models";
 
 jest.setTimeout(500000);
 
@@ -96,7 +96,6 @@ describe(`Validates model and model relation`, function () {
   let childRepository: RamRepository<ChildModel>;
   let userRepository: RamRepository<TestUserModel>;
   let testAddressModelRepository: RamRepository<TestAddressModel>;
-  let testCountryModelRepository: RamRepository<TestCountryModel>;
 
   beforeAll(async () => {
     sequenceRepository = new Repository(adapter, Seq);
@@ -110,11 +109,13 @@ describe(`Validates model and model relation`, function () {
     childRepository = new Repository(adapter, ChildModel);
     userRepository = new Repository(adapter, TestUserModel);
     testAddressModelRepository = new Repository(adapter, TestAddressModel);
-    testCountryModelRepository = new Repository(adapter, TestCountryModel);
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let sequenceModel: Sequence;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let createdParent: RelationParentModel;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let createdChild: ChildModel;
 
   it("tests model validation", async () => {

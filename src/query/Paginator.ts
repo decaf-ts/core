@@ -142,7 +142,7 @@ export abstract class Paginator<
     bookmark?: any,
     ...argz: ContextualArgs<any>
   ): Promise<M[]> {
-    const { log, ctx, ctxArgs } = this.adapter["logCtx"](
+    const { log, ctxArgs } = this.adapter["logCtx"](
       bookmark && !(bookmark instanceof Context)
         ? [...argz]
         : [bookmark, ...argz],

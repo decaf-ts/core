@@ -286,6 +286,7 @@ export abstract class AbsContextual<C extends Context<any>>
 
     // const operationName =
     //   typeof operation === "string" ? operation : operation.name;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const hasFlags = typeof (this as any).flags === "function";
     // const flags = hasFlags
     //   ? await (this as any).flags(

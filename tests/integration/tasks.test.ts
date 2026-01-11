@@ -14,9 +14,11 @@ describe("Task Engine", () => {
   let adapter: RamAdapter;
   let eventBus: TaskEventBus;
   let taskRegistry: TaskHandlerRegistry;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let engine: TaskEngine<RamAdapter>;
 
   @task("example")
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   class TaskHandlerExample extends TaskHandler<number, number> {
     constructor() {
       super();

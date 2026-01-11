@@ -56,6 +56,7 @@ class RamMigration extends AbsMigration<RamAdapter, any> {
 }
 
 @migration("other", MigrationService, RamFlavour, [async () => true])
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 class OtherMigration extends AbsMigration<OtherAdapter, any> {
   constructor() {
     super();

@@ -111,7 +111,6 @@ describe("Many to many relations", () => {
   let roleRepository: RamRepository<TestRoleModel>;
   let userNoPopRepository: RamRepository<TestUserNoPopulateModel>;
   let rolePopRepository: RamRepository<TestRolePopulateModel>;
-  let faultyRoleRepository: RamRepository<FaultyRoleModel>;
 
   beforeAll(async () => {
     sequenceRepository = new Repository(adapter, Seq);
@@ -120,7 +119,6 @@ describe("Many to many relations", () => {
     roleRepository = new Repository(adapter, TestRoleModel);
     userNoPopRepository = new Repository(adapter, TestUserNoPopulateModel);
     rolePopRepository = new Repository(adapter, TestRolePopulateModel);
-    faultyRoleRepository = new Repository(adapter, FaultyRoleModel);
   });
 
   const userRole = {
@@ -247,10 +245,10 @@ describe("Many to many relations", () => {
     if (roleRelationsMeta && roleRelationsMeta.users) {
       // Change populate to true on the other side
       roleRelationsMeta.users.populate = true;
-      Metadata.set(TestUserModel, PersistenceKeys.RELATIONS, roleRelationsMeta);
+      Metadata.set(TestRoleModel, PersistenceKeys.RELATIONS, roleRelationsMeta);
     }
     await expect(
-      faultyRoleRepository.create(new TestRoleModel(role))
+      roleRepository.create(new TestRoleModel(role))
     ).rejects.toThrow(/Bidirectional populate is not allowed/);
   });
 });

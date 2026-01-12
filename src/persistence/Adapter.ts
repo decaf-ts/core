@@ -24,6 +24,7 @@ import type { Dispatch } from "./Dispatch";
 import {
   AdapterDispatch,
   type AdapterFlags,
+  AllOperationKeys,
   type EventIds,
   FlagsOf,
   type ObserverFilter,
@@ -391,7 +392,7 @@ export abstract class Adapter<
     operation: OperationKeys | string,
     model: Constructor<M> | Constructor<M>[] | undefined,
     flags: Partial<FlagsOf<CONTEXT>>,
-    ...args: any[]
+    ...args: MaybeContextualArg<CONTEXT>
   ): Promise<FlagsOf<CONTEXT>> {
     if (typeof model === "string") {
       throw new InternalError(
@@ -461,13 +462,7 @@ export abstract class Adapter<
    */
   @final()
   override async context<M extends Model>(
-    operation:
-      | ((...args: any[]) => any)
-      | OperationKeys.CREATE
-      | OperationKeys.READ
-      | OperationKeys.UPDATE
-      | OperationKeys.DELETE
-      | string,
+    operation: ((...args: any[]) => any) | AllOperationKeys,
     overrides: Partial<FlagsOf<CONTEXT>>,
     model: Constructor<M> | Constructor<M>[],
     ...args: MaybeContextualArg<Context<any>>

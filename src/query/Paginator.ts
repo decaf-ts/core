@@ -1,7 +1,6 @@
 import { PagingError } from "./errors";
 import { Adapter } from "../persistence/Adapter";
 import { Context } from "../persistence/Context";
-import { PersistenceKeys } from "../persistence/constants";
 import { prefixMethod } from "../utils/utils";
 import { UnsupportedError } from "../persistence/errors";
 import { Model } from "@decaf-ts/decorator-validation";
@@ -129,7 +128,7 @@ export abstract class Paginator<
     const { ctxArgs } = (
       await this.adapter["logCtx"](
         [this.clazz, ...args],
-        PersistenceKeys.QUERY,
+        PreparedStatementKeys.PAGE_BY,
         true
       )
     ).for(this.pagePrefix);

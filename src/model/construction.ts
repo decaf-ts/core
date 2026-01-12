@@ -976,6 +976,7 @@ async function getOrCreateJunctionModel<M extends Model, R extends Repo<M>>(
 
   return JunctionModel;
 }
+
 function createJunctionModel(
   junctionTableName: string,
   fkA: string,

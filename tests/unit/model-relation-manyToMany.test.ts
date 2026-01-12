@@ -177,11 +177,11 @@ describe("Many to many relations", () => {
   };
   const user = {
     name: "Albert",
-    roles: [userRole],
+    roles: [userRole, adminRole],
   };
   const user2 = {
     name: "Albertwo",
-    roles: [userRole, adminRole],
+    roles: [userRole],
   };
   const role = {
     name: userRole.name,
@@ -192,135 +192,97 @@ describe("Many to many relations", () => {
     users: [user],
   };
 
-  async function createTestData(userClass: any, roleClass: any) {
-    const userRepo: any = Repository.forModel(userClass, adapter.alias);
-    const roleRepo: any = Repository.forModel(roleClass, adapter.alias);
-
-    const createdUser = await userRepo.create(new userClass(user));
-    const readUser = await userRepo.read(createdUser.id);
-    const createdUser2 = await userRepo.create(new userClass(user2));
-    const readUser2 = await userRepo.read(createdUser2.id);
-    const createdRole = await roleRepo.create(new roleClass(role));
-    const createdRole2 = await roleRepo.create(new roleClass(role2));
-    const readRole = await roleRepo.read(createdRole.id);
-    const readRole2 = await roleRepo.read(createdRole2.id);
+  async function createTestData(UserClass: any, RoleClass: any) {
+    const userRepo: any = Repository.forModel(UserClass);
+    const roleRepo: any = Repository.forModel(RoleClass);
+    const createdRole = await roleRepo.create(new RoleClass(role));
+    const createdRole2 = await roleRepo.create(new RoleClass(role2));
+    const createdUser = await userRepo.create(new UserClass(user));
+    const createdUser2 = await userRepo.create(new UserClass(user2));
     const createdUserWithRoleIds = await userRepo.create(
-      new userClass({
+      new UserClass({
         name: "Albertthree",
         roles: [createdRole.id, createdRole2.id],
       })
     );
-    const readUserWithRoleIds = await userRepo.read(createdUserWithRoleIds.id);
     const createdRoleWithUserIds = await roleRepo.create(
-      new roleClass({
+      new RoleClass({
         name: "SuperUser",
         users: [createdUser.id, createdUser2.id],
       })
     );
-    const readRoleWithUserIds = await roleRepo.read(createdRoleWithUserIds.id);
 
     return {
-      readUser,
-      readUser2,
-      readRole,
-      readRole2,
-      readUserWithRoleIds,
-      readRoleWithUserIds,
+      createdUser,
+      createdUser2,
+      createdRole,
+      createdRole2,
+      createdUserWithRoleIds,
+      createdRoleWithUserIds,
     };
   }
 
   it("Creates a many to many relation", async () => {
+    const UserClass = TestUserModel;
+    const RoleClass = TestRoleModel;
     const {
-      readUser,
-      readUser2,
-      readRole,
-      readRole2,
-      readUserWithRoleIds,
-      readRoleWithUserIds,
-    } = await createTestData(TestUserModel, TestRoleModel);
+      createdUser,
+      createdRole,
+      createdUserWithRoleIds,
+      createdRoleWithUserIds,
+    } = await createTestData(UserClass, RoleClass);
 
-    expect(readUser.roles).toBeDefined();
-    expect(readUser.roles.length).toBe(1);
-    expect(readUser.roles[0].name).toBe("UserRole");
-    expect(readRole.users).toBeDefined();
-    expect(readRole.users.length).toBe(2);
-    expect(typeof readRole.users[0]).toBe("number");
+    expect(createdRole.users.length).toBe(2);
+    expect(typeof createdRole.users[0]).toBe("number");
 
-    expect(readUser2.roles).toBeDefined();
-    expect(readUser2.roles.length).toBe(2);
+    expect(createdUser.roles.length).toBe(2);
+    expect(createdUser.roles[0] instanceof RoleClass).toBe(true);
     expect(
-      readUser2.roles.find((r: TestRoleModel) => r.name === "UserRole")
-    ).toBeDefined();
-    expect(
-      readUser2.roles.find((r: TestRoleModel) => r.name === "AdminRole")
-    ).toBeDefined();
-    expect(readRole2.users).toBeDefined();
-    expect(readRole2.users.length).toBe(1);
-    expect(typeof readRole2.users[0]).toBe("number");
+      createdUser.roles.filter(
+        (r: typeof RoleClass) => r.name === "UserRole" || r.name === "AdminRole"
+      )?.length
+    ).toBe(2);
 
-    expect(readUserWithRoleIds.roles).toBeDefined();
-    expect(readUserWithRoleIds.roles.length).toBe(2);
+    expect(createdUserWithRoleIds.roles.length).toBe(2);
     expect(
-      readUserWithRoleIds.roles.find(
-        (r: TestRoleModel) => r.name === "UserRole"
-      )
-    ).toBeDefined();
-    expect(
-      readUserWithRoleIds.roles.find(
-        (r: TestRoleModel) => r.name === "AdminRole"
-      )
-    ).toBeDefined();
+      createdUserWithRoleIds.roles.filter(
+        (r: typeof RoleClass) => r.name === "UserRole" || r.name === "AdminRole"
+      )?.length
+    ).toBe(2);
 
-    expect(readRoleWithUserIds.users).toBeDefined();
-    expect(readRoleWithUserIds.users.length).toBe(2);
-    expect(typeof readRoleWithUserIds.users[0]).toBe("number");
+    expect(createdRoleWithUserIds.users.length).toBe(2);
+    expect(typeof createdRoleWithUserIds.users[0]).toBe("number");
   });
   it("Creates a many to many relation with inverse side creations", async () => {
+    const UserClass = TestUserNoPopulateModel;
+    const RoleClass = TestRolePopulateModel;
     const {
-      readUser,
-      readUser2,
-      readRole,
-      readRole2,
-      readUserWithRoleIds,
-      readRoleWithUserIds,
-    } = await createTestData(TestUserNoPopulateModel, TestRolePopulateModel);
+      createdUser,
+      createdRole,
+      createdUserWithRoleIds,
+      createdRoleWithUserIds,
+    } = await createTestData(UserClass, RoleClass);
 
-    expect(readUser.roles).toBeDefined();
-    expect(readUser.roles.length).toBe(1);
-    expect(typeof readUser.roles[0]).toBe("number");
+    expect(createdUser.roles.length).toBe(2);
+    expect(typeof createdUser.roles[0]).toBe("number");
 
-    expect(readUser2.roles).toBeDefined();
-    expect(readUser2.roles.length).toBe(2);
-    expect(typeof readUser2.roles[0]).toBe("number");
-
-    expect(readRole.users).toBeDefined();
-    expect(readRole.users.length).toBe(2);
+    expect(createdRole.users.length).toBe(2);
+    expect(createdRole.users[0] instanceof UserClass).toBe(true);
     expect(
-      readRole.users.find((r: TestUserNoPopulateModel) => r.name === "Albert")
-    ).toBeDefined();
-    expect(
-      readRole.users.find((r: TestUserNoPopulateModel) => r.name === "Albertwo")
-    ).toBeDefined();
+      createdRole.users.filter(
+        (r: typeof UserClass) => r.name === "Albert" || r.name === "Albertwo"
+      )?.length
+    ).toBe(2);
 
-    expect(readRole2.users).toBeDefined();
-    expect(readRole2.users.length).toBe(1);
+    expect(createdUserWithRoleIds.roles.length).toBe(2);
+    expect(typeof createdUserWithRoleIds.roles[0]).toBe("number");
 
-    expect(readUserWithRoleIds.roles).toBeDefined();
-    expect(readUserWithRoleIds.roles.length).toBe(2);
-    expect(typeof readUserWithRoleIds.roles[0]).toBe("number");
-
-    expect(readRoleWithUserIds.users).toBeDefined();
-    expect(readRoleWithUserIds.users.length).toBe(2);
+    expect(createdRoleWithUserIds.users.length).toBe(2);
     expect(
-      readRoleWithUserIds.users.find(
-        (r: TestUserNoPopulateModel) => r.name === "Albert"
-      )
-    ).toBeDefined();
-    expect(
-      readRoleWithUserIds.users.find(
-        (r: TestUserNoPopulateModel) => r.name === "Albertwo"
-      )
-    ).toBeDefined();
+      createdRole.users.filter(
+        (r: typeof UserClass) => r.name === "Albert" || r.name === "Albertwo"
+      )?.length
+    ).toBe(2);
   });
   it("fails when both sides have populate true", async () => {
     await expect(

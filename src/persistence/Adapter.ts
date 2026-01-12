@@ -469,7 +469,7 @@ export abstract class Adapter<
   ): Promise<CONTEXT> {
     const log = this.log.for(this.context);
     log.silly(
-      `creating new context for ${operation} operation on ${model ? (Array.isArray(model) ? model.map((m) => Model.tableName(m)) : Model.tableName(model)) : "no"} table with flag overrides: ${JSON.stringify(overrides)}`
+      `creating new context for ${operation} operation on ${model ? (Array.isArray(model) ? model.map((m) => Model.tableName(m)) : Model.tableName(model)) : "no"} table ${overrides && Object.keys(overrides) ? Object.keys(overrides).length : "no"} with flag overrides`
     );
     let ctx = args.pop();
     if (typeof ctx !== "undefined" && !(ctx instanceof Context)) {

@@ -188,7 +188,7 @@ describe("Many to many relations", () => {
     expect(typeof createdRole.users[0]).toBe("number");
 
     expect(createdUser.roles.length).toBe(2);
-    expect(createdUser.roles[0] instanceof RoleClass).toBe(true);
+    expect(createdUser.roles[0]).toBeInstanceOf(RoleClass);
     expect(
       createdUser.roles.filter(
         (r: typeof RoleClass) => r.name === "UserRole" || r.name === "AdminRole"
@@ -219,7 +219,7 @@ describe("Many to many relations", () => {
     expect(typeof createdUser.roles[0]).toBe("number");
 
     expect(createdRole.users.length).toBe(2);
-    expect(createdRole.users[0] instanceof UserClass).toBe(true);
+    expect(createdRole.users[0]).toBeInstanceOf(UserClass);
     expect(
       createdRole.users.filter(
         (r: typeof UserClass) => r.name === "Albert" || r.name === "Albertwo"

@@ -374,6 +374,7 @@ describe(`Complex Database`, function () {
 
       for (const createdPhone of createdPhones) {
         expect(createdPhone).toBeInstanceOf(TestPhoneModel);
+        expect(createdPhone.user).toBeInstanceOf(TestUserModel);
         expect(createdPhone.id).toBeDefined();
         expect(createdPhone.createdAt).toBeDefined();
         expect(createdPhone.updatedAt).toBeDefined();

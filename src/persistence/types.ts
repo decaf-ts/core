@@ -47,7 +47,7 @@ export type ContextOf<
       ? ContextOfRepository<OBJ>
       : OBJ extends ContextualLoggedClass<infer C>
         ? C
-        : OBJ;
+        : never;
 
 export type ConfigOf<OBJ extends Adapter<any, any, any, any>> =
   OBJ extends Adapter<infer C, any, any, any> ? C : never;

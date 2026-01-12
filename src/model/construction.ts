@@ -12,7 +12,6 @@ import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
 import { PersistenceKeys } from "../persistence/constants";
 import { Cascade } from "../repository/constants";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
-import { isClass } from "@decaf-ts/logging";
 import { AdapterFlags, ContextOf } from "../persistence/types";
 import { Context } from "../persistence/Context";
 import { Sequence } from "../persistence/Sequence";
@@ -688,7 +687,7 @@ export async function manyToOneOnCreate<M extends Model, R extends Repo<M>>(
   if (!propertyValue) return;
 
   if (!checkBidirectionalRelational(model, data)) return;
-
+  const log = context.logger.for(manyToOneOnCreate);
   // If it's a primitive value (ID), read the existing record
   if (typeof propertyValue !== "object") {
     const innerRepo = repositoryFromTypeMetadata(
@@ -701,24 +700,32 @@ export async function manyToOneOnCreate<M extends Model, R extends Repo<M>>(
     (model as any)[key] = propertyValue;
     return;
   }
-  const constructor = isClass(data.class) ? data.class : data.class();
+
+  const constructor =
+    data.class instanceof Model ? data.class.constructor : (data.class as any);
   if (!constructor)
     throw new InternalError(`Could not find model ${data.class}`);
-  const created = await createOrUpdate(
+  log.info(
+    `Creating or updating many-to-one model: ${JSON.stringify(propertyValue)}`
+  );
+  const record = await createOrUpdate(
     propertyValue,
     context,
     this.adapter.alias
   );
-  const pk = Model.pk(created);
+  const pk = Model.pk(record);
+
+  log.info(`caching: ${JSON.stringify(record)} under ${record[pk]}`);
   await cacheModelForPopulate(
     context,
     model,
     key,
-    created[pk] as string,
-    created
+    record[pk] as string,
+    record
   );
-  (model as any)[key] = created[pk];
+  (model as any)[key] = record[pk];
 }
+
 export function checkBidirectionalRelational<M extends Model>(
   model: M,
   data: RelationsMetadata

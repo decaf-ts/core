@@ -15,6 +15,7 @@ import {
   email,
   min,
   minlength,
+  Model,
   model,
   ModelArg,
   required,
@@ -50,7 +51,6 @@ export class TestUserModel extends BaseModel {
     },
     false
   )
-  @minlength(1)
   phones!: TestPhoneModel[];
 
   constructor(m?: ModelArg<TestUserModel>) {
@@ -176,8 +176,8 @@ describe(`Complex Database`, function () {
   let sequenceRepository: RamRepository<Seq>;
   let userRepository: RamRepository<TestUserModel>;
   let phoneBidirectionalRepository: RamRepository<TestPhoneBidirectionalModel>;
-  let phoneModelRepository: RamRepository<TestPhoneModel>;
-  let phoneNoPopModelRepository: RamRepository<TestPhoneNoPopModel>;
+  let phoneRepository: RamRepository<TestPhoneModel>;
+  let phoneNoPopRepository: RamRepository<TestPhoneNoPopModel>;
 
   beforeAll(async () => {
     sequenceRepository = new Repository(adapter, Seq);
@@ -188,12 +188,12 @@ describe(`Complex Database`, function () {
       adapter,
       TestPhoneBidirectionalModel
     );
-    phoneModelRepository = new Repository(adapter, TestPhoneModel);
-    phoneNoPopModelRepository = new Repository(adapter, TestPhoneNoPopModel);
+    phoneRepository = new Repository(adapter, TestPhoneModel);
+    phoneNoPopRepository = new Repository(adapter, TestPhoneNoPopModel);
   });
 
   describe("Many to one relations", () => {
-    const user = {
+    const user: any = {
       name: "testuser",
       email: "test@test.com",
       age: 25,
@@ -241,7 +241,7 @@ describe(`Complex Database`, function () {
         number: "000-0000000",
         user: createdUser.id,
       };
-      createdPhone1 = await phoneNoPopModelRepository.create(
+      createdPhone1 = await phoneNoPopRepository.create(
         new TestPhoneNoPopModel(phone)
       );
 
@@ -262,10 +262,10 @@ describe(`Complex Database`, function () {
         })
       );
 
-      const updated = await phoneNoPopModelRepository.update(toUpdate);
+      const updated = await phoneNoPopRepository.update(toUpdate);
       expect(updated.user).toEqual(createdUser.id);
 
-      const deleted = await phoneNoPopModelRepository.delete(createdPhone1.id);
+      const deleted = await phoneNoPopRepository.delete(createdPhone1.id);
       expect(deleted.user).toEqual(createdUser.id);
     });
 
@@ -275,6 +275,7 @@ describe(`Complex Database`, function () {
         type: "Number",
         startWith: 0,
         incrementBy: 1,
+
         cycle: false,
       });
 
@@ -288,12 +289,9 @@ describe(`Complex Database`, function () {
 
       const currentUser = (await userSequence.current()) as number;
       const curPhone = (await phoneSequence.current()) as number;
-      createdPhone1 = await phoneModelRepository.create(
-        new TestPhoneModel(phone1)
-      );
-      createdPhone2 = await phoneModelRepository.create(
-        new TestPhoneModel(phone2)
-      );
+
+      createdPhone1 = await phoneRepository.create(new TestPhoneModel(phone1));
+      createdPhone2 = await phoneRepository.create(new TestPhoneModel(phone2));
       const createdPhones = [createdPhone1, createdPhone2];
 
       const phoneSeq = await sequenceRepository.read(
@@ -365,12 +363,8 @@ describe(`Complex Database`, function () {
       expect(createdUser.updatedAt).toBeDefined();
 
       const curPhone = (await phoneSequence.current()) as number;
-      createdPhone1 = await phoneModelRepository.create(
-        new TestPhoneModel(phone1)
-      );
-      createdPhone2 = await phoneModelRepository.create(
-        new TestPhoneModel(phone2)
-      );
+      createdPhone1 = await phoneRepository.create(new TestPhoneModel(phone1));
+      createdPhone2 = await phoneRepository.create(new TestPhoneModel(phone2));
       const createdPhones = [createdPhone1, createdPhone2];
 
       const phoneSeq = await sequenceRepository.read(
@@ -392,7 +386,7 @@ describe(`Complex Database`, function () {
       createdUser = await userRepository.create(new TestUserModel(user));
       const userRead = await userRepository.read(createdUser.id);
       phone1.user = userRead.id as any;
-      const createdPhone = await phoneModelRepository.create(
+      const createdPhone = await phoneRepository.create(
         new TestPhoneModel(phone1)
       );
 
@@ -415,14 +409,14 @@ describe(`Complex Database`, function () {
         })
       );
 
-      const updatedPhone = await phoneModelRepository.update(toUpdate);
-      const read = await phoneModelRepository.read(updatedPhone.id);
+      const updatedPhone = await phoneRepository.update(toUpdate);
+      const read = await phoneRepository.read(updatedPhone.id);
       expect(read).toBeDefined();
 
-      const updatedUserAndPhone = await phoneModelRepository.update(
+      const updatedUserAndPhone = await phoneRepository.update(
         toUpdateAndCreateUser
       );
-      const readUserAndPhone = await phoneModelRepository.read(
+      const readUserAndPhone = await phoneRepository.read(
         updatedUserAndPhone.id
       );
       expect(readUserAndPhone).toBeDefined();
@@ -432,12 +426,12 @@ describe(`Complex Database`, function () {
       createdUser = await userRepository.create(new TestUserModel(user));
       const userRead = await userRepository.read(createdUser.id);
       phone1.user = userRead.id as any;
-      const createdPhone = await phoneModelRepository.create(
+      const createdPhone = await phoneRepository.create(
         new TestPhoneModel(phone1)
       );
-      await phoneModelRepository.delete(createdPhone.id);
+      await phoneRepository.delete(createdPhone.id);
       await expect(
-        phoneModelRepository.read(createdPhone.id)
+        phoneRepository.read(createdPhone.id)
       ).rejects.toBeInstanceOf(NotFoundError);
       await expect(userRepository.read(createdUser.id)).rejects.toBeInstanceOf(
         NotFoundError
@@ -471,7 +465,7 @@ describe(`Complex Database`, function () {
       })
     );
 
-    const phone = await phoneModelRepository.create(
+    const phone = await phoneRepository.create(
       new TestPhoneModel({
         areaCode: "351",
         number: "000-0000000",
@@ -482,7 +476,7 @@ describe(`Complex Database`, function () {
     expect(phone).toBeDefined();
     expect(phone.user).toBeInstanceOf(TestUserModel);
 
-    const updated = await phoneModelRepository.update(
+    const updated = await phoneRepository.update(
       new TestPhoneModel({
         ...phone,
         number: "111-1111111",
@@ -504,7 +498,7 @@ describe(`Complex Database`, function () {
     }
 
     await expect(
-      phoneModelRepository.update(
+      phoneRepository.update(
         new TestPhoneModel({
           ...phone,
           number: "222-2222222",

@@ -549,9 +549,9 @@ export function manyToOne<M extends Model>(
       prop(),
       relation(key, metadata),
       type([clazz, ...pkTypes]),
-      onCreate(oneToManyOnCreate, metadata),
-      onUpdate(oneToManyOnUpdate, metadata),
-      onDelete(oneToManyOnDelete, metadata),
+      onCreate(manyToOneOnCreate, metadata),
+      onUpdate(manyToOneOnUpdate, metadata),
+      onDelete(manyToOneOnDelete, metadata),
       afterAny(pop, metadata),
     ];
     return apply(...decs);

@@ -98,7 +98,7 @@ import { type Migration } from "../migrations/types";
 };
 
 (Model as any).nestedRelations = function <M extends Model>(
-  model: Constructor<M> | M,
+  model: Constructor<M> | (() => Constructor<M>),
   existingRelations: string[] = []
 ): string[] | ExtendedRelationsMetadata {
   let inner: string[] = [];

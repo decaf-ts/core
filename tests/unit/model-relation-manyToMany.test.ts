@@ -2,7 +2,7 @@ import { RamAdapter } from "../../src/ram/RamAdapter";
 import { RamRepository } from "../../src/ram/types";
 import { Cascade, Repository } from "../../src/repository/index";
 import { SequenceModel as Seq } from "../../src/model/SequenceModel";
-import { BaseModel, manyToMany, pk } from "../../src/index";
+import { BaseModel, manyToMany, PersistenceKeys, pk } from "../../src/index";
 import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
 
 jest.setTimeout(500000);
@@ -49,52 +49,6 @@ export class TestRoleModel extends BaseModel {
   users!: TestUserModel[];
 
   constructor(m?: ModelArg<TestRoleModel>) {
-    super(m);
-  }
-}
-
-@model()
-export class FaultyTestUserModel extends BaseModel {
-  @pk()
-  id!: number;
-
-  @required()
-  name!: string;
-
-  @manyToMany(
-    () => FaultyRoleModel,
-    {
-      update: Cascade.CASCADE,
-      delete: Cascade.CASCADE,
-    },
-    true // Should cause error because both sides have populate=true
-  )
-  roles!: FaultyRoleModel[];
-
-  constructor(m?: ModelArg<FaultyTestUserModel>) {
-    super(m);
-  }
-}
-
-@model()
-export class FaultyRoleModel extends BaseModel {
-  @pk()
-  id!: number;
-
-  @required()
-  name: string = "user";
-
-  @manyToMany(
-    FaultyTestUserModel,
-    {
-      update: Cascade.CASCADE,
-      delete: Cascade.CASCADE,
-    },
-    true // Should cause error because both sides have populate=true
-  )
-  users!: FaultyTestUserModel[];
-
-  constructor(m?: ModelArg<FaultyRoleModel>) {
     super(m);
   }
 }
@@ -285,8 +239,18 @@ describe("Many to many relations", () => {
     ).toBe(2);
   });
   it("fails when both sides have populate true", async () => {
+    const { Metadata } = await import("@decaf-ts/decoration");
+    const roleRelationsMeta = Metadata.get(
+      TestRoleModel,
+      PersistenceKeys.RELATIONS
+    );
+    if (roleRelationsMeta && roleRelationsMeta.users) {
+      // Change populate to true on the other side
+      roleRelationsMeta.users.populate = true;
+      Metadata.set(TestUserModel, PersistenceKeys.RELATIONS, roleRelationsMeta);
+    }
     await expect(
-      faultyRoleRepository.create(new FaultyRoleModel(role))
+      faultyRoleRepository.create(new TestRoleModel(role))
     ).rejects.toThrow(/Bidirectional populate is not allowed/);
   });
 });

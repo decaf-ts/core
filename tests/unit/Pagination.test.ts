@@ -8,6 +8,9 @@ import {
   DirectionLimitOffset,
   OrderDirection,
   Paginator,
+  PreparedStatementKeys,
+  QueryError,
+  SerializedPage,
   query,
   prepared,
   Repository,
@@ -31,8 +34,34 @@ class TestCountryModelRepo extends Repository<TestCountryModel, any> {
 
   // TODO @pedro make this happen automatically
   @prepared()
-  async paginateByIdBiggerOrderById(id: string, params: DirectionLimitOffset) {
-    return this.findByIdBiggerOrderById(id, params.direction, params);
+  async paginateByIdBiggerOrderById(
+    id: string,
+    params: DirectionLimitOffset = {},
+    ...args: any[]
+  ): Promise<SerializedPage<TestCountryModel>> {
+    const { offset, bookmark, limit } = params;
+    if (!offset && !bookmark)
+      throw new QueryError(`PaginateBy needs a page or a bookmark`);
+    const { ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.PAGE_BY, true)
+    ).for(this.paginateByIdBiggerOrderById);
+
+    const direction = params.direction || OrderDirection.DSC;
+    const paginator: Paginator<TestCountryModel> = await this.override({
+      forcePrepareSimpleQueries: false,
+      forcePrepareComplexQueries: false,
+    })
+      .select()
+      .where(this.attr("id").gt(id))
+      .orderBy(["id", direction])
+      .paginate(limit || 10, ...ctxArgs);
+
+    const paged =
+      bookmark !== undefined
+        ? await paginator.page(1, ...ctxArgs)
+        : await paginator.page(offset || 1, ...ctxArgs);
+
+    return paginator.serialize(paged) as SerializedPage<TestCountryModel>;
   }
 }
 
@@ -128,7 +157,7 @@ describe(`Pagination`, function () {
     );
   });
 
-  it("paginates with prepared statemetns", async () => {
+  it("paginates with prepared statements", async () => {
     const paginator: Paginator<TestCountryModel> = await repo
       .override({
         forcePrepareSimpleQueries: true,

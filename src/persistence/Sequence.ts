@@ -12,8 +12,10 @@ import {
   OperationKeys,
 } from "@decaf-ts/db-decorators";
 import {
+  ContextualizedArgs,
   ContextualLoggedClass,
   MaybeContextualArg,
+  MethodOrOperation,
 } from "../utils/ContextualLoggedClass";
 import { Adapter } from "./Adapter";
 import { Repo, Repository } from "../repository/Repository";
@@ -21,6 +23,7 @@ import { SequenceModel } from "../model/SequenceModel";
 import { Serial, UUID } from "./generators";
 import { Context } from "./Context";
 import { MultiLock } from "@decaf-ts/transactional-decorators";
+import type { ContextOf, FlagsOf } from "./types";
 
 /**
  * @description Abstract base class for sequence generation
@@ -68,7 +71,9 @@ import { MultiLock } from "@decaf-ts/transactional-decorators";
  * const nextId = await sequence.next();
  * ```
  */
-export class Sequence extends ContextualLoggedClass<any> {
+export class Sequence<
+  A extends Adapter<any, any, any, any> = Adapter<any, any, any, any>,
+> extends ContextualLoggedClass<any> {
   protected repo: Repo<SequenceModel>;
   protected static readonly lock = new MultiLock();
 
@@ -78,10 +83,13 @@ export class Sequence extends ContextualLoggedClass<any> {
    */
   constructor(
     protected readonly options: SequenceOptions,
-    protected readonly adapter: Adapter<any, any, any>
+    protected readonly adapter: A,
+    overrides: Partial<FlagsOf<A>> = {}
   ) {
     super();
-    this.repo = Repository.forModel(SequenceModel, adapter.alias);
+    this.repo = Repository.forModel(SequenceModel, adapter.alias).override(
+      overrides
+    );
   }
 
   /**
@@ -93,19 +101,12 @@ export class Sequence extends ContextualLoggedClass<any> {
   async current(
     ...args: MaybeContextualArg<any>
   ): Promise<string | number | bigint> {
-    const contextArgs = await Context.args<any, any>(
-      OperationKeys.READ,
-      SequenceModel,
-      args,
-      this.adapter
-    );
-    const ctx = contextArgs.context;
+    const { log, ctx } = await this.logCtx(args, OperationKeys.READ, true);
     const { name, startWith } = this.options;
     try {
       const sequence: SequenceModel = await this.repo.read(name as string, ctx);
       return this.parse(sequence.current as string | number);
     } catch (e: any) {
-      const log = ctx.logger.for(this.current);
       if (e instanceof NotFoundError) {
         log.debug(
           `Sequence.current missing ${name}, returning startWith=${startWith}`
@@ -138,9 +139,9 @@ export class Sequence extends ContextualLoggedClass<any> {
    */
   protected async increment(
     count: number | undefined,
-    ctx: Context<any>
+    context: Context<any>
   ): Promise<string | number | bigint> {
-    const log = ctx.logger.for(this.increment);
+    const { log, ctx } = this.adapter["logCtx"]([context], this.increment);
     const { type, incrementBy, name } = this.options;
     if (!name) throw new InternalError("Sequence name is required");
 
@@ -229,14 +230,10 @@ export class Sequence extends ContextualLoggedClass<any> {
   async next(
     ...argz: MaybeContextualArg<any>
   ): Promise<number | string | bigint> {
-    const contextArgs = await Context.args(
-      OperationKeys.UPDATE,
-      SequenceModel,
-      argz,
-      this.adapter
+    const { ctx } = (await this.logCtx(argz, OperationKeys.UPDATE, true)).for(
+      this.next
     );
-    const { context } = contextArgs;
-    return this.increment(undefined, context);
+    return this.increment(undefined, ctx);
   }
 
   /**
@@ -251,20 +248,14 @@ export class Sequence extends ContextualLoggedClass<any> {
     count: number,
     ...argz: MaybeContextualArg<any>
   ): Promise<(number | string | bigint)[]> {
-    const contextArgs = await Context.args(
-      OperationKeys.UPDATE,
-      SequenceModel,
-      argz,
-      this.adapter
-    );
-    const { context } = contextArgs;
+    const { ctx, log } = (
+      await this.logCtx(argz, OperationKeys.UPDATE, true)
+    ).for(this.range);
 
     if (this.options.type === "uuid" || this.options.type === "serial")
       throw new UnsupportedError( // TODO just generate valid uuids/serials
         `type ${this.options.type} is currently not suppported for this adapter`
       );
-
-    const log = context.logger.for(this.range);
 
     const typeName =
       typeof this.options.type === "function" &&
@@ -277,7 +268,7 @@ export class Sequence extends ContextualLoggedClass<any> {
     ) as number;
     const next: string | number | bigint = await this.increment(
       (this.parse(count) as number) * incrementBy,
-      context
+      ctx
     );
     let range: (number | string | bigint)[] = [];
     for (let i: number = 0; i <= count - 1; i++) {
@@ -296,6 +287,89 @@ export class Sequence extends ContextualLoggedClass<any> {
 
   protected parse(value: string | number | bigint): string | number | bigint {
     return Sequence.parseValue(this.options.type, value);
+  }
+
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<ContextOf<typeof this.adapter>, ARGS>,
+    operation: METHOD
+  ): ContextualizedArgs<
+    ContextOf<typeof this.adapter>,
+    ARGS,
+    METHOD extends string ? true : false
+  >;
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<ContextOf<typeof this.adapter>, ARGS>,
+    operation: METHOD,
+    allowCreate: false
+  ): ContextualizedArgs<
+    ContextOf<typeof this.adapter>,
+    ARGS,
+    METHOD extends string ? true : false
+  >;
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<ContextOf<typeof this.adapter>, ARGS>,
+    operation: METHOD,
+    allowCreate: true
+  ): Promise<
+    ContextualizedArgs<
+      ContextOf<typeof this.adapter>,
+      ARGS,
+      METHOD extends string ? true : false
+    >
+  >;
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<ContextOf<typeof this.adapter>, ARGS>,
+    operation: METHOD,
+    allowCreate: boolean = false
+  ):
+    | Promise<
+        ContextualizedArgs<
+          ContextOf<typeof this.adapter>,
+          ARGS,
+          METHOD extends string ? true : false
+        >
+      >
+    | ContextualizedArgs<
+        ContextOf<typeof this.adapter>,
+        ARGS,
+        METHOD extends string ? true : false
+      > {
+    const ctx = this.adapter["logCtx"](
+      [SequenceModel, ...args] as any,
+      operation,
+      allowCreate as any
+    ) as
+      | ContextualizedArgs<
+          ContextOf<A>,
+          ARGS,
+          METHOD extends string ? true : false
+        >
+      | Promise<
+          ContextualizedArgs<
+            ContextOf<A>,
+            ARGS,
+            METHOD extends string ? true : false
+          >
+        >;
+    function squashArgs(ctx: ContextualizedArgs<ContextOf<A>>) {
+      ctx.ctxArgs.shift(); // removes added model to args
+      return ctx as any;
+    }
+
+    if (!(ctx instanceof Promise)) return squashArgs(ctx);
+    return ctx.then(squashArgs);
   }
 
   /**

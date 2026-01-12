@@ -3,7 +3,7 @@ import { Paginator } from "../query";
 import { Model } from "@decaf-ts/decorator-validation";
 import { Adapter, RawResult } from "../persistence";
 import type { Constructor } from "@decaf-ts/decoration";
-import { MaybeContextualArg } from "../utils/index";
+import { MaybeContextualArg } from "../utils/ContextualLoggedClass";
 
 /**
  * @description RAM-specific paginator implementation
@@ -82,7 +82,7 @@ export class RamPaginator<M extends Model> extends Paginator<
     if (!this._recordCount || !this._totalPages) {
       this._totalPages = this._recordCount = 0;
       results = await this.adapter.raw<any, false>(
-        { ...statement, limit: undefined },
+        { ...statement, limit: Number.MAX_SAFE_INTEGER },
         false,
         ctx
       );
@@ -90,19 +90,18 @@ export class RamPaginator<M extends Model> extends Paginator<
       if (this._recordCount > 0) {
         const size = statement?.limit || this.size;
         this._totalPages = Math.ceil(this._recordCount / size);
+        return await this.page(page, ...ctxArgs);
       }
     } else {
       page = this.validatePage(page);
       statement.skip = (page - 1) * this.size;
-      results = await this.adapter.raw<any, true>(
-        statement,
-        true,
-        ...args,
-        ctx
-      );
+      results = await this.adapter.raw<any, true>(statement, true, ...ctxArgs);
     }
 
     this._currentPage = page;
+    this._bookmark = results.length
+      ? results[results.length - 1][Model.pk(this.clazz)]
+      : undefined;
     return results.data || results;
   }
 }

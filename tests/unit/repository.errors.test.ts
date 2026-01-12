@@ -8,12 +8,12 @@ describe("repository/errors.ObserverError", () => {
     expect(err).toBeInstanceOf(Error);
     // BaseError sets the code and prefixes the message with the class name
     expect((err as any).code).toBe(500);
-    expect(err.message).toBe("[ObserverError] failure");
+    expect(err.message).toBe("[ObserverError][500] failure");
   });
 
   it("should accept an Error instance and wrap its message", () => {
     const base = new Error("boom");
     const err = new ObserverError(base);
-    expect(err.message).toBe("[ObserverError] boom");
+    expect(err.message).toBe("[ObserverError][500] boom");
   });
 });

@@ -8,7 +8,7 @@ import type {
 } from "./selectors";
 import { Condition } from "./Condition";
 import { prefixMethod } from "@decaf-ts/db-decorators";
-import { final, toCamelCase } from "@decaf-ts/logging";
+import { final, Logger, toCamelCase } from "@decaf-ts/logging";
 import type {
   CountOption,
   DistinctOption,
@@ -24,27 +24,22 @@ import type {
 } from "./options";
 import { Paginatable } from "../interfaces/Paginatable";
 import { Paginator } from "./Paginator";
-import {
-  Adapter,
-  AdapterFlags,
-  type ContextOf,
-  PersistenceKeys,
-  UnsupportedError,
-} from "../persistence";
+import { Adapter } from "../persistence/Adapter";
+import type { AdapterFlags, ContextOf } from "../persistence/types";
+import { PersistenceKeys } from "../persistence/constants";
+import { UnsupportedError } from "../persistence/errors";
 import { QueryError } from "./errors";
-import { Logger } from "@decaf-ts/logging";
 import { Constructor } from "@decaf-ts/decoration";
 import {
   type ContextualArgs,
   ContextualLoggedClass,
   type MaybeContextualArg,
-} from "../utils/index";
-import { Context } from "../persistence/Context";
-import { DirectionLimitOffset, PreparedStatement } from "./types";
-import { QueryClause } from "./types";
+} from "../utils/ContextualLoggedClass";
+import { DirectionLimitOffset, PreparedStatement, QueryClause } from "./types";
 import { GroupOperator, Operator, PreparedStatementKeys } from "./constants";
 import { OrderDirection } from "../repository/constants";
 import { Repository } from "../repository/Repository";
+
 /**
  * @description Base class for database query statements
  * @summary Provides a foundation for building and executing database queries
@@ -129,28 +124,33 @@ export abstract class Statement<
         this,
         m,
         async (...args: MaybeContextualArg<ContextOf<A>>) => {
-          let execArgs = args;
-          if (
-            (!execArgs.length ||
-              !(execArgs[execArgs.length - 1] instanceof Context)) &&
-            this.fromSelector
-          ) {
-            const ctx = await this.adapter.context(
-              PersistenceKeys.QUERY,
-              this.overrides || {},
-              this.fromSelector
-            );
-            execArgs = [...execArgs, ctx];
-          }
-          const { ctx, ctxArgs } = Adapter.logCtx<ContextOf<A>>(
-            execArgs,
-            m.name
-          );
+          const { ctx, ctxArgs, log } = (
+            await this.adapter["logCtx"](
+              [this.fromSelector, ...args],
+              m.name === this.paginate.name
+                ? PreparedStatementKeys.PAGE_BY
+                : PersistenceKeys.QUERY,
+              true,
+              this.overrides || {}
+            )
+          ).for(m);
+
+          ctxArgs.shift();
 
           const forceSimple = ctx.get("forcePrepareSimpleQueries");
           const forceComplex = ctx.get("forcePrepareComplexQueries");
-          if ((forceSimple && this.isSimpleQuery()) || forceComplex)
+          log.silly(
+            `statement force simple ${forceSimple}, forceComplex: ${forceComplex}`
+          );
+          if ((forceSimple && this.isSimpleQuery()) || forceComplex) {
+            log.silly(
+              `squashing ${!forceComplex ? "simple" : "complex"} query to prepared statement`
+            );
             await this.prepare(ctx);
+            log.silly(
+              `squashed ${!forceComplex ? "simple" : "complex"} query to ${JSON.stringify(this.prepared, null, 2)}`
+            );
+          }
           return ctxArgs;
         },
         m.name
@@ -251,12 +251,15 @@ export abstract class Statement<
 
   @final()
   async execute(...args: MaybeContextualArg<ContextOf<A>>): Promise<R> {
+    const { log, ctxArgs } = this.logCtx(args, this.execute);
     try {
-      if (this.prepared) return this.executePrepared(...args);
+      if (this.prepared) return this.executePrepared(...(args as any));
+      log.silly(`Building raw statement...`);
       const query: Q = this.build();
+      log.silly(`executing raw statement`);
       return (await this.raw<R>(
         query,
-        ...(args as ContextualArgs<ContextOf<A>>)
+        ...(ctxArgs as ContextualArgs<ContextOf<A>>)
       )) as unknown as R;
     } catch (e: unknown) {
       throw new QueryError(e as Error);
@@ -264,7 +267,7 @@ export abstract class Statement<
   }
 
   protected async executePrepared(
-    ...argz: MaybeContextualArg<ContextOf<A>>
+    ...argz: ContextualArgs<ContextOf<A>>
   ): Promise<R> {
     const repo = Repository.forModel(this.fromSelector, this.adapter.alias);
     const { method, args, params } = this.prepared as PreparedStatement<any>;
@@ -398,7 +401,7 @@ export abstract class Statement<
     const [attrFromOrderBy, sort] = order;
 
     const params: DirectionLimitOffset = {
-      direction: sort,
+      direction: sort as any,
     };
 
     if (this.limitSelector) params.limit = this.limitSelector;

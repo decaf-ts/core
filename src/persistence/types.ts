@@ -12,6 +12,8 @@ import { Model } from "@decaf-ts/decorator-validation";
 import { ContextualArgs } from "../utils";
 import { Context } from "./Context";
 import { Repository } from "../repository/Repository";
+import { PersistenceKeys } from "./constants";
+import { PreparedStatementKeys } from "../query/index";
 
 export type FlagsOfContext<C extends Context<any>> =
   C extends Context<infer F> ? F : never;
@@ -39,6 +41,9 @@ export type ContextOf<
       ? ContextOfRepository<OBJ>
       : never;
 
+export type ConfigOf<OBJ extends Adapter<any, any, any, any>> =
+  OBJ extends Adapter<infer C, any, any, any> ? C : never;
+
 export type LoggerOfAdapter<A extends Adapter<any, any, any, any>> =
   A extends Adapter<any, any, any, infer C> ? LoggerOfContext<C> : never;
 
@@ -62,6 +67,9 @@ export type LoggerOf<
           ? // @ts-expect-error stoopid eslint
             LoggerOfAdapter<OBJ>
           : Logger;
+
+export type ConfOf<A extends Adapter<any, any, any, any>> =
+  A extends Adapter<infer C, any, any> ? C : never;
 
 export type FlagsOf<
   OBJ extends Repository<any, any> | Adapter<any, any, any, any> | Context<any>,
@@ -109,10 +117,10 @@ export type EventIds =
   | bigint[];
 
 export type ObserverFilter = (
-  table: string | Constructor,
-  event: OperationKeys | BulkCrudOperationKeys | string,
+  table: Constructor | string,
+  event: AllOperationKeys,
   id: EventIds,
-  ...args: [...any[], Context<any>]
+  ...args: ContextualArgs<any>
 ) => boolean;
 
 export type InferredAdapterConfig<A> =
@@ -128,12 +136,6 @@ export interface AdapterDispatch<A extends Adapter<any, any, any, any>>
     id: EventIds,
     ...args: ContextualArgs<ContextOf<A>>
   ): Promise<void>;
-}
-
-export interface Migration<QUERYRUNNER, A extends Adapter<any, any, any, any>> {
-  transaction: boolean;
-  up(qr: QUERYRUNNER, adapter?: A, ctx?: ContextOf<A>): Promise<void>;
-  down(qr: QUERYRUNNER, adapter?: A, ctx?: ContextOf<A>): Promise<void>;
 }
 
 export type RepositoryFor<A extends Adapter<any, any, any, any>> =
@@ -152,8 +154,18 @@ export type AdapterFlags<LOG extends Logger = Logger> = RepositoryFlags<LOG> & {
   forcePrepareSimpleQueries: boolean;
   forcePrepareComplexQueries: boolean;
   cacheForPopulate: Record<string, any>;
+  observeFullResult: boolean;
+  paginateByBookmark: boolean;
+  dryRun: boolean;
 };
 
 export type RawResult<R, D extends boolean> = D extends true
   ? R
   : { data: R; count?: number };
+
+export type AllOperationKeys =
+  | OperationKeys
+  | BulkCrudOperationKeys
+  | PersistenceKeys
+  | PreparedStatementKeys
+  | string;

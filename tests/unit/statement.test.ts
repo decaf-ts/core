@@ -183,18 +183,17 @@ describe("Statement execution strategy", () => {
       forcePrepareSimpleQueries: true,
     });
 
-    const paginator = { paginate: jest.fn() };
-    const statementSpy = jest
-      .spyOn(repoWithOverrides as any, "statement")
-      .mockResolvedValueOnce(paginator as any);
+    // const paginator = { paginate: jest.fn() };
+    const statementSpy = jest.spyOn(repoWithOverrides as any, "statement");
 
     const result = await repoWithOverrides
       .select()
       .orderBy(["name", OrderDirection.ASC])
       .paginate(2);
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const page = await result.page();
+
+    expect(page).toBeDefined();
 
     expect(statementSpy).toHaveBeenCalledTimes(1);
     expect(statementSpy).toHaveBeenCalledWith(
@@ -202,6 +201,7 @@ describe("Statement execution strategy", () => {
       "name",
       "asc",
       expect.objectContaining({
+        bookmark: undefined,
         limit: 2,
         offset: 1,
       }),
@@ -263,7 +263,7 @@ describe("Statement execution strategy", () => {
       "paginateByAgeBiggerAndName",
       18,
       "carol",
-      expect.objectContaining({ offset: 1, limit: 3 }),
+      expect.objectContaining({ bookmark: undefined, offset: 1, limit: 3 }),
       expect.any(Context)
     );
   });

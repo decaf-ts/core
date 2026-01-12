@@ -1,8 +1,12 @@
-import { Adapter, Context, RamAdapter, RamFlavour } from "../../src/index";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const TEST_ROOT: "src" | "lib" | "dist" = process.env.TEST_ROOT || "src";
+
+import { Adapter, Context } from "../../src/index";
 import { Constructor } from "@decaf-ts/decoration";
 import { ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Contextual } from "@decaf-ts/db-decorators";
 import { Logger, Logging, style } from "@decaf-ts/logging";
+import { RamAdapter, RamFlavour } from "../../src/ram/index";
 
 export type DecafE2eConfig<A extends Adapter<any, any, any, any>> = {
   flavour: string;
@@ -57,6 +61,4 @@ export const E2eConfig: DecafE2eConfig<RamAdapter> = {
   },
   ctxFactoryMock: ctxMock,
 };
-
-(E2eConfig.adapterClazz as any).decoration();
-Adapter.setCurrent(E2eConfig.flavour);
+// export * from "../../src"

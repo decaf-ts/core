@@ -4,10 +4,10 @@ import { FabricBaseModel } from "./FabricBaseModel";
 import {
   index,
   OrderDirection,
-  RamFlavour,
   createdBy,
   updatedBy,
 } from "../../../src/index";
+import { RamFlavour } from "../../../src/ram/index";
 
 @uses(RamFlavour)
 export class FabricIdentifiedModel extends FabricBaseModel {

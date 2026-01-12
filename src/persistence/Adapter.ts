@@ -1,10 +1,10 @@
-import type { FlagsOf as ContextualFlagsOf } from "@decaf-ts/db-decorators";
 import {
   BaseError,
   BulkCrudOperationKeys,
   InternalError,
   OperationKeys,
   PrimaryKeyType,
+  ValidationError,
 } from "@decaf-ts/db-decorators";
 import { type Observer } from "../interfaces/Observer";
 import {
@@ -26,7 +26,6 @@ import {
   type AdapterFlags,
   type EventIds,
   FlagsOf,
-  Migration,
   type ObserverFilter,
   PersistenceObservable,
   PersistenceObserver,
@@ -41,15 +40,17 @@ import {
   DefaultFlavour,
   Metadata,
 } from "@decaf-ts/decoration";
-import { MigrationError } from "./errors";
 import {
+  AbsContextual,
   ContextualArgs,
   ContextualizedArgs,
-  ContextualLoggedClass,
+  MaybeContextualArg,
+  MethodOrOperation,
 } from "../utils/ContextualLoggedClass";
 import { Paginator } from "../query/Paginator";
 import { PreparedStatement } from "../query/index";
 import { promiseSequence } from "../utils/utils";
+import { UUID } from "./generators";
 
 const flavourResolver = Decoration["flavourResolver"].bind(Decoration);
 Decoration["flavourResolver"] = (obj: object) => {
@@ -179,9 +180,9 @@ export abstract class Adapter<
     CONF,
     CONN,
     QUERY,
-    CONTEXT extends Context<AdapterFlags> = Context,
+    CONTEXT extends Context<AdapterFlags> = Context<AdapterFlags>,
   >
-  extends ContextualLoggedClass<CONTEXT>
+  extends AbsContextual<CONTEXT>
   implements
     RawPagedExecutor<QUERY>,
     PersistenceObservable<CONTEXT>,
@@ -368,8 +369,11 @@ export abstract class Adapter<
    * @param {SequenceOptions} options - Configuration options for the sequence
    * @return {Promise<Sequence>} A promise that resolves to a new sequence instance
    */
-  async Sequence(options: SequenceOptions): Promise<Sequence> {
-    return new Adapter._baseSequence(options, this);
+  async Sequence(
+    options: SequenceOptions,
+    overrides?: Partial<FlagsOf<CONTEXT>>
+  ): Promise<Sequence> {
+    return new Adapter._baseSequence(options, this, overrides);
   }
 
   /**
@@ -385,28 +389,53 @@ export abstract class Adapter<
    */
   protected async flags<M extends Model>(
     operation: OperationKeys | string,
-    model: Constructor<M> | Constructor<M>[],
+    model: Constructor<M> | Constructor<M>[] | undefined,
     flags: Partial<FlagsOf<CONTEXT>>,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ...args: any[]
   ): Promise<FlagsOf<CONTEXT>> {
-    let log = (flags.logger || Logging.for(this.toString())) as Logger;
-    if (flags.correlationId)
-      log = log.for({ correlationId: flags.correlationId });
-
+    if (typeof model === "string") {
+      throw new InternalError(
+        "Model must be a constructor or array of constructors or undefined. this should be impossible"
+      );
+    }
+    const targetModel = Array.isArray(model)
+      ? model.length
+        ? model[0]
+        : undefined
+      : model;
+    const correlationPrefix = targetModel
+      ? `${Model.tableName(targetModel)} - `
+      : "";
+    flags.correlationId =
+      flags.correlationId ||
+      `${correlationPrefix}${operation}-${UUID.instance.generate()}`;
+    const log = (flags.logger || Logging.for(this as any)) as Logger;
+    log.setConfig({ correlationId: flags.correlationId });
     return Object.assign({}, DefaultAdapterFlags, flags, {
-      affectedTables: (Array.isArray(model) ? model : [model]).map(
-        Model.tableName
-      ),
+      affectedTables: model
+        ? [
+            ...new Set([
+              ...(Array.isArray(model) ? model : [model]).filter(Boolean),
+              ...(flags.affectedTables
+                ? Array.isArray(flags.affectedTables)
+                  ? flags.affectedTables
+                  : [flags.affectedTables]
+                : []),
+            ]),
+          ]
+        : flags.affectedTables,
+      args: args,
       writeOperation: operation !== OperationKeys.READ,
       timestamp: new Date(),
       operation: operation,
-      ignoredValidationProperties: Metadata.validationExceptions(
-        Array.isArray(model) && model[0]
-          ? (model[0] as Constructor)
-          : (model as Constructor),
-        operation as any
-      ),
+      ignoredValidationProperties: model
+        ? Metadata.validationExceptions(
+            Array.isArray(model) && model[0]
+              ? (model[0] as Constructor)
+              : (model as Constructor),
+            operation as any
+          )
+        : [],
       logger: log,
     }) as unknown as FlagsOf<CONTEXT>;
   }
@@ -415,9 +444,9 @@ export abstract class Adapter<
    * @description The context constructor for this adapter
    * @summary Reference to the context class constructor used by this adapter
    */
-  protected readonly Context: Constructor<CONTEXT> = Context<
-    FlagsOf<CONTEXT>
-  > as unknown as Constructor<CONTEXT>;
+  protected override get Context(): Constructor<CONTEXT> {
+    return Context<FlagsOf<CONTEXT>> as unknown as Constructor<CONTEXT>;
+  }
 
   /**
    * @description Creates a context for a database operation
@@ -431,28 +460,41 @@ export abstract class Adapter<
    * @return {Promise<C>} A promise that resolves to the context object
    */
   @final()
-  async context<M extends Model>(
+  override async context<M extends Model>(
     operation:
+      | ((...args: any[]) => any)
       | OperationKeys.CREATE
       | OperationKeys.READ
       | OperationKeys.UPDATE
       | OperationKeys.DELETE
       | string,
-    overrides: Partial<ContextualFlagsOf<CONTEXT>>,
+    overrides: Partial<FlagsOf<CONTEXT>>,
     model: Constructor<M> | Constructor<M>[],
-    ...args: any[]
+    ...args: MaybeContextualArg<Context<any>>
   ): Promise<CONTEXT> {
     const log = this.log.for(this.context);
-    log.debug(
-      `Creating new context for ${operation} operation on ${model ? (Array.isArray(model) ? model.map((m) => m.name) : model.name) : "no"} model with flag overrides: ${JSON.stringify(overrides)}`
+    log.silly(
+      `creating new context for ${operation} operation on ${model ? (Array.isArray(model) ? model.map((m) => Model.tableName(m)) : Model.tableName(model)) : "no"} table with flag overrides: ${JSON.stringify(overrides)}`
     );
+    let ctx = args.pop();
+    if (typeof ctx !== "undefined" && !(ctx instanceof Context)) {
+      args.push(ctx);
+      ctx = undefined;
+    }
+
     const flags = await this.flags(
-      operation,
+      typeof operation === "string" ? operation : operation.name,
       model,
       overrides as Partial<FlagsOf<CONTEXT>>,
       ...args
     );
-    return new this.Context().accumulate(flags) as unknown as CONTEXT;
+    if (ctx) {
+      return new this.Context(ctx).accumulate({
+        ...flags,
+        parentContext: ctx,
+      }) as any;
+    }
+    return new this.Context().accumulate(flags) as any;
   }
 
   /**
@@ -598,9 +640,11 @@ export abstract class Adapter<
     model: Record<string, any>[],
     ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
-    if (id.length !== model.length)
-      throw new InternalError("Ids and models must have the same length");
     const { log, ctxArgs } = this.logCtx(args, this.createAll);
+    if (!id || !model)
+      throw new ValidationError("Ids and models cannot be null or undefined");
+    if (id.length !== model.length)
+      throw new ValidationError("Ids and models must have the same length");
     const tableLabel = Model.tableName(clazz);
     log.debug(`Creating ${id.length} entries ${tableLabel} table`);
     return promiseSequence(
@@ -677,9 +721,9 @@ export abstract class Adapter<
     model: Record<string, any>[],
     ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
+    const { log, ctxArgs } = this.logCtx(args, this.updateAll);
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
-    const { log, ctxArgs } = this.logCtx(args, this.updateAll);
     const tableLabel = Model.tableName(clazz);
     log.debug(`Updating ${id.length} entries ${tableLabel} table`);
     return promiseSequence(
@@ -716,10 +760,7 @@ export abstract class Adapter<
     id: PrimaryKeyType[],
     ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
-    const { log, ctxArgs } = Adapter.logCtx<CONTEXT, ContextualArgs<CONTEXT>>(
-      args,
-      this.deleteAll
-    );
+    const { log, ctxArgs } = this.logCtx(args, this.deleteAll);
     log.debug(`Deleting ${id.length} entries from ${tableName} table`);
     return promiseSequence(
       id.map((i) => () => this.delete(tableName, i, ...ctxArgs))
@@ -758,9 +799,9 @@ export abstract class Adapter<
       });
     this.observerHandler!.observe(observer, filter);
     const log = this.log.for(this.observe);
-    log.verbose(`Registering new observer ${observer.toString()}`);
+    log.silly(`Registering new observer ${observer.toString()}`);
     if (!this.dispatch) {
-      log.info(`Creating dispatch for ${this.alias}`);
+      log.verbose(`Creating dispatch for ${this.alias}`);
       this.dispatch = this.Dispatch();
       this.dispatch.observe(this);
     }
@@ -781,7 +822,7 @@ export abstract class Adapter<
     this.observerHandler.unObserve(observer);
     this.log
       .for(this.unObserve)
-      .verbose(`Observer ${observer.toString()} removed`);
+      .debug(`Observer ${observer.toString()} removed`);
   }
 
   /**
@@ -804,15 +845,7 @@ export abstract class Adapter<
       throw new InternalError(
         "ObserverHandler not initialized. Did you register any observables?"
       );
-    const { log, ctxArgs } = Adapter.logCtx<CONTEXT, ContextualArgs<CONTEXT>>(
-      args,
-      this.updateObservers
-    );
-
-    log.verbose(
-      `Updating ${this.observerHandler.count()} observers for adapter ${this.alias}: Event: `
-    );
-    await this.observerHandler.updateObservers(table, event, id, ...ctxArgs);
+    await this.observerHandler.updateObservers(table, event, id, ...args);
   }
 
   /**
@@ -917,35 +950,6 @@ export abstract class Adapter<
 
   static decoration(): void {}
 
-  /**
-   * @description retrieves the context from args and returns it, the logger and the args (with context at the end)
-   * @summary NOTE: if the last argument was a context, this removes the context from the arg list
-   * @param args
-   * @param method
-   */
-  static override logCtx<
-    CONTEXT extends Context<any>,
-    ARGS extends any[] = any[],
-  >(this: any, args: ARGS, method: string): ContextualizedArgs<CONTEXT, ARGS>;
-  static override logCtx<
-    CONTEXT extends Context<any>,
-    ARGS extends any[] = any[],
-  >(
-    this: any,
-    args: ARGS,
-    method: (...args: any[]) => any
-  ): ContextualizedArgs<CONTEXT, ARGS>;
-  static override logCtx<
-    CONTEXT extends Context<any>,
-    ARGS extends any[] = any[],
-  >(
-    this: any,
-    args: ARGS,
-    method: ((...args: any[]) => any) | string
-  ): ContextualizedArgs<CONTEXT, ARGS> {
-    return super.logCtx<CONTEXT, ARGS>(args, method as any);
-  }
-
   protected proxies?: Record<string, typeof this>;
 
   /**
@@ -1007,27 +1011,45 @@ export abstract class Adapter<
     return this as unknown as CONN;
   }
 
-  async migrate(...args: [...any[], CONTEXT]): Promise<void>;
-  async migrate(
-    migrations:
-      | Constructor<Migration<any, any>>[]
-      | CONTEXT = this.migrations(),
-    ...args: [...any[], CONTEXT]
-  ): Promise<void> {
-    if (migrations instanceof Context) {
-      args = [migrations as unknown as CONTEXT];
-      migrations = this.migrations();
-    }
-    const { ctx } = Adapter.logCtx<CONTEXT>(args, this.migrate);
-    const qr = await this.getQueryRunner();
-    for (const migration of migrations) {
-      try {
-        const m = new migration();
-        await m.up(qr, this, ctx);
-        await m.down(qr, this, ctx);
-      } catch (e: unknown) {
-        throw new MigrationError(e as Error);
-      }
-    }
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: METHOD
+  ): ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>;
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: METHOD,
+    allowCreate: false
+  ): ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>;
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: METHOD,
+    allowCreate: true,
+    overrides?: Partial<FlagsOf<CONTEXT>>
+  ): Promise<
+    ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>
+  >;
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: METHOD,
+    allowCreate: boolean = false,
+    overrides?: Partial<FlagsOf<CONTEXT>>
+  ):
+    | Promise<
+        ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>
+      >
+    | ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false> {
+    return super.logCtx(args, operation, allowCreate as any, overrides);
   }
 }

@@ -1,15 +1,16 @@
 import { PagingError } from "./errors";
-import {
-  Adapter,
-  Context,
-  PersistenceKeys,
-  prefixMethod,
-  UnsupportedError,
-} from "../persistence";
+import { Adapter } from "../persistence/Adapter";
+import { Context } from "../persistence/Context";
+import { PersistenceKeys } from "../persistence/constants";
+import { prefixMethod } from "../utils/utils";
+import { UnsupportedError } from "../persistence/errors";
 import { Model } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
 import { LoggedClass } from "@decaf-ts/logging";
-import { ContextualArgs, MaybeContextualArg } from "../utils/index";
+import {
+  ContextualArgs,
+  MaybeContextualArg,
+} from "../utils/ContextualLoggedClass";
 import { DirectionLimitOffset, PreparedStatement } from "./types";
 import { PreparedStatementKeys } from "./constants";
 import { Repository } from "../repository/Repository";
@@ -125,20 +126,33 @@ export abstract class Paginator<
   }
 
   protected async pagePrefix(page?: number, ...args: MaybeContextualArg<any>) {
-    const contextArgs = await Context.args<M, any>(
-      PersistenceKeys.QUERY,
-      this.clazz,
-      args,
-      this.adapter
-    );
-
-    return [page, ...contextArgs.args];
+    const { ctxArgs } = (
+      await this.adapter["logCtx"](
+        [this.clazz, ...args],
+        PersistenceKeys.QUERY,
+        true
+      )
+    ).for(this.pagePrefix);
+    ctxArgs.shift();
+    return [page, ...ctxArgs];
   }
 
   protected async pagePrepared(
-    page?: number,
+    page: number,
+    bookmark?: any,
     ...argz: ContextualArgs<any>
   ): Promise<M[]> {
+    const { log, ctxArgs } = this.adapter["logCtx"](
+      bookmark && !(bookmark instanceof Context)
+        ? [...argz]
+        : [bookmark, ...argz],
+      this.pagePrepared
+    );
+    log.debug(
+      `Running paged prepared statement ${page} page${bookmark ? ` - bookmark ${bookmark}` : ""}`
+    );
+
+    if (bookmark && !(bookmark instanceof Context)) this._bookmark = bookmark;
     const repo = Repository.forModel(this.clazz, this.adapter.alias);
     const statement = this.query as PreparedStatement<M>;
     const { method, args, params } = statement;
@@ -177,7 +191,7 @@ export abstract class Paginator<
 
     const result = await repo.statement(
       ...(preparedArgs as [string, any]),
-      ...argz
+      ...ctxArgs
     );
     return this.apply(result);
   }
@@ -210,8 +224,12 @@ export abstract class Paginator<
     return page;
   }
 
-  async page(page: number = 1, ...args: MaybeContextualArg<any>): Promise<R> {
-    const { ctxArgs } = this.adapter["logCtx"](args, this.page);
+  async page(
+    page: number = 1,
+    bookmark?: any,
+    ...args: MaybeContextualArg<any>
+  ): Promise<R> {
+    const { ctxArgs } = this.adapter["logCtx"]([bookmark, ...args], this.page);
     if (this.isPreparedStatement())
       return (await this.pagePrepared(page, ...ctxArgs)) as R;
     throw new UnsupportedError(

@@ -1,5 +1,4 @@
 import {
-  Constructor,
   InjectableRegistryImp,
   Injectables,
 } from "@decaf-ts/injectable-decorators";
@@ -9,7 +8,7 @@ import { generateInjectableNameForRepository } from "./utils";
 import { PersistenceKeys } from "../persistence/constants";
 import { Adapter } from "../persistence/Adapter";
 import { Logger, Logging } from "@decaf-ts/logging";
-import { Metadata } from "@decaf-ts/decoration";
+import { Metadata, Constructor } from "@decaf-ts/decoration";
 
 /**
  * @description Registry for injectable repositories with auto-resolution.

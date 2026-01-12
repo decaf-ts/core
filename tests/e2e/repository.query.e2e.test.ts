@@ -8,7 +8,6 @@ import { Model } from "@decaf-ts/decorator-validation";
 import { Observer, OrderDirection } from "../../src/index";
 import { Logging, LogLevel, style } from "@decaf-ts/logging";
 import { Constructor } from "@decaf-ts/decoration";
-Logging.setConfig({ level: LogLevel.debug });
 
 Logging.setConfig({ level: LogLevel.debug });
 

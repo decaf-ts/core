@@ -1,5 +1,5 @@
 import { Constructor, Metadata } from "@decaf-ts/decoration";
-import { Model, ValidationKeys } from "@decaf-ts/decorator-validation";
+import { Model } from "@decaf-ts/decorator-validation";
 import { DBKeys, InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Adapter } from "../persistence/Adapter";
 
@@ -10,8 +10,23 @@ import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { IndexMetadata } from "../repository/types";
 import { Repository } from "../repository/Repository";
 import { Injectables } from "@decaf-ts/injectable-decorators";
-import { Service } from "../utils/Services";
-import type { Migration } from "../persistence/types";
+import { Service } from "../services/services";
+import { TaskHandler } from "../tasks/TaskHandler";
+import { TasksKey } from "../tasks/index";
+import { type Migration } from "../migrations/types";
+
+(Metadata as any).tasks = function tasks():
+  | Record<string, Constructor<TaskHandler<any, any>>>
+  | undefined {
+  return Metadata["innerGet"](Symbol.for(TasksKey));
+}.bind(Metadata);
+
+(Metadata as any).taskFor = function taskFor(
+  type: string
+): Constructor<TaskHandler<any, any>> | undefined {
+  const meta = Metadata.tasks();
+  return meta ? meta[type] : undefined;
+}.bind(Metadata);
 
 (Metadata as any).validationExceptions = function validationExceptions<
   M extends Model,
@@ -39,6 +54,21 @@ import type { Migration } from "../persistence/types";
   return migrations.map(
     (m: { class: Constructor<Migration<any, A>> }) => m.class
   );
+}.bind(Metadata);
+
+(Metadata as any).migrations = function migrations(): [
+  string,
+  Constructor<Migration<any, any>>,
+][] {
+  const migrations: Record<
+    string,
+    Record<string, Constructor<Migration<any, any>>>
+  > = Metadata["innerGet"](
+    Symbol.for([PersistenceKeys.MIGRATION, PersistenceKeys.BY_KEY].join("-"))
+  );
+  return Object.values(migrations)
+    .flat()
+    .map((m) => [m.class.name, m.class]);
 }.bind(Metadata);
 
 (Metadata as any).relations = function <M extends Model>(
@@ -80,25 +110,12 @@ import type { Migration } from "../persistence/types";
     if (relationMeta?.class && Model.relations(relationMeta.class)) {
       const innerModelRels = Model.relations(relationMeta.class) as string[];
       const innerModelDotRels = innerModelRels.map((r) => `${prop}.${r}`);
-      existingRelations = [
-        ...existingRelations,
-        ...innerModelDotRels,
-      ];
+      existingRelations = [...existingRelations, ...innerModelDotRels];
       inner = Model.nestedRelations(relationMeta.class, existingRelations);
     }
   }
   return [...new Set([...existingRelations, ...inner])];
-};
-
-(Model as any).generated = function generated<M extends Model>(
-  model: M | Constructor<M>,
-  prop: keyof M
-): boolean | string {
-  return !!Metadata.get(
-    typeof model !== "function" ? (model.constructor as any) : model,
-    Metadata.key(PersistenceKeys.GENERATED, prop as string)
-  );
-}.bind(Metadata);
+}.bind(Model);
 
 (Model as any).generatedBySequence = function generatedBySequence<
   M extends Model,
@@ -108,7 +125,7 @@ import type { Migration } from "../persistence/types";
     typeof model !== "function" ? (model.constructor as any) : model;
   const seq = Model.sequenceFor(constr);
   return !!seq.generated;
-}.bind(Metadata);
+}.bind(Model);
 
 (Metadata as any).createdBy = function createdBy<M extends Model>(
   model: M | Constructor<M>

@@ -11,8 +11,12 @@ import { AdapterDispatch, ContextOf, EventIds } from "./types";
 import { Constructor } from "@decaf-ts/decoration";
 import {
   ContextualArgs,
+  ContextualizedArgs,
   ContextualLoggedClass,
+  MaybeContextualArg,
+  MethodOrOperation,
 } from "../utils/ContextualLoggedClass";
+import { PersistenceKeys } from "./constants";
 
 /**
  * @description Dispatches database operation events to observers
@@ -64,6 +68,75 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
     super();
   }
 
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<ContextOf<A>, ARGS>,
+    operation: METHOD
+  ): ContextualizedArgs<
+    ContextOf<A>,
+    ARGS,
+    METHOD extends string ? true : false
+  >;
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<ContextOf<A>, ARGS>,
+    operation: METHOD,
+    allowCreate: false
+  ): ContextualizedArgs<
+    ContextOf<A>,
+    ARGS,
+    METHOD extends string ? true : false
+  >;
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<ContextOf<A>, ARGS>,
+    operation: METHOD,
+    allowCreate: true
+  ): Promise<
+    ContextualizedArgs<ContextOf<A>, ARGS, METHOD extends string ? true : false>
+  >;
+  protected override logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<ContextOf<A>, ARGS>,
+    operation: METHOD,
+    allowCreate: boolean = false
+  ):
+    | Promise<
+        ContextualizedArgs<
+          ContextOf<A>,
+          ARGS,
+          METHOD extends string ? true : false
+        >
+      >
+    | ContextualizedArgs<
+        ContextOf<A>,
+        ARGS,
+        METHOD extends string ? true : false
+      > {
+    if (!this.adapter) throw new InternalError("Adapter not set yet");
+    return this.adapter["logCtx"](args, operation, allowCreate as any) as
+      | ContextualizedArgs<
+          ContextOf<A>,
+          ARGS,
+          METHOD extends string ? true : false
+        >
+      | Promise<
+          ContextualizedArgs<
+            ContextOf<A>,
+            ARGS,
+            METHOD extends string ? true : false
+          >
+        >;
+  }
+
   /**
    * @description Initializes the dispatch by proxying adapter methods
    * @summary Sets up proxies on the adapter's CRUD methods to intercept operations and notify observers.
@@ -100,7 +173,9 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
    *     end
    *   end
    */
-  protected async initialize(): Promise<void> {
+  protected async initialize(
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<void> {
     if (!this.adapter) {
       // Gracefully skip initialization when no adapter is observed yet.
       // Some tests or setups may construct a Dispatch before calling observe().
@@ -110,6 +185,10 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
         .verbose(`No adapter observed for dispatch; skipping initialization`);
       return;
     }
+    const { log } = (
+      await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
+    ).for(this.initialize);
+    log.verbose(`Initializing ${this.adapter}'s event Dispatch`);
     const adapter = this.adapter as Adapter<any, any, any, any>;
     (
       [
@@ -155,28 +234,32 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
       // @ts-expect-error because there are read only properties
       adapter[toWrap] = new Proxy(adapter[toWrap], {
         apply: async (target: any, thisArg: A, argArray: any[]) => {
-          const { log, ctxArgs } = thisArg["logCtx"](argArray, target);
-          const [tableName, ids] = argArray;
-          const result = await target.apply(thisArg, ctxArgs);
+          const { log, ctxArgs, ctx } = thisArg["logCtx"](
+            argArray.slice(3 - (4 - argArray.length), argArray.length),
+            target
+          );
+          const [tableName, ids, payload] = argArray;
+          const result = await target.apply(thisArg, [
+            tableName,
+            ids,
+            payload,
+            ...ctxArgs,
+          ]);
 
-          this.updateObservers(
+          const resultArgs: [string, string, EventIds] = [
             tableName,
             bulkToSingle(toWrap),
-            ids as EventIds,
-            result,
-            ...(ctxArgs.slice(argArray.length) as ContextualArgs<ContextOf<A>>)
-          )
-            .then(() => {
-              log.verbose(
-                `Observer refresh dispatched by ${toWrap} for ${tableName}`
-              );
-              log.debug(`pks: ${ids}`);
-            })
-            .catch((e: unknown) =>
-              log.error(
-                `Failed to dispatch observer refresh for ${toWrap} on ${tableName}: ${e}`
-              )
-            );
+            ids,
+          ];
+
+          if (ctx.get("observeFullResult")) {
+            resultArgs.push(result);
+          }
+          this.updateObservers(...resultArgs, ...ctxArgs).catch((e: unknown) =>
+            log.error(
+              `Failed to dispatch observer refresh for ${toWrap} on ${tableName.name || tableName} for ${ids}: ${e}`
+            )
+          );
           return result;
         },
       });
@@ -236,24 +319,32 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
     model: Constructor<any> | string,
     event: OperationKeys | BulkCrudOperationKeys | string,
     id: EventIds,
-    ...args: [...any, ContextOf<A>]
+    ...args: ContextualArgs<ContextOf<A>>
   ): Promise<void> {
-    const table = typeof model === "string" ? model : Model.tableName(model);
-    const { log, ctxArgs } = this.logCtx(args, this.updateObservers);
+    if (!model)
+      throw new InternalError(`Model must be provided for observer update`);
+    const table =
+      model && typeof model === "string" ? model : Model.tableName(model);
+    const { log, ctxArgs, ctx } = this.logCtx(args, this.updateObservers);
     if (!this.adapter) {
       log.verbose(
         `No adapter observed for dispatch; skipping observer update for ${table}:${event}`
       );
       return;
     }
+
     try {
       log.debug(
-        `Dispatching ${event} from table ${table} for ${event} with id: ${JSON.stringify(id)}`
+        `dispatching observer refresh for ${event}:${table}: ${id}${ctx.get("observeFullResult") ? " - including result" : ""}`
       );
       await this.adapter.refresh(model, event, id, ...ctxArgs);
     } catch (e: unknown) {
       throw new InternalError(`Failed to refresh dispatch: ${e}`);
     }
+  }
+
+  override toString() {
+    return `${this.adapter ? this.adapter.toString() : "uninitialized"} event dispatch`;
   }
 }
 

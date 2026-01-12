@@ -134,8 +134,10 @@ export class ObserverHandler implements PersistenceObservable<any> {
     ...args: ContextualArgs<any>
   ): Promise<void> {
     const { log, ctxArgs } = Adapter.logCtx<Context>(
-      args,
-      this.updateObservers
+      this.updateObservers,
+      undefined,
+      false,
+      ...args
     );
     const results = await Promise.allSettled(
       this.observers

@@ -13,7 +13,7 @@ import { Metadata } from "@decaf-ts/decoration";
 // overrides the previous Injectables registry to enable the @repository decorator
 Injectables.setRegistry(new InjectablesRegistry());
 
-// imported first on purpose
+// exported first on purpose
 export * from "./overrides";
 export * from "./repository";
 
@@ -21,10 +21,15 @@ export * from "./identity";
 export * from "./interfaces";
 export * from "./model";
 export * from "./query";
+export * from "./services";
 export * from "./utils";
+
+// commented out
+// export * from "./ram";
+// export * from "./migrations";
+
 //left to last on purpose
 export * from "./persistence";
-export * from "./ram";
 
 /**
  * @description Stores the current package version

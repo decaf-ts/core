@@ -1,13 +1,9 @@
-import {
-  Constructor,
-  inject,
-  injectable,
-} from "@decaf-ts/injectable-decorators";
+import { inject, injectable } from "@decaf-ts/injectable-decorators";
 import { DBKeys, IRepository } from "@decaf-ts/db-decorators";
 import { Model } from "@decaf-ts/decorator-validation";
 import { Repository } from "./Repository";
 import { Adapter, PersistenceKeys } from "../persistence";
-import { Metadata, metadata } from "@decaf-ts/decoration";
+import { Metadata, metadata, Constructor } from "@decaf-ts/decoration";
 
 /**
  * @description Repository decorator for model classes.

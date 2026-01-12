@@ -4,10 +4,10 @@ import { version } from "@decaf-ts/db-decorators";
 import {
   index,
   OrderDirection,
-  RamFlavour,
   createdAt,
   updatedAt,
 } from "../../../src/index";
+import { RamFlavour } from "../../../src/ram/index";
 
 @uses(RamFlavour)
 export class FabricBaseModel extends Model {

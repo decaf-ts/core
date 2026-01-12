@@ -33,6 +33,7 @@ import { RamFlavour } from "./constants";
 import type { Constructor } from "@decaf-ts/decoration";
 import { Decoration, Metadata, propMetadata } from "@decaf-ts/decoration";
 import { RamPaginator } from "./RamPaginator";
+import { ContextualArgs } from "../utils/ContextualLoggedClass";
 
 /**
  * @description In-memory adapter for data persistence
@@ -83,8 +84,14 @@ export class RamAdapter extends Adapter<
   RawRamQuery,
   RamContext
 > {
-  constructor(conf: RamConfig = {} as any, alias?: string) {
+  constructor(
+    conf: RamConfig = {
+      lock: new Lock(),
+    } as any,
+    alias?: string
+  ) {
     super(conf, RamFlavour, alias);
+    this.lock = conf.lock || new Lock();
   }
 
   /**
@@ -129,7 +136,7 @@ export class RamAdapter extends Adapter<
     Record<string | number, Record<string, any>>
   > = {};
 
-  private lock = new Lock();
+  private lock: Lock;
 
   /**
    * @description Indexes models in the RAM adapter
@@ -219,9 +226,9 @@ export class RamAdapter extends Adapter<
     clazz: Constructor<M>,
     id: PrimaryKeyType,
     model: Record<string, any>,
-    ctx: RamContext
+    ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
-    const log = ctx.logger.for(this.create);
+    const { log } = this.logCtx(args, this.create);
     const tableName = Model.tableName(clazz);
     log.debug(`creating record in table ${tableName} with id ${id}`);
     if (!this.client.has(tableName)) this.client.set(tableName, new Map());
@@ -268,10 +275,11 @@ export class RamAdapter extends Adapter<
   async read<M extends Model>(
     clazz: Constructor<M>,
     id: PrimaryKeyType,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    ctx: RamContext
+    ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
+    const { log } = this.logCtx(args, this.read);
     const tableName = Model.tableName(clazz);
+    log.debug(`reading record in table ${tableName} with id ${id}`);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
     if (!this.client.get(tableName)?.has(id as any))
@@ -314,9 +322,9 @@ export class RamAdapter extends Adapter<
     clazz: Constructor<M>,
     id: PrimaryKeyType,
     model: Record<string, any>,
-    ctx: RamContext
+    ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
-    const log = ctx.logger.for(this.update);
+    const { log } = this.logCtx(args, this.update);
     const tableName = Model.tableName(clazz);
     log.debug(`updating record in table ${tableName} with id ${id}`);
 
@@ -366,11 +374,11 @@ export class RamAdapter extends Adapter<
   async delete<M extends Model>(
     clazz: Constructor<M>,
     id: PrimaryKeyType,
-    ctx: RamContext
+    ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
-    const log = ctx.logger.for(this.delete);
+    const { log } = this.logCtx(args, this.delete);
     const tableName = Model.tableName(clazz);
-    log.debug(`deleting record from table ${tableName} with pk ${id}`);
+    log.debug(`deleting record from table ${tableName} with id ${id}`);
 
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
@@ -450,9 +458,9 @@ export class RamAdapter extends Adapter<
   async raw<R, D extends boolean>(
     rawInput: RawRamQuery<any>,
     docsOnly: D = true as D,
-    ctx: RamContext
+    ...args: ContextualArgs<RamContext>
   ): Promise<RawResult<R, D>> {
-    const log = ctx.logger.for(this.raw);
+    const { log, ctx } = this.logCtx(args, this.raw);
     log.debug(`performing raw query: ${JSON.stringify(rawInput)}`);
 
     const { where, sort, limit, skip, from } = rawInput;
@@ -472,12 +480,11 @@ export class RamAdapter extends Adapter<
         ctx
       )
     );
+    if (sort) result = result.sort(sort);
 
     result = where ? result.filter(where) : result;
 
     const count = result.length;
-
-    if (sort) result = result.sort(sort);
 
     if (skip) result = result.slice(skip);
     if (limit) result = result.slice(0, limit);
@@ -609,3 +616,6 @@ export class RamAdapter extends Adapter<
     return new Map();
   }
 }
+
+Adapter.setCurrent(RamFlavour);
+RamAdapter.decoration();

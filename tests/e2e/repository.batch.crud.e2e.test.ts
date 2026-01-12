@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { E2eConfig } from "./e2e.config";
+import { RamRepository } from "../../src/ram/index";
 import { Repo, Repository } from "../../src/repository/Repository";
 import { Context, NotFoundError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Batch } from "./models/Batch";
 import { generateGtin, getBatch } from "./models/gtin";
 import { Model } from "@decaf-ts/decorator-validation";
-import { Observer, PersistenceKeys, RamRepository } from "../../src/index";
+import { Observer, PersistenceKeys } from "../../src/index";
 import { Constructor } from "@decaf-ts/decoration";
 import { Logging, LogLevel, style } from "@decaf-ts/logging";
 

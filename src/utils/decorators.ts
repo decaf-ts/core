@@ -1,18 +1,14 @@
 import { apply, Metadata, prop as property } from "@decaf-ts/decoration";
 import { inject, injectable } from "@decaf-ts/injectable-decorators";
-import { PersistenceKeys } from "../persistence/index";
+import { PersistenceKeys } from "../persistence//constants";
 import type { ModelConstructor } from "@decaf-ts/decorator-validation";
 import type { CrudOperations } from "@decaf-ts/db-decorators";
 import { injectableServiceKey, isOperationBlocked } from "./utils";
 import { OperationKeys } from "@decaf-ts/db-decorators";
-import { ModelService } from "./Services";
+import { ModelService } from "../services/ModelService";
 
 function OperationGuard(op: CrudOperations) {
-  return function (
-    target: any,
-    _propertyKey: string | symbol,
-    descriptor: PropertyDescriptor
-  ) {
+  return function (target: any, _propertyKey?: any, descriptor?: any) {
     const original = descriptor.value;
     descriptor.value = function (...args: any[]) {
       const ModelConstr = (this as ModelService<any, any>).class;

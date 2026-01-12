@@ -1,5 +1,10 @@
-import { DefaultRepositoryFlags } from "@decaf-ts/db-decorators";
+import {
+  BulkCrudOperationKeys,
+  DefaultRepositoryFlags,
+  OperationKeys,
+} from "@decaf-ts/db-decorators";
 import { AdapterFlags } from "./types";
+import { PreparedStatementKeys } from "../query/constants";
 
 /**
  * @description Persistence-related constant keys
@@ -9,6 +14,7 @@ import { AdapterFlags } from "./types";
  * @memberOf module:core
  */
 export enum PersistenceKeys {
+  PERSISTENCE = "persistence",
   /** @description Key for index metadata */
   INDEX = "index",
 
@@ -71,18 +77,76 @@ export enum PersistenceKeys {
 
   QUERY = "query",
 
-  GENERATED = "generated",
+  UUID = "uuid",
+
+  INITIALIZATION = "initialization",
+
+  BY_KEY = "by-key",
 }
 
 export const DefaultAdapterFlags: AdapterFlags = Object.assign(
   {},
   DefaultRepositoryFlags,
   {
-    allowGenerationOverride: false,
     enforceUpdateValidation: true,
     allowRawStatements: true,
     forcePrepareSimpleQueries: false,
     forcePrepareComplexQueries: false,
     cacheForPopulate: {},
+    observeFullResult: true,
+    paginateByBookmark: false,
+    dryRun: false,
   }
 ) as AdapterFlags;
+
+export const TransactionOperationKeys: (
+  | string
+  | OperationKeys
+  | BulkCrudOperationKeys
+  | PersistenceKeys
+  | PreparedStatementKeys
+)[] = [
+  OperationKeys.CREATE,
+  OperationKeys.UPDATE,
+  OperationKeys.DELETE,
+  BulkCrudOperationKeys.CREATE_ALL,
+  BulkCrudOperationKeys.UPDATE_ALL,
+  BulkCrudOperationKeys.DELETE_ALL,
+];
+
+export const NonTransactionOperationKeys: (
+  | string
+  | OperationKeys
+  | BulkCrudOperationKeys
+  | PersistenceKeys
+  | PreparedStatementKeys
+)[] = [OperationKeys.READ, BulkCrudOperationKeys.READ_ALL];
+
+export const SelectOperationKeys: (
+  | string
+  | OperationKeys
+  | BulkCrudOperationKeys
+  | PersistenceKeys
+  | PreparedStatementKeys
+)[] = [PersistenceKeys.STATEMENT, PreparedStatementKeys.FIND_ONE_BY];
+
+export const MultipleSelectOperationKeys: (
+  | string
+  | OperationKeys
+  | BulkCrudOperationKeys
+  | PersistenceKeys
+  | PreparedStatementKeys
+)[] = [
+  PersistenceKeys.QUERY,
+  PreparedStatementKeys.PAGE_BY,
+  PreparedStatementKeys.LIST_BY,
+  PreparedStatementKeys.FIND_BY,
+];
+
+export const PaginationOperationKeys: (
+  | string
+  | OperationKeys
+  | BulkCrudOperationKeys
+  | PersistenceKeys
+  | PreparedStatementKeys
+)[] = [PreparedStatementKeys.PAGE_BY];

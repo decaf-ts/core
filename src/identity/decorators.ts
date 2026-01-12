@@ -5,12 +5,13 @@ import {
 } from "../interfaces/SequenceOptions";
 import {
   DBKeys,
+  generated,
   GroupSort,
   InternalError,
   onCreate,
   readonly,
 } from "@decaf-ts/db-decorators";
-import { generated, index } from "../model/decorators";
+import { index } from "../model/decorators";
 import type { Sequence } from "../persistence/Sequence";
 import { OrderDirection } from "../repository/constants";
 import {
@@ -86,7 +87,7 @@ export async function pkOnCreate<
   if (!data.name) data.name = Model.sequenceName(model, "pk");
   let sequence: Sequence;
   try {
-    sequence = await this.adapter.Sequence(data);
+    sequence = await this.adapter.Sequence(data, this._overrides);
   } catch (e: any) {
     throw new InternalError(
       `Failed to instantiate Sequence ${data.name}: ${e}`

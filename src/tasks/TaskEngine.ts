@@ -10,7 +10,7 @@ import { TaskEventType, TaskStatus, TaskType } from "./constants";
 import { Adapter, Context, ContextOf } from "../persistence/index";
 import { LogLevel } from "@decaf-ts/logging";
 import {
-  ContextualLoggedClass,
+  AbsContextual,
   MaybeContextualArg,
 } from "../utils/ContextualLoggedClass";
 import { InternalError } from "@decaf-ts/db-decorators";
@@ -46,7 +46,7 @@ export const DefaultTaskEngineConfig: TaskEngineConfig<any> = {
 
 export class TaskEngine<
   A extends Adapter<any, any, any, any>,
-> extends ContextualLoggedClass<ContextOf<A>> {
+> extends AbsContextual<ContextOf<A>> {
   private _tasks?: Repo<TaskModel>;
   private _events?: Repo<TaskEventModel>;
 
@@ -91,9 +91,6 @@ export class TaskEngine<
     return this.running;
   }
 
-  async push(task: TaskModel) {
-    return await this.tasks.create(task);
-  }
   // async enqueueAtomic(arg: {
   //   id: string;
   //   input?: any;

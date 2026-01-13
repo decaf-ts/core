@@ -160,7 +160,6 @@ export class MigrationService<
     const { ctxArgs, ctx, log } = (
       await this.logCtx(args, PersistenceKeys.MIGRATION, true)
     ).for(this.migrate);
-    // const qr = await this.getQueryRunner();
     let m: Migration<any, any>;
 
     const toBoot = Metadata.migrations();
@@ -169,7 +168,6 @@ export class MigrationService<
       try {
         log.silly(`loading migration ${reference}...`);
         m = new mig();
-        if (m instanceof MigrationService) await m.boot(...ctxArgs);
         log.verbose(`migration ${m.reference} instantiated`, 1);
       } catch (e: unknown) {
         throw new InternalError(`failed to create migration ${mig.name}: ${e}`);
@@ -193,7 +191,10 @@ export class MigrationService<
       let adapter: Adapter<any, any, any, any>;
       let qr: any;
       try {
-        const meta = Metadata.get(m.constructor as any, PersistenceKeys.MIGRATION);
+        const meta = Metadata.get(
+          m.constructor as any,
+          PersistenceKeys.MIGRATION
+        );
         const flavour = meta?.flavour || m.flavour;
         adapter = Adapter.get(flavour) as any;
         if (!adapter)
@@ -207,9 +208,8 @@ export class MigrationService<
             `Failed to load adapter to migrate ${m.reference}: ${e}`
           );
         log.warn(
-          style(
-            `Failed to load adapter to migrate. skipping ${m.reference}`
-          ).red.bold
+          style(`Failed to load adapter to migrate. skipping ${m.reference}`)
+            .red.bold
         );
         continue;
       }

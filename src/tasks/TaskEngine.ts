@@ -184,16 +184,18 @@ export class TaskEngine<
 
   private async loop(): Promise<void> {
     while (this.running) {
-      const claimed = await this.claimBatch();
-      await Promise.allSettled(claimed.map((t) => this.executeClaimed(t)));
+      const { ctx } = await this.logCtx([], "loop", true);
+      const claimed = await this.claimBatch(ctx);
+      await Promise.allSettled(claimed.map((t) => this.executeClaimed(t, ctx)));
       await sleep(
         claimed.length ? this.config.pollMsBusy : this.config.pollMsIdle
       );
     }
   }
 
-  private async claimBatch(): Promise<TaskModel[]> {
-    const now = new Date();
+  private async claimBatch(ctx: Context<any>): Promise<TaskModel[]> {
+    const log = ctx.logger.for(this.claimBatch);
+    const now = ctx.timestamp;
 
     // Runnable:
     // - PENDING
@@ -219,17 +221,25 @@ export class TaskEngine<
       .limit(Math.max(this.config.concurrency * 4, 20))
       .execute();
 
+    log.verbose(`claimBatch candidates:${candidates.length}`);
+
     const out: TaskModel[] = [];
     for (const c of candidates) {
-      const claimed = await this.tryClaim(c);
+      const claimed = await this.tryClaim(c, ctx);
       if (claimed) out.push(claimed);
       if (out.length >= this.config.concurrency) break;
     }
+    log.verbose(`claimBatch claimed:${out.length}`);
     return out;
   }
 
-  private async tryClaim(task: TaskModel): Promise<TaskModel | null> {
-    const now = Date.now();
+  private async tryClaim(
+    task: TaskModel,
+    ctx: Context
+  ): Promise<TaskModel | null> {
+    const log = ctx.logger.for(this.claimBatch);
+    const now = ctx.timestamp.getTime();
+
     const claimed = new TaskModel({
       ...task,
       status: TaskStatus.RUNNING,
@@ -237,9 +247,12 @@ export class TaskEngine<
       leaseExpiry: new Date(now + this.config.leaseMs),
     });
 
+    log.info(
+      `running handler for ${task.id} (${task.classification}) atomicity ${task.atomicity}`
+    );
     try {
       // optimistic update; conflict errors depend on adapter implementation
-      return await this.tasks.update(claimed);
+      return await this.tasks.update(claimed, ctx);
     } catch {
       return null;
     }
@@ -249,7 +262,11 @@ export class TaskEngine<
   // Execution
   // -------------------------
 
-  private async executeClaimed(task: TaskModel): Promise<void> {
+  private async executeClaimed(
+    task: TaskModel,
+    context: Context<any>
+  ): Promise<void> {
+    const { log } = this.logCtx([context], this.executeClaimed);
     const { ctx } = (
       await this.tasks["adapter"]["logCtx"](
         [TaskModel],
@@ -293,11 +310,15 @@ export class TaskEngine<
         output = await this.runComposite(task, taskContext);
       } else {
         const handler = this.registry.get(task.classification);
+        log.debug(
+          `handler type for ${task.id} is ${handler?.constructor?.name ?? "none"}`
+        );
         if (!handler)
           throw new InternalError(
             `No task handler registered for type: ${task.classification}`
           );
         output = await handler.run(task.input, taskContext);
+        log.verbose(`handler finished for ${task.id}`);
       }
 
       task.status = TaskStatus.SUCCEEDED;
@@ -306,9 +327,14 @@ export class TaskEngine<
       task.leaseOwner = undefined;
       task.leaseExpiry = undefined;
 
-      task = await this.tasks.update(task);
+      task = await this.tasks.update(task, ctx);
+      taskContext.logger.info(`task ${task.id} success state ${task.status}`);
+      log.info(
+        `task ${task.id} success state ${task.status} attempt ${task.attempt}`
+      );
       await this.emitStatus(taskContext, task, TaskStatus.SUCCEEDED);
     } catch (err: any) {
+      log.error("task execution error", err);
       const nextAttempt = (task.attempt ?? 0) + 1;
 
       const serialized = serializeError(err);
@@ -323,8 +349,10 @@ export class TaskEngine<
         task.error = serialized;
         task.leaseOwner = undefined;
         task.leaseExpiry = undefined;
-
-        task = await this.tasks.update(task);
+        task = await this.tasks.update(task, ctx);
+        log.warn(
+          `task ${task.id} waiting retry state ${task.status} attempt ${task.attempt}`
+        );
         await this.emitStatus(taskContext, task, TaskStatus.WAITING_RETRY);
         await ctx.pipe(LogLevel.warn, `Retry scheduled`, {
           nextRunAt,
@@ -338,7 +366,10 @@ export class TaskEngine<
         task.leaseOwner = undefined;
         task.leaseExpiry = undefined;
 
-        task = await this.tasks.update(task);
+        task = await this.tasks.update(task, ctx);
+        log.error(
+          `task ${task.id} failed state ${task.status} attempt ${task.attempt}`
+        );
         await this.emitStatus(taskContext, task, TaskStatus.FAILED);
         await ctx.pipe(LogLevel.error, `Task failed (max attempts reached)`, {
           maxAttempts: task.maxAttempts,
@@ -358,6 +389,24 @@ export class TaskEngine<
     let idx = task.currentStep ?? 0;
     const results = task.stepResults ?? [];
 
+    const cacheResult = (key: string, value: any) => {
+      context.cacheResult(key, value);
+      if (ctx instanceof TaskContext && ctx !== context) {
+        ctx.cacheResult(key, value);
+      }
+    };
+
+    for (let i = 0; i < results.length; i += 1) {
+      const existing = results[i];
+      if (existing?.status === TaskStatus.SUCCEEDED) {
+        const prevStep = steps[i];
+        if (!prevStep) continue;
+        const cacheKey = `${task.id}:step:${i}`;
+        cacheResult(prevStep.classification, existing.output);
+        cacheResult(cacheKey, existing.output);
+      }
+    }
+
     while (idx < steps.length) {
       const step = steps[idx];
       const handler = this.registry.get(step.classification);
@@ -374,11 +423,15 @@ export class TaskEngine<
       try {
         const out = await handler.run(step.input, ctx);
 
-        results[idx] = new TaskStepResultModel({
+        const stepIndex = idx;
+        results[stepIndex] = new TaskStepResultModel({
           status: TaskStatus.SUCCEEDED,
           output: out,
         });
-        idx += 1;
+        const cacheKey = `${task.id}:step:${stepIndex}`;
+        cacheResult(step.classification, out);
+        cacheResult(cacheKey, out);
+        idx = stepIndex + 1;
 
         task.stepResults = results;
         task.currentStep = idx;

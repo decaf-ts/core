@@ -15,8 +15,14 @@ export abstract class TaskHandler<I, O>
   private _type?: string;
 
   get type() {
-    if (!this._type)
-      this._type = Metadata.get(this.constructor as any, TasksKey);
+    if (!this._type) {
+      const meta = Metadata.get(this.constructor as any, TasksKey);
+      if (typeof meta === "string") {
+        this._type = meta;
+      } else if (meta && typeof meta.type === "string") {
+        this._type = meta.type;
+      }
+    }
     if (!this._type)
       throw new InternalError(
         `No type annotation for this handler found. did you use @task()?`

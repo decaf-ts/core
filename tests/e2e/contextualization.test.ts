@@ -240,14 +240,18 @@ describe("Contextualization", () => {
                 "silly",
                 expect.stringMatching(
                   `creating new context for ${op} operation on ${Model.tableName(TestContextModel)}`
-                )
+                ),
+                undefined,
+                undefined
               );
               expect(logMock).toHaveBeenNthCalledWith(
                 2,
                 "debug",
                 expect.stringMatching(
                   `creating record in table ${Model.tableName(TestContextModel)} with id ${current[Model.pk(TestContextModel)]}`
-                )
+                ),
+                undefined,
+                undefined
               );
 
               expect(consoleLogMock).toHaveBeenCalledTimes(0);
@@ -278,14 +282,18 @@ describe("Contextualization", () => {
                 "silly",
                 expect.stringMatching(
                   `creating new context for ${op} operation on ${Model.tableName(TestContextModel)}`
-                )
+                ),
+                undefined,
+                undefined
               );
               expect(logMock).toHaveBeenNthCalledWith(
                 2,
                 "debug",
                 expect.stringMatching(
                   `reading record in table ${Model.tableName(TestContextModel)} with id ${current[Model.pk(TestContextModel)]}`
-                )
+                ),
+                undefined,
+                undefined
               );
 
               expect(consoleLogMock).toHaveBeenCalledTimes(0);
@@ -315,14 +323,18 @@ describe("Contextualization", () => {
                 "silly",
                 expect.stringMatching(
                   `creating new context for ${op} operation on ${Model.tableName(TestContextModel)}`
-                )
+                ),
+                undefined,
+                undefined
               );
               expect(logMock).toHaveBeenNthCalledWith(
                 2,
                 "debug",
                 expect.stringMatching(
                   `updating record in table ${Model.tableName(TestContextModel)} with id ${current[Model.pk(TestContextModel)]}`
-                )
+                ),
+                undefined,
+                undefined
               );
 
               expect(consoleLogMock).toHaveBeenCalledTimes(0);
@@ -353,14 +365,18 @@ describe("Contextualization", () => {
                 "silly",
                 expect.stringMatching(
                   `creating new context for ${op} operation on ${Model.tableName(TestContextModel)}`
-                )
+                ),
+                undefined,
+                undefined
               );
               expect(logMock).toHaveBeenNthCalledWith(
                 2,
                 "debug",
                 expect.stringMatching(
                   `deleting record from table ${Model.tableName(TestContextModel)} with id ${current[Model.pk(TestContextModel)]}`
-                )
+                ),
+                undefined,
+                undefined
               );
 
               expect(consoleLogMock).toHaveBeenCalledTimes(0);

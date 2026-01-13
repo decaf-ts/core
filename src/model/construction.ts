@@ -809,6 +809,7 @@ export async function manyToManyOnCreate<M extends Model, R extends Repo<M>>(
   key: keyof M,
   modelA: M
 ): Promise<void> {
+  console.warn("DECORATOR manyToMany UNDER DEVELOPMENT");
   const propertyValues: any = modelA[key];
   if (!propertyValues || !propertyValues.length) return;
   if (!validBidirectionalRelation(modelA, data)) return;

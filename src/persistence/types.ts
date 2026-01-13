@@ -9,11 +9,14 @@ import { Observable, type Observer } from "../interfaces/index";
 import { Logger } from "@decaf-ts/logging";
 import { Constructor } from "@decaf-ts/decoration";
 import { Model } from "@decaf-ts/decorator-validation";
-import { ContextualArgs } from "../utils";
+import {
+  ContextualArgs,
+  ContextualLoggedClass,
+} from "../utils/ContextualLoggedClass";
 import { Context } from "./Context";
 import { Repository } from "../repository/Repository";
 import { PersistenceKeys } from "./constants";
-import { PreparedStatementKeys } from "../query/index";
+import { PreparedStatementKeys } from "../query/constants";
 
 export type FlagsOfContext<C extends Context<any>> =
   C extends Context<infer F> ? F : never;
@@ -33,13 +36,18 @@ export type LoggerOfRepository<R extends Repository<any, any>> =
   LoggerOfContext<ContextOfRepository<R>>;
 
 export type ContextOf<
-  OBJ extends Repository<any, any> | Adapter<any, any, any, any>,
+  OBJ extends
+    | Repository<any, any>
+    | Adapter<any, any, any, any>
+    | ContextualLoggedClass<any>,
 > =
   OBJ extends Adapter<any, any, any, infer C>
     ? C
     : OBJ extends Repository<any, any>
       ? ContextOfRepository<OBJ>
-      : never;
+      : OBJ extends ContextualLoggedClass<infer C>
+        ? C
+        : never;
 
 export type ConfigOf<OBJ extends Adapter<any, any, any, any>> =
   OBJ extends Adapter<infer C, any, any, any> ? C : never;

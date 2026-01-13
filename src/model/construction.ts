@@ -224,7 +224,7 @@ export async function oneToOneOnCreate<M extends Model, R extends Repo<M>>(
 ): Promise<void> {
   const propertyValue: any = model[key];
   if (!propertyValue) return;
-
+  if (!validBidirectionalRelation(model, data)) return;
   if (typeof propertyValue !== "object") {
     const innerRepo = repositoryFromTypeMetadata(
       model,
@@ -474,7 +474,7 @@ export async function oneToManyOnCreate<M extends Model, R extends Repo<M>>(
   const propertyValues: any = model[key];
   if (!propertyValues || !propertyValues.length) return;
 
-  if (!checkBidirectionalRelational(model, data)) return;
+  if (!validBidirectionalRelation(model, data)) return;
 
   const arrayType = typeof propertyValues[0];
   if (!propertyValues.every((item: any) => typeof item === arrayType))
@@ -686,7 +686,7 @@ export async function manyToOneOnCreate<M extends Model, R extends Repo<M>>(
   const propertyValue: any = model[key];
   if (!propertyValue) return;
 
-  if (!checkBidirectionalRelational(model, data)) return;
+  if (!validBidirectionalRelation(model, data)) return;
   const log = context.logger.for(manyToOneOnCreate);
   // If it's a primitive value (ID), read the existing record
   if (typeof propertyValue !== "object") {
@@ -726,15 +726,10 @@ export async function manyToOneOnCreate<M extends Model, R extends Repo<M>>(
   (model as any)[key] = record[pk];
 }
 
-export function checkBidirectionalRelational<M extends Model>(
+export function validBidirectionalRelation<M extends Model>(
   model: M,
   data: RelationsMetadata
 ): boolean {
-  if (data?.populate === false) return true;
-  // If this side has populate set to true, check if there is a reverse relation defined.
-  // If not ignore the next steps.
-  // If there is, we need to check if the populate is set to true to both.
-  // If populate is set to true on both sides, we should throw an error.
   let metaReverseRelation: any;
   const relationConstructor =
     typeof data.class === "function" && data.class.name
@@ -758,7 +753,8 @@ export function checkBidirectionalRelational<M extends Model>(
       }
     );
 
-  if (metaReverseRelation?.populate === true) {
+  // If populate is set to true on both sides, we should throw an error.
+  if (metaReverseRelation?.populate === true && data?.populate === true) {
     throw new InternalError(
       "Bidirectional populate is not allowed. Please set populate to false on one side of the relation."
     );
@@ -815,8 +811,7 @@ export async function manyToManyOnCreate<M extends Model, R extends Repo<M>>(
 ): Promise<void> {
   const propertyValues: any = modelA[key];
   if (!propertyValues || !propertyValues.length) return;
-
-  if (!checkBidirectionalRelational(modelA, data)) return;
+  if (!validBidirectionalRelation(modelA, data)) return;
 
   const arrayType = typeof propertyValues[0];
   if (!propertyValues.every((item: any) => typeof item === arrayType))
@@ -840,6 +835,15 @@ export async function manyToManyOnCreate<M extends Model, R extends Repo<M>>(
         read
       );
     }
+    // Create junction table entries
+    await getOrCreateJunctionModel.apply(this as Repo<Model>, [
+      modelA,
+      [...propertyValues] as any[],
+      log,
+      context,
+      data,
+    ]);
+
     (modelA as any)[key] = [...uniqueValues];
     log.info(`SET MANY TO MANY IDS: ${(modelA as any)[key]}`);
     return;
@@ -873,13 +877,9 @@ export async function manyToManyOnCreate<M extends Model, R extends Repo<M>>(
   }
 
   // Create junction table entries
-  const JunctionModel = await getOrCreateJunctionModel.call(
+  const JunctionModel = await getOrCreateJunctionModel.apply(
     this as Repo<Model>,
-    modelA,
-    propertyValues as Model[],
-    log,
-    context,
-    data
+    [modelA, propertyValues as Model[], log, context, data]
   );
 
   // This will require creating junction repository and storing the relationships
@@ -920,37 +920,36 @@ async function getNextId<M extends Model, R extends Repo<M>>(
 async function getOrCreateJunctionModel<M extends Model, R extends Repo<M>>(
   this: R,
   modelA: Model,
-  modelsB: Model[],
+  modelsB: Model[] | any[],
   log: any,
   context: ContextOf<R>,
   metadata?: RelationsMetadata
 ): Promise<Constructor<Model<false>>> {
-  const modelAName = Model.tableName(modelA);
-  const modelBName = Model.tableName(modelsB[0]);
-
-  const junctionTableName =
-    metadata?.joinTable?.name || `${modelAName}_${modelBName}`;
-
-  const fkA = `${modelAName.toLowerCase()}_fk`;
-  const fkB = `${modelBName.toLowerCase()}_fk`;
-
-  const JunctionModel = createJunctionModel(junctionTableName, fkA, fkB);
-  Metadata.set(JunctionModel, PersistenceKeys.TABLE, junctionTableName);
+  const { JunctionModel, fkA, fkB } = getAndConstructJunctionTable(
+    modelA,
+    modelsB[0],
+    metadata
+  );
 
   const recordIds: any[] = [];
   for (const modelB of modelsB) {
     log.info(
       `Creating or updating many-to-many junction model: ${JSON.stringify(modelB)}`
     );
+    // If it is a model, find and store fk content, else it is fk value directly
     const junctionRegister = {
       [fkA]:
-        modelA[
-          Model.pk(modelA.constructor as Constructor) as keyof typeof modelA
-        ],
+        modelA instanceof Model
+          ? modelA[
+              Model.pk(modelA.constructor as Constructor) as keyof typeof modelA
+            ]
+          : modelA,
       [fkB]:
-        modelB[
-          Model.pk(modelB.constructor as Constructor) as keyof typeof modelB
-        ],
+        modelB instanceof Model
+          ? modelB[
+              Model.pk(modelB.constructor as Constructor) as keyof typeof modelB
+            ]
+          : modelB,
     };
     const record: any = await createOrUpdate(
       new JunctionModel(junctionRegister),
@@ -962,7 +961,7 @@ async function getOrCreateJunctionModel<M extends Model, R extends Repo<M>>(
 
   if (recordIds.length === modelsB?.length) {
     console.log(
-      `All junction records created successfully for table ${junctionTableName}`
+      `All junction records created successfully for table ${JunctionModel?.name}`
     );
     const repository = Repository.forModel<M, Repo<M>>(
       JunctionModel as unknown as ModelConstructor<M>
@@ -971,18 +970,38 @@ async function getOrCreateJunctionModel<M extends Model, R extends Repo<M>>(
     console.log("results:", results);
   } else
     console.error(
-      `Some junction records failed to be created for table ${junctionTableName}`
+      `Some junction records failed to be created for table ${JunctionModel?.name}`
     );
 
   return JunctionModel;
 }
 
-function createJunctionModel(
-  junctionTableName: string,
-  fkA: string,
-  fkB: string
-): Constructor<Model<false>> {
-  // Expression; the class is anonymous but assigned to a variable
+function getAndConstructJunctionTable(
+  modelA: Model,
+  modelB: Model | any,
+  metadata?: RelationsMetadata
+): { fkA: string; fkB: string; JunctionModel: Constructor<Model<false>> } {
+  // Get the name of the table and fks
+  const modelAName = Model.tableName(modelA);
+  let modelBName;
+  if (modelB instanceof Model) modelBName = Model.tableName(modelB);
+  else if (metadata?.class) {
+    const clazz =
+      typeof metadata.class === "function" && !metadata.class.name
+        ? (metadata.class as any)()
+        : metadata.class;
+    modelBName = Model.tableName(clazz);
+  }
+  if (!modelAName || !modelBName)
+    throw new InternalError("Missing tablenames to create junction table");
+
+  const junctionTableName = metadata?.joinTable?.name
+    ? metadata?.joinTable?.name
+    : `${modelAName}_${modelBName}`;
+  const fkA = `${modelAName?.toLowerCase()}_fk`;
+  const fkB = `${modelBName?.toLowerCase()}_fk`;
+
+  // Anonymous class to be able to change name
   const DynamicJunctionModel = class extends Model {
     id!: number;
     [fkA]!: number;
@@ -992,22 +1011,25 @@ function createJunctionModel(
     }
   };
 
-  const prototype = DynamicJunctionModel.prototype;
-
   Object.defineProperty(DynamicJunctionModel, "name", {
     value: junctionTableName,
     writable: false,
   });
 
   // Apply the decorators
-  pk({ type: "Number" })(prototype, "id");
-  required()(prototype, fkA as any);
-  required()(prototype, fkB as any);
+  pk({ type: "Number" })(DynamicJunctionModel.prototype, "id");
+  required()(DynamicJunctionModel.prototype, fkA as any);
+  required()(DynamicJunctionModel.prototype, fkB as any);
 
   // Apply @model() decorator to the class
   const DecoratedModel = model()(DynamicJunctionModel);
 
-  return DecoratedModel as Constructor<Model<false>>;
+  Metadata.set(DynamicJunctionModel, PersistenceKeys.TABLE, junctionTableName);
+  return {
+    fkA,
+    fkB,
+    JunctionModel: DecoratedModel as Constructor<Model<false>>,
+  };
 }
 
 export async function manyToManyOnUpdate<M extends Model, R extends Repo<M>>(
@@ -1020,7 +1042,7 @@ export async function manyToManyOnUpdate<M extends Model, R extends Repo<M>>(
   console.warn("method not yet implemented");
   const { cascade } = data;
   if (cascade.update !== Cascade.CASCADE) return;
-  return manyToOneOnCreate.apply(this as any, [
+  return manyToManyOnCreate.apply(this as any, [
     context,
     data,
     key as keyof Model,
@@ -1035,20 +1057,57 @@ export async function manyToManyOnDelete<M extends Model, R extends Repo<M>>(
   key: keyof M,
   model: M
 ): Promise<void> {
+  console.warn("Method under development");
   if (data.cascade.delete !== Cascade.CASCADE) return;
-  const value = model[key] as any;
-  if (!value) return;
-  const isInstantiated = typeof value === "object";
+  const values = model[key] as any;
+  if (!values || !values.length) return;
+  const arrayType = typeof values[0];
+  const areAllSameType = values.every((item: any) => typeof item === arrayType);
+  if (!areAllSameType)
+    throw new InternalError(
+      `Invalid operation. All elements of property ${key as string} must match the same type.`
+    );
+
+  // Delete the values and the junction table entries
+  const clazz =
+    typeof data.class === "function" && !data.class.name
+      ? (data.class as any)()
+      : data.class;
+
+  const isInstantiated = arrayType === "object";
   const repo = isInstantiated
-    ? Repository.forModel(value, this.adapter.alias)
+    ? Repository.forModel(clazz, this.adapter.alias)
     : repositoryFromTypeMetadata(model, key, this.adapter.alias);
 
-  const repoId = isInstantiated ? value[repo["pk"] as string] : value;
+  const uniqueValues = new Set([
+    ...(isInstantiated
+      ? values.map((v: Record<string, any>) => v[repo["pk"] as string])
+      : values),
+  ]);
 
-  const deleted = await repo.delete(repoId);
-  await cacheModelForPopulate(context, model, key, repoId, deleted);
+  const ids = [...uniqueValues.values()];
+  let deleted: Model[];
+  try {
+    deleted = await repo.deleteAll(ids, context);
+  } catch (e: unknown) {
+    context.logger.error(`Failed to delete all records`, e);
+    throw e;
+  }
 
-  (model as any)[key] = repoId;
+  let del: any;
+  for (let i = 0; i < deleted.length; i++) {
+    del = deleted[i];
+    try {
+      await cacheModelForPopulate(context, model, key, ids[i], del);
+    } catch (e: unknown) {
+      context.logger.error(
+        `Failed to cache record ${ids[i]} with key ${key as string} and model ${JSON.stringify(model, undefined, 2)} `,
+        e
+      );
+      throw e;
+    }
+  }
+  (model as any)[key] = ids;
 }
 
 /**

@@ -2,8 +2,19 @@ import { RamAdapter } from "../../src/ram/RamAdapter";
 import { RamRepository } from "../../src/ram/types";
 import { Cascade, Repository } from "../../src/repository/index";
 import { SequenceModel as Seq } from "../../src/model/SequenceModel";
-import { BaseModel, manyToMany, PersistenceKeys, pk } from "../../src/index";
-import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
+import {
+  BaseModel,
+  Condition,
+  manyToMany,
+  PersistenceKeys,
+  pk,
+} from "../../src/index";
+import {
+  Model,
+  model,
+  ModelArg,
+  required,
+} from "@decaf-ts/decorator-validation";
 
 jest.setTimeout(500000);
 
@@ -107,9 +118,12 @@ describe("Many to many relations", () => {
   });
 
   let sequenceRepository: RamRepository<Seq>;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let userRepository: RamRepository<TestUserModel>;
   let roleRepository: RamRepository<TestRoleModel>;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let userNoPopRepository: RamRepository<TestUserNoPopulateModel>;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let rolePopRepository: RamRepository<TestRolePopulateModel>;
 
   beforeAll(async () => {
@@ -144,7 +158,10 @@ describe("Many to many relations", () => {
     users: [user],
   };
 
-  async function createTestData(UserClass: any, RoleClass: any) {
+  async function createTestData(
+    UserClass: typeof TestUserModel,
+    RoleClass: typeof TestRoleModel
+  ) {
     const userRepo: any = Repository.forModel(UserClass);
     const roleRepo: any = Repository.forModel(RoleClass);
     const createdRole = await roleRepo.create(new RoleClass(role));
@@ -235,6 +252,43 @@ describe("Many to many relations", () => {
         (r: typeof UserClass) => r.name === "Albert" || r.name === "Albertwo"
       )?.length
     ).toBe(2);
+  });
+  it("Updates a many to many relation", async () => {
+    const UserClass = TestUserModel;
+    const RoleClass = TestRoleModel;
+    const userRepo = Repository.forModel(UserClass);
+    const newUserName = "John";
+    const { createdRole, createdUserWithRoleIds } = await createTestData(
+      UserClass,
+      RoleClass
+    );
+
+    const toUpdate = new UserClass(
+      Object.assign({}, createdUserWithRoleIds, {
+        name: newUserName,
+        roles: [createdRole.id],
+      })
+    );
+
+    const updatedUser = await userRepo.update(toUpdate);
+    expect(updatedUser.name).toBe(newUserName);
+    const users = await userRepo.select().execute();
+    console.log("userRoles:", users);
+  });
+  it("Deletes a many to many relation", async () => {
+    // createdUser = await userRepository.create(new TestUserModel(user));
+    // const userRead = await userRepository.read(createdUser.id);
+    // phone1.user = userRead.id as any;
+    // const createdRoleWithUserIds = await phoneRepository.create(
+    //   new TestPhoneModel(phone1)
+    // );
+    // await phoneRepository.delete(createdRoleWithUserIds.id);
+    // await expect(
+    //   phoneRepository.read(createdRoleWithUserIds.id)
+    // ).rejects.toBeInstanceOf(NotFoundError);
+    // await expect(userRepository.read(createdUser.id)).rejects.toBeInstanceOf(
+    //   NotFoundError
+    // );
   });
   it("fails when both sides have populate true", async () => {
     const { Metadata } = await import("@decaf-ts/decoration");

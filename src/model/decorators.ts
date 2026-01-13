@@ -623,7 +623,7 @@ export function manyToMany<M extends Model>(
       relation(key, metadata),
       list([clazz, ...pkTypes]),
       onCreate(manyToManyOnCreate, metadata),
-      // onUpdate(oneToManyOnUpdate, metadata),
+      onUpdate(oneToManyOnUpdate, metadata),
       // onDelete(oneToManyOnDelete, metadata),
       afterAny(pop, metadata),
     ];

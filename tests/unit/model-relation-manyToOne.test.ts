@@ -421,9 +421,8 @@ describe(`Complex Database`, function () {
         updatedUserAndPhone.id
       );
       expect(readUserAndPhone).toBeDefined();
-      console.log("asdf", read);
     });
-    it("Deletes a one to many relation", async () => {
+    it("Deletes a many to one relation", async () => {
       createdUser = await userRepository.create(new TestUserModel(user));
       const userRead = await userRepository.read(createdUser.id);
       phone1.user = userRead.id as any;

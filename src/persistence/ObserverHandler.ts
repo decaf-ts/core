@@ -40,7 +40,9 @@ import { Context } from "./Context";
  * handler.unObserve(myObserver);
  * ```
  */
-export class ObserverHandler implements PersistenceObservable<any> {
+export class ObserverHandler<C extends Context<any> = Context>
+  implements PersistenceObservable<C>
+{
   /**
    * @description Collection of registered observers
    * @summary Array of observer objects along with their optional filters

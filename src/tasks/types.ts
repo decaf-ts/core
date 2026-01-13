@@ -1,16 +1,21 @@
-import { LogLevel } from "@decaf-ts/logging";
 import { TaskContext } from "./TaskContext";
-import { AdapterFlags } from "../persistence/index";
+import { ContextFlags } from "@decaf-ts/db-decorators";
+import { TaskLogger } from "./logging";
+import { LogLevel } from "@decaf-ts/logging";
 
 export interface ITaskHandler<I = any, O = any> {
   type: string;
   run(input: I, ctx: TaskContext): Promise<O>;
 }
 
-export interface ITaskContext extends AdapterFlags {
+export type LogPipe = (logs: [LogLevel, string, any][]) => Promise<void>;
+
+export interface TaskFlags<LOG extends TaskLogger<any> = TaskLogger<any>>
+  extends ContextFlags<LOG> {
   taskId: string;
   attempt: number;
-  log: (level: LogLevel, msg: string, meta?: any) => Promise<void>;
+  pipe: LogPipe;
+  flush: () => Promise<void>;
   progress: (data: any) => Promise<void>;
   heartbeat: () => Promise<void>;
 }

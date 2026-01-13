@@ -3,21 +3,16 @@ import { Repo, Repository } from "../repository/Repository";
 import { TaskEventModel } from "./models/TaskEventModel";
 import { TaskHandlerRegistry } from "./TaskHandlerRegistry";
 import { TaskEventBus } from "./TaskEventBus";
-import { TaskBackoffModel } from "./models/TaskBackoffModel";
-import { TaskStepSpecModel } from "./models/TaskStepSpecModel";
 import { Condition } from "../query/Condition";
 import { TaskStepResultModel } from "./models/TaskStepResultModel";
 import { TaskLogEntryModel } from "./models/TaskLogEntryModel";
-import {
-  BackoffStrategy,
-  JitterStrategy,
-  TaskEventType,
-  TaskStatus,
-  TaskType,
-} from "./constants";
+import { TaskEventType, TaskStatus, TaskType } from "./constants";
 import { Adapter, ContextOf } from "../persistence/index";
 import { LogLevel } from "@decaf-ts/logging";
-import { ContextualLoggedClass } from "../utils/ContextualLoggedClass";
+import {
+  ContextualLoggedClass,
+  MaybeContextualArg,
+} from "../utils/ContextualLoggedClass";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { computeBackoffMs, serializeError, sleep } from "./utils";
 import { TaskContext } from "./TaskContext";
@@ -32,6 +27,9 @@ export type TaskEngineConfig<A extends Adapter<any, any, any, any>> = {
   pollMsIdle: number;
   pollMsBusy: number;
   logTailMax: number;
+  streamBufferSize: number;
+  maxLoggingBuffer: number;
+  loggingBufferTruncation: number;
 };
 
 export const DefaultTaskEngineConfig: TaskEngineConfig<any> = {
@@ -41,6 +39,9 @@ export const DefaultTaskEngineConfig: TaskEngineConfig<any> = {
   pollMsIdle: 1000,
   pollMsBusy: 500,
   logTailMax: 100,
+  streamBufferSize: 5,
+  maxLoggingBuffer: 300,
+  loggingBufferTruncation: 20,
 } as TaskEngineConfig<any>;
 
 export class TaskEngine<
@@ -63,7 +64,7 @@ export class TaskEngine<
 
   protected get tasks(): Repo<TaskModel> {
     if (this._tasks) return this._tasks;
-    this._tasks = Repository.forModel(TaskModel, this.config.adapter.alias);
+    this._tasks = Repository.forModel(TaskModel, this.adapter.alias);
     return this._tasks;
   }
 
@@ -86,77 +87,84 @@ export class TaskEngine<
     });
   }
 
-  async enqueueAtomic(arg: {
-    id: string;
-    input?: any;
-    name?: string;
-    maxAttempts?: number;
-    backoff?: Partial<TaskBackoffModel>;
-  }): Promise<TaskModel> {
-    const doc = new TaskModel({
-      id: arg.id,
-      type: TaskType.ATOMIC,
-      name: arg.name,
-      status: TaskStatus.PENDING,
-      input: arg.input,
-      attempt: 0,
-      maxAttempts: arg.maxAttempts ?? 5,
-      backoff: {
-        strategy: arg.backoff?.strategy ?? BackoffStrategy.EXPONENTIAL,
-        baseMs: arg.backoff?.baseMs ?? 1000,
-        maxMs: arg.backoff?.maxMs ?? 60_000,
-        jitter: arg.backoff?.jitter ?? JitterStrategy.FULL,
-      },
-      logTail: [],
-    });
-
-    return await this.tasks.create(doc);
+  isRunning(): boolean {
+    return this.running;
   }
 
-  async enqueueComposite(arg: {
-    id: string;
-    name?: string;
-    steps: Array<{ type: string; input?: any }>;
-    maxAttempts?: number;
-    backoff?: Partial<TaskBackoffModel>;
-  }): Promise<TaskModel> {
-    const doc = new TaskModel({
-      id: arg.id,
-      type: TaskType.COMPOSITE,
-      name: arg.name,
-      status: TaskStatus.PENDING,
-      attempt: 0,
-      maxAttempts: arg.maxAttempts ?? 5,
-      backoff: new TaskBackoffModel({
-        strategy: arg.backoff?.strategy ?? BackoffStrategy.EXPONENTIAL,
-        baseMs: arg.backoff?.baseMs ?? 1000,
-        maxMs: arg.backoff?.maxMs ?? 60_000,
-        jitter: arg.backoff?.jitter ?? JitterStrategy.FULL,
-      }),
-      steps: arg.steps.map(
-        (s) => new TaskStepSpecModel({ type: s.type, input: s.input })
-      ),
-      currentStep: 0,
-      stepResults: [],
-      logTail: [],
-    });
-
-    return await this.tasks.create(doc);
+  async push(task: TaskModel) {
+    return await this.tasks.create(task);
   }
+  // async enqueueAtomic(arg: {
+  //   id: string;
+  //   input?: any;
+  //   name?: string;
+  //   maxAttempts?: number;
+  //   backoff?: Partial<TaskBackoffModel>;
+  // }): Promise<TaskModel> {
+  //   const doc = new TaskModel({
+  //     id: arg.id,
+  //     type: TaskType.ATOMIC,
+  //     name: arg.name,
+  //     status: TaskStatus.PENDING,
+  //     input: arg.input,
+  //     attempt: 0,
+  //     maxAttempts: arg.maxAttempts ?? 5,
+  //     backoff: {
+  //       strategy: arg.backoff?.strategy ?? BackoffStrategy.EXPONENTIAL,
+  //       baseMs: arg.backoff?.baseMs ?? 1000,
+  //       maxMs: arg.backoff?.maxMs ?? 60_000,
+  //       jitter: arg.backoff?.jitter ?? JitterStrategy.FULL,
+  //     },
+  //     logTail: [],
+  //   });
+  //
+  //   return await this.push(doc);
+  // }
+  //
+  // async enqueueComposite(arg: {
+  //   id: string;
+  //   name?: string;
+  //   steps: Array<{ type: string; input?: any }>;
+  //   maxAttempts?: number;
+  //   backoff?: Partial<TaskBackoffModel>;
+  // }): Promise<TaskModel> {
+  //   const doc = new TaskModel({
+  //     id: arg.id,
+  //     type: TaskType.COMPOSITE,
+  //     name: arg.name,
+  //     status: TaskStatus.PENDING,
+  //     attempt: 0,
+  //     maxAttempts: arg.maxAttempts ?? 5,
+  //     backoff: new TaskBackoffModel({
+  //       strategy: arg.backoff?.strategy ?? BackoffStrategy.EXPONENTIAL,
+  //       baseMs: arg.backoff?.baseMs ?? 1000,
+  //       maxMs: arg.backoff?.maxMs ?? 60_000,
+  //       jitter: arg.backoff?.jitter ?? JitterStrategy.FULL,
+  //     }),
+  //     steps: arg.steps.map(
+  //       (s) => new TaskStepSpecModel({ classification: s.type, input: s.input })
+  //     ),
+  //     currentStep: 0,
+  //     stepResults: [],
+  //     logTail: [],
+  //   });
+  //
+  //   return await this.push(doc);
+  // }
 
-  async getTask(id: string): Promise<TaskModel> {
-    return await this.tasks.read(id);
-  }
-
-  async cancelTask(id: string): Promise<TaskModel> {
-    const t = await this.tasks.read(id);
+  async cancel(
+    id: string,
+    ...args: MaybeContextualArg<any>
+  ): Promise<TaskModel> {
+    const { ctx } = (await this.logCtx(args, "cancel", true)).for(this.cancel);
+    const t = await this.tasks.read(id, ctx);
     if (t.status === TaskStatus.SUCCEEDED || t.status === TaskStatus.FAILED)
       return t;
     t.status = TaskStatus.CANCELED;
     t.leaseOwner = undefined;
     t.leaseExpiry = undefined;
-    const saved = await this.tasks.update(t);
-    await this.emitStatus(saved, TaskStatus.CANCELED);
+    const saved = await this.tasks.update(t, ctx);
+    await this.emitStatus(ctx, saved, TaskStatus.CANCELED);
     return saved;
   }
 
@@ -242,44 +250,53 @@ export class TaskEngine<
   // -------------------------
 
   private async executeClaimed(task: TaskModel): Promise<void> {
-    const taskId = task.id;
-
-    const ctx: TaskContext = new TaskContext().accumulate({
-      taskId,
-      attempt: task.attempt,
-      log: async (level: LogLevel, msg: string, meta: any) => {
-        task = await this.appendLog(task, level, msg, meta);
-        await this.emitLog(taskId, level, msg, meta);
-      },
-      progress: async (data: any) => {
-        await this.emitProgress(taskId, data);
-      },
-      heartbeat: async () => {
-        // extend lease
-        if (task.leaseOwner !== this.config.workerId) return;
-        task.leaseExpiry = new Date(Date.now() + this.config.leaseMs);
-        try {
-          task = await this.tasks.update(task);
-        } catch {
-          // if we lose the claim, execution should still proceed; next update will fail and be retried by recovery
+    const { ctx } = (
+      await this.tasks["adapter"]["logCtx"](
+        [TaskModel],
+        task.classification,
+        true,
+        {
+          taskId: task.id,
+          attempt: task.attempt,
+          pipe: async (data: [LogLevel, string, any][]) => {
+            const [, logs] = await this.appendLog(task, data);
+            await this.emitLog(taskId, logs);
+          },
+          flush: async () => {
+            return ctx.logger.flush(ctx.pipe);
+          },
+          progress: async (data: any) => {
+            await this.emitProgress(taskId, data);
+          },
+          heartbeat: async () => {
+            // extend lease
+            if (task.leaseOwner !== this.config.workerId) return;
+            task.leaseExpiry = new Date(Date.now() + this.config.leaseMs);
+            try {
+              task = await this.tasks.update(task);
+            } catch {
+              // if we lose the claim, execution should still proceed; next update will fail and be retried by recovery
+            }
+          },
         }
-      },
-    }) as any;
+      )
+    ).for(this.executeClaimed);
+    const taskId = task.id;
+    const taskContext = new TaskContext(ctx);
 
-    await this.emitStatus(task, TaskStatus.RUNNING);
+    await this.emitStatus(ctx, task, TaskStatus.RUNNING);
 
     try {
       let output: any;
-
-      if (task.type === TaskType.COMPOSITE) {
-        output = await this.runComposite(task, ctx);
+      if (task.atomicity === TaskType.COMPOSITE) {
+        output = await this.runComposite(task, taskContext);
       } else {
-        const handler = this.registry.get(task.type);
+        const handler = this.registry.get(task.classification);
         if (!handler)
           throw new InternalError(
-            `No task handler registered for type: ${task.type}`
+            `No task handler registered for type: ${task.classification}`
           );
-        output = await handler.run(task.input, ctx);
+        output = await handler.run(task.input, taskContext);
       }
 
       task.status = TaskStatus.SUCCEEDED;
@@ -289,7 +306,7 @@ export class TaskEngine<
       task.leaseExpiry = undefined;
 
       task = await this.tasks.update(task);
-      await this.emitStatus(task, TaskStatus.SUCCEEDED);
+      await this.emitStatus(taskContext, task, TaskStatus.SUCCEEDED);
     } catch (err: any) {
       const nextAttempt = (task.attempt ?? 0) + 1;
 
@@ -307,8 +324,8 @@ export class TaskEngine<
         task.leaseExpiry = undefined;
 
         task = await this.tasks.update(task);
-        await this.emitStatus(task, TaskStatus.WAITING_RETRY);
-        await ctx.log(LogLevel.warn, `Retry scheduled`, {
+        await this.emitStatus(taskContext, task, TaskStatus.WAITING_RETRY);
+        await ctx.pipe(LogLevel.warn, `Retry scheduled`, {
           nextRunAt,
           delayMs: delay,
           attempt: nextAttempt,
@@ -321,31 +338,37 @@ export class TaskEngine<
         task.leaseExpiry = undefined;
 
         task = await this.tasks.update(task);
-        await this.emitStatus(task, TaskStatus.FAILED);
-        await ctx.log(LogLevel.error, `Task failed (max attempts reached)`, {
+        await this.emitStatus(taskContext, task, TaskStatus.FAILED);
+        await ctx.pipe(LogLevel.error, `Task failed (max attempts reached)`, {
           maxAttempts: task.maxAttempts,
         });
       }
     }
   }
 
-  private async runComposite(task: TaskModel, ctx: TaskContext): Promise<any> {
+  private async runComposite(
+    task: TaskModel,
+    context: TaskContext
+  ): Promise<any> {
+    const { ctx } = (
+      await this.logCtx([context], task.classification, true)
+    ).for(this.runComposite);
     const steps = task.steps ?? [];
     let idx = task.currentStep ?? 0;
     const results = task.stepResults ?? [];
 
     while (idx < steps.length) {
       const step = steps[idx];
-      const handler = this.registry.get(step.type);
+      const handler = this.registry.get(step.classification);
       if (!handler)
         throw new Error(
-          `No task handler registered for composite step: ${step.type}`
+          `No task handler registered for composite step: ${step.classification}`
         );
 
-      await ctx.log(
+      await ctx.pipe([
         LogLevel.info,
-        `Composite step ${idx + 1}/${steps.length}: ${step.type}`
-      );
+        `Composite step ${idx + 1}/${steps.length}: ${step.classification}`,
+      ]);
 
       try {
         const out = await handler.run(step.input, ctx);
@@ -388,29 +411,42 @@ export class TaskEngine<
 
   private async appendLog(
     task: TaskModel,
-    level: LogLevel,
-    msg: string,
-    meta?: any
-  ): Promise<TaskModel> {
-    const entry = new TaskLogEntryModel({
-      level,
-      msg,
-      meta,
-    });
+    logEntries:
+      | [LogLevel, string]
+      | [LogLevel, string, any]
+      | ([LogLevel, string] | [LogLevel, string, any])[]
+  ): Promise<[TaskModel, TaskLogEntryModel[]]> {
+    const isMulti = Array.isArray(logEntries) && Array.isArray(logEntries[0]);
+    const entries = (isMulti ? logEntries : [logEntries]).map(
+      ([level, msg, meta]) => {
+        return new TaskLogEntryModel({
+          level,
+          msg,
+          meta,
+        });
+      }
+    );
 
-    const nextTail = [...(task.logTail ?? []), entry].slice(
+    const nextTail = [...(task.logTail ?? []), ...entries].slice(
       -this.config.logTailMax
     );
     task.logTail = nextTail;
 
     try {
-      return await this.tasks.update(task);
+      return [await this.tasks.update(task), entries];
     } catch {
-      return task;
+      return [task, []];
     }
   }
 
-  private async emitStatus(task: TaskModel, status: TaskStatus): Promise<void> {
+  private async emitStatus(
+    ctx: TaskContext | any,
+    task: TaskModel,
+    status: TaskStatus
+  ): Promise<void> {
+    if (ctx instanceof TaskContext) {
+      await ctx.flush();
+    }
     const evt = await this.persistEvent(task.id, TaskEventType.STATUS, {
       status,
     });
@@ -419,15 +455,18 @@ export class TaskEngine<
 
   private async emitLog(
     taskId: string,
-    level: string,
-    msg: string,
-    meta?: any
+    entries: TaskLogEntryModel[]
   ): Promise<void> {
-    const evt = await this.persistEvent(taskId, TaskEventType.LOG, {
-      level,
-      msg,
-      meta,
-    });
+    const evt = await this.persistEvent(
+      taskId,
+      TaskEventType.LOG,
+      entries.map((e) => ({
+        ts: e.ts,
+        level: e.level,
+        msg: e.msg,
+        meta: e.meta,
+      }))
+    );
     this.bus.emit(evt);
   }
 

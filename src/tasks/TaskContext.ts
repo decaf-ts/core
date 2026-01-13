@@ -1,12 +1,21 @@
-import { Context } from "../persistence/index";
-import { ITaskContext } from "./types";
+import { Context } from "../persistence/Context";
+import { TaskFlags } from "./types";
+import { TaskLogger } from "./logging";
 
-export class TaskContext extends Context<ITaskContext> {
+export class TaskContext extends Context<TaskFlags> {
   get taskId(): string {
     return this.get("taskId");
   }
-  get log(): any {
-    return this.get("log");
+
+  override get logger(): TaskLogger<any> {
+    return super.logger;
+  }
+  get pipe(): any {
+    return this.get("pipe");
+  }
+
+  flush() {
+    return this.get("flush")();
   }
 
   get attempt(): number {

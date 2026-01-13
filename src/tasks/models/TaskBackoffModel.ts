@@ -1,9 +1,9 @@
 import {
-  option,
-  type,
   model,
-  required,
   type ModelArg,
+  option,
+  required,
+  type,
 } from "@decaf-ts/decorator-validation";
 import { BackoffStrategy, JitterStrategy } from "../constants";
 import { description } from "@decaf-ts/decoration";
@@ -15,20 +15,20 @@ export class TaskBackoffModel extends TaskBaseModel {
   @type(String)
   @option(BackoffStrategy)
   @description("the backoff strategy")
-  strategy!: BackoffStrategy;
+  strategy: BackoffStrategy = BackoffStrategy.EXPONENTIAL;
 
   @required()
-  @description("timestamp of creation")
-  baseMs!: number;
+  @description("base interval between attempts")
+  baseMs: number = 1000;
 
   @required()
-  @description("timestamp of creation")
-  maxMs!: number;
+  @description("max interval")
+  maxMs: number = 60_000;
 
   @type(String)
   @option(JitterStrategy)
   @description("optional jitter strategy")
-  jitter?: JitterStrategy;
+  jitter?: JitterStrategy = JitterStrategy.FULL;
 
   constructor(arg?: ModelArg<TaskBackoffModel>) {
     super(arg);

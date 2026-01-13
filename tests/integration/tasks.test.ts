@@ -9,6 +9,7 @@ import { TaskService } from "../../src/tasks/TaskService";
 import { TaskEventBus } from "../../src/tasks/TaskEventBus";
 import { TaskHandlerRegistry } from "../../src/tasks/TaskHandlerRegistry";
 import { Metadata } from "@decaf-ts/decoration";
+import { TaskBuilder } from "../../src/tasks/builder";
 
 describe("Task Engine", () => {
   let adapter: RamAdapter;
@@ -16,6 +17,7 @@ describe("Task Engine", () => {
   let taskRegistry: TaskHandlerRegistry;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let engine: TaskEngine<RamAdapter>;
+  let service: TaskService<any>;
 
   @task("example")
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -25,8 +27,10 @@ describe("Task Engine", () => {
     }
 
     async run(input: number, ctx: TaskContext): Promise<number> {
-      ctx.log();
+      const { logger } = ctx;
+      logger.info(`Starting task ${input}`);
       await sleep(1000);
+      logger.info(`concluded task ${input}`);
       return input * 2;
     }
   }
@@ -44,12 +48,18 @@ describe("Task Engine", () => {
   });
 
   it("initializes task service", async () => {
-    const taskService = new TaskService();
-    await taskService.initialize({
+    service = new TaskService();
+    await service.initialize({
       adapter: adapter,
       bus: eventBus,
       registry: taskRegistry,
     } as unknown as TaskEngineConfig<RamAdapter>);
-    engine = taskService["engine"];
+    engine = service["engine"];
+  });
+
+  it("Runs a  simple task", async () => {
+    const created = await service.create(
+      new TaskBuilder().setClassification("example").setInput(5).build()
+    );
   });
 });

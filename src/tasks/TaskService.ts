@@ -323,7 +323,7 @@ export class TaskService<
   }
 
   override async shutdown(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctx, ctxArgs } = await this.logCtx(args, "shutdown", true);
+    const { ctxArgs } = await this.logCtx(args, "shutdown", true);
     await super.shutdown(...ctxArgs);
     this.client.stop();
   }

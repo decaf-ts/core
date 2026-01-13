@@ -68,8 +68,6 @@ export class TaskBackoffBuilder<NESTED extends boolean = false> extends Model {
 
 export class TaskBuilder extends Model {
   @required()
-  protected id!: string;
-  @required()
   protected classification!: string;
   @required()
   protected status: TaskStatus = TaskStatus.PENDING;

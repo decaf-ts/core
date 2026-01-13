@@ -91,6 +91,14 @@ export class TaskEngine<
     return this.running;
   }
 
+  async push(task: TaskModel, ...args: MaybeContextualArg<any>) {
+    const { ctx, log } = await this.logCtx(args, this.push, true);
+    log.verbose(`pushing task ${task.classification}`);
+    const t = await this.tasks.create(task, ctx);
+    log.info(`${task.classification} task registered under ${t.id}`);
+    return t;
+  }
+
   // async enqueueAtomic(arg: {
   //   id: string;
   //   input?: any;

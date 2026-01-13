@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 import "../../src/index";
 import "../../src/overrides/index";
 import { RamAdapter } from "../../src/ram";
@@ -7,14 +9,21 @@ import { TaskHandlerRegistry } from "../../src/tasks/TaskHandlerRegistry";
 import { TaskHandler } from "../../src/tasks/TaskHandler";
 import { TaskContext } from "../../src/tasks/TaskContext";
 import { task } from "../../src/tasks/decorators";
-import { TaskBuilder, CompositeTaskBuilder } from "../../src/tasks/builder";
+import { CompositeTaskBuilder, TaskBuilder } from "../../src/tasks/builder";
 import { TaskStepSpecModel } from "../../src/tasks/models/TaskStepSpecModel";
 import { TaskBackoffModel } from "../../src/tasks/models/TaskBackoffModel";
 import { TaskEventModel } from "../../src/tasks/models/TaskEventModel";
 import { TaskModel } from "../../src/tasks/models/TaskModel";
-import { TaskStatus, TaskType, TaskEventType } from "../../src/tasks/constants";
+import { TaskEventType, TaskStatus, TaskType } from "../../src/tasks/constants";
 import { Repo, Repository } from "../../src/repository";
 import { sleep } from "../../src/tasks/utils";
+import {
+  AllOperationKeys,
+  Context,
+  EventIds,
+  PersistenceObserver,
+} from "../../src/index";
+import { Constructor } from "@decaf-ts/decoration";
 
 jest.setTimeout(20000);
 
@@ -203,6 +212,46 @@ class CombineStepTask extends TaskHandler<void, number> {
   }
 }
 
+class TaskEventObserver implements PersistenceObserver<any> {
+  constructor(
+    protected readonly cb: (evt: TaskEventModel) => void | Promise<void>
+  ) {}
+
+  async refresh(
+    table: Constructor | string,
+    operation: AllOperationKeys,
+    id: EventIds,
+    payload: TaskEventModel,
+    ctx: Context
+  ): Promise<void> {
+    const log = ctx.logger.for(this.refresh);
+    log.verbose(`task event: ${payload.classification} ${payload.taskId}`);
+    log.debug(`task event: ${payload.taskId}`, payload);
+    if (payload.classification === TaskEventType.STATUS)
+      return this.cb(payload);
+  }
+}
+
+class TaskObserver implements PersistenceObserver<any> {
+  constructor(
+    protected readonly cb: (evt: TaskModel) => void | Promise<void>
+  ) {}
+
+  async refresh(
+    table: Constructor | string,
+    operation: AllOperationKeys,
+    id: EventIds,
+    payload: TaskModel,
+    ctx: Context
+  ): Promise<void> {
+    const log = ctx.logger.for(this.refresh);
+    log.verbose(`task: ${payload.classification} ${payload.id}`);
+    log.debug(`task: ${payload.id}`, payload);
+    if (payload.classification === TaskEventType.STATUS)
+      return this.cb(payload);
+  }
+}
+
 describe.skip("Task Engine", () => {
   beforeAll(async () => {
     adapter = new RamAdapter();
@@ -245,10 +294,8 @@ describe.skip("Task Engine", () => {
   });
 
   it("executes atomic tasks, persists logs, and emits status events", async () => {
-    const id = uniqueId("simple");
     const dates = createDates();
     const task = new TaskBuilder({
-      id,
       classification: "simple-task",
       input: 7,
       maxAttempts: 2,
@@ -256,7 +303,7 @@ describe.skip("Task Engine", () => {
       ...dates,
       backoff: createBackoff(),
     }).build();
-    await engine.push(task);
+    const { id } = await engine.push(task);
     const finished = await waitForTaskCompletion(id);
     expect(finished.status).toBe(TaskStatus.SUCCEEDED);
     expect(finished.output).toBe(14);

@@ -32,7 +32,7 @@ export class PersistenceService<
       !cfgs.every((c) => Array.isArray(c))
     )
       throw new InternalError(`Missing/invalid configuration`);
-    const { log } = (
+    const { log, ctxArgs } = (
       await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
     ).for(this.initialize);
     const clients: A[] = cfgs.map(([constr, cfg, ...args]) => {
@@ -47,6 +47,14 @@ export class PersistenceService<
         throw new InternalError(`Failed to initialize ${constr.name}: ${e}`);
       }
     });
+
+    for (const c of clients) {
+      try {
+        await c.initialize(...ctxArgs);
+      } catch (e: any) {
+        throw new InternalError(`Failed to initialize ${c.toString()}: ${e}`);
+      }
+    }
 
     return {
       client: clients,

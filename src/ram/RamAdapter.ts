@@ -123,7 +123,7 @@ export class RamAdapter extends Adapter<
     flags: Partial<RamFlags>
   ): Promise<RamFlags> {
     return Object.assign(await super.flags(operation, model, flags), {
-      UUID: this.config.user || "" + Date.now(),
+      UUID: flags.UUID || this.config.user || "" + Date.now(),
     }) as RamFlags;
   }
 

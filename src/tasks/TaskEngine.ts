@@ -7,7 +7,7 @@ import { Condition } from "../query/Condition";
 import { TaskStepResultModel } from "./models/TaskStepResultModel";
 import { TaskLogEntryModel } from "./models/TaskLogEntryModel";
 import { TaskEventType, TaskStatus, TaskType } from "./constants";
-import { Adapter, ContextOf } from "../persistence/index";
+import { Adapter, Context, ContextOf } from "../persistence/index";
 import { LogLevel } from "@decaf-ts/logging";
 import {
   ContextualLoggedClass,
@@ -258,15 +258,16 @@ export class TaskEngine<
         {
           taskId: task.id,
           attempt: task.attempt,
+          resultCache: {},
           pipe: async (data: [LogLevel, string, any][]) => {
-            const [, logs] = await this.appendLog(task, data);
-            await this.emitLog(taskId, logs);
+            const [, logs] = await this.appendLog(ctx, task, data);
+            await this.emitLog(ctx, taskId, logs);
           },
           flush: async () => {
             return ctx.logger.flush(ctx.pipe);
           },
           progress: async (data: any) => {
-            await this.emitProgress(taskId, data);
+            await this.emitProgress(ctx, taskId, data);
           },
           heartbeat: async () => {
             // extend lease
@@ -383,7 +384,7 @@ export class TaskEngine<
         task.currentStep = idx;
 
         task = await this.tasks.update(task);
-        await this.emitProgress(task.id, {
+        await this.emitProgress(ctx, task.id, {
           currentStep: idx,
           totalSteps: steps.length,
         });
@@ -410,6 +411,7 @@ export class TaskEngine<
   // -------------------------
 
   private async appendLog(
+    ctx: TaskContext | Context,
     task: TaskModel,
     logEntries:
       | [LogLevel, string]
@@ -433,31 +435,33 @@ export class TaskEngine<
     task.logTail = nextTail;
 
     try {
-      return [await this.tasks.update(task), entries];
+      return [await this.tasks.update(task, ctx), entries];
     } catch {
       return [task, []];
     }
   }
 
   private async emitStatus(
-    ctx: TaskContext | any,
+    ctx: TaskContext | Context,
     task: TaskModel,
     status: TaskStatus
   ): Promise<void> {
     if (ctx instanceof TaskContext) {
       await ctx.flush();
     }
-    const evt = await this.persistEvent(task.id, TaskEventType.STATUS, {
+    const evt = await this.persistEvent(ctx, task.id, TaskEventType.STATUS, {
       status,
     });
-    this.bus.emit(evt);
+    this.bus.emit(evt, ctx);
   }
 
   private async emitLog(
+    ctx: TaskContext | Context,
     taskId: string,
     entries: TaskLogEntryModel[]
   ): Promise<void> {
     const evt = await this.persistEvent(
+      ctx,
       taskId,
       TaskEventType.LOG,
       entries.map((e) => ({
@@ -467,21 +471,31 @@ export class TaskEngine<
         meta: e.meta,
       }))
     );
-    this.bus.emit(evt);
+    this.bus.emit(evt, ctx);
   }
 
-  private async emitProgress(taskId: string, data: any): Promise<void> {
-    const evt = await this.persistEvent(taskId, TaskEventType.PROGRESS, data);
-    this.bus.emit(evt);
+  private async emitProgress(
+    ctx: TaskContext | Context,
+    taskId: string,
+    data: any
+  ): Promise<void> {
+    const evt = await this.persistEvent(
+      ctx,
+      taskId,
+      TaskEventType.PROGRESS,
+      data
+    );
+    this.bus.emit(evt, ctx);
   }
 
   private async persistEvent(
+    ctx: TaskContext | Context,
     taskId: string,
     type: TaskEventType,
     payload: any
   ): Promise<TaskEventModel> {
     const evt = new TaskEventModel({ taskId, type, payload });
-    return await this.events.create(evt);
+    return await this.events.create(evt, ctx);
   }
 
   override toString(): string {

@@ -18,6 +18,7 @@ export interface TaskFlags<LOG extends TaskLogger<any> = TaskLogger<any>>
   flush: () => Promise<void>;
   progress: (data: any) => Promise<void>;
   heartbeat: () => Promise<void>;
+  resultCache?: Record<string, any>;
 }
 
 export type TaskEngineOptions = {

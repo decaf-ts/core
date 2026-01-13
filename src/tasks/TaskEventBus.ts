@@ -1,6 +1,6 @@
 import { TaskEventModel } from "./models/TaskEventModel";
 
-import { ObserverFilter, ObserverHandler } from "../persistence/index";
+import { Context, ObserverFilter, ObserverHandler } from "../persistence/index";
 import { TaskContext } from "./TaskContext";
 import { Observer } from "../interfaces/index";
 
@@ -20,7 +20,7 @@ export class TaskEventBus extends ObserverHandler<TaskContext> {
     return () => this.unObserve(observer);
   }
 
-  emit(evt: TaskEventModel) {
-    this.updateObservers(TaskEventModel, evt.classification, evt.id, evt);
+  emit(evt: TaskEventModel, ctx: Context) {
+    this.updateObservers(TaskEventModel, evt.classification, evt.id, evt, ctx);
   }
 }

@@ -29,6 +29,18 @@ export class TaskContext extends Context<TaskFlags> {
     return this.get("heartbeat");
   }
 
+  cacheResult(taskId: string, payload: any) {
+    const cache =
+      (this.cache.has("resultCache") && this.cache.get("resultCache")) ||
+      ({} as Record<string, any>);
+    cache[taskId] = payload;
+    this.cache.put("resultCache", cache);
+  }
+
+  get resultCache() {
+    return this.get("resultCache");
+  }
+
   constructor(ctx?: Context<any>) {
     super(ctx);
   }

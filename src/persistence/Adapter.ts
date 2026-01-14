@@ -14,7 +14,11 @@ import {
 } from "@decaf-ts/decorator-validation";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { RawPagedExecutor } from "../interfaces/RawExecutor";
-import { DefaultAdapterFlags, PersistenceKeys } from "./constants";
+import {
+  DefaultAdapterFlags,
+  PersistenceKeys,
+  TransactionOperationKeys,
+} from "./constants";
 import type { Repository } from "../repository/Repository";
 import type { Sequence } from "./Sequence";
 import { ErrorParser } from "../interfaces";
@@ -411,8 +415,7 @@ export abstract class Adapter<
       flags.correlationId ||
       `${correlationPrefix}${operation}-${UUID.instance.generate()}`;
     const log = (flags.logger || Logging.for(this as any)) as Logger;
-    log.setConfig({ correlationId: flags.correlationId });
-    return Object.assign({}, DefaultAdapterFlags, flags, {
+    return Object.assign({}, flags, {
       affectedTables: model
         ? [
             ...new Set([
@@ -426,7 +429,7 @@ export abstract class Adapter<
           ]
         : flags.affectedTables,
       args: args,
-      writeOperation: operation !== OperationKeys.READ,
+      writeOperation: TransactionOperationKeys.includes(operation),
       timestamp: new Date(),
       operation: operation,
       ignoredValidationProperties: model
@@ -477,19 +480,40 @@ export abstract class Adapter<
       ctx = undefined;
     }
 
+    overrides = ctx
+      ? Object.assign({}, overrides, ctx.toOverrides())
+      : overrides;
     const flags = await this.flags(
       typeof operation === "string" ? operation : operation.name,
       model,
       overrides as Partial<FlagsOf<CONTEXT>>,
-      ...args
+      ...args,
+      ctx
     );
+
     if (ctx) {
-      return new this.Context(ctx).accumulate({
-        ...flags,
-        parentContext: ctx,
-      }) as any;
+      if (!(ctx instanceof this.Context)) {
+        return new this.Context().accumulate({
+          ...ctx["cache"],
+          ...flags,
+          parentContext: ctx,
+        }) as any;
+      }
+      const currentOp = ctx.get("operation");
+      const currentModel = ctx.get("affectedTables");
+      if (currentOp !== operation || model !== currentModel)
+        return new this.Context().accumulate({
+          ...ctx["cache"],
+          ...flags,
+          parentContext: ctx,
+        }) as any;
+      return ctx.accumulate(flags) as any;
     }
-    return new this.Context().accumulate(flags) as any;
+
+    return new this.Context().accumulate({
+      ...DefaultAdapterFlags,
+      ...flags,
+    }) as any;
   }
 
   /**

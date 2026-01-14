@@ -11,6 +11,7 @@ import {
   Repo,
   Repository,
   table,
+  createdBy,
 } from "../../src";
 import {
   BulkCrudOperationKeys,
@@ -49,6 +50,10 @@ describe("Contextualization", () => {
     @required()
     nif!: string;
 
+    @column("tst_created_by")
+    @createdBy()
+    createdBy!: string;
+
     constructor(arg?: ModelArg<TestContextModel>) {
       super(arg);
     }
@@ -74,6 +79,10 @@ describe("Contextualization", () => {
     @column("tst_created_at")
     @createdAt()
     createdAt: Date;
+
+    @column("tst_created_by")
+    @createdBy()
+    createdBy!: string;
 
     @column("tst_version")
     @version()
@@ -188,7 +197,7 @@ describe("Contextualization", () => {
             [TestContextModel],
             op,
             true,
-            { test: "TEST", correlationId: "CORREL" } as any
+            { UUID: "user", test: "TEST", correlationId: "CORREL" } as any
           );
 
           const ctxLog = log["context"];
@@ -472,9 +481,9 @@ describe("Contextualization", () => {
     let cachedBulk: TestContextRepoModel[];
 
     allOps
-      // .filter((_, i) => i === 0)
+      .filter((_, i) => i === 0)
       .forEach((op) => {
-        it(`Should execute ${op} without being provided a context`, async () => {
+        it(`Should execute ${op} regardless of being provided a context (but createdBy will fail without it)`, async () => {
           let m:
             | TestContextRepoModel
             | number
@@ -483,9 +492,16 @@ describe("Contextualization", () => {
             | any;
           let args: any[] = [];
           switch (op) {
-            case OperationKeys.CREATE:
+            case OperationKeys.CREATE: {
+              const { ctx } = await repo["logCtx"]([], op, true, {
+                UUID: "user",
+                test: "TEST",
+                correlationId: "CORREL",
+              } as any);
               m = new TestContextRepoModel(cached);
+              args.push(ctx);
               break;
+            }
             case OperationKeys.READ:
             case OperationKeys.DELETE:
               m = cached[Model.pk(TestContextRepoModel)];
@@ -546,6 +562,7 @@ describe("Contextualization", () => {
               expect(current).toBeDefined();
               expect(current).toBeInstanceOf(TestContextRepoModel);
               expect(current.hasErrors()).toBeUndefined();
+              expect(current.createdBy).toEqual("user");
               //
               // expect(logMock).toHaveBeenCalledTimes(32);
               // expect(logMock.mock.calls.flat().join("\n")).toEqual(``);

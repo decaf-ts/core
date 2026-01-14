@@ -122,9 +122,18 @@ export class RamAdapter extends Adapter<
     model: Constructor<M>,
     flags: Partial<RamFlags>
   ): Promise<RamFlags> {
-    return Object.assign(await super.flags(operation, model, flags), {
-      UUID: flags.UUID || this.config.user || "" + Date.now(),
-    }) as RamFlags;
+    return Object.assign(
+      await super.flags(
+        operation,
+        model,
+        Object.assign(
+          {
+            UUID: flags.UUID || this.config.user || "" + Date.now(),
+          },
+          flags
+        )
+      )
+    ) as RamFlags;
   }
 
   protected override Dispatch(): Dispatch<RamAdapter> {

@@ -14,4 +14,11 @@ export class Context<
   constructor(ctx?: Context<any>) {
     super(ctx as Ctx<any>);
   }
+
+  toOverrides() {
+    return this.cache.keys().reduce((acc: Record<string, any>, key) => {
+      acc[key] = this.cache.get(key);
+      return acc;
+    }, {});
+  }
 }

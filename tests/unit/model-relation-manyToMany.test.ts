@@ -4,7 +4,7 @@ import { Cascade, Repository } from "../../src/repository/index";
 import { SequenceModel as Seq } from "../../src/model/SequenceModel";
 import {
   BaseModel,
-  Condition,
+  getAndConstructJunctionTable,
   manyToMany,
   PersistenceKeys,
   pk,
@@ -162,8 +162,8 @@ describe("Many to many relations", () => {
     UserClass: typeof TestUserModel,
     RoleClass: typeof TestRoleModel
   ) {
-    const userRepo: any = Repository.forModel(UserClass);
-    const roleRepo: any = Repository.forModel(RoleClass);
+    const userRepo: any = Repository.forModel(UserClass, adapter.alias);
+    const roleRepo: any = Repository.forModel(RoleClass, adapter.alias);
     const createdRole = await roleRepo.create(new RoleClass(role));
     const createdRole2 = await roleRepo.create(new RoleClass(role2));
     const createdUser = await userRepo.create(new UserClass(user));
@@ -194,12 +194,34 @@ describe("Many to many relations", () => {
   it("Creates a many to many relation", async () => {
     const UserClass = TestUserModel;
     const RoleClass = TestRoleModel;
+    const userRepo = Repository.forModel(UserClass);
+    const roleRepo: any = Repository.forModel(RoleClass);
     const {
       createdUser,
+      createdUser2,
       createdRole,
+      createdRole2,
       createdUserWithRoleIds,
       createdRoleWithUserIds,
     } = await createTestData(UserClass, RoleClass);
+
+    const { JunctionModel } = getAndConstructJunctionTable(
+      UserClass as any,
+      RoleClass
+    );
+    const junctionRepository = Repository.forModel(JunctionModel);
+    // const results = await repository?.readAll(recordIds);
+    const users = await userRepo.readAll([
+      createdUser.id,
+      createdUser2.id,
+      createdUserWithRoleIds.id,
+    ]);
+    const roles = await roleRepo.readAll([
+      createdRole.id,
+      createdRole2.id,
+      createdRoleWithUserIds.id,
+    ]);
+    const entries = await junctionRepository.select().execute();
 
     expect(createdRole.users.length).toBe(2);
     expect(typeof createdRole.users[0]).toBe("number");

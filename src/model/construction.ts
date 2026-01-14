@@ -977,7 +977,7 @@ async function getOrCreateJunctionModel<M extends Model, R extends Repo<M>>(
   return JunctionModel;
 }
 
-function getAndConstructJunctionTable(
+export function getAndConstructJunctionTable(
   modelA: Model,
   modelB: Model | any,
   metadata?: RelationsMetadata
@@ -986,7 +986,12 @@ function getAndConstructJunctionTable(
   const modelAName = Model.tableName(modelA);
   let modelBName;
   if (modelB instanceof Model) modelBName = Model.tableName(modelB);
-  else if (metadata?.class) {
+  else if (
+    Model.isModel(modelB as Record<string, any>) &&
+    typeof modelB === "function"
+  ) {
+    modelBName = modelB.name ? modelB.name : (modelB as any)()?.name;
+  } else if (metadata?.class) {
     const clazz =
       typeof metadata.class === "function" && !metadata.class.name
         ? (metadata.class as any)()

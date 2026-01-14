@@ -80,6 +80,7 @@ export enum PersistenceKeys {
   UUID = "uuid",
 
   INITIALIZATION = "initialization",
+  SHUTDOWN = "shutdown",
 
   BY_KEY = "by-key",
 }

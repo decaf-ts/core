@@ -278,7 +278,32 @@ export class Repository<
   >(
     args: MaybeContextualArg<ContextOf<A>, ARGS>,
     operation: METHOD,
-    allowCreate: boolean = false
+    allowCreate: true,
+    overrides?: Partial<FlagsOf<ContextOf<A>>>
+  ): Promise<
+    ContextualizedArgs<ContextOf<A>, ARGS, METHOD extends string ? true : false>
+  >;
+  protected logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<ContextOf<A>, ARGS>,
+    operation: METHOD,
+    allowCreate: false,
+    overrides?: Partial<FlagsOf<ContextOf<A>>>
+  ): ContextualizedArgs<
+    ContextOf<A>,
+    ARGS,
+    METHOD extends string ? true : false
+  >;
+  protected logCtx<
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<ContextOf<A>, ARGS>,
+    operation: METHOD,
+    allowCreate: boolean = false,
+    overrides?: Partial<FlagsOf<ContextOf<A>>>
   ):
     | Promise<
         ContextualizedArgs<
@@ -296,7 +321,7 @@ export class Repository<
       [this.class as any, ...args] as any,
       operation,
       allowCreate as any,
-      this._overrides || {}
+      Object.assign({}, overrides || {}, this._overrides || {})
     ) as
       | ContextualizedArgs<
           ContextOf<A>,

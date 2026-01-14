@@ -1,16 +1,26 @@
 import { TaskEventModel } from "./models/TaskEventModel";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { Observable } from "../interfaces/Observable";
 
-export class TaskEventBus {
+import { Context, ObserverFilter, ObserverHandler } from "../persistence/index";
+import { TaskContext } from "./TaskContext";
+import { Observer } from "../interfaces/index";
+
+export class TaskEventBus extends ObserverHandler<TaskContext> {
   protected readonly listeners = new Set<(evt: TaskEventModel) => void>();
 
-  on(listener: (evt: TaskEventModel) => void): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+  override observe(observer: Observer, filter?: ObserverFilter) {
+    super.observe(observer, filter);
   }
 
-  emit(evt: TaskEventModel) {
-    for (const l of this.listeners) l(evt);
+  override unObserve(observer: Observer) {
+    super.unObserve(observer);
+  }
+
+  on(observer: Observer): () => void {
+    this.observe(observer);
+    return () => this.unObserve(observer);
+  }
+
+  emit(evt: TaskEventModel, ctx: Context) {
+    this.updateObservers(TaskEventModel, evt.classification, evt.id, evt, ctx);
   }
 }

@@ -3,7 +3,7 @@ import { Repository } from "../repository";
 import { Constructor } from "@decaf-ts/decoration";
 import { Adapter, AdapterFlags } from "../persistence";
 import { Context } from "../persistence/Context";
-import { Lock } from "@decaf-ts/transactional-decorators";
+import { MultiLock } from "@decaf-ts/transactional-decorators";
 
 /**
  * @description In-memory storage structure for the RAM adapter
@@ -62,5 +62,5 @@ export type RamContext = Context<RamFlags>;
 
 export type RamConfig = {
   user: string;
-  lock?: Lock;
+  lock?: MultiLock;
 };

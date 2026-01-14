@@ -14,10 +14,10 @@ import { TaskErrorModel } from "./TaskErrorModel";
 import { TaskBackoffModel } from "./TaskBackoffModel";
 import { TaskStepSpecModel } from "./TaskStepSpecModel";
 import { TaskStepResultModel } from "./TaskStepResultModel";
-import { TaskLogEntryModel } from "./TaskLogEntryModel";
 import { description, prop } from "@decaf-ts/decoration";
 import { serialize } from "@decaf-ts/db-decorators";
 import { table } from "../../model/decorators";
+import { TaskLogEntryModel } from "./TaskLogEntryModel";
 
 @table("tasks")
 @model()
@@ -27,17 +27,18 @@ export class TaskModel extends TaskBaseModel {
 
   // required routing / identity
   @required()
+  @type(String)
   @option(TaskType)
-  type!: TaskType; // atomic handler type OR "composite"
+  atomicity: TaskType = TaskType.ATOMIC; // atomic handler type OR "composite"
 
-  @prop()
-  name?: string;
+  @required()
+  classification!: string;
 
   // execution
   @required()
   @type(String)
   @option(TaskStatus)
-  status!: TaskStatus;
+  status: TaskStatus = TaskStatus.PENDING;
 
   @prop()
   @serialize()
@@ -94,7 +95,7 @@ export class TaskModel extends TaskBaseModel {
 
   @serialize()
   @prop()
-  logTail?: TaskLogEntryModel[];
+  logTail?: TaskLogEntryModel[] = [];
 
   constructor(arg?: ModelArg<TaskModel>) {
     super(arg);

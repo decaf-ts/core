@@ -15,7 +15,7 @@ import {
   RawResult,
   Sequence,
 } from "../persistence";
-import { Lock } from "@decaf-ts/transactional-decorators";
+import { Lock, MultiLock } from "@decaf-ts/transactional-decorators";
 import { hashObj, Model } from "@decaf-ts/decorator-validation";
 import {
   BaseError,
@@ -86,12 +86,12 @@ export class RamAdapter extends Adapter<
 > {
   constructor(
     conf: RamConfig = {
-      lock: new Lock(),
+      lock: new MultiLock(),
     } as any,
     alias?: string
   ) {
     super(conf, RamFlavour, alias);
-    this.lock = conf.lock || new Lock();
+    this.lock = conf.lock || new MultiLock();
   }
 
   /**
@@ -122,9 +122,18 @@ export class RamAdapter extends Adapter<
     model: Constructor<M>,
     flags: Partial<RamFlags>
   ): Promise<RamFlags> {
-    return Object.assign(await super.flags(operation, model, flags), {
-      UUID: this.config.user || "" + Date.now(),
-    }) as RamFlags;
+    return Object.assign(
+      await super.flags(
+        operation,
+        model,
+        Object.assign(
+          {
+            UUID: flags.UUID || this.config.user || "" + Date.now(),
+          },
+          flags
+        )
+      )
+    ) as RamFlags;
   }
 
   protected override Dispatch(): Dispatch<RamAdapter> {
@@ -240,9 +249,9 @@ export class RamAdapter extends Adapter<
         `Record with id ${id} already exists in table ${tableName}`
       );
 
-    await this.lock.acquire();
+    await this.lock.acquire(tableName);
     this.client.get(tableName)?.set(id as any, model);
-    this.lock.release();
+    this.lock.release(tableName);
     return model;
   }
 
@@ -335,9 +344,9 @@ export class RamAdapter extends Adapter<
         `Record with id ${id} not found in table ${tableName}`
       );
 
-    await this.lock.acquire();
+    await this.lock.acquire(tableName);
     this.client.get(tableName)?.set(id as any, model);
-    this.lock.release();
+    this.lock.release(tableName);
     return model;
   }
 
@@ -387,12 +396,12 @@ export class RamAdapter extends Adapter<
         `Record with id ${id} not found in table ${tableName}`
       );
 
-    await this.lock.acquire();
+    await this.lock.acquire(tableName);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const table = this.client.get(tableName);
     const natived = this.client.get(tableName)?.get(id as any);
     this.client.get(tableName)?.delete(id as any);
-    this.lock.release();
+    this.lock.release(tableName);
     return natived;
   }
 

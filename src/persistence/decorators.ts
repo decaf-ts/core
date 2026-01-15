@@ -99,9 +99,12 @@ export function uuid(
     const decorators: any[] = [
       required(),
       generated(PersistenceKeys.UUID),
-      onCreate(uuidCreateUpdateHandler, meta),
+      onCreate(uuidCreateUpdateHandler, meta, { priority: 56 }), // one after compose
     ];
-    if (update) decorators.push(onUpdate(uuidCreateUpdateHandler, meta));
+    if (update)
+      decorators.push(
+        onUpdate(uuidCreateUpdateHandler, meta, { priority: 56 })
+      );
     if (!update) decorators.push(readonly());
     return apply(...decorators);
   }

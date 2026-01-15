@@ -1,12 +1,12 @@
 export interface Generator<OUT extends string | number = string> {
-  generate(prev?: OUT): OUT;
+  generate(prev?: OUT): OUT | Promise<OUT>;
 }
 
 export class UUID implements Generator {
   private static _instance: UUID;
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  generate(prev?: string): string {
+  generate(prev?: string): string | Promise<string> {
     return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
       /[xy]/g,
       function (c) {
@@ -28,7 +28,7 @@ export class Serial implements Generator {
 
   private count = 14;
 
-  generate(prev?: string): string {
+  generate(prev?: string): string | Promise<string> {
     prev = ((prev ? parseInt(prev as string) : 0) || 0) as unknown as string;
     return ((prev as unknown as number) + 1)
       .toString()

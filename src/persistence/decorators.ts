@@ -10,6 +10,7 @@ import { apply, Decoration } from "@decaf-ts/decoration";
 import { ContextOf } from "./types";
 import { Repo } from "../repository/Repository";
 import { UUID } from "./generators";
+import { ContextualArgs } from "../utils/index";
 
 /**
  * @description Handler function that sets a timestamp property to the current timestamp.
@@ -42,18 +43,59 @@ export async function uuidCreateUpdateHandler<
   ) {
     return;
   }
-  (model as any)[key] = UUID.instance.generate(...(data.args || []));
+
+  // eslint-disable-next-line prefer-const
+  let { seed, args } = data;
+  if (seed && typeof seed === "function") {
+    seed = seed(model, ...(args || []), context);
+  }
+  (model as any)[key] = UUID.instance.generate(seed);
 }
 
 export type UUIDMetadata = {
   update: boolean;
+  seed?:
+    | string
+    | (<M extends Model>(model: M, ...args: ContextualArgs<any>) => string);
   args?: any[];
 };
-export function uuid(update: boolean = false, ...args: any[]) {
+export function uuid(...args: any[]): (target: any, propertyKey?: any) => void;
+export function uuid(
+  update: boolean,
+  ...args: any[]
+): (target: any, propertyKey?: any) => void;
+export function uuid(
+  seed:
+    | string
+    | (<M extends Model>(model: M, ...args: ContextualArgs<any>) => string),
+  ...args: any[]
+): (target: any, propertyKey?: any) => void;
+export function uuid(
+  update:
+    | boolean
+    | string
+    | (<M extends Model>(
+        model: M,
+        ...args: ContextualArgs<any>
+      ) => string) = false,
+  seed?:
+    | string
+    | (<M extends Model>(model: M, ...args: ContextualArgs<any>) => string),
+  ...args: any[]
+): (target: any, propertyKey?: any) => void {
+  if (typeof update === "function") {
+    seed = update;
+    update = false;
+  }
+
   const decorationKey = PersistenceKeys.UUID;
 
-  function uuid(update: boolean, ...args: any[]) {
-    const meta: UUIDMetadata = { update: update, args: args };
+  function uuid(
+    update: boolean,
+    seed: string | (() => string) | undefined,
+    ...args: any[]
+  ) {
+    const meta: UUIDMetadata = { update: update, seed: seed, args: args };
     const decorators: any[] = [
       required(),
       generated(PersistenceKeys.UUID),
@@ -67,7 +109,7 @@ export function uuid(update: boolean = false, ...args: any[]) {
   return Decoration.for(decorationKey)
     .define({
       decorator: uuid,
-      args: [update, ...args],
+      args: [update, seed, ...args],
     })
     .apply();
 }

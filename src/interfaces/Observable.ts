@@ -1,5 +1,9 @@
 import { Observer } from "./Observer";
 
+export function unRegistration(observable: Observable, observer: Observer) {
+  return () => observable.unObserve(observer);
+}
+
 /**
  * @description Interface for objects that can be observed
  * @summary Defines a contract for objects that implement the Observer pattern, allowing them to register observers,

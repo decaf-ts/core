@@ -49,7 +49,7 @@ export async function uuidCreateUpdateHandler<
   if (seed && typeof seed === "function") {
     seed = seed(model, ...(args || []), context);
   }
-  (model as any)[key] = UUID.instance.generate(seed);
+  (model as any)[key] = await UUID.instance.generate(seed);
 }
 
 export type UUIDMetadata = {

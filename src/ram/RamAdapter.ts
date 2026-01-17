@@ -245,10 +245,12 @@ export class RamAdapter extends Adapter<
     if (
       this.client.get(tableName) &&
       this.client.get(tableName)?.has(id as any)
-    )
+    ) {
+      this.lock.release(tableName);
       throw new ConflictError(
         `Record with id ${id} already exists in table ${tableName}`
       );
+    }
 
     this.client.get(tableName)?.set(id as any, model);
     this.lock.release(tableName);
@@ -291,10 +293,12 @@ export class RamAdapter extends Adapter<
     log.debug(`reading record in table ${tableName} with id ${id}`);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.client.get(tableName)?.has(id as any))
+    if (!this.client.get(tableName)?.has(id as any)) {
+      this.lock.release(tableName);
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
+    }
     return this.client.get(tableName)?.get(id as any);
   }
 
@@ -340,10 +344,12 @@ export class RamAdapter extends Adapter<
     await this.lock.acquire(tableName);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.client.get(tableName)?.has(id as any))
+    if (!this.client.get(tableName)?.has(id as any)) {
+      this.lock.release(tableName);
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
+    }
 
     this.client.get(tableName)?.set(id as any, model);
     this.lock.release(tableName);
@@ -392,13 +398,13 @@ export class RamAdapter extends Adapter<
     await this.lock.acquire(tableName);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.client.get(tableName)?.has(id as any))
+    if (!this.client.get(tableName)?.has(id as any)) {
+      this.lock.release(tableName);
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
+    }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const table = this.client.get(tableName);
     const natived = this.client.get(tableName)?.get(id as any);
     this.client.get(tableName)?.delete(id as any);
     this.lock.release(tableName);

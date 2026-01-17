@@ -117,6 +117,17 @@ export class TaskEngine<
     return { task, tracker } as any;
   }
 
+  async track(id: string, ...args: MaybeContextualArg<any>) {
+    const { ctx, log } = (
+      await this.logCtx(args, OperationKeys.READ, true)
+    ).for(this.track);
+    log.verbose(`tracking task ${id}`);
+    const task = await this.tasks.read(id, ctx);
+    log.info(`${task.classification} task found with id ${id}`);
+    const tracker = new TaskTracker(this.bus, task);
+    return { task, tracker };
+  }
+
   async cancel(
     id: string,
     ...args: MaybeContextualArg<any>

@@ -35,6 +35,7 @@ import type { Constructor } from "@decaf-ts/decoration";
 import type { Observer } from "../interfaces/index";
 import { ArrayMode } from "../services/index";
 import { TaskEngineConfig } from "./types";
+import { TaskTracker } from "./TaskTracker";
 
 export class TaskService<
   A extends Adapter<any, any, any, any>,
@@ -63,6 +64,45 @@ export class TaskService<
       client: client,
       config: cfg,
     };
+  }
+
+  async push<I, O>(
+    task: TaskModel<I, O>,
+    ...args: MaybeContextualArg<any>
+  ): Promise<TaskModel<I, O>>;
+  async push<I, O>(
+    task: TaskModel<I, O>,
+    track: false,
+    ...args: MaybeContextualArg<any>
+  ): Promise<TaskModel<I, O>>;
+  async push<I, O>(
+    task: TaskModel<I, O>,
+    track: true,
+    ...args: MaybeContextualArg<any>
+  ): Promise<{
+    task: TaskModel<I, O>;
+    tracker: TaskTracker<(typeof task)["output"]>;
+  }>;
+  async push<I, O, TRACK extends boolean>(
+    task: TaskModel<I, O>,
+    track: TRACK = false as TRACK,
+    ...args: MaybeContextualArg<any>
+  ): Promise<
+    TRACK extends true
+      ? { task: TaskModel<I, O>; tracker: TaskTracker<O> }
+      : TaskModel
+  > {
+    const { ctxArgs } = (
+      await this.logCtx(args, OperationKeys.CREATE, true)
+    ).for(this.push);
+    return (await this.client.push(task, track, ...ctxArgs)) as any;
+  }
+
+  async track(id: string, ...args: MaybeContextualArg<any>) {
+    const { ctxArgs } = (
+      await this.logCtx(args, OperationKeys.CREATE, true)
+    ).for(this.push);
+    return this.client.track(id, ...ctxArgs);
   }
 
   @create()

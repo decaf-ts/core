@@ -240,6 +240,7 @@ export class RamAdapter extends Adapter<
     const { log } = this.logCtx(args, this.create);
     const tableName = Model.tableName(clazz);
     log.debug(`creating record in table ${tableName} with id ${id}`);
+    await this.lock.acquire(tableName);
     if (!this.client.has(tableName)) this.client.set(tableName, new Map());
     if (
       this.client.get(tableName) &&
@@ -249,7 +250,6 @@ export class RamAdapter extends Adapter<
         `Record with id ${id} already exists in table ${tableName}`
       );
 
-    await this.lock.acquire(tableName);
     this.client.get(tableName)?.set(id as any, model);
     this.lock.release(tableName);
     return model;
@@ -337,6 +337,7 @@ export class RamAdapter extends Adapter<
     const tableName = Model.tableName(clazz);
     log.debug(`updating record in table ${tableName} with id ${id}`);
 
+    await this.lock.acquire(tableName);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
     if (!this.client.get(tableName)?.has(id as any))
@@ -344,7 +345,6 @@ export class RamAdapter extends Adapter<
         `Record with id ${id} not found in table ${tableName}`
       );
 
-    await this.lock.acquire(tableName);
     this.client.get(tableName)?.set(id as any, model);
     this.lock.release(tableName);
     return model;
@@ -389,6 +389,7 @@ export class RamAdapter extends Adapter<
     const tableName = Model.tableName(clazz);
     log.debug(`deleting record from table ${tableName} with id ${id}`);
 
+    await this.lock.acquire(tableName);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
     if (!this.client.get(tableName)?.has(id as any))
@@ -396,7 +397,6 @@ export class RamAdapter extends Adapter<
         `Record with id ${id} not found in table ${tableName}`
       );
 
-    await this.lock.acquire(tableName);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const table = this.client.get(tableName);
     const natived = this.client.get(tableName)?.get(id as any);

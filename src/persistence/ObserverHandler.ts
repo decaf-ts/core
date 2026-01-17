@@ -68,10 +68,11 @@ export class ObserverHandler<C extends Context<any> = Context>
    * @param {ObserverFilter} [filter] - Optional filter function to determine which events the observer receives
    * @return {void}
    */
-  observe(observer: Observer, filter?: ObserverFilter): void {
+  observe(observer: Observer, filter?: ObserverFilter): () => void {
     const index = this.observers.map((o) => o.observer).indexOf(observer);
     if (index !== -1) throw new InternalError("Observer already registered");
     this.observers.push({ observer: observer, filter: filter });
+    return () => this.unObserve(observer);
   }
 
   /**

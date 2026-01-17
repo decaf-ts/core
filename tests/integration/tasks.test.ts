@@ -21,6 +21,7 @@ import {
   AllOperationKeys,
   Context,
   EventIds,
+  Observer,
   PersistenceObserver,
 } from "../../src/index";
 import { Constructor } from "@decaf-ts/decoration";
@@ -274,11 +275,11 @@ describe("Task Engine", () => {
     };
     engine = new TaskEngine(config);
     engine.start();
-    unsubscribe = eventBus.on({
+    unsubscribe = eventBus.observe({
       refresh: async (_, __, ___, payload) => {
         recordedEvents.push(payload as TaskEventModel);
       },
-    });
+    } as Observer);
   });
 
   beforeEach(() => {

@@ -5,14 +5,15 @@ import {
   model,
   type ModelArg,
   Model,
+  date,
 } from "@decaf-ts/decorator-validation";
 import { prop } from "@decaf-ts/decoration";
-import { createdAt } from "../../model/index";
 
 @model()
 export class TaskLogEntryModel extends Model {
-  @createdAt()
-  ts!: Date;
+  @date()
+  @required()
+  ts: Date = new Date();
 
   @required()
   @option(LogLevel)

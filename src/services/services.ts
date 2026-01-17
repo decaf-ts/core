@@ -48,7 +48,7 @@ export abstract class Service<
    * @see {Observable#observe}
    */
   @final()
-  observe(observer: Observer, filter?: ObserverFilter): void {
+  observe(observer: Observer, filter?: ObserverFilter): () => void {
     if (!this.observerHandler)
       Object.defineProperty(this, "observerHandler", {
         value: new ObserverHandler(),
@@ -59,6 +59,7 @@ export abstract class Service<
     log.verbose(
       `Registered new observer ${observer.constructor.name || observer.toString()}`
     );
+    return () => this.unObserve(observer);
   }
 
   /**

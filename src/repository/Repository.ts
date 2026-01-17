@@ -1167,7 +1167,7 @@ export class Repository<
    * @see {Observable#observe}
    */
   @final()
-  observe(observer: Observer, filter?: ObserverFilter): void {
+  observe(observer: Observer, filter?: ObserverFilter): () => void {
     if (!this.observerHandler)
       Object.defineProperty(this, "observerHandler", {
         value: this.ObserverHandler(),
@@ -1195,6 +1195,7 @@ export class Repository<
     );
     this.observerHandler!.observe(observer, filter);
     log.verbose(`Registered new observer ${observer.toString()}`);
+    return () => this.unObserve(observer);
   }
 
   /**

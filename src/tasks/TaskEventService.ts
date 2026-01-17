@@ -1,5 +1,4 @@
 import { TaskEventModel } from "./models/TaskEventModel";
-import { service } from "../utils/decorators";
 import { ModelService } from "../services/ModelService";
 import { Constructor } from "@decaf-ts/decoration";
 import {
@@ -12,8 +11,7 @@ import { ContextualArgs } from "../utils/ContextualLoggedClass";
 import { Context } from "../persistence/index";
 import { TaskModel } from "./models/TaskModel";
 
-@service(TaskEventModel)
-export class TaskEventRepository extends ModelService<TaskEventModel> {
+export class TaskEventService extends ModelService<TaskEventModel> {
   constructor() {
     super(TaskEventModel);
     this.observe(

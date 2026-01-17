@@ -8,16 +8,16 @@ import { TaskStepResultModel } from "./models/TaskStepResultModel";
 import { TaskLogEntryModel } from "./models/TaskLogEntryModel";
 import { TaskEventType, TaskStatus, TaskType } from "./constants";
 import { Adapter, Context, ContextOf, FlagsOf } from "../persistence/index";
-import { log, LogLevel, now } from "@decaf-ts/logging";
+import { LogLevel } from "@decaf-ts/logging";
 import {
   AbsContextual,
   MaybeContextualArg,
 } from "../utils/ContextualLoggedClass";
-import { id, InternalError, OperationKeys } from "@decaf-ts/db-decorators";
+import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { computeBackoffMs, serializeError, sleep } from "./utils";
 import { TaskContext } from "./TaskContext";
-import { task } from "./decorators";
-import { step, type } from "@decaf-ts/decorator-validation";
+import { Constructor } from "@decaf-ts/decoration";
+import { TaskLogger } from "./logging";
 
 export type TaskEngineConfig<A extends Adapter<any, any, any, any>> = {
   adapter: A;
@@ -51,6 +51,10 @@ export class TaskEngine<
 > extends AbsContextual<ContextOf<A>> {
   private _tasks?: Repo<TaskModel>;
   private _events?: Repo<TaskEventModel>;
+
+  protected override get Context(): Constructor<ContextOf<A>> {
+    return TaskContext as unknown as Constructor<ContextOf<A>>;
+  }
 
   protected get adapter() {
     return this.config.adapter;
@@ -102,64 +106,6 @@ export class TaskEngine<
     log.info(`${task.classification} task registered under ${t.id}`);
     return t;
   }
-
-  // async enqueueAtomic(arg: {
-  //   id: string;
-  //   input?: any;
-  //   name?: string;
-  //   maxAttempts?: number;
-  //   backoff?: Partial<TaskBackoffModel>;
-  // }): Promise<TaskModel> {
-  //   const doc = new TaskModel({
-  //     id: arg.id,
-  //     type: TaskType.ATOMIC,
-  //     name: arg.name,
-  //     status: TaskStatus.PENDING,
-  //     input: arg.input,
-  //     attempt: 0,
-  //     maxAttempts: arg.maxAttempts ?? 5,
-  //     backoff: {
-  //       strategy: arg.backoff?.strategy ?? BackoffStrategy.EXPONENTIAL,
-  //       baseMs: arg.backoff?.baseMs ?? 1000,
-  //       maxMs: arg.backoff?.maxMs ?? 60_000,
-  //       jitter: arg.backoff?.jitter ?? JitterStrategy.FULL,
-  //     },
-  //     logTail: [],
-  //   });
-  //
-  //   return await this.push(doc);
-  // }
-  //
-  // async enqueueComposite(arg: {
-  //   id: string;
-  //   name?: string;
-  //   steps: Array<{ type: string; input?: any }>;
-  //   maxAttempts?: number;
-  //   backoff?: Partial<TaskBackoffModel>;
-  // }): Promise<TaskModel> {
-  //   const doc = new TaskModel({
-  //     id: arg.id,
-  //     type: TaskType.COMPOSITE,
-  //     name: arg.name,
-  //     status: TaskStatus.PENDING,
-  //     attempt: 0,
-  //     maxAttempts: arg.maxAttempts ?? 5,
-  //     backoff: new TaskBackoffModel({
-  //       strategy: arg.backoff?.strategy ?? BackoffStrategy.EXPONENTIAL,
-  //       baseMs: arg.backoff?.baseMs ?? 1000,
-  //       maxMs: arg.backoff?.maxMs ?? 60_000,
-  //       jitter: arg.backoff?.jitter ?? JitterStrategy.FULL,
-  //     }),
-  //     steps: arg.steps.map(
-  //       (s) => new TaskStepSpecModel({ classification: s.type, input: s.input })
-  //     ),
-  //     currentStep: 0,
-  //     stepResults: [],
-  //     logTail: [],
-  //   });
-  //
-  //   return await this.push(doc);
-  // }
 
   async cancel(
     id: string,
@@ -247,7 +193,7 @@ export class TaskEngine<
     ctx: Context
   ): Promise<TaskModel | null> {
     const log = ctx.logger.for(this.claimBatch);
-    const now = ctx.timestamp.getTime();
+    const now = new Date().getTime();
 
     const claimed = new TaskModel({
       ...task,
@@ -275,48 +221,46 @@ export class TaskEngine<
     task: TaskModel,
     context: Context<any>
   ): Promise<void> {
-    const { log } = this.logCtx([context], this.executeClaimed);
-    const { ctx } = (
-      await this.tasks["adapter"]["logCtx"](
-        [TaskModel],
-        task.classification,
-        true,
-        {
-          taskId: task.id,
-          attempt: task.attempt,
-          resultCache: {},
-          pipe: async (data: [LogLevel, string, any][]) => {
-            const [, logs] = await this.appendLog(ctx, task, data);
-            await this.emitLog(ctx, taskId, logs);
-          },
-          flush: async () => {
-            return ctx.logger.flush(ctx.pipe);
-          },
-          progress: async (data: any) => {
-            await this.emitProgress(ctx, taskId, data);
-          },
-          heartbeat: async () => {
-            // extend lease
-            if (task.leaseOwner !== this.config.workerId) return;
-            task.leaseExpiry = new Date(Date.now() + this.config.leaseMs);
-            try {
-              task = await this.tasks.update(task);
-            } catch {
-              // if we lose the claim, execution should still proceed; next update will fail and be retried by recovery
-            }
-          },
-        }
-      )
+    const { ctx, log } = (
+      await this.logCtx([context], task.classification, true)
     ).for(this.executeClaimed);
-    const taskId = task.id;
-    const taskContext = new TaskContext(ctx);
+    const taskCtx: TaskContext = new TaskContext(ctx).accumulate({
+      taskId: task.id,
+      logger: new TaskLogger(
+        log,
+        this.config.streamBufferSize,
+        this.config.maxLoggingBuffer
+      ),
+      attempt: task.attempt,
+      resultCache: {},
+      pipe: async (data: [LogLevel, string, any][]) => {
+        const [, logs] = await this.appendLog(taskCtx, task, data);
+        await this.emitLog(taskCtx, task.id, logs);
+      },
+      flush: async () => {
+        return taskCtx.logger.flush(taskCtx.pipe);
+      },
+      progress: async (data: any) => {
+        await this.emitProgress(taskCtx, task.id, data);
+      },
+      heartbeat: async () => {
+        // extend lease
+        if (task.leaseOwner !== this.config.workerId) return;
+        task.leaseExpiry = new Date(Date.now() + this.config.leaseMs);
+        try {
+          task = await this.tasks.update(task);
+        } catch {
+          // if we lose the claim, execution should still proceed; next update will fail and be retried by recovery
+        }
+      },
+    }) as TaskContext;
 
-    await this.emitStatus(ctx, task, TaskStatus.RUNNING);
+    await this.emitStatus(taskCtx, task, TaskStatus.RUNNING);
 
     try {
       let output: any;
       if (task.atomicity === TaskType.COMPOSITE) {
-        output = await this.runComposite(task, taskContext);
+        output = await this.runComposite(task, taskCtx);
       } else {
         const handler = this.registry.get(task.classification);
         log.debug(
@@ -326,7 +270,7 @@ export class TaskEngine<
           throw new InternalError(
             `No task handler registered for type: ${task.classification}`
           );
-        output = await handler.run(task.input, taskContext);
+        output = await handler.run(task.input, taskCtx);
         log.verbose(`handler finished for ${task.id}`);
       }
 
@@ -336,12 +280,12 @@ export class TaskEngine<
       task.leaseOwner = undefined;
       task.leaseExpiry = undefined;
 
-      task = await this.tasks.update(task, ctx);
-      taskContext.logger.info(`task ${task.id} success state ${task.status}`);
+      task = await this.tasks.update(task, taskCtx);
+      taskCtx.logger.info(`task ${task.id} success state ${task.status}`);
       log.info(
         `task ${task.id} success state ${task.status} attempt ${task.attempt}`
       );
-      await this.emitStatus(taskContext, task, TaskStatus.SUCCEEDED);
+      await this.emitStatus(taskCtx, task, TaskStatus.SUCCEEDED);
     } catch (err: any) {
       log.error("task execution error", err);
       const nextAttempt = (task.attempt ?? 0) + 1;
@@ -358,12 +302,12 @@ export class TaskEngine<
         task.error = serialized;
         task.leaseOwner = undefined;
         task.leaseExpiry = undefined;
-        task = await this.tasks.update(task, ctx);
+        task = await this.tasks.update(task, taskCtx);
         log.warn(
           `task ${task.id} waiting retry state ${task.status} attempt ${task.attempt}`
         );
-        await this.emitStatus(taskContext, task, TaskStatus.WAITING_RETRY);
-        await ctx.pipe(LogLevel.warn, `Retry scheduled`, {
+        await this.emitStatus(taskCtx, task, TaskStatus.WAITING_RETRY);
+        await taskCtx.pipe(LogLevel.warn, `Retry scheduled`, {
           nextRunAt,
           delayMs: delay,
           attempt: nextAttempt,
@@ -375,14 +319,18 @@ export class TaskEngine<
         task.leaseOwner = undefined;
         task.leaseExpiry = undefined;
 
-        task = await this.tasks.update(task, ctx);
+        task = await this.tasks.update(task, taskCtx);
         log.error(
           `task ${task.id} failed state ${task.status} attempt ${task.attempt}`
         );
-        await this.emitStatus(taskContext, task, TaskStatus.FAILED);
-        await ctx.pipe(LogLevel.error, `Task failed (max attempts reached)`, {
-          maxAttempts: task.maxAttempts,
-        });
+        await this.emitStatus(taskCtx, task, TaskStatus.FAILED);
+        await taskCtx.pipe(
+          LogLevel.error,
+          `Task failed (max attempts reached)`,
+          {
+            maxAttempts: task.maxAttempts,
+          }
+        );
       }
     }
   }
@@ -556,7 +504,7 @@ export class TaskEngine<
     type: TaskEventType,
     payload: any
   ): Promise<TaskEventModel> {
-    const evt = new TaskEventModel({ taskId, type, payload });
+    const evt = new TaskEventModel({ taskId, classification: type, payload });
     return await this.events.create(evt, ctx);
   }
 

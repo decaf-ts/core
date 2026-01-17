@@ -208,8 +208,8 @@ export class DummyAdapter extends Adapter<
     model: M,
     ...args: [...any[], RamContext]
   ): { record: Record<string, any>; id: string } {
-    const { ctx } = this.logCtx(args, this.create);
-    const prepared = super.prepare(model, ...args, ctx);
+    const { taskCtx } = this.logCtx(args, this.create);
+    const prepared = super.prepare(model, ...args, taskCtx);
     return prepared;
   }
 
@@ -316,7 +316,7 @@ export class DummyAdapter extends Adapter<
     id: PrimaryKeyType,
     ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
-    const { log, ctx } = this.logCtx(args, this.create);
+    const { log, taskCtx } = this.logCtx(args, this.create);
     const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
@@ -362,7 +362,7 @@ export class DummyAdapter extends Adapter<
     model: Record<string, any>,
     ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
-    const { log, ctx } = this.logCtx(args, this.create);
+    const { log, taskCtx } = this.logCtx(args, this.create);
     const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
@@ -409,7 +409,7 @@ export class DummyAdapter extends Adapter<
     id: PrimaryKeyType,
     ...args: ContextualArgs<RamContext>
   ): Promise<Record<string, any>> {
-    const { log, ctx } = this.logCtx(args, this.create);
+    const { log, taskCtx } = this.logCtx(args, this.create);
     const tableName = Model.tableName(clazz);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);

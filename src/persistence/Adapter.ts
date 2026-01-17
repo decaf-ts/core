@@ -842,7 +842,7 @@ export abstract class Adapter<
    * @return {void}
    */
   @final()
-  observe(observer: Observer, filter?: ObserverFilter): void {
+  observe(observer: Observer, filter?: ObserverFilter): () => void {
     if (!this.observerHandler)
       Object.defineProperty(this, "observerHandler", {
         value: this.ObserverHandler(),
@@ -856,6 +856,8 @@ export abstract class Adapter<
       this.dispatch = this.Dispatch();
       this.dispatch.observe(this);
     }
+
+    return () => this.unObserve(observer);
   }
 
   /**

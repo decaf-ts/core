@@ -237,7 +237,7 @@ export class TaskService<
   ): Promise<void> {
     return this.repo.refresh(table, event, id, ...args);
   }
-  override observe(observer: Observer, filter?: ObserverFilter): void {
+  override observe(observer: Observer, filter?: ObserverFilter): () => void {
     return this.repo.observe(observer, filter);
   }
 

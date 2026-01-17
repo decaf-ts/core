@@ -21,7 +21,7 @@ export class TaskLogger<LOG extends Logger> implements Logger {
       (this as any)[level] = new Proxy(this[level], {
         apply: (target, thisArg, argArray) => {
           target.apply(thisArg, argArray as [string, any]);
-          thisArg.push(...argArray);
+          thisArg.push(level, ...argArray);
         },
       });
     });
@@ -40,10 +40,10 @@ export class TaskLogger<LOG extends Logger> implements Logger {
     : [LogLevel, string, any][] {
     const result = this.history;
     this.history = [];
-    if (pipe)
-      return pipe(result).catch((e) =>
-        this.logger.error(`Failed to pipe logs`, e)
-      ) as any;
+    if (pipe && this.history.length)
+      return pipe(result)
+        .catch((e) => this.logger.error(`Failed to pipe logs`, e))
+        .finally(() => (this.history = [])) as any;
 
     this.history = [];
     return result as any;

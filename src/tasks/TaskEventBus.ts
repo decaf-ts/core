@@ -7,17 +7,12 @@ import { Observer } from "../interfaces/index";
 export class TaskEventBus extends ObserverHandler<TaskContext> {
   protected readonly listeners = new Set<(evt: TaskEventModel) => void>();
 
-  override observe(observer: Observer, filter?: ObserverFilter) {
-    super.observe(observer, filter);
+  override observe(observer: Observer, filter?: ObserverFilter): () => void {
+    return super.observe(observer, filter);
   }
 
   override unObserve(observer: Observer) {
     super.unObserve(observer);
-  }
-
-  on(observer: Observer): () => void {
-    this.observe(observer);
-    return () => this.unObserve(observer);
   }
 
   emit(evt: TaskEventModel, ctx: Context) {

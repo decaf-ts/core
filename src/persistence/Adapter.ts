@@ -53,7 +53,7 @@ import {
   MethodOrOperation,
 } from "../utils/ContextualLoggedClass";
 import { Paginator } from "../query/Paginator";
-import { PreparedStatement } from "../query/index";
+import { PreparedStatement } from "../query/types";
 import { promiseSequence } from "../utils/utils";
 import { UUID } from "./generators";
 

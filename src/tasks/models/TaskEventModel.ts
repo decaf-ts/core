@@ -1,4 +1,4 @@
-import { pk } from "../../identity/index";
+import { pk } from "../../identity/decorators";
 import {
   date,
   Model,
@@ -7,7 +7,7 @@ import {
   option,
   required,
 } from "@decaf-ts/decorator-validation";
-import { createdAt, table } from "../../model/index";
+import { table } from "../../model/decorators";
 import { prop } from "@decaf-ts/decoration";
 import {
   composed,

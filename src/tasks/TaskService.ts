@@ -5,11 +5,11 @@ import {
   type MethodOrOperation,
 } from "../utils/ContextualLoggedClass";
 import { ClientBasedService } from "../services/services";
-import { TaskEngine, type TaskEngineConfig } from "./TaskEngine";
+import { TaskEngine } from "./TaskEngine";
+import { Context } from "../persistence/Context";
+import { Adapter } from "../persistence/Adapter";
 import {
-  Adapter,
   type AllOperationKeys,
-  Context,
   type ContextOf,
   type EventIds,
   type ObserverFilter,
@@ -22,9 +22,11 @@ import {
   OperationKeys,
   type PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
-import { OrderDirection, type Repo, repository } from "../repository/index";
+import { OrderDirection } from "../repository/constants";
+import { type Repo } from "../repository/Repository";
+import { repository } from "../repository/decorators";
 import { TaskModel } from "./models/TaskModel";
-import { create, del, read, update } from "../utils/index";
+import { create, del, read, update } from "../utils/decorators";
 import {
   type DirectionLimitOffset,
   PreparedStatementKeys,
@@ -32,6 +34,7 @@ import {
 import type { Constructor } from "@decaf-ts/decoration";
 import type { Observer } from "../interfaces/index";
 import { ArrayMode } from "../services/index";
+import { TaskEngineConfig } from "./types";
 
 export class TaskService<
   A extends Adapter<any, any, any, any>,

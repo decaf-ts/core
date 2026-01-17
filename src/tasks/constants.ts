@@ -1,3 +1,5 @@
+import { TaskEngineConfig } from "./types";
+
 export enum TaskStatus {
   PENDING = "pending",
   RUNNING = "running",
@@ -21,6 +23,7 @@ export enum TaskEventType {
   STATUS = "status",
   LOG = "log",
   PROGRESS = "progress",
+  ALL = "all",
 }
 
 export enum TaskType {
@@ -29,3 +32,15 @@ export enum TaskType {
 }
 
 export const TasksKey = "tasks";
+
+export const DefaultTaskEngineConfig: TaskEngineConfig<any> = {
+  workerId: "default-worker",
+  concurrency: 10,
+  leaseMs: 60000,
+  pollMsIdle: 1000,
+  pollMsBusy: 500,
+  logTailMax: 100,
+  streamBufferSize: 5,
+  maxLoggingBuffer: 300,
+  loggingBufferTruncation: 20,
+} as TaskEngineConfig<any>;

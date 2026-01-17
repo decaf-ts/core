@@ -12,7 +12,7 @@ import { Repository } from "../repository/Repository";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import { Service } from "../services/services";
 import { TaskHandler } from "../tasks/TaskHandler";
-import { TasksKey } from "../tasks/index";
+import { TasksKey } from "../tasks/constants";
 import { type Migration } from "../migrations/types";
 
 (Metadata as any).tasks = function tasks():

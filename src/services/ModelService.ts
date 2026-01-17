@@ -27,8 +27,8 @@ import { create, del, read, service, update } from "../utils/decorators";
 import { OrderDirection } from "../repository/constants";
 import { type DirectionLimitOffset } from "../query/types";
 import { type Observer } from "../interfaces";
-import { PersistenceKeys } from "../persistence/index";
-import { PreparedStatementKeys } from "../query/index";
+import { PersistenceKeys } from "../persistence/constants";
+import { PreparedStatementKeys } from "../query/constants";
 
 export type ArrayMode = "one" | "many";
 

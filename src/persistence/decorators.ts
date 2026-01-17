@@ -10,7 +10,7 @@ import { apply, Decoration } from "@decaf-ts/decoration";
 import { ContextOf } from "./types";
 import { Repo } from "../repository/Repository";
 import { UUID } from "./generators";
-import { ContextualArgs } from "../utils/index";
+import { ContextualArgs } from "../utils/ContextualLoggedClass";
 
 /**
  * @description Handler function that sets a timestamp property to the current timestamp.

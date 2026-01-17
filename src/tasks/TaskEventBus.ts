@@ -1,8 +1,10 @@
 import { TaskEventModel } from "./models/TaskEventModel";
 
-import { Context, ObserverFilter, ObserverHandler } from "../persistence/index";
+import { Context } from "../persistence/Context";
+import { ObserverHandler } from "../persistence/ObserverHandler";
+import { ObserverFilter } from "../persistence/types";
 import { TaskContext } from "./TaskContext";
-import { Observer } from "../interfaces/index";
+import { Observer } from "../interfaces/Observer";
 
 export class TaskEventBus extends ObserverHandler<TaskContext> {
   protected readonly listeners = new Set<(evt: TaskEventModel) => void>();

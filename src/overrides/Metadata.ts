@@ -7,7 +7,7 @@ import type { ExtendedRelationsMetadata } from "../model";
 import { Context } from "../persistence/Context";
 import type { AdapterFlags } from "../persistence/types";
 import { TaskHandler } from "../tasks/TaskHandler";
-import { Migration } from "../migrations/index";
+import { Migration } from "../migrations/types";
 
 declare module "@decaf-ts/decoration" {
   // eslint-disable-next-line @typescript-eslint/no-namespace

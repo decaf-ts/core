@@ -52,7 +52,8 @@ import {
 import { Model } from "@decaf-ts/decorator-validation";
 import { prepared } from "../query/decorators";
 import { PreparedStatementKeys } from "../query/constants";
-import { Paginator, SerializedPage } from "../query/index";
+import { Paginator } from "../query/Paginator";
+import { SerializedPage } from "../query/Paginator";
 import { getFilters } from "../persistence/event-filters";
 
 /**

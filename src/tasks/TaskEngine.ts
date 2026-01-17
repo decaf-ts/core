@@ -6,8 +6,15 @@ import { TaskEventBus } from "./TaskEventBus";
 import { Condition } from "../query/Condition";
 import { TaskStepResultModel } from "./models/TaskStepResultModel";
 import { TaskLogEntryModel } from "./models/TaskLogEntryModel";
-import { TaskEventType, TaskStatus, TaskType } from "./constants";
-import { Adapter, Context, ContextOf, FlagsOf } from "../persistence/index";
+import {
+  DefaultTaskEngineConfig,
+  TaskEventType,
+  TaskStatus,
+  TaskType,
+} from "./constants";
+import { Adapter } from "../persistence/Adapter";
+import { Context } from "../persistence/Context";
+import { ContextOf, FlagsOf } from "../persistence/types";
 import { LogLevel } from "@decaf-ts/logging";
 import {
   AbsContextual,
@@ -18,33 +25,9 @@ import { computeBackoffMs, serializeError, sleep } from "./utils";
 import { TaskContext } from "./TaskContext";
 import { Constructor } from "@decaf-ts/decoration";
 import { TaskLogger } from "./logging";
-
-export type TaskEngineConfig<A extends Adapter<any, any, any, any>> = {
-  adapter: A;
-  bus: TaskEventBus;
-  registry: TaskHandlerRegistry;
-  workerId: string;
-  concurrency: number;
-  leaseMs: number;
-  pollMsIdle: number;
-  pollMsBusy: number;
-  logTailMax: number;
-  streamBufferSize: number;
-  maxLoggingBuffer: number;
-  loggingBufferTruncation: number;
-};
-
-export const DefaultTaskEngineConfig: TaskEngineConfig<any> = {
-  workerId: "default-worker",
-  concurrency: 10,
-  leaseMs: 60000,
-  pollMsIdle: 1000,
-  pollMsBusy: 500,
-  logTailMax: 100,
-  streamBufferSize: 5,
-  maxLoggingBuffer: 300,
-  loggingBufferTruncation: 20,
-} as TaskEngineConfig<any>;
+import { TaskEngineConfig, TaskProgressPayload } from "./types";
+import { TaskErrorModel } from "./models/TaskErrorModel";
+import { TaskTracker } from "./TaskTracker";
 
 export class TaskEngine<
   A extends Adapter<any, any, any, any>,
@@ -97,14 +80,20 @@ export class TaskEngine<
     return this.running;
   }
 
-  async push(task: TaskModel, ...args: MaybeContextualArg<any>) {
+  async push<TRACK extends boolean>(
+    task: TaskModel,
+    track: TRACK = false as TRACK,
+    ...args: MaybeContextualArg<any>
+  ): Promise<TRACK extends true ? TaskTracker<any> : void> {
     const { ctx, log } = (
       await this.logCtx(args, OperationKeys.CREATE, true)
     ).for(this.push);
     log.verbose(`pushing task ${task.classification}`);
     const t = await this.tasks.create(task, ctx);
     log.info(`${task.classification} task registered under ${t.id}`);
-    return t;
+    if (!track) return t as any;
+    const tracker = new TaskTracker(this.bus, t);
+    return tracker as any;
   }
 
   async cancel(
@@ -285,7 +274,7 @@ export class TaskEngine<
       log.info(
         `task ${task.id} success state ${task.status} attempt ${task.attempt}`
       );
-      await this.emitStatus(taskCtx, task, TaskStatus.SUCCEEDED);
+      await this.emitStatus(taskCtx, task, TaskStatus.SUCCEEDED, output);
     } catch (err: any) {
       log.error("task execution error", err);
       const nextAttempt = (task.attempt ?? 0) + 1;
@@ -323,7 +312,7 @@ export class TaskEngine<
         log.error(
           `task ${task.id} failed state ${task.status} attempt ${task.attempt}`
         );
-        await this.emitStatus(taskCtx, task, TaskStatus.FAILED);
+        await this.emitStatus(taskCtx, task, TaskStatus.FAILED, serialized);
         await taskCtx.pipe(
           LogLevel.error,
           `Task failed (max attempts reached)`,
@@ -397,6 +386,7 @@ export class TaskEngine<
         await this.emitProgress(ctx, task.id, {
           currentStep: idx,
           totalSteps: steps.length,
+          output: out,
         });
       } catch (err: any) {
         results[idx] = new TaskStepResultModel({
@@ -454,14 +444,23 @@ export class TaskEngine<
   private async emitStatus(
     ctx: TaskContext | Context,
     task: TaskModel,
-    status: TaskStatus
+    status: TaskStatus,
+    outputOrError?: any | Error
   ): Promise<void> {
     if (ctx instanceof TaskContext) {
       await ctx.flush();
     }
-    const evt = await this.persistEvent(ctx, task.id, TaskEventType.STATUS, {
-      status,
-    });
+
+    const payload: TaskProgressPayload = { status };
+    if (outputOrError && outputOrError instanceof TaskErrorModel)
+      payload.error = outputOrError;
+    else if (outputOrError) payload.output = outputOrError;
+    const evt = await this.persistEvent(
+      ctx,
+      task.id,
+      TaskEventType.STATUS,
+      payload
+    );
     this.bus.emit(evt, ctx);
   }
 

@@ -5,7 +5,7 @@ import { MaybeContextualArg } from "../utils/ContextualLoggedClass";
 import { Context } from "../persistence/Context";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Constructor } from "@decaf-ts/decoration";
-import { PersistenceKeys } from "../persistence/index";
+import { PersistenceKeys } from "../persistence/constants";
 
 export class PersistenceService<
   A extends Adapter<any, any, any, any>,

@@ -294,7 +294,6 @@ export class RamAdapter extends Adapter<
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
     if (!this.client.get(tableName)?.has(id as any)) {
-      this.lock.release(tableName);
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );

@@ -163,6 +163,7 @@ export class TaskEngine<
       const { ctx } = await this.logCtx([], "loop", true);
       const claimed = await this.claimBatch(ctx);
       await Promise.allSettled(claimed.map((t) => this.executeClaimed(t, ctx)));
+      if (claimed.length) return;
       await sleep(
         claimed.length ? this.config.pollMsBusy : this.config.pollMsIdle
       );
@@ -536,7 +537,8 @@ export class TaskEngine<
     payload: any
   ): Promise<TaskEventModel> {
     const evt = new TaskEventModel({ taskId, classification: type, payload });
-    return await this.events.create(evt, ctx);
+    const created = await this.events.create(evt, ctx);
+    return created;
   }
 
   override toString(): string {

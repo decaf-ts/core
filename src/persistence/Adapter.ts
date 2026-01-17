@@ -589,10 +589,8 @@ export abstract class Adapter<
     ...args: ContextualArgs<CONTEXT>
   ): M {
     const { log, ctx } = this.logCtx(args, this.revert);
-    const ob: Record<string, any> = {};
     const pk = Model.pk(clazz);
-    ob[pk as string] = id;
-    const m = new clazz(ob) as M;
+    const m = new clazz({ [pk]: id }) as M;
     log.silly(`Rebuilding model ${m.constructor.name} id ${id}`);
     const metadata = obj[PersistenceKeys.METADATA]; // TODO move to couchdb
     const result = Object.keys(m).reduce((accum: M, key) => {
@@ -606,7 +604,10 @@ export abstract class Adapter<
         `re-adding transient properties: ${Object.keys(transient).join(", ")}`
       );
       Object.entries(transient).forEach(([key, val]) => {
-        if (key in result)
+        if (
+          key in result &&
+          typeof result[key as keyof typeof result] !== "undefined"
+        )
           throw new InternalError(
             `Transient property ${key} already exists on model ${m.constructor.name}. should be impossible`
           );

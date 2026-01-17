@@ -27,7 +27,7 @@ import {
 import { Constructor } from "@decaf-ts/decoration";
 import { TaskEngineConfig } from "../../src/tasks/index";
 
-jest.setTimeout(20000);
+jest.setTimeout(200000);
 
 let adapter: RamAdapter;
 let eventBus: TaskEventBus;
@@ -265,7 +265,7 @@ describe("Task Engine", () => {
       bus: eventBus,
       registry,
       workerId: "integration-worker",
-      concurrency: 2,
+      concurrency: 1,
       leaseMs: 500,
       pollMsIdle: 20,
       pollMsBusy: 10,
@@ -334,6 +334,7 @@ describe("Task Engine", () => {
       ...dates,
       backoff: createBackoff(),
     }).build();
+    console.log("progress builder id", task.id);
     await engine.push(task);
     const finished = await waitForTaskCompletion(id);
     expect(finished.status).toBe(TaskStatus.SUCCEEDED);

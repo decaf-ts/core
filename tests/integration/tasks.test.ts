@@ -254,7 +254,7 @@ class TaskObserver implements PersistenceObserver<any> {
   }
 }
 
-describe.skip("Task Engine", () => {
+describe("Task Engine", () => {
   beforeAll(async () => {
     adapter = new RamAdapter();
     eventBus = new TaskEventBus();
@@ -297,7 +297,7 @@ describe.skip("Task Engine", () => {
 
   it("executes atomic tasks, persists logs, and emits status events", async () => {
     const dates = createDates();
-    const task = new TaskBuilder({
+    const toSubmit = new TaskBuilder({
       classification: "simple-task",
       input: 7,
       maxAttempts: 2,
@@ -305,8 +305,9 @@ describe.skip("Task Engine", () => {
       ...dates,
       backoff: createBackoff(),
     }).build();
-    const { id } = await engine.push(task);
-    const finished = await waitForTaskCompletion(id);
+    const { task, tracker } = await engine.push(toSubmit, true);
+    const { id } = task;
+    const finished = await tracker.resolve();
     expect(finished.status).toBe(TaskStatus.SUCCEEDED);
     expect(finished.output).toBe(14);
     expect(

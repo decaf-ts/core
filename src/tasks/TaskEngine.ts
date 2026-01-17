@@ -80,16 +80,31 @@ export class TaskEngine<
     return this.running;
   }
 
-  async push(
-    task: TaskModel,
+  async push<I, O>(
+    task: TaskModel<I, O>,
     ...args: MaybeContextualArg<any>
-  ): Promise<TaskModel>;
-  async push<TRACK extends boolean>(
-    task: TaskModel,
+  ): Promise<TaskModel<I, O>>;
+  async push<I, O>(
+    task: TaskModel<I, O>,
+    track: false,
+    ...args: MaybeContextualArg<any>
+  ): Promise<TaskModel<I, O>>;
+  async push<I, O>(
+    task: TaskModel<I, O>,
+    track: true,
+    ...args: MaybeContextualArg<any>
+  ): Promise<{
+    task: TaskModel<I, O>;
+    tracker: TaskTracker<(typeof task)["output"]>;
+  }>;
+  async push<I, O, TRACK extends boolean>(
+    task: TaskModel<I, O>,
     track: TRACK = false as TRACK,
     ...args: MaybeContextualArg<any>
   ): Promise<
-    TRACK extends true ? TaskTracker<(typeof task)["output"]> : TaskModel
+    TRACK extends true
+      ? { task: TaskModel<I, O>; tracker: TaskTracker<(typeof task)["output"]> }
+      : TaskModel
   > {
     const { ctx, log } = (
       await this.logCtx(args, OperationKeys.CREATE, true)
@@ -99,7 +114,7 @@ export class TaskEngine<
     log.info(`${task.classification} task registered under ${t.id}`);
     if (!track) return t as any;
     const tracker = new TaskTracker(this.bus, t);
-    return tracker as any;
+    return { task, tracker } as any;
   }
 
   async cancel(

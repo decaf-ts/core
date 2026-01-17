@@ -353,13 +353,9 @@ export class Repository<
   override(flags: Partial<FlagsOf<ContextOf<A>>>): this {
     return new Proxy(this, {
       get: (target: typeof this, p: string | symbol, receiver: any) => {
-        try {
-          const result = Reflect.get(target, p, receiver);
-          if (p !== "_overrides") return result;
-          return Object.assign({}, result, flags);
-        } catch (e: unknown) {
-          throw e;
-        }
+        const result = Reflect.get(target, p, receiver);
+        if (p !== "_overrides") return result;
+        return Object.assign({}, result, flags);
       },
     });
   }

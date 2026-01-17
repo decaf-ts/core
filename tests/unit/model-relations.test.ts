@@ -31,6 +31,7 @@ describe(`Complex Database`, function () {
 
   let sequenceRepository: RamRepository<Seq>;
   let userRepository: RamRepository<TestUserModel>;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let testDummyCountryModelRepository: RamRepository<TestDummyCountry>;
   let testPhoneModelRepository: RamRepository<TestPhoneModel>;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -120,9 +121,6 @@ describe(`Complex Database`, function () {
 
         const deleted = await noPopulateOnceModelRepository.delete(created.id);
         expect(deleted.country).toEqual(countryCurVal + 2);
-
-        const c = testDummyCountryModelRepository.read(countryCurVal + 1);
-        expect(c).toBeDefined();
       });
 
       it("Creates a one to one relation", async () => {

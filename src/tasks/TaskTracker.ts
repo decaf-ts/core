@@ -83,6 +83,7 @@ export class TaskTracker<R = any>
     this.pipes = undefined;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected async track(evt: TaskEventModel, ctx: Context) {
     if (evt.payload.status === TaskStatus.SUCCEEDED)
       this.succeed(evt.payload.output);

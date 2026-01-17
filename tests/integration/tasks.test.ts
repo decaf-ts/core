@@ -3,7 +3,7 @@
 import "../../src/index";
 import "../../src/overrides/index";
 import { RamAdapter } from "../../src/ram";
-import { TaskEngine, TaskEngineConfig } from "../../src/tasks/TaskEngine";
+import { TaskEngine } from "../../src/tasks/TaskEngine";
 import { TaskEventBus } from "../../src/tasks/TaskEventBus";
 import { TaskHandlerRegistry } from "../../src/tasks/TaskHandlerRegistry";
 import { TaskHandler } from "../../src/tasks/TaskHandler";
@@ -25,6 +25,7 @@ import {
   PersistenceObserver,
 } from "../../src/index";
 import { Constructor } from "@decaf-ts/decoration";
+import { TaskEngineConfig } from "../../src/tasks/index";
 
 jest.setTimeout(20000);
 

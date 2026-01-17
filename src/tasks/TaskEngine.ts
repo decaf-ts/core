@@ -80,11 +80,17 @@ export class TaskEngine<
     return this.running;
   }
 
+  async push(
+    task: TaskModel,
+    ...args: MaybeContextualArg<any>
+  ): Promise<TaskModel>;
   async push<TRACK extends boolean>(
     task: TaskModel,
     track: TRACK = false as TRACK,
     ...args: MaybeContextualArg<any>
-  ): Promise<TRACK extends true ? TaskTracker<any> : void> {
+  ): Promise<
+    TRACK extends true ? TaskTracker<(typeof task)["output"]> : TaskModel
+  > {
     const { ctx, log } = (
       await this.logCtx(args, OperationKeys.CREATE, true)
     ).for(this.push);

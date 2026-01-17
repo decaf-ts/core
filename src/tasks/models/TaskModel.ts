@@ -21,7 +21,7 @@ import { TaskLogEntryModel } from "./TaskLogEntryModel";
 
 @table("tasks")
 @model()
-export class TaskModel extends TaskBaseModel {
+export class TaskModel<INPUT = any, OUTPUT = any> extends TaskBaseModel {
   @pk({ type: "uuid" })
   id!: string;
 
@@ -42,11 +42,11 @@ export class TaskModel extends TaskBaseModel {
 
   @prop()
   @serialize()
-  input?: any;
+  input?: INPUT;
 
   @prop()
   @serialize()
-  output?: any;
+  output?: OUTPUT;
 
   @prop()
   @serialize()

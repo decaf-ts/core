@@ -659,7 +659,7 @@ export abstract class Adapter<
     model: Record<string, any>[],
     ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
-    const { log, ctxArgs } = this.logCtx(args, this.createAll);
+    const { log, ctx } = this.logCtx(args, this.createAll);
     if (!id || !model)
       throw new ValidationError("Ids and models cannot be null or undefined");
     if (id.length !== model.length)
@@ -668,7 +668,14 @@ export abstract class Adapter<
     log.debug(`Creating ${id.length} entries ${tableLabel} table`);
     return promiseSequence(
       id.map(
-        (i, count) => () => this.create(clazz, i, model[count], ...ctxArgs)
+        (i, count) => () =>
+          this.create(
+            clazz,
+            i,
+            model[count],
+            ...args,
+            ctx.override({ noEmitSingle: true }) as CONTEXT
+          )
       )
     );
   }
@@ -700,11 +707,19 @@ export abstract class Adapter<
     id: PrimaryKeyType[],
     ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
-    const { log, ctxArgs } = this.logCtx(args, this.readAll);
+    const { log, ctx } = this.logCtx(args, this.readAll);
     const tableName = Model.tableName(clazz);
     log.debug(`Reading ${id.length} entries ${tableName} table`);
     return promiseSequence(
-      id.map((i) => () => this.read(clazz, i, ...ctxArgs))
+      id.map(
+        (i) => () =>
+          this.read(
+            clazz,
+            i,
+            ...args,
+            ctx.override({ noEmitSingle: true }) as CONTEXT
+          )
+      )
     );
   }
 
@@ -740,14 +755,21 @@ export abstract class Adapter<
     model: Record<string, any>[],
     ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
-    const { log, ctxArgs } = this.logCtx(args, this.updateAll);
+    const { log, ctx } = this.logCtx(args, this.updateAll);
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
     const tableLabel = Model.tableName(clazz);
     log.debug(`Updating ${id.length} entries ${tableLabel} table`);
     return promiseSequence(
       id.map(
-        (i, count) => () => this.update(clazz, i, model[count], ...ctxArgs)
+        (i, count) => () =>
+          this.update(
+            clazz,
+            i,
+            model[count],
+            ...args,
+            ctx.override({ noEmitSingle: true }) as CONTEXT
+          )
       )
     );
   }
@@ -779,10 +801,18 @@ export abstract class Adapter<
     id: PrimaryKeyType[],
     ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
-    const { log, ctxArgs } = this.logCtx(args, this.deleteAll);
+    const { log, ctx } = this.logCtx(args, this.deleteAll);
     log.debug(`Deleting ${id.length} entries from ${tableName} table`);
     return promiseSequence(
-      id.map((i) => () => this.delete(tableName, i, ...ctxArgs))
+      id.map(
+        (i) => () =>
+          this.delete(
+            tableName,
+            i,
+            ...args,
+            ctx.override({ noEmitSingle: true }) as CONTEXT
+          )
+      )
     );
   }
 
@@ -864,7 +894,20 @@ export abstract class Adapter<
       throw new InternalError(
         "ObserverHandler not initialized. Did you register any observables?"
       );
-    await this.observerHandler.updateObservers(table, event, id, ...args);
+    const { ctx, ctxArgs } = this.logCtx(args, this.updateObservers);
+    if (!ctx.get("noEmit")) {
+      const isBulk = Array.isArray(id);
+      const emitSingle = !ctx.get("noEmitSingle");
+      const emitBulk = !ctx.get("noEmitBulk");
+      if ((isBulk && emitBulk) || (!isBulk && emitSingle)) {
+        await this.observerHandler.updateObservers(
+          table,
+          event,
+          id,
+          ...ctxArgs
+        );
+      }
+    }
   }
 
   /**

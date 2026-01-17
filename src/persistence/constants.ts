@@ -79,6 +79,8 @@ export enum PersistenceKeys {
 
   UUID = "uuid",
 
+  TAG_FOR_DELETION = "tag_for_deletion",
+
   INITIALIZATION = "initialization",
   SHUTDOWN = "shutdown",
 
@@ -94,6 +96,9 @@ export const DefaultAdapterFlags: AdapterFlags = Object.assign(
     forcePrepareSimpleQueries: false,
     forcePrepareComplexQueries: false,
     cacheForPopulate: {},
+    noEmit: false,
+    noEmitSingle: false,
+    noEmitBulk: false,
     observeFullResult: true,
     paginateByBookmark: false,
     dryRun: false,

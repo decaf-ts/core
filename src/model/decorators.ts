@@ -8,6 +8,7 @@ import {
   generated,
   OperationKeys,
   timestamp,
+  afterUpdate,
 } from "@decaf-ts/db-decorators";
 import {
   apply as newApply,
@@ -33,6 +34,7 @@ import {
   RelationsMetadata,
 } from "./types";
 import {
+  cascadeDelete,
   oneToManyOnCreate,
   oneToManyOnDelete,
   oneToManyOnUpdate,
@@ -57,6 +59,11 @@ export function table<OPTS = string>(opts?: OPTS) {
     .define({
       decorator: function table(opts: OPTS) {
         return function table(target: any) {
+          Metadata.set(
+            PersistenceKeys.TABLE,
+            opts || target.name.toLowerCase(),
+            target
+          );
           return metadata(
             PersistenceKeys.TABLE,
             opts || target.name.toLowerCase()
@@ -403,6 +410,7 @@ export function oneToOne<M extends Model>(
       onCreate(oneToOneOnCreate, meta),
       onUpdate(oneToOneOnUpdate, meta),
       onDelete(oneToOneOnDelete, meta),
+      afterUpdate(cascadeDelete, meta),
       afterAny(pop, meta),
     ];
     return apply(...decs);
@@ -475,6 +483,7 @@ export function oneToMany<M extends Model>(
       onCreate(oneToManyOnCreate, metadata),
       onUpdate(oneToManyOnUpdate, metadata),
       onDelete(oneToManyOnDelete, metadata),
+      afterUpdate(cascadeDelete, metadata),
       afterAny(pop, metadata),
     ];
     return apply(...decs);

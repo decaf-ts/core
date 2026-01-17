@@ -127,6 +127,17 @@ import { type Migration } from "../migrations/types";
   return !!seq.generated;
 }.bind(Model);
 
+(Model as any).fromTable = function fromTable<M extends Model>(
+  tableName: string
+): Constructor<M> {
+  const meta = Metadata["innerGet"](Symbol.for(PersistenceKeys.TABLE));
+  if (!meta || !meta[tableName] || !Model.get(meta[tableName].name))
+    throw new InternalError(
+      `No table metadata found for model. did you use @table()?`
+    );
+  return Model.get(meta[tableName].name) as Constructor<M>;
+}.bind(Model);
+
 (Metadata as any).createdBy = function createdBy<M extends Model>(
   model: M | Constructor<M>
 ): keyof M {

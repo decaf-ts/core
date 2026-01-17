@@ -7,15 +7,17 @@ import { Condition } from "../query/Condition";
 import { TaskStepResultModel } from "./models/TaskStepResultModel";
 import { TaskLogEntryModel } from "./models/TaskLogEntryModel";
 import { TaskEventType, TaskStatus, TaskType } from "./constants";
-import { Adapter, Context, ContextOf } from "../persistence/index";
-import { LogLevel } from "@decaf-ts/logging";
+import { Adapter, Context, ContextOf, FlagsOf } from "../persistence/index";
+import { log, LogLevel, now } from "@decaf-ts/logging";
 import {
   AbsContextual,
   MaybeContextualArg,
 } from "../utils/ContextualLoggedClass";
-import { InternalError } from "@decaf-ts/db-decorators";
+import { id, InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { computeBackoffMs, serializeError, sleep } from "./utils";
 import { TaskContext } from "./TaskContext";
+import { task } from "./decorators";
+import { step, type } from "@decaf-ts/decorator-validation";
 
 export type TaskEngineConfig<A extends Adapter<any, any, any, any>> = {
   adapter: A;
@@ -92,7 +94,9 @@ export class TaskEngine<
   }
 
   async push(task: TaskModel, ...args: MaybeContextualArg<any>) {
-    const { ctx, log } = await this.logCtx(args, this.push, true);
+    const { ctx, log } = (
+      await this.logCtx(args, OperationKeys.CREATE, true)
+    ).for(this.push);
     log.verbose(`pushing task ${task.classification}`);
     const t = await this.tasks.create(task, ctx);
     log.info(`${task.classification} task registered under ${t.id}`);
@@ -558,5 +562,19 @@ export class TaskEngine<
 
   override toString(): string {
     return `TaskEngine<${this.config.adapter.alias}>`;
+  }
+
+  override async context(
+    operation:
+      | ((...args: any[]) => any)
+      | OperationKeys.CREATE
+      | OperationKeys.READ
+      | OperationKeys.UPDATE
+      | OperationKeys.DELETE
+      | string,
+    overrides: Partial<FlagsOf<ContextOf<A>>>,
+    ...args: any[]
+  ): Promise<ContextOf<A>> {
+    return this.adapter.context(operation, overrides, TaskModel, ...args);
   }
 }

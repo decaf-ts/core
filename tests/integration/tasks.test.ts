@@ -252,7 +252,7 @@ class TaskObserver implements PersistenceObserver<any> {
   }
 }
 
-describe.skip("Task Engine", () => {
+describe("Task Engine", () => {
   beforeAll(async () => {
     adapter = new RamAdapter();
     eventBus = new TaskEventBus();

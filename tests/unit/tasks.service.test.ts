@@ -11,6 +11,7 @@ import { TaskEngineConfig } from "../../src/tasks/types";
 import { TaskStatus } from "../../src/tasks/constants";
 
 @task("service-task")
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 class ServiceTask extends TaskHandler<number | { value: number }, number> {
   async run(input: number | { value: number }, ctx: TaskContext) {
     let value: number | undefined;
@@ -31,7 +32,8 @@ class ServiceTask extends TaskHandler<number | { value: number }, number> {
     }
     if (input && typeof input === "object" && typeof input.value === "number")
       value = input.value;
-    if (typeof value !== "number") throw new Error("invalid service-task input");
+    if (typeof value !== "number")
+      throw new Error("invalid service-task input");
     await ctx.flush();
     return value + 1;
   }

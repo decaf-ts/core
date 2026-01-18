@@ -18,12 +18,14 @@ class TestLogger implements Logger {
     return this;
   }
   for(
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _config:
       | Partial<LoggingConfig>
       | string
       | { new (...args: any[]): any }
       | ((...args: any[]) => any)
       | object,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ..._args: any[]
   ): this {
     return this;
@@ -37,6 +39,7 @@ describe("tasks logging", () => {
 
     logger.info("hello", { ok: true } as LogMeta);
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const pipe = jest.fn(async (_logs: [LogLevel, string, any][]) => undefined);
     await logger.flush(pipe);
 

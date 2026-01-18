@@ -1,7 +1,6 @@
 import { pk } from "../../identity/decorators";
 import {
   date,
-  Model,
   model,
   type ModelArg,
   option,
@@ -17,12 +16,13 @@ import {
 } from "@decaf-ts/db-decorators";
 import { TaskEventType } from "../constants";
 import { uuid } from "../../persistence/decorators";
+import { BaseModel } from "../../model/BaseModel";
 
 @table("task_event")
 @model()
-export class TaskEventModel extends Model {
-  @pk()
+export class TaskEventModel extends BaseModel {
   @composed(["taskId", "classification", "uuid"], ":")
+  @pk()
   id!: string;
 
   @readonly()

@@ -8,8 +8,10 @@ import { TaskEventType, TaskStatus } from "./constants";
 import { EventPipe, LogPipeOptions } from "./types";
 import { getLogPipe } from "./logging";
 import { TaskModel } from "./models/TaskModel";
-import { Context } from "../persistence/index";
+import { Context, EventIds } from "../persistence/index";
 import { TaskErrorModel } from "./models/TaskErrorModel";
+import { TaskEventBus } from "./TaskEventBus";
+import { ContextualArgs } from "../utils/index";
 
 export class TaskTracker<R = any>
   implements Observer<[TaskEventModel, Context]>
@@ -24,22 +26,20 @@ export class TaskTracker<R = any>
   private readonly promise: Promise<any>;
 
   constructor(
-    protected taskEngine: Observable<
-      any,
-      [ModelConstructor<any>, string, string, TaskEventModel]
-    >,
+    protected bus: TaskEventBus,
     private readonly task: TaskModel
   ) {
-    this.unregistration = taskEngine.observe(
+    this.unregistration = bus.observe(
       this,
       (
         table: ModelConstructor<any> | string,
         operation: string,
-        id: string
+        id: EventIds,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        ...args: ContextualArgs<any>
       ) => {
         return (
-          operation === OperationKeys.CREATE &&
-          id === this.task.id &&
+          (id as string).startsWith(this.task.id) &&
           (table === TaskEventModel ||
             table === Model.tableName(TaskEventModel))
         );

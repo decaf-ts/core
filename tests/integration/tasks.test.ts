@@ -277,7 +277,7 @@ describe("Task Engine", () => {
     engine = new TaskEngine(config);
     engine.start();
     unsubscribe = eventBus.observe({
-      refresh: async (_, __, ___, payload) => {
+      refresh: async (payload) => {
         recordedEvents.push(payload as TaskEventModel);
       },
     } as Observer);

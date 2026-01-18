@@ -590,14 +590,17 @@ export abstract class Adapter<
   ): M {
     const { log, ctx } = this.logCtx(args, this.revert);
     const pk = Model.pk(clazz);
-    const m = new clazz({ [pk]: id }) as M;
+    const m = new clazz() as M;
+    m[pk] = id as any;
     log.silly(`Rebuilding model ${m.constructor.name} id ${id}`);
     const metadata = obj[PersistenceKeys.METADATA]; // TODO move to couchdb
-    const result = Object.keys(m).reduce((accum: M, key) => {
-      (accum as Record<string, any>)[key] =
-        obj[Model.columnName(clazz, key as keyof M)];
-      return accum;
-    }, m);
+    const result = Object.keys(m)
+      .filter((k) => k !== pk)
+      .reduce((accum: M, key) => {
+        (accum as Record<string, any>)[key] =
+          obj[Model.columnName(clazz, key as keyof M)];
+        return accum;
+      }, m);
 
     if (ctx.get("rebuildWithTransient") && transient) {
       log.verbose(

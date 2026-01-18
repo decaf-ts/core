@@ -1,11 +1,9 @@
 import { Observer } from "../interfaces/Observer";
 import { TaskEventModel } from "./models/TaskEventModel";
-import { Observable } from "../interfaces/index";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
-import { OperationKeys } from "@decaf-ts/db-decorators";
-import { Logger } from "@decaf-ts/logging";
+import { Logger, LogLevel } from "@decaf-ts/logging";
 import { TaskEventType, TaskStatus } from "./constants";
-import { EventPipe, LogPipeOptions } from "./types";
+import { EventPipe, LogPipe, LogPipeOptions } from "./types";
 import { getLogPipe } from "./logging";
 import { TaskModel } from "./models/TaskModel";
 import { Context, EventIds } from "../persistence/index";
@@ -66,6 +64,14 @@ export class TaskTracker<R = any>
     this.pipe(getLogPipe(log, opts));
   }
 
+  logs(pipe: LogPipe) {
+    this.pipe(async (evt: TaskEventModel) => {
+      if (evt.classification !== TaskEventType.LOG) return;
+      const logs: [LogLevel, string, any][] = evt.payload;
+      await pipe(logs);
+    }, TaskEventType.LOG);
+  }
+
   protected pipe(pipe: EventPipe, type: TaskEventType = TaskEventType.ALL) {
     this.pipes = this.pipes || ({} as Record<TaskEventType, Set<EventPipe>>);
     this.pipes[type] = this.pipes[type] || new Set<EventPipe>();
@@ -85,9 +91,8 @@ export class TaskTracker<R = any>
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected async track(evt: TaskEventModel, ctx: Context) {
-    if (evt.payload.status === TaskStatus.SUCCEEDED)
-      this.succeed(evt.payload.output);
-    if (evt.payload.status === TaskStatus.FAILED) this.fail(evt.payload.output);
+    if (evt.payload.status === TaskStatus.SUCCEEDED) this.succeed(evt.payload);
+    if (evt.payload.status === TaskStatus.FAILED) this.fail(evt.payload);
   }
 
   async refresh(evt: TaskEventModel, ctx: Context): Promise<void> {

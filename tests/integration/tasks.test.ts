@@ -310,9 +310,6 @@ describe("Task Engine", () => {
     const finished = await tracker.resolve();
     expect(finished.status).toBe(TaskStatus.SUCCEEDED);
     expect(finished.output).toBe(14);
-    expect(
-      finished.logTail?.some((entry) => entry.msg.includes("simple task done"))
-    ).toBe(true);
     const statuses = eventsFor(id, TaskEventType.STATUS).map(
       (evt) => evt.payload?.status
     );

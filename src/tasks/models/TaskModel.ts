@@ -85,6 +85,7 @@ export class TaskModel<INPUT = any, OUTPUT = any> extends TaskBaseModel {
   steps?: TaskStepSpecModel[]; // only for type === "composite"
 
   @min(0)
+  @prop()
   currentStep?: number; // index of next step to run
 
   @serialize()

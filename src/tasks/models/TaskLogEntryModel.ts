@@ -16,10 +16,12 @@ export class TaskLogEntryModel extends Model {
   ts: Date = new Date();
 
   @required()
+  @prop()
   @option(LogLevel)
   level!: LogLevel;
 
   @required()
+  @prop()
   msg!: string;
 
   @prop()

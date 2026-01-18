@@ -45,7 +45,7 @@ export class TaskLogger<LOG extends Logger> implements Logger {
     : [LogLevel, string, any][] {
     const result = this.history;
     this.history = [];
-    if (pipe && this.history.length)
+    if (pipe && result.length)
       return pipe(result)
         .catch((e) => this.logger.error(`Failed to pipe logs`, e))
         .finally(() => (this.history = [])) as any;
@@ -179,8 +179,9 @@ export function getLogPipe<LOG extends Logger>(
       }
       case TaskEventType.STATUS: {
         if (opts.logStatus) {
-          let status = style(evt.payload);
-          switch (evt.payload) {
+          const statusValue = evt.payload?.status ?? evt.payload;
+          let status = style(statusValue);
+          switch (statusValue) {
             case TaskStatus.SUCCEEDED:
               status = status.green.bold;
               break;

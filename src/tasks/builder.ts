@@ -155,6 +155,7 @@ export class CompositeTaskBuilder extends TaskBuilder {
   constructor(arg?: ModelArg<CompositeTaskBuilder>) {
     super(arg);
     Model.fromModel(this, arg);
+    this.atomicity = TaskType.COMPOSITE;
   }
 
   setSteps(value: TaskStepSpecModel[]): this {
@@ -164,10 +165,13 @@ export class CompositeTaskBuilder extends TaskBuilder {
 
   addStep(classification: string, input?: any): this {
     this.steps = this.steps || [];
+    const now = new Date();
     this.steps.push(
       new TaskStepSpecModel({
         classification,
         input,
+        createdAt: now,
+        updatedAt: now,
       })
     );
     return this;

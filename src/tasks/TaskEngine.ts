@@ -6,6 +6,8 @@ import { TaskEventBus } from "./TaskEventBus";
 import { Condition } from "../query/Condition";
 import { TaskStepResultModel } from "./models/TaskStepResultModel";
 import { TaskLogEntryModel } from "./models/TaskLogEntryModel";
+import { TaskBackoffModel } from "./models/TaskBackoffModel";
+import { TaskStepSpecModel } from "./models/TaskStepSpecModel";
 import {
   DefaultTaskEngineConfig,
   TaskEventType,
@@ -114,7 +116,7 @@ export class TaskEngine<
     log.info(`${task.classification} task registered under ${t.id}`);
     if (!track) return t as any;
     const tracker = new TaskTracker(this.bus, t);
-    return { task, tracker } as any;
+    return { task: t, tracker } as any;
   }
 
   async track(id: string, ...args: MaybeContextualArg<any>) {
@@ -163,7 +165,6 @@ export class TaskEngine<
       const { ctx } = await this.logCtx([], "loop", true);
       const claimed = await this.claimBatch(ctx);
       await Promise.allSettled(claimed.map((t) => this.executeClaimed(t, ctx)));
-      if (claimed.length) return;
       await sleep(
         claimed.length ? this.config.pollMsBusy : this.config.pollMsIdle
       );
@@ -217,8 +218,15 @@ export class TaskEngine<
     const log = ctx.logger.for(this.claimBatch);
     const now = new Date().getTime();
 
+    let source: TaskModel = task;
+    try {
+      source = await this.tasks.read(task.id, ctx);
+    } catch {
+      // fallback to candidate payload
+    }
+
     const claimed = new TaskModel({
-      ...task,
+      ...source,
       status: TaskStatus.RUNNING,
       leaseOwner: this.config.workerId,
       leaseExpiry: new Date(now + this.config.leaseMs),
@@ -283,6 +291,15 @@ export class TaskEngine<
       let output: any;
       if (task.atomicity === TaskType.COMPOSITE) {
         output = await this.runComposite(task, taskCtx);
+        try {
+          task = await this.tasks.read(task.id, taskCtx);
+        } catch {
+          // keep best-effort task state
+        }
+        if (output?.stepResults) {
+          task.stepResults = output.stepResults;
+          task.currentStep = output.stepResults.length;
+        }
       } else {
         const handler = this.registry.get(task.classification);
         log.debug(
@@ -310,12 +327,30 @@ export class TaskEngine<
       await this.emitStatus(taskCtx, task, TaskStatus.SUCCEEDED, output);
     } catch (err: any) {
       log.error("task execution error", err);
+      try {
+        task = await this.tasks.read(task.id, taskCtx);
+      } catch {
+        // keep best-effort task state for retries/failures
+      }
+      if (task.atomicity === TaskType.COMPOSITE) {
+        const normalizedResults = this.normalizeStepResults(task.stepResults);
+        task.stepResults = normalizedResults;
+        if (task.currentStep == null) {
+          const failedIdx = normalizedResults.findIndex(
+            (step) => step.status === TaskStatus.FAILED
+          );
+          if (failedIdx >= 0) task.currentStep = failedIdx;
+        }
+      }
       const nextAttempt = (task.attempt ?? 0) + 1;
 
       const serialized = serializeError(err);
 
       if (nextAttempt < task.maxAttempts) {
-        const delay = computeBackoffMs(nextAttempt, task.backoff);
+        const delay = computeBackoffMs(
+          nextAttempt,
+          this.normalizeBackoff(task.backoff)
+        );
         const nextRunAt = new Date(Date.now() + delay);
 
         task.attempt = nextAttempt;
@@ -364,9 +399,9 @@ export class TaskEngine<
     const { ctx } = (
       await this.logCtx([context], task.classification, true)
     ).for(this.runComposite);
-    const steps = task.steps ?? [];
+    const steps = this.normalizeSteps(task.steps);
     let idx = task.currentStep ?? 0;
-    const results = task.stepResults ?? [];
+    const results = this.normalizeStepResults(task.stepResults);
 
     const cacheResult = (key: string, value: any) => {
       context.cacheResult(key, value);
@@ -394,18 +429,21 @@ export class TaskEngine<
           `No task handler registered for composite step: ${step.classification}`
         );
 
-      await ctx.pipe([
+      await context.pipe([
         LogLevel.info,
         `Composite step ${idx + 1}/${steps.length}: ${step.classification}`,
       ]);
 
       try {
-        const out = await handler.run(step.input, ctx);
+        const out = await handler.run(step.input, context);
 
         const stepIndex = idx;
+        const now = new Date();
         results[stepIndex] = new TaskStepResultModel({
           status: TaskStatus.SUCCEEDED,
           output: out,
+          createdAt: now,
+          updatedAt: now,
         });
         const cacheKey = `${task.id}:step:${stepIndex}`;
         cacheResult(step.classification, out);
@@ -416,15 +454,18 @@ export class TaskEngine<
         task.currentStep = idx;
 
         task = await this.tasks.update(task);
-        await this.emitProgress(ctx, task.id, {
+        await this.emitProgress(context, task.id, {
           currentStep: idx,
           totalSteps: steps.length,
           output: out,
         });
       } catch (err: any) {
+        const now = new Date();
         results[idx] = new TaskStepResultModel({
           status: TaskStatus.FAILED,
           error: serializeError(err),
+          createdAt: now,
+          updatedAt: now,
         });
         task.stepResults = results;
         task.currentStep = idx;
@@ -437,6 +478,75 @@ export class TaskEngine<
     }
 
     return { stepResults: results };
+  }
+
+  private normalizeBackoff(backoff: TaskBackoffModel | string | object | any) {
+    if (backoff instanceof TaskBackoffModel) return backoff;
+    let payload: any = backoff ?? {};
+    if (typeof payload === "string") {
+      try {
+        payload = JSON.parse(payload);
+      } catch {
+        payload = {};
+      }
+    }
+    return new TaskBackoffModel(payload);
+  }
+
+  private normalizeSteps(
+    steps: TaskStepSpecModel[] | string | undefined
+  ): TaskStepSpecModel[] {
+    if (!steps) return [];
+    let payload: any = steps;
+    if (typeof payload === "string") {
+      try {
+        payload = JSON.parse(payload);
+      } catch {
+        return [];
+      }
+    }
+    if (payload instanceof Set) payload = Array.from(payload);
+    if (!Array.isArray(payload)) return [];
+    return payload.map((step) => {
+      if (step instanceof TaskStepSpecModel) return step;
+      let value: any = step;
+      if (typeof value === "string") {
+        try {
+          value = JSON.parse(value);
+        } catch {
+          value = {};
+        }
+      }
+      return new TaskStepSpecModel(value);
+    });
+  }
+
+  private normalizeStepResults(
+    results: TaskStepResultModel[] | string | undefined
+  ): TaskStepResultModel[] {
+    if (!results) return [];
+    let payload: any = results;
+    if (typeof payload === "string") {
+      try {
+        payload = JSON.parse(payload);
+      } catch {
+        return [];
+      }
+    }
+    if (payload instanceof Set) payload = Array.from(payload);
+    if (!Array.isArray(payload)) return [];
+    return payload.map((result) => {
+      if (result instanceof TaskStepResultModel) return result;
+      let value: any = result;
+      if (typeof value === "string") {
+        try {
+          value = JSON.parse(value);
+        } catch {
+          value = {};
+        }
+      }
+      return new TaskStepResultModel(value);
+    });
   }
 
   // -------------------------

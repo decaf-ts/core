@@ -113,8 +113,9 @@ export class TaskService<
     const { ctxArgs } = (
       await this.logCtx(args, OperationKeys.CREATE, true)
     ).for(this.create);
-    return this.repo.create(model, ...ctxArgs);
+    const created = await this.repo.create(model, ...ctxArgs);
     if (!this.client.isRunning()) this.client.start();
+    return created;
   }
 
   @create()
@@ -125,8 +126,9 @@ export class TaskService<
     const { ctxArgs } = (
       await this.logCtx(args, BulkCrudOperationKeys.CREATE_ALL, true)
     ).for(this.createAll);
-    return this.repo.createAll(models, ...ctxArgs);
+    const created = await this.repo.createAll(models, ...ctxArgs);
     if (!this.client.isRunning()) this.client.start();
+    return created;
   }
 
   @del()

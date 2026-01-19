@@ -3,7 +3,7 @@ import {
   DefaultRepositoryFlags,
   OperationKeys,
 } from "@decaf-ts/db-decorators";
-import { AdapterFlags } from "./types";
+import { AdapterFlags, ContextFlags } from "./types";
 import { PreparedStatementKeys } from "../query/constants";
 
 /**
@@ -86,6 +86,13 @@ export enum PersistenceKeys {
 
   BY_KEY = "by-key",
 }
+
+export const DefaultContextFlags: ContextFlags<any> = Object.assign(
+  {},
+  {
+    ignoreDevSafeGuards: false,
+  }
+) as ContextFlags<any>;
 
 export const DefaultAdapterFlags: AdapterFlags = Object.assign(
   {},

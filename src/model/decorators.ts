@@ -407,11 +407,11 @@ export function oneToOne<M extends Model>(
       prop(),
       relation(key, meta),
       type([clazz, ...pkTypes]),
-      onCreate(oneToOneOnCreate, meta),
-      onUpdate(oneToOneOnUpdate, meta),
-      onDelete(oneToOneOnDelete, meta),
-      afterUpdate(cascadeDelete, meta),
-      afterAny(pop, meta),
+      onCreate(oneToOneOnCreate, meta, { priority: 70 }),
+      onUpdate(oneToOneOnUpdate, meta, { priority: 70 }),
+      onDelete(oneToOneOnDelete, meta, { priority: 70 }),
+      afterUpdate(cascadeDelete, meta, { priority: 70 }),
+      afterAny(pop, meta, { priority: 70 }),
     ];
     return apply(...decs);
   }
@@ -480,11 +480,11 @@ export function oneToMany<M extends Model>(
       prop(),
       relation(key, metadata),
       list([clazz, ...pkTypes]),
-      onCreate(oneToManyOnCreate, metadata),
-      onUpdate(oneToManyOnUpdate, metadata),
-      onDelete(oneToManyOnDelete, metadata),
-      afterUpdate(cascadeDelete, metadata),
-      afterAny(pop, metadata),
+      onCreate(oneToManyOnCreate, metadata, { priority: 70 }),
+      onUpdate(oneToManyOnUpdate, metadata, { priority: 70 }),
+      onDelete(oneToManyOnDelete, metadata, { priority: 70 }),
+      afterUpdate(cascadeDelete, metadata, { priority: 70 }),
+      afterAny(pop, metadata, { priority: 70 }),
     ];
     return apply(...decs);
   }

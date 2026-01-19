@@ -1,6 +1,6 @@
 import type {
-  AdapterFlags,
   AllOperationKeys,
+  ContextFlags,
   EventIds,
   FlagsOf,
   ObserverFilter,
@@ -8,7 +8,7 @@ import type {
   PersistenceObserver,
 } from "../persistence/types";
 import { Context } from "../persistence/Context";
-import { Logging, type Logger, final } from "@decaf-ts/logging";
+import { final, type Logger, Logging } from "@decaf-ts/logging";
 import {
   ContextualArgs,
   ContextualizedArgs,
@@ -18,7 +18,7 @@ import {
 } from "../utils/ContextualLoggedClass";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Constructor } from "@decaf-ts/decoration";
-import { DefaultAdapterFlags, PersistenceKeys } from "../persistence/constants";
+import { DefaultContextFlags, PersistenceKeys } from "../persistence/constants";
 import { injectableServiceKey } from "../utils/utils";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import { UUID } from "../persistence/generators";
@@ -26,7 +26,7 @@ import type { Observer } from "../interfaces/Observer";
 import { ObserverHandler } from "../persistence/ObserverHandler";
 
 export abstract class Service<
-    C extends Context<AdapterFlags> = Context<AdapterFlags>,
+    C extends Context<ContextFlags<any>> = Context<ContextFlags<any>>,
   >
   extends ContextualLoggedClass<C>
   implements PersistenceObservable<C>, PersistenceObserver<C>
@@ -131,7 +131,7 @@ export abstract class Service<
       flags.correlationId || `${operation}-${UUID.instance.generate()}`;
     const log = (flags.logger || Logging.for(this as any)) as Logger;
     log.setConfig({ correlationId: flags.correlationId });
-    return Object.assign({}, DefaultAdapterFlags, flags, {
+    return Object.assign({}, flags, {
       args: args,
       timestamp: new Date(),
       operation: operation,
@@ -179,19 +179,37 @@ export abstract class Service<
       args.push(ctx);
       ctx = undefined;
     }
-
+    overrides = ctx
+      ? Object.assign({}, ctx.toOverrides(), overrides)
+      : overrides;
     const flags = await this.flags(
       typeof operation === "string" ? operation : operation.name,
       overrides as Partial<FlagsOf<C>>,
-      ...args
+      ...args,
+      ctx
     );
     if (ctx) {
-      return new this.Context(ctx).accumulate({
-        ...flags,
-        parentContext: ctx,
-      }) as any;
+      if (!(ctx instanceof this.Context)) {
+        return new this.Context().accumulate({
+          ...ctx["cache"],
+          ...flags,
+          parentContext: ctx,
+        }) as any;
+      }
+      const currentOp = ctx.get("operation");
+      if (currentOp !== operation)
+        return new this.Context().accumulate({
+          ...ctx["cache"],
+          ...flags,
+          parentContext: ctx,
+        }) as any;
+      return ctx.accumulate(flags) as any;
     }
-    return new this.Context().accumulate(flags) as any;
+
+    return new this.Context().accumulate({
+      ...DefaultContextFlags,
+      ...flags,
+    }) as any;
   }
 
   protected override logCtx<
@@ -331,7 +349,9 @@ export abstract class ClientBasedService<
 
   @final()
   async boot(...args: MaybeContextualArg<C>) {
-    const { log, ctxArgs } = await this.logCtx(args, this.boot, true);
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
+    ).for(this.boot);
     log.verbose(`Initializing ${this.toString()}...`);
     const { config, client } = await this.initialize(...ctxArgs);
     this._config = config;

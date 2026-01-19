@@ -2,17 +2,12 @@ import { DefaultMigrationConfig } from "./constants";
 import { Migration, MigrationConfig } from "./types";
 import { ClientBasedService, Service } from "../services/services";
 import { Adapter } from "../persistence/Adapter";
-import { Context } from "../persistence/Context";
 import { PersistenceKeys } from "../persistence/constants";
 import { MigrationError } from "../persistence/errors";
-import { AdapterFlags, ContextOf, FlagsOf } from "../persistence/types";
-
+import { ContextOf } from "../persistence/types";
 import {
   ContextualArgs,
-  ContextualizedArgs,
-  ContextualLoggedClass,
   MaybeContextualArg,
-  MethodOrOperation,
 } from "../utils/ContextualLoggedClass";
 import { style } from "@decaf-ts/logging";
 import { DefaultFlavour, Metadata } from "@decaf-ts/decoration";
@@ -157,7 +152,7 @@ export class MigrationService<
     adapter?: any,
     ...args: MaybeContextualArg<ContextOf<any>>
   ): Promise<void> {
-    const { ctxArgs, ctx, log } = (
+    const { ctxArgs, log } = (
       await this.logCtx(args, PersistenceKeys.MIGRATION, true)
     ).for(this.migrate);
     let m: Migration<any, any>;
@@ -185,8 +180,6 @@ export class MigrationService<
       `sorted migration before execution: ${sortedMigrations.map((s) => s.reference)}`
     );
 
-    const breakOnError = ctx.get("breakOnHandlerError");
-
     for (const m of sortedMigrations) {
       let adapter: Adapter<any, any, any, any>;
       let qr: any;
@@ -203,48 +196,28 @@ export class MigrationService<
           );
         qr = adapter.client;
       } catch (e: unknown) {
-        if (breakOnError)
-          throw new InternalError(
-            `Failed to load adapter to migrate ${m.reference}: ${e}`
-          );
-        log.warn(
-          style(`Failed to load adapter to migrate. skipping ${m.reference}`)
-            .red.bold
+        throw new InternalError(
+          `Failed to load adapter to migrate ${m.reference}: ${e}`
         );
-        continue;
       }
 
       try {
         await m.up(qr, adapter, ...ctxArgs);
       } catch (e: unknown) {
-        if (breakOnError)
-          throw new MigrationError(
-            `failed to initialize migration ${m.reference}: ${e}`
-          );
-        log.warn(
-          style(`Failed to initialize migration ${m.reference}. skipping`).red
-            .bold
+        throw new MigrationError(
+          `failed to initialize migration ${m.reference}: ${e}`
         );
-        continue;
       }
       try {
         await m.migrate(qr, adapter, ...ctxArgs);
       } catch (e: unknown) {
-        if (breakOnError)
-          throw new MigrationError(`failed to migrate ${m.reference}: ${e}`);
-        log.warn(style(`Failed to migrate ${m.reference}. skipping`).red.bold);
-        continue;
+        throw new MigrationError(`failed to migrate ${m.reference}: ${e}`);
       }
       try {
         await m.down(qr, adapter, ...ctxArgs);
       } catch (e: unknown) {
-        if (breakOnError)
-          throw new MigrationError(
-            `failed to conclude migration ${m.reference}: ${e}`
-          );
-        log.warn(
-          style(`Failed to conclude migration ${m.reference}. skipping`).red
-            .bold
+        throw new MigrationError(
+          `failed to conclude migration ${m.reference}: ${e}`
         );
       }
     }
@@ -257,132 +230,6 @@ export class MigrationService<
   ): Promise<void> {
     const { log } = this.logCtx(args, this.down);
     log.verbose(style("Setting up migration process").yellow.bold);
-  }
-
-  override async context(
-    operation: ((...args: any[]) => any) | string,
-    overrides: Partial<FlagsOf<Context<AdapterFlags>>>,
-    ...args: any[]
-  ): Promise<Context<AdapterFlags>> {
-    const log = this.log.for(this.context);
-    log.silly(
-      `creating new context for ${operation} operation with flag overrides: ${JSON.stringify(overrides)}`
-    );
-    let ctx = args.pop();
-    if (typeof ctx !== "undefined" && !(ctx instanceof Context)) {
-      args.push(ctx);
-      ctx = undefined;
-    }
-
-    const flags = await this.flags(
-      typeof operation === "string" ? operation : operation.name,
-      overrides as Partial<FlagsOf<any>>,
-      ...args
-    );
-    if (ctx) {
-      return new this.Context(ctx).accumulate({
-        ...flags,
-        parentContext: ctx,
-      }) as any;
-    }
-    return new this.Context().accumulate(flags) as any;
-  }
-
-  protected override logCtx<
-    ARGS extends any[] = any[],
-    METHOD extends MethodOrOperation = MethodOrOperation,
-  >(
-    args: MaybeContextualArg<ContextOf<A>, ARGS>,
-    operation: METHOD
-  ): ContextualizedArgs<
-    ContextOf<A>,
-    ARGS,
-    METHOD extends string ? true : false
-  >;
-  protected override logCtx<
-    ARGS extends any[] = any[],
-    METHOD extends MethodOrOperation = MethodOrOperation,
-  >(
-    args: MaybeContextualArg<ContextOf<A>, ARGS>,
-    operation: METHOD,
-    allowCreate: false
-  ): ContextualizedArgs<
-    ContextOf<A>,
-    ARGS,
-    METHOD extends string ? true : false
-  >;
-  protected override logCtx<
-    ARGS extends any[] = any[],
-    METHOD extends MethodOrOperation = MethodOrOperation,
-  >(
-    args: MaybeContextualArg<ContextOf<A>, ARGS>,
-    operation: METHOD,
-    allowCreate: true
-  ): Promise<
-    ContextualizedArgs<ContextOf<A>, ARGS, METHOD extends string ? true : false>
-  >;
-  protected override logCtx<
-    ARGS extends any[] = any[],
-    METHOD extends MethodOrOperation = MethodOrOperation,
-  >(
-    args: MaybeContextualArg<ContextOf<A>, ARGS>,
-    operation: METHOD,
-    allowCreate: boolean = false
-  ):
-    | Promise<
-        ContextualizedArgs<
-          ContextOf<A>,
-          ARGS,
-          METHOD extends string ? true : false
-        >
-      >
-    | ContextualizedArgs<
-        ContextOf<A>,
-        ARGS,
-        METHOD extends string ? true : false
-      > {
-    if (!this._client) {
-      return ContextualLoggedClass.logCtx.call(
-        this,
-        operation,
-        {}, // TODO check this
-        allowCreate,
-        ...args.filter((e) => typeof e !== "undefined")
-      ) as
-        | Promise<
-            ContextualizedArgs<
-              ContextOf<A>,
-              ARGS,
-              METHOD extends string ? true : false
-            >
-          >
-        | ContextualizedArgs<
-            ContextOf<A>,
-            ARGS,
-            METHOD extends string ? true : false
-          >;
-    }
-
-    const ctx = this.client["logCtx"].call(
-      this.client,
-      args,
-      operation,
-      allowCreate as any,
-      this.config as any
-    ) as
-      | ContextualizedArgs<
-          ContextOf<A>,
-          ARGS,
-          METHOD extends string ? true : false
-        >
-      | Promise<
-          ContextualizedArgs<
-            ContextOf<A>,
-            ARGS,
-            METHOD extends string ? true : false
-          >
-        >;
-    return ctx;
   }
 }
 

@@ -678,5 +678,42 @@ describe("Contextualization", () => {
           }
         });
       });
+
+    it("allows overriding", async () => {
+      let toCreate = new TestContextModel({
+        id: Date.now(),
+        name: "name",
+        nif: "123456789",
+      });
+
+      let created = await repo.create(toCreate);
+      expect(created).toBeDefined();
+      expect(created.createdBy).toEqual(expect.any(String));
+
+      let { ctx } = await repo["logCtx"]([], "create", true);
+      ctx = ctx.accumulate({ UUID: "context" });
+
+      toCreate = new TestContextModel({
+        id: Date.now(),
+        name: "name",
+        nif: "123456789",
+      });
+
+      created = await repo.create(toCreate, ctx);
+      expect(created).toBeDefined();
+      expect(created.createdBy).toBe("context");
+
+      toCreate = new TestContextModel({
+        id: Date.now(),
+        name: "name",
+        nif: "123456789",
+      });
+
+      created = await repo
+        .override({ UUID: "override" } as any)
+        .create(toCreate);
+      expect(created).toBeDefined();
+      expect(created.createdBy).toBe("override");
+    });
   });
 });

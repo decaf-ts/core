@@ -1,8 +1,7 @@
 import { TaskContext } from "./TaskContext";
-import { ContextFlags } from "@decaf-ts/db-decorators";
 import { TaskLogger } from "./logging";
 import { LogLevel } from "@decaf-ts/logging";
-import { Adapter } from "../persistence/index";
+import { Adapter, ContextFlags } from "../persistence/index";
 import { TaskEventBus } from "./TaskEventBus";
 import { TaskHandlerRegistry } from "./TaskHandlerRegistry";
 import { TaskEventModel } from "./models/TaskEventModel";

@@ -483,7 +483,7 @@ export abstract class Adapter<
     }
 
     overrides = ctx
-      ? Object.assign({}, overrides, ctx.toOverrides())
+      ? Object.assign({}, ctx.toOverrides(), overrides)
       : overrides;
     const flags = await this.flags(
       typeof operation === "string" ? operation : operation.name,

@@ -196,7 +196,7 @@ describe("e2e Repository test", () => {
       );
     });
 
-    it("properly handles deletion of children on cascade", async () => {
+    it("properly handles deletion of children on cascade - strengths", async () => {
       const toUpdate = new Product(
         Object.assign({}, updated, {
           inventedName: "yet_test_name",
@@ -266,6 +266,82 @@ describe("e2e Repository test", () => {
         expect.any(Context)
       );
       repo["adapter"].unObserve(strengthObserver);
+
+      updated = afterCascade;
+    });
+
+    it("properly handles deletion of children on cascade - market", async () => {
+      const toUpdate = new Product(
+        Object.assign({}, updated, {
+          inventedName: "yet_yet_test_name",
+          markets: [
+            {
+              productCode: updated.productCode,
+              marketId: "PT",
+              nationalCode: "PT",
+              mahName: "ProPharma PT",
+            },
+            {
+              productCode: updated.productCode,
+              marketId: "AS",
+              nationalCode: "AS",
+              mahName: "ProPharma AS",
+            },
+          ],
+        })
+      );
+
+      const marketMock = jest.fn();
+      const marketObserver = new (class implements Observer {
+        async refresh(...args: any[]): Promise<void> {
+          const operation = args[1];
+          marketMock(...args);
+        }
+      })();
+
+      const marketRepo = Repository.forModel(Market);
+      repo["adapter"].observe(
+        marketObserver,
+        (
+          table: Constructor | string,
+          event: AllOperationKeys,
+          id: EventIds,
+          ...args: ContextualArgs<any>
+        ) => {
+          return table === Market;
+        }
+      );
+
+      const afterCascade = await repo.update(toUpdate);
+
+      expect(afterCascade).toBeDefined();
+      expect(afterCascade.equals(updated)).toEqual(false);
+      expect(
+        afterCascade.equals(
+          updated,
+          "updatedAt",
+          "inventedName",
+          "markets",
+          "updatedBy",
+          "version"
+        )
+      ).toEqual(true); // minus the expected changes
+      expect(mock).toHaveBeenCalledWith(
+        Product,
+        OperationKeys.UPDATE,
+        updated.productCode,
+        expect.any(Object),
+        expect.any(Context)
+      );
+
+      expect(marketMock).toHaveBeenCalledWith(
+        Market,
+        OperationKeys.DELETE,
+        [`${toUpdate.productCode}:BR`, `${toUpdate.productCode}:US`],
+        expect.any(Array),
+        expect.any(Context)
+      );
+      repo["adapter"].unObserve(marketObserver);
     });
 
     it("deletes", async () => {
@@ -294,10 +370,10 @@ describe("e2e Repository test", () => {
       const marketRepo = Repository.forModel(Market);
       await expect(
         marketRepo.read(deleted.markets[0] as any)
-      ).resolves.toBeInstanceOf(Market);
+      ).rejects.toThrowError(NotFoundError);
       await expect(
         marketRepo.read(deleted.markets[1] as any)
-      ).resolves.toBeInstanceOf(Market);
+      ).rejects.toThrowError(NotFoundError);
     });
   });
 
@@ -442,12 +518,12 @@ describe("e2e Repository test", () => {
           NotFoundError
         );
 
-        await expect(
-          marketRepo.read(p.markets[0] as any)
-        ).resolves.toBeInstanceOf(Market);
-        await expect(
-          marketRepo.read(p.markets[1] as any)
-        ).resolves.toBeInstanceOf(Market);
+        await expect(marketRepo.read(p.markets[0] as any)).rejects.toThrowError(
+          NotFoundError
+        );
+        await expect(marketRepo.read(p.markets[1] as any)).rejects.toThrowError(
+          NotFoundError
+        );
       }
       expect(mock).toHaveBeenCalledWith(
         Product,

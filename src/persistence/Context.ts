@@ -1,9 +1,5 @@
-import {
-  Context as Ctx,
-  ContextFlags,
-  InternalError,
-} from "@decaf-ts/db-decorators";
-import { AdapterFlags } from "./types";
+import { Context as Ctx, InternalError } from "@decaf-ts/db-decorators";
+import { AdapterFlags, ContextFlags } from "./types";
 import { Lock } from "@decaf-ts/transactional-decorators";
 
 export class ContextLock extends Lock {
@@ -17,6 +13,26 @@ export class Context<
 > extends Ctx<F> {
   constructor(ctx?: Context<any>) {
     super(ctx as Ctx<any>);
+  }
+
+  pushPending(key: string, id: string) {
+    const pending = this.pending() || {};
+    pending[key] = pending[key] || [];
+    if (pending[key].includes(id)) {
+      throw new InternalError(
+        `Trying to push a repeated pending ${key} task: ${id}`
+      );
+    }
+    pending[key].push(id);
+  }
+
+  pending(): Record<string, string[]> | undefined {
+    try {
+      return this.get("pending");
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e: unknown) {
+      return undefined;
+    }
   }
 
   override(conf: Partial<F>) {
@@ -49,5 +65,9 @@ export class Context<
       acc[key] = this.get(key as any);
       return acc;
     }, {});
+  }
+
+  override accumulate<V extends object>(value: V): Context<F & V> {
+    return super.accumulate(value) as Context<F & V>;
   }
 }

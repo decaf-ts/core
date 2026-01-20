@@ -487,8 +487,7 @@ export abstract class Adapter<
       typeof operation === "string" ? operation : operation.name,
       model,
       overrides as Partial<FlagsOf<CONTEXT>>,
-      ...args,
-      ctx
+      ...[...args, ctx].filter(Boolean)
     );
 
     if (ctx) {
@@ -500,8 +499,8 @@ export abstract class Adapter<
         }) as any;
       }
       const currentOp = ctx.get("operation");
-      const currentModel = ctx.get("affectedTables");
-      if (currentOp !== operation || model !== currentModel)
+      const currentModel = ctx.getOrUndefined("affectedTables");
+      if (currentOp !== operation || (model && model !== currentModel))
         return new this.Context().accumulate({
           ...ctx["cache"],
           ...flags,

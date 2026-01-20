@@ -35,6 +35,15 @@ export class Context<
     }
   }
 
+  getOrUndefined<K extends keyof F>(key: K): F[K] | undefined {
+    try {
+      return this.get(key);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e: unknown) {
+      return undefined;
+    }
+  }
+
   override(conf: Partial<F>) {
     return new Proxy(this, {
       get: (target: this, p: string | symbol, receiver: any) => {

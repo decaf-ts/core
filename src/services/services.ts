@@ -131,7 +131,7 @@ export abstract class Service<
       flags.correlationId || `${operation}-${UUID.instance.generate()}`;
     const log = (flags.logger || Logging.for(this as any)) as Logger;
     log.setConfig({ correlationId: flags.correlationId });
-    return Object.assign({}, flags, {
+    return Object.assign({}, DefaultContextFlags, flags, {
       args: args,
       timestamp: new Date(),
       operation: operation,
@@ -185,8 +185,7 @@ export abstract class Service<
     const flags = await this.flags(
       typeof operation === "string" ? operation : operation.name,
       overrides as Partial<FlagsOf<C>>,
-      ...args,
-      ctx
+      ...[...args, ctx].filter(Boolean)
     );
     if (ctx) {
       if (!(ctx instanceof this.Context)) {
@@ -207,7 +206,6 @@ export abstract class Service<
     }
 
     return new this.Context().accumulate({
-      ...DefaultContextFlags,
       ...flags,
     }) as any;
   }

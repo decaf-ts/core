@@ -415,7 +415,7 @@ export abstract class Adapter<
       flags.correlationId ||
       `${correlationPrefix}${operation}-${UUID.instance.generate()}`;
     const log = (flags.logger || Logging.for(this as any)) as Logger;
-    return Object.assign({}, flags, {
+    return Object.assign({}, DefaultAdapterFlags, flags, {
       affectedTables: model
         ? [
             ...new Set([
@@ -452,8 +452,6 @@ export abstract class Adapter<
     return Context<FlagsOf<CONTEXT>> as unknown as Constructor<CONTEXT>;
   }
 
-  protected DefaultFlags: Partial<FlagsOf<CONTEXT>> =
-    DefaultAdapterFlags as Partial<FlagsOf<CONTEXT>>;
   /**
    * @description Creates a context for a database operation
    * @summary Generates a context object that describes a database operation, used for tracking and auditing
@@ -513,7 +511,6 @@ export abstract class Adapter<
     }
 
     return new this.Context().accumulate({
-      ...this.DefaultFlags,
       ...flags,
     }) as any;
   }

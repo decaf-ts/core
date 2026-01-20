@@ -867,7 +867,7 @@ export async function cascadeDelete<M extends Model, R extends Repo<M>>(
 
   const newVal = reduceToPk(model[key]);
   const oldVal = reduceToPk(oldModel[key]);
-  if (isEqual(newVal, oldVal)) {
+  if (typeof oldVal === "undefined" || isEqual(newVal, oldVal)) {
     return;
   }
   if (Array.isArray(newVal) !== Array.isArray(oldVal))

@@ -24,6 +24,7 @@ export class Context<
       );
     }
     pending[key].push(id);
+    this.accumulate({ pending: pending });
   }
 
   getFromChildren<K extends keyof F>(key: K): F[K] | undefined {

@@ -93,7 +93,12 @@ export class TaskService<
     const { ctxArgs } = (
       await this.logCtx(args, OperationKeys.CREATE, true)
     ).for(this.push);
-    return (await this.client.push(task, track, ...ctxArgs)) as any;
+
+    const created = (await this.client.push(task, track, ...ctxArgs)) as any;
+    if (!(await this.client.isRunning())) {
+      void this.client.start();
+    }
+    return created;
   }
 
   async track(

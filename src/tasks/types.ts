@@ -47,6 +47,7 @@ export type TaskEngineConfig<A extends Adapter<any, any, any, any>> = {
   streamBufferSize: number;
   maxLoggingBuffer: number;
   loggingBufferTruncation: number;
+  gracefulShutdownMsTimeout: number;
 };
 
 export type TaskProgressPayload = {

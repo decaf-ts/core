@@ -13,9 +13,9 @@ import {
   type ContextOf,
   type EventIds,
   type ObserverFilter,
-  PersistenceKeys,
-  UnsupportedError,
-} from "../persistence/index";
+} from "../persistence/types";
+import { PersistenceKeys } from "../persistence/constants";
+import { UnsupportedError } from "../persistence/errors";
 import {
   BulkCrudOperationKeys,
   InternalError,
@@ -27,13 +27,11 @@ import { type Repo } from "../repository/Repository";
 import { repository } from "../repository/decorators";
 import { TaskModel } from "./models/TaskModel";
 import { create, del, read, update } from "../utils/decorators";
-import {
-  type DirectionLimitOffset,
-  PreparedStatementKeys,
-} from "../query/index";
+import { PreparedStatementKeys } from "../query/constants";
+import { type DirectionLimitOffset } from "../query/types";
 import type { Constructor } from "@decaf-ts/decoration";
-import type { Observer } from "../interfaces/index";
-import { ArrayMode } from "../services/index";
+import type { Observer } from "../interfaces/Observer";
+import type { ArrayMode } from "../services/ModelService";
 import { TaskEngineConfig } from "./types";
 import { TaskTracker } from "./TaskTracker";
 
@@ -114,7 +112,9 @@ export class TaskService<
       await this.logCtx(args, OperationKeys.CREATE, true)
     ).for(this.create);
     const created = await this.repo.create(model, ...ctxArgs);
-    if (!this.client.isRunning()) this.client.start();
+    if (!(await this.client.isRunning())) {
+      void this.client.start();
+    }
     return created;
   }
 
@@ -127,7 +127,7 @@ export class TaskService<
       await this.logCtx(args, BulkCrudOperationKeys.CREATE_ALL, true)
     ).for(this.createAll);
     const created = await this.repo.createAll(models, ...ctxArgs);
-    if (!this.client.isRunning()) this.client.start();
+    if (!(await this.client.isRunning())) void this.client.start();
     return created;
   }
 
@@ -368,8 +368,10 @@ export class TaskService<
   }
 
   override async shutdown(...args: MaybeContextualArg<any>): Promise<void> {
-    const { ctxArgs } = await this.logCtx(args, "shutdown", true);
+    const { ctxArgs, ctx } = (
+      await this.logCtx(args, PersistenceKeys.SHUTDOWN, true)
+    ).for(this.shutdown);
     await super.shutdown(...ctxArgs);
-    this.client.stop();
+    await this.client.stop(ctx);
   }
 }

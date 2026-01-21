@@ -275,7 +275,12 @@ export abstract class Adapter<
    * When overriding this method, ensure to call the base method first
    * @return {Promise<void>} A promise that resolves when shutdown is complete
    */
-  async shutdown(): Promise<void> {
+  async shutdown(...args: MaybeContextualArg<CONTEXT>): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { log, ctx } = // TODO pass context along. it should go everywhere
+    (await this.logCtx(args, PersistenceKeys.SHUTDOWN, true)).for(
+      this.shutdown
+    );
     await this.shutdownProxies();
     if (this.dispatch) await this.dispatch.close();
   }

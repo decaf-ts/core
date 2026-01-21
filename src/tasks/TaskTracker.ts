@@ -51,6 +51,20 @@ export class TaskTracker<R = any>
     });
 
     this.pipe(this.track.bind(this));
+
+    switch (this.task.status) {
+      case TaskStatus.SUCCEEDED:
+        this.succeed(task.output);
+        break;
+      case TaskStatus.FAILED:
+        this.fail(this.task.error as TaskErrorModel);
+        break;
+      case TaskStatus.CANCELED:
+        this.cancel(this.task.id);
+        break;
+      default:
+      // do nothing
+    }
   }
 
   resolve(): Promise<R> {
@@ -89,10 +103,20 @@ export class TaskTracker<R = any>
     this.pipes = undefined;
   }
 
+  protected cancel(id: string) {
+    this.fail(
+      new TaskErrorModel({
+        message: `Task ${id} canceled`,
+        code: 400,
+      })
+    );
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected async track(evt: TaskEventModel, ctx: Context) {
     if (evt.payload.status === TaskStatus.SUCCEEDED) this.succeed(evt.payload);
     if (evt.payload.status === TaskStatus.FAILED) this.fail(evt.payload);
+    if (evt.payload.status === TaskStatus.CANCELED) this.cancel(evt.payload.id);
   }
 
   async refresh(evt: TaskEventModel, ctx: Context): Promise<void> {

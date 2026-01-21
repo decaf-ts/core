@@ -43,4 +43,5 @@ export const DefaultTaskEngineConfig: TaskEngineConfig<any> = {
   streamBufferSize: 5,
   maxLoggingBuffer: 300,
   loggingBufferTruncation: 20,
+  gracefulShutdownMsTimeout: 60 * 2 * 1000,
 } as TaskEngineConfig<any>;

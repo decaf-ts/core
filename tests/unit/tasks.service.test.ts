@@ -58,6 +58,7 @@ describe("TaskService", () => {
       streamBufferSize: 5,
       maxLoggingBuffer: 50,
       loggingBufferTruncation: 10,
+      gracefulShutdownMsTimeout: 1000,
     };
 
     const service = new TaskService<RamAdapter>();
@@ -74,7 +75,9 @@ describe("TaskService", () => {
       }).build()
     );
 
-    expect(service.client.isRunning()).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    expect(await service.client.isRunning()).toBe(true);
 
     const { tracker } = await service.client.track(task.id);
     const result = await tracker.resolve();

@@ -20,6 +20,7 @@ import { ContextOf, FlagsOf } from "../persistence/types";
 import { LogLevel } from "@decaf-ts/logging";
 import {
   AbsContextual,
+  ContextualArgs,
   MaybeContextualArg,
 } from "../utils/ContextualLoggedClass";
 import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
@@ -30,12 +31,16 @@ import { TaskLogger } from "./logging";
 import { TaskEngineConfig, TaskProgressPayload } from "./types";
 import { TaskErrorModel } from "./models/TaskErrorModel";
 import { TaskTracker } from "./TaskTracker";
+import { Lock } from "@decaf-ts/transactional-decorators";
+import { PersistenceKeys } from "../persistence/index";
 
 export class TaskEngine<
   A extends Adapter<any, any, any, any>,
 > extends AbsContextual<ContextOf<A>> {
   private _tasks?: Repo<TaskModel>;
   private _events?: Repo<TaskEventModel>;
+
+  private lock = new Lock();
 
   protected override get Context(): Constructor<ContextOf<A>> {
     return TaskContext as unknown as Constructor<ContextOf<A>>;
@@ -76,10 +81,6 @@ export class TaskEngine<
       bus: config.bus || new TaskEventBus(),
       registry: config.registry || new TaskHandlerRegistry(),
     });
-  }
-
-  isRunning(): boolean {
-    return this.running;
   }
 
   async push<I, O>(
@@ -146,25 +147,76 @@ export class TaskEngine<
     return saved;
   }
 
-  start(): void {
-    if (this.running) return;
-    this.running = true;
-    void this.loop();
+  async isRunning(): Promise<boolean> {
+    await this.lock.acquire();
+    const running = this.running;
+    this.lock.release();
+    return running;
   }
 
-  stop(): void {
+  async start(...args: MaybeContextualArg<any>): Promise<void> {
+    const { ctx } = (await this.logCtx(args, "run", true)).for(this.start);
+    await this.lock.acquire();
+    if (this.running) return;
+    this.running = true;
+    this.lock.release();
+    void this.loop(ctx);
+  }
+
+  async stop(...args: MaybeContextualArg<any>): Promise<void> {
+    const { ctx, log } = (
+      await this.logCtx(args, PersistenceKeys.SHUTDOWN, true)
+    ).for(this.stop);
+    await this.lock.acquire();
+    if (!this.running)
+      log.warn(`stop method called when task engine was not running`);
     this.running = false;
+    this.lock.release();
+
+    const runningTasks = await this.tasks
+      .select(["id"])
+      .where(Condition.attr<TaskModel>("status").eq(TaskStatus.RUNNING))
+      .execute(ctx);
+
+    const timeout = ctx.get("gracefulShutdownMsTimeout");
+
+    return new Promise<void>((resolve, reject) => {
+      Promise.allSettled(
+        runningTasks.map(
+          ({ id }) =>
+            new Promise((resolve, reject) => {
+              this.track(id, ctx)
+                .then(({ tracker }) => {
+                  tracker.resolve().then(resolve);
+                })
+                .catch(reject);
+            })
+        )
+      )
+        .then((result) => {
+          log.info(
+            `Graceful shutdown completed before expiry. concluded ${result.length} tasks`
+          );
+          resolve();
+        })
+        .catch(reject);
+
+      sleep(timeout).then(() => {
+        log.error(`Graceful shutdown interrupted after ${timeout} ms...`);
+        resolve();
+      });
+    });
   }
 
   // -------------------------
   // Worker loop
   // -------------------------
 
-  private async loop(): Promise<void> {
-    while (this.running) {
-      const { ctx } = await this.logCtx([], "loop", true);
+  private async loop(...args: ContextualArgs<any>): Promise<void> {
+    const { ctx } = this.logCtx(args, this.loop);
+    while (await this.isRunning()) {
       const claimed = await this.claimBatch(ctx);
-      await Promise.allSettled(claimed.map((t) => this.executeClaimed(t, ctx)));
+      await Promise.allSettled(claimed.map((t) => this.executeClaimed(t)));
       await sleep(
         claimed.length ? this.config.pollMsBusy : this.config.pollMsIdle
       );
@@ -247,13 +299,10 @@ export class TaskEngine<
   // Execution
   // -------------------------
 
-  private async executeClaimed(
-    task: TaskModel,
-    context: Context<any>
-  ): Promise<void> {
-    const { ctx, log } = (
-      await this.logCtx([context], task.classification, true)
-    ).for(this.executeClaimed);
+  private async executeClaimed(task: TaskModel): Promise<void> {
+    const { ctx, log } = (await this.logCtx([], task.classification, true)).for(
+      this.executeClaimed
+    );
     const taskCtx: TaskContext = new TaskContext(ctx).accumulate({
       taskId: task.id,
       logger: new TaskLogger(

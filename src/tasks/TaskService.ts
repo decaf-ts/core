@@ -79,7 +79,7 @@ export class TaskService<
     ...args: MaybeContextualArg<any>
   ): Promise<{
     task: TaskModel<I, O>;
-    tracker: TaskTracker<(typeof task)["output"]>;
+    tracker: TaskTracker<O>;
   }>;
   async push<I, O, TRACK extends boolean>(
     task: TaskModel<I, O>,
@@ -96,7 +96,10 @@ export class TaskService<
     return (await this.client.push(task, track, ...ctxArgs)) as any;
   }
 
-  async track(id: string, ...args: MaybeContextualArg<any>) {
+  async track(
+    id: string,
+    ...args: MaybeContextualArg<any>
+  ): Promise<{ task: TaskModel; tracker: TaskTracker<any> }> {
     const { ctxArgs } = (
       await this.logCtx(args, OperationKeys.CREATE, true)
     ).for(this.push);

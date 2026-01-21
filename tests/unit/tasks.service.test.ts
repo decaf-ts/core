@@ -8,7 +8,6 @@ import { task } from "../../src/tasks/decorators";
 import { TaskHandler } from "../../src/tasks/TaskHandler";
 import { TaskContext } from "../../src/tasks/TaskContext";
 import { TaskEngineConfig } from "../../src/tasks/types";
-import { TaskStatus } from "../../src/tasks/constants";
 
 @task("service-task")
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -81,8 +80,7 @@ describe("TaskService", () => {
 
     const { tracker } = await service.client.track(task.id);
     const result = await tracker.resolve();
-    expect(result.status).toBe(TaskStatus.SUCCEEDED);
-    expect(result.output).toBe(5);
+    expect(result).toBe(5);
 
     await service.shutdown();
   });

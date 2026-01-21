@@ -11,17 +11,19 @@ import { TaskErrorModel } from "./models/TaskErrorModel";
 import { TaskEventBus } from "./TaskEventBus";
 import { ContextualArgs } from "../utils/index";
 
-export class TaskTracker<R = any>
+export class TaskTracker<O = any>
   implements Observer<[TaskEventModel, Context]>
 {
   protected unregistration: () => void;
 
-  private onSuccess!: (res: any) => void;
-  private onFail!: (error: TaskErrorModel) => void;
+  private resolveResult!: (res: O) => void;
+  private rejectResult!: (error: TaskErrorModel) => void;
 
   protected pipes?: Record<TaskEventType, Set<EventPipe>>;
 
-  private readonly promise: Promise<any>;
+  private resolved = false;
+  private readonly promise: Promise<O>;
+  private terminalContext?: Context;
 
   constructor(
     protected bus: TaskEventBus,
@@ -46,28 +48,15 @@ export class TaskTracker<R = any>
     // eslint-disable-next-line @typescript-eslint/no-this-alias
     const self = this;
     this.promise = new Promise((resolve, reject) => {
-      self.onSuccess = resolve;
-      self.onFail = reject;
+      self.resolveResult = resolve;
+      self.rejectResult = reject;
     });
 
     this.pipe(this.track.bind(this));
-
-    switch (this.task.status) {
-      case TaskStatus.SUCCEEDED:
-        this.succeed(task.output);
-        break;
-      case TaskStatus.FAILED:
-        this.fail(this.task.error as TaskErrorModel);
-        break;
-      case TaskStatus.CANCELED:
-        this.cancel(this.task.id);
-        break;
-      default:
-      // do nothing
-    }
+    this.resolveTerminalState();
   }
 
-  resolve(): Promise<R> {
+  resolve(): Promise<O> {
     return this.promise;
   }
 
@@ -92,31 +81,113 @@ export class TaskTracker<R = any>
     this.pipes[type].add(pipe);
   }
 
-  protected succeed(result: any) {
-    this.unregistration();
-    this.onSuccess(result);
-    this.pipes = undefined;
+  protected succeed(result: O) {
+    this.complete(result, true);
   }
   protected fail(error: TaskErrorModel) {
-    this.unregistration();
-    this.onFail(error);
-    this.pipes = undefined;
+    this.complete(error, false);
   }
 
-  protected cancel(id: string) {
-    this.fail(
-      new TaskErrorModel({
-        message: `Task ${id} canceled`,
-        code: 400,
-      })
-    );
+  protected cancel(evt: TaskEventModel) {
+    if (!evt.payload?.error) return;
+    this.fail(evt.payload.error);
+  }
+
+  onSucceed(handler: EventPipe) {
+    return this.registerStatusHandler(TaskStatus.SUCCEEDED, handler);
+  }
+
+  onFailure(handler: EventPipe) {
+    return this.registerStatusHandler(TaskStatus.FAILED, handler);
+  }
+
+  onCancel(handler: EventPipe) {
+    return this.registerStatusHandler(TaskStatus.CANCELED, handler);
+  }
+
+  private complete(payload: O | TaskErrorModel, success: boolean) {
+    if (this.resolved) return;
+    this.resolved = true;
+    this.unregistration();
+    this.pipes = undefined;
+    if (success) this.resolveResult(payload as O);
+    else this.rejectResult(payload as TaskErrorModel);
+  }
+
+  protected isTerminalStatus(status: TaskStatus) {
+    return [
+      TaskStatus.SUCCEEDED,
+      TaskStatus.CANCELED,
+      TaskStatus.FAILED,
+    ].includes(status);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected async track(evt: TaskEventModel, ctx: Context) {
-    if (evt.payload.status === TaskStatus.SUCCEEDED) this.succeed(evt.payload);
-    if (evt.payload.status === TaskStatus.FAILED) this.fail(evt.payload);
-    if (evt.payload.status === TaskStatus.CANCELED) this.cancel(evt.payload.id);
+    if (!evt.payload) return;
+    this.task.status = evt.payload.status;
+    if (evt.payload.output !== undefined) this.task.output = evt.payload.output;
+    if (evt.payload.error) this.task.error = evt.payload.error;
+    if (evt.payload.status === TaskStatus.SUCCEEDED) {
+      this.succeed(evt.payload.output as O);
+    }
+    if (evt.payload.status === TaskStatus.FAILED) {
+      this.fail(evt.payload.error!);
+    }
+    if (evt.payload.status === TaskStatus.CANCELED) this.cancel(evt);
+  }
+
+  private registerStatusHandler(
+    status: TaskStatus,
+    handler: EventPipe
+  ): () => void {
+    const wrapped: EventPipe = async (evt, ctx) => {
+      if (evt.payload?.status !== status) return;
+      await handler(evt, ctx);
+    };
+    this.pipe(wrapped, TaskEventType.STATUS);
+    if (this.task.status === status) {
+      const terminalEvent = this.buildTerminalEvent(status);
+      void wrapped(terminalEvent, this.getTerminalContext());
+    }
+    return () => {
+      this.pipes?.[TaskEventType.STATUS]?.delete(wrapped);
+    };
+  }
+
+  private getTerminalContext() {
+    if (!this.terminalContext) this.terminalContext = new Context();
+    return this.terminalContext;
+  }
+
+  private buildTerminalEvent(status: TaskStatus) {
+    const payload: { status: TaskStatus; output?: O; error?: TaskErrorModel } =
+      { status };
+    if (status === TaskStatus.SUCCEEDED) {
+      payload.output = this.task.output as O;
+    }
+    if (
+      (status === TaskStatus.FAILED || status === TaskStatus.CANCELED) &&
+      this.task.error
+    ) {
+      payload.error = this.task.error;
+    }
+    return new TaskEventModel({
+      classification: TaskEventType.STATUS,
+      taskId: this.task.id,
+      payload,
+    });
+  }
+
+  private resolveTerminalState() {
+    if (!this.isTerminalStatus(this.task.status)) return;
+    if (this.task.status === TaskStatus.SUCCEEDED) {
+      this.succeed(this.task.output as O);
+      return;
+    }
+    if (this.task.error) {
+      this.fail(this.task.error);
+    }
   }
 
   async refresh(evt: TaskEventModel, ctx: Context): Promise<void> {

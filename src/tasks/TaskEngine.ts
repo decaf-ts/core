@@ -106,7 +106,7 @@ export class TaskEngine<
     ...args: MaybeContextualArg<any>
   ): Promise<
     TRACK extends true
-      ? { task: TaskModel<I, O>; tracker: TaskTracker<(typeof task)["output"]> }
+      ? { task: TaskModel<I, O>; tracker: TaskTracker<O> }
       : TaskModel
   > {
     const { ctx, log } = (
@@ -116,7 +116,7 @@ export class TaskEngine<
     const t = await this.tasks.create(task, ctx);
     log.info(`${task.classification} task registered under ${t.id}`);
     if (!track) return t as any;
-    const tracker = new TaskTracker(this.bus, t);
+    const tracker = new TaskTracker<O>(this.bus, t);
     return { task: t, tracker } as any;
   }
 
@@ -125,10 +125,35 @@ export class TaskEngine<
       await this.logCtx(args, OperationKeys.READ, true)
     ).for(this.track);
     log.verbose(`tracking task ${id}`);
-    const task = await this.tasks.read(id, ctx);
+    let task = await this.tasks.read(id, ctx);
+    task = await this.ensureTaskError(task, ctx);
     log.info(`${task.classification} task found with id ${id}`);
-    const tracker = new TaskTracker(this.bus, task);
+    const tracker = new TaskTracker<typeof task["output"]>(this.bus, task);
     return { task, tracker };
+  }
+
+  private async ensureTaskError(
+    task: TaskModel,
+    ctx: Context
+  ): Promise<TaskModel> {
+    if (
+      ![TaskStatus.FAILED, TaskStatus.CANCELED].includes(task.status) ||
+      task.error
+    ) {
+      return task;
+    }
+    let current = task;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      await sleep(20);
+      try {
+        const latest = await this.tasks.read(current.id, ctx);
+        if (latest.error) return latest;
+        current = latest;
+      } catch {
+        break;
+      }
+    }
+    return current;
   }
 
   async cancel(
@@ -140,10 +165,15 @@ export class TaskEngine<
     if (t.status === TaskStatus.SUCCEEDED || t.status === TaskStatus.FAILED)
       return t;
     t.status = TaskStatus.CANCELED;
+    const cancelError = new TaskErrorModel({
+      message: `Task ${t.id} canceled`,
+      code: 400,
+    });
+    t.error = cancelError;
     t.leaseOwner = undefined;
     t.leaseExpiry = undefined;
     const saved = await this.tasks.update(t, ctx);
-    await this.emitStatus(ctx, saved, TaskStatus.CANCELED);
+    await this.emitStatus(ctx, saved, TaskStatus.CANCELED, cancelError);
     return saved;
   }
 
@@ -178,9 +208,16 @@ export class TaskEngine<
       .where(Condition.attr<TaskModel>("status").eq(TaskStatus.RUNNING))
       .execute(ctx);
 
-    const timeout = ctx.get("gracefulShutdownMsTimeout");
+    const timeout =
+      ctx.getOrUndefined?.("gracefulShutdownMsTimeout") ??
+      this.config.gracefulShutdownMsTimeout;
 
     return new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        log.error(`Graceful shutdown interrupted after ${timeout} ms...`);
+        resolve();
+      }, timeout);
+
       Promise.allSettled(
         runningTasks.map(
           ({ id }) =>
@@ -194,17 +231,16 @@ export class TaskEngine<
         )
       )
         .then((result) => {
+          clearTimeout(timer);
           log.info(
             `Graceful shutdown completed before expiry. concluded ${result.length} tasks`
           );
           resolve();
         })
-        .catch(reject);
-
-      sleep(timeout).then(() => {
-        log.error(`Graceful shutdown interrupted after ${timeout} ms...`);
-        resolve();
-      });
+        .catch((err) => {
+          clearTimeout(timer);
+          reject(err);
+        });
     });
   }
 

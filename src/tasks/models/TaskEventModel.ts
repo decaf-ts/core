@@ -9,12 +9,7 @@ import {
 } from "@decaf-ts/decorator-validation";
 import { table } from "../../model/decorators";
 import { prop } from "@decaf-ts/decoration";
-import {
-  composed,
-  readonly,
-  serialize,
-  transient,
-} from "@decaf-ts/db-decorators";
+import { composed, readonly, transient } from "@decaf-ts/db-decorators";
 import { TaskEventType } from "../constants";
 import { uuid } from "../../persistence/decorators";
 

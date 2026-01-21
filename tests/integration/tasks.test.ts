@@ -306,8 +306,7 @@ describe("Task Engine", () => {
     const { task, tracker } = await engine.push(toSubmit, true);
     tracker.logs(async (logs) => logMock(logs));
     const finished = await tracker.resolve();
-    expect(finished.status).toBe(TaskStatus.SUCCEEDED);
-    expect(finished.output).toBe(14);
+    expect(finished).toBe(14);
 
     const persisted = await taskRepo.read(task.id);
     expect(persisted.status).toBe(TaskStatus.SUCCEEDED);
@@ -341,8 +340,7 @@ describe("Task Engine", () => {
     const initialLease = running.leaseExpiry?.getTime() ?? 0;
 
     const finished = await tracker.resolve();
-    expect(finished.status).toBe(TaskStatus.SUCCEEDED);
-    expect(finished.output).toBe(4);
+    expect(finished).toBe(4);
 
     const progressEvents = eventsFor(task.id, TaskEventType.PROGRESS);
     expect(progressEvents.length).toBe(2);
@@ -380,8 +378,7 @@ describe("Task Engine", () => {
     expect(waiting.nextRunAt).toBeInstanceOf(Date);
 
     const finished = await tracker.resolve();
-    expect(finished.status).toBe(TaskStatus.SUCCEEDED);
-    expect(finished.output).toBe(2);
+    expect(finished).toBe(2);
     expect(FlakyTask.attempts[task.id]).toBe(2);
 
     const persisted = await taskRepo.read(task.id);
@@ -443,11 +440,10 @@ describe("Task Engine", () => {
     expect(waiting.status).toBe(TaskStatus.WAITING_RETRY);
 
     const finished = await tracker.resolve();
-    expect(finished.status).toBe(TaskStatus.SUCCEEDED);
 
     const persisted = await taskRepo.read(task.id);
     const outputResultsRaw =
-      (finished.output as any)?.stepResults ??
+      (finished as any)?.stepResults ??
       (persisted.output as any)?.stepResults;
     let outputResults: any[] = [];
     if (Array.isArray(outputResultsRaw)) {
@@ -516,7 +512,7 @@ describe("Task Engine", () => {
     }).build();
     const { tracker } = await engine.push(toSubmit, true);
     await expect(tracker.resolve()).rejects.toMatchObject({
-      status: TaskStatus.FAILED,
+      message: "transient failure",
     });
   });
 });

@@ -148,8 +148,8 @@ export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
     }
 
     const decs = [
-      index([OrderDirection.ASC, OrderDirection.DSC]),
       prop(),
+      index([OrderDirection.ASC, OrderDirection.DSC]),
       required(),
       readonly(),
       propMetadata(Metadata.key(DBKeys.ID, attr), options),

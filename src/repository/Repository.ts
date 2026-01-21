@@ -146,6 +146,8 @@ export class Repository<
   private _tableName!: string;
 
   protected _overrides: Partial<FlagsOf<ContextOf<A>>> = {
+    ignoreHandlers: false,
+    ignoreValidation: false,
     allowGenerationOverride: false,
     allowRawStatements: true,
     forcePrepareSimpleQueries: false,

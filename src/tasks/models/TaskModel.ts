@@ -25,6 +25,7 @@ import {
   updatedBy,
 } from "../../model/decorators";
 import { TaskLogEntryModel } from "./TaskLogEntryModel";
+import { TaskIOSerializer } from "./TaskIOSerializer";
 
 @description("Holds the current step when applicable")
 @table("tasks")
@@ -53,12 +54,12 @@ export class TaskModel<INPUT = any, OUTPUT = any> extends Model {
   status: TaskStatus = TaskStatus.PENDING;
 
   @prop()
-  @serialize()
+  @serialize(TaskIOSerializer)
   @description("Holds task input")
   input?: INPUT;
 
   @prop()
-  @serialize()
+  @serialize(TaskIOSerializer)
   @description("Holds the task output when successfully completed")
   output?: OUTPUT;
 

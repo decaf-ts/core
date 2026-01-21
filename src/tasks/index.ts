@@ -1,5 +1,6 @@
 export * from "./models";
 export * from "./builder";
+export * from "./CleanUpTask";
 export * from "./constants";
 export * from "./decorators";
 export * from "./logging";

@@ -24,6 +24,7 @@ import { Repo, Repository } from "../../src/repository";
 import { sleep } from "../../src/tasks/utils";
 import { Observer } from "../../src/index";
 import { TaskEngineConfig } from "../../src/tasks/index";
+import { Condition } from "../../src/query/Condition";
 
 jest.setTimeout(200000);
 
@@ -514,5 +515,55 @@ describe("Task Engine", () => {
     await expect(tracker.resolve()).rejects.toMatchObject({
       message: "transient failure",
     });
+  });
+
+  it("runs the cleanup task to purge matching tasks", async () => {
+    const toClean = await Promise.all(
+      [TaskStatus.SUCCEEDED, TaskStatus.FAILED, TaskStatus.CANCELED].map(
+        (status) => {
+          return taskRepo.create(
+            new TaskBuilder({
+              classification: "cleanup-target",
+              status,
+              maxAttempts: 1,
+              attempt: 0,
+              backoff: createBackoff(),
+            }).build()
+          );
+        }
+      )
+    );
+    const kept = await taskRepo.create(
+      new TaskBuilder({
+        classification: "keep-task",
+        status: TaskStatus.SUCCEEDED,
+        maxAttempts: 1,
+        attempt: 0,
+        backoff: createBackoff(),
+      }).build()
+    );
+
+    const condition = Condition.attr<TaskModel>("classification").eq(
+      "cleanup-target"
+    );
+    const cleanupBuilder = new TaskBuilder({
+      classification: "cleanup-task",
+      maxAttempts: 1,
+      attempt: 0,
+      backoff: createBackoff(),
+    }).setInput(condition);
+    const cleanupTask = cleanupBuilder.build();
+
+    const { tracker } = await engine.push(cleanupTask, true);
+    const deleted = await tracker.resolve();
+    const deletedIds = deleted.map((t) => t.id).sort();
+    expect(deletedIds).toEqual(toClean.map((t) => t.id).sort());
+
+    for (const cleaned of toClean) {
+      await expect(taskRepo.read(cleaned.id)).rejects.toThrowError();
+    }
+    const stillThere = await taskRepo.read(kept.id);
+    expect(stillThere).toBeDefined();
+    expect(stillThere.classification).toBe("keep-task");
   });
 });

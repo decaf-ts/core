@@ -159,7 +159,11 @@ export type PreparedModel = {
 export type ContextFlags<LOG extends Logger> = CtxFlags<LOG> &
   Pick<
     RepositoryFlags<LOG>,
-    "operation" | "correlationId" | "ignoreDevSafeGuards"
+    | "operation"
+    | "correlationId"
+    | "ignoreDevSafeGuards"
+    | "parentContext"
+    | "childContexts"
   > & {
     pending?: Record<string, string[]>;
   };

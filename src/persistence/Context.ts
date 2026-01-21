@@ -26,13 +26,26 @@ export class Context<
     pending[key].push(id);
   }
 
-  pending(): Record<string, string[]> | undefined {
-    try {
-      return this.get("pending");
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    } catch (e: unknown) {
-      return undefined;
+  getFromChildren<K extends keyof F>(key: K): F[K] | undefined {
+    const res = this.getOrUndefined(key);
+    if (res) return res;
+    const children = this.getOrUndefined("childContexts");
+    if (children && children.length) {
+      return children
+        .map((child) => (child as any).getFromChildren(key))
+        .flat()
+        .reduce(
+          (acc, el) => {
+            return Object.assign(acc, el);
+          },
+          {} as Record<any, any>
+        );
     }
+    return undefined;
+  }
+
+  pending(): Record<string, string[]> | undefined {
+    return this.getFromChildren("pending");
   }
 
   getOrUndefined<K extends keyof F>(key: K): F[K] | undefined {

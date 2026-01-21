@@ -189,19 +189,35 @@ export abstract class Service<
     );
     if (ctx) {
       if (!(ctx instanceof this.Context)) {
-        return new this.Context().accumulate({
+        const newCtx = new this.Context().accumulate({
           ...ctx["cache"],
           ...flags,
           parentContext: ctx,
         }) as any;
+        ctx.accumulate({
+          childContexts: [
+            ...(ctx.getOrUndefined("childContexts") || []),
+            newCtx,
+          ],
+        });
+        return newCtx;
       }
       const currentOp = ctx.get("operation");
-      if (currentOp !== operation)
-        return new this.Context().accumulate({
+      if (currentOp !== operation) {
+        const newCtx = new this.Context().accumulate({
           ...ctx["cache"],
           ...flags,
           parentContext: ctx,
         }) as any;
+
+        ctx.accumulate({
+          childContexts: [
+            ...(ctx.getOrUndefined("childContexts") || []),
+            newCtx,
+          ],
+        });
+        return newCtx;
+      }
       return ctx.accumulate(flags) as any;
     }
 

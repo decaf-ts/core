@@ -276,11 +276,15 @@ export abstract class Adapter<
    * @return {Promise<void>} A promise that resolves when shutdown is complete
    */
   async shutdown(...args: MaybeContextualArg<CONTEXT>): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { log, ctx } = // TODO pass context along. it should go everywhere
-    (await this.logCtx(args, PersistenceKeys.SHUTDOWN, true)).for(
-      this.shutdown
-    );
+    const {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      log,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      ctx,
+    } = // TODO pass context along. it should go everywhere
+      (await this.logCtx(args, PersistenceKeys.SHUTDOWN, true)).for(
+        this.shutdown
+      );
     await this.shutdownProxies();
     if (this.dispatch) await this.dispatch.close();
   }
@@ -497,20 +501,36 @@ export abstract class Adapter<
 
     if (ctx) {
       if (!(ctx instanceof this.Context)) {
-        return new this.Context().accumulate({
+        const newCtx = new this.Context().accumulate({
           ...ctx["cache"],
           ...flags,
           parentContext: ctx,
         }) as any;
+        ctx.accumulate({
+          childContexts: [
+            ...(ctx.getOrUndefined("childContexts") || []),
+            newCtx,
+          ],
+        });
+        return newCtx;
       }
       const currentOp = ctx.get("operation");
       const currentModel = ctx.getOrUndefined("affectedTables");
-      if (currentOp !== operation || (model && model !== currentModel))
-        return new this.Context().accumulate({
+      if (currentOp !== operation || (model && model !== currentModel)) {
+        const newCtx = new this.Context().accumulate({
           ...ctx["cache"],
           ...flags,
           parentContext: ctx,
         }) as any;
+
+        ctx.accumulate({
+          childContexts: [
+            ...(ctx.getOrUndefined("childContexts") || []),
+            newCtx,
+          ],
+        });
+        return newCtx;
+      }
       return ctx.accumulate(flags) as any;
     }
 

@@ -40,7 +40,7 @@ describe("TaskTracker hooks", () => {
 
     tracker.onSucceed(spy);
     const evt = buildStatusEvent(task.id, TaskStatus.SUCCEEDED, { output: 42 });
-    const resultPromise = tracker.resolve();
+    const resultPromise = tracker.wait();
     resultPromise.catch(() => undefined);
     await tracker.refresh(evt, new Context());
 
@@ -56,7 +56,7 @@ describe("TaskTracker hooks", () => {
       output: 99,
     });
     const terminalTracker = new TaskTracker(bus, terminalTask);
-    const terminalPromise = terminalTracker.resolve();
+    const terminalPromise = terminalTracker.wait();
     terminalPromise.catch(() => undefined);
     const terminalSpy = jest.fn();
     terminalTracker.onSucceed((evt) => terminalSpy(evt.payload));
@@ -76,7 +76,7 @@ describe("TaskTracker hooks", () => {
     const failEvt = buildStatusEvent(failingTask.id, TaskStatus.FAILED, {
       error,
     });
-    const failurePromise = failureTracker.resolve();
+    const failurePromise = failureTracker.wait();
     failurePromise.catch(() => undefined);
     await failureTracker.refresh(failEvt, new Context());
 
@@ -96,7 +96,7 @@ describe("TaskTracker hooks", () => {
       error: terminalFailureError,
     });
     const terminalFailureTracker = new TaskTracker(bus, terminalFailureTask);
-    const terminalFailurePromise = terminalFailureTracker.resolve();
+    const terminalFailurePromise = terminalFailureTracker.wait();
     terminalFailurePromise.catch(() => undefined);
     const terminalFailureSpy = jest.fn();
     terminalFailureTracker.onFailure((evt) => terminalFailureSpy(evt.payload));
@@ -116,7 +116,7 @@ describe("TaskTracker hooks", () => {
       error: new TaskErrorModel({ message: "canceled" }),
     });
     const cancelTracker = new TaskTracker(bus, canceledTask);
-    const cancelPromise = cancelTracker.resolve();
+    const cancelPromise = cancelTracker.wait();
     cancelPromise.catch(() => undefined);
     const cancelSpy = jest.fn();
     cancelTracker.onCancel((evt) => cancelSpy(evt.payload));
@@ -125,5 +125,65 @@ describe("TaskTracker hooks", () => {
       message: "canceled",
     });
     expect(cancelSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("resolve waits for success, failure, or retry before settling", async () => {
+    const bus = new TaskEventBus();
+    const successTask = createTask();
+    const successTracker = new TaskTracker(bus, successTask);
+    const successPromise = successTracker.resolve();
+    await successTracker.refresh(
+      buildStatusEvent(successTask.id, TaskStatus.SUCCEEDED, { output: 123 }),
+      new Context()
+    );
+    await expect(successPromise).resolves.toBe(123);
+
+    const failTask = createTask();
+    const failTracker = new TaskTracker(bus, failTask);
+    const failPromise = failTracker.resolve();
+    const failureError = new TaskErrorModel({ message: "boom" });
+    await failTracker.refresh(
+      buildStatusEvent(failTask.id, TaskStatus.FAILED, { error: failureError }),
+      new Context()
+    );
+    await expect(failPromise).rejects.toMatchObject({ message: "boom" });
+
+    const retryTask = createTask();
+    const retryTracker = new TaskTracker(bus, retryTask);
+    const retryPromise = retryTracker.resolve();
+    const retryError = new TaskErrorModel({ message: "retry soon" });
+    await retryTracker.refresh(
+      buildStatusEvent(retryTask.id, TaskStatus.WAITING_RETRY, {
+        error: retryError,
+      }),
+      new Context()
+    );
+    await expect(retryPromise).rejects.toMatchObject({
+      message: "retry soon",
+    });
+  });
+
+  it("wait continues past retries until a final terminal status", async () => {
+    const bus = new TaskEventBus();
+    const task = createTask();
+    const tracker = new TaskTracker(bus, task);
+    const waitPromise = tracker.wait();
+    const retryError = new TaskErrorModel({ message: "retry soon" });
+    await tracker.refresh(
+      buildStatusEvent(task.id, TaskStatus.WAITING_RETRY, {
+        error: retryError,
+      }),
+      new Context()
+    );
+    const finalError = new TaskErrorModel({ message: "finally canceled" });
+    await tracker.refresh(
+      buildStatusEvent(task.id, TaskStatus.CANCELED, {
+        error: finalError,
+      }),
+      new Context()
+    );
+    await expect(waitPromise).rejects.toMatchObject({
+      message: "finally canceled",
+    });
   });
 });

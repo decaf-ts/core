@@ -7,8 +7,10 @@ import {
 } from "@decaf-ts/db-decorators";
 import { Model } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
-import { Adapter } from "./Adapter";
-import { ContextualArgs } from "../utils/ContextualLoggedClass";
+import {
+  ContextualArgs,
+  ContextualLoggedClass,
+} from "../utils/ContextualLoggedClass";
 import { Context } from "./Context";
 
 /**
@@ -136,7 +138,7 @@ export class ObserverHandler<C extends Context<any> = Context>
     id: EventIds,
     ...args: ContextualArgs<any>
   ): Promise<void> {
-    const { log, ctxArgs } = Adapter.logCtx<Context>(
+    const { log, ctxArgs } = ContextualLoggedClass.logCtx<Context>(
       this.updateObservers,
       undefined,
       false,

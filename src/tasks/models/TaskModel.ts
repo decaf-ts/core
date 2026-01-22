@@ -72,7 +72,7 @@ export class TaskModel<INPUT = any, OUTPUT = any> extends Model {
   @required()
   @min(0)
   @description("Holds the current attempt")
-  attempt!: number; // starts at 0
+  attempt: number = 0;
 
   @min(1)
   @required()

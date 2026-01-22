@@ -16,14 +16,11 @@ export class TaskTracker<O = any>
 {
   protected unregistration: () => void;
 
-  private resolveResult!: (res: O) => void;
-  private rejectResult!: (error: TaskErrorModel) => void;
-
   protected pipes?: Record<TaskEventType, Set<EventPipe>>;
 
   private resolved = false;
-  private readonly promise: Promise<O>;
   private terminalContext?: Context;
+  private lastTerminalPayload?: O | TaskErrorModel;
 
   constructor(
     protected bus: TaskEventBus,
@@ -45,19 +42,25 @@ export class TaskTracker<O = any>
         );
       }
     );
-    // eslint-disable-next-line @typescript-eslint/no-this-alias
-    const self = this;
-    this.promise = new Promise((resolve, reject) => {
-      self.resolveResult = resolve;
-      self.rejectResult = reject;
-    });
-
     this.pipe(this.track.bind(this));
     this.resolveTerminalState();
   }
 
   resolve(): Promise<O> {
-    return this.promise;
+    return this.awaitStatusTerminal([
+      TaskStatus.SUCCEEDED,
+      TaskStatus.FAILED,
+      TaskStatus.CANCELED,
+      TaskStatus.WAITING_RETRY,
+    ]);
+  }
+
+  wait(): Promise<O> {
+    return this.awaitStatusTerminal([
+      TaskStatus.SUCCEEDED,
+      TaskStatus.FAILED,
+      TaskStatus.CANCELED,
+    ]);
   }
 
   attach(
@@ -82,15 +85,20 @@ export class TaskTracker<O = any>
   }
 
   protected succeed(result: O) {
-    this.complete(result, true);
+    this.complete(result);
   }
   protected fail(error: TaskErrorModel) {
-    this.complete(error, false);
+    this.complete(error);
   }
 
   protected cancel(evt: TaskEventModel) {
     if (!evt.payload?.error) return;
     this.fail(evt.payload.error);
+  }
+
+  protected retry(evt: TaskEventModel) {
+    if (!evt.payload) return;
+    if (evt.payload.error) this.task.error = evt.payload.error;
   }
 
   onSucceed(handler: EventPipe) {
@@ -105,13 +113,61 @@ export class TaskTracker<O = any>
     return this.registerStatusHandler(TaskStatus.CANCELED, handler);
   }
 
-  private complete(payload: O | TaskErrorModel, success: boolean) {
+  private awaitStatusTerminal(statuses: TaskStatus[]): Promise<O> {
+    return new Promise<O>((resolve, reject) => {
+      const removers: Array<() => void> = [];
+      let settled = false;
+      const cleanup = () => {
+        if (settled) return;
+        settled = true;
+        for (const remove of removers) {
+          remove();
+        }
+      };
+      const handler: EventPipe = async (evt: TaskEventModel) => {
+        if (settled) return;
+        cleanup();
+        try {
+          if (evt.payload?.status === TaskStatus.SUCCEEDED) {
+            resolve(this.extractOutput(evt));
+          } else {
+            reject(this.extractError(evt));
+          }
+        } catch (err) {
+          reject(err);
+        }
+      };
+      statuses.forEach((status) => {
+        const remove = this.registerStatusHandler(status, handler);
+        removers.push(remove);
+      });
+    });
+  }
+
+  private extractOutput(evt: TaskEventModel): O {
+    if (evt.payload?.output !== undefined) return evt.payload.output as O;
+    return this.task.output as O;
+  }
+
+  private extractError(evt: TaskEventModel): TaskErrorModel {
+    if (evt.payload?.error) return evt.payload.error;
+    if (this.task.error) return this.task.error;
+    if (this.lastTerminalPayload instanceof TaskErrorModel)
+      return this.lastTerminalPayload;
+    const status = evt.payload?.status ?? this.task.status;
+    const message =
+      status === TaskStatus.WAITING_RETRY
+        ? `Task ${this.task.id} scheduled for retry`
+        : `Task ${this.task.id} ${status}`;
+    return new TaskErrorModel({ message });
+  }
+
+  private complete(payload: O | TaskErrorModel) {
     if (this.resolved) return;
     this.resolved = true;
     this.unregistration();
     this.pipes = undefined;
-    if (success) this.resolveResult(payload as O);
-    else this.rejectResult(payload as TaskErrorModel);
+    this.lastTerminalPayload = payload;
   }
 
   protected isTerminalStatus(status: TaskStatus) {
@@ -136,6 +192,9 @@ export class TaskTracker<O = any>
     }
     if (evt.payload.status === TaskStatus.CANCELED) {
       this.cancel(evt);
+    }
+    if (evt.payload.status === TaskStatus.WAITING_RETRY) {
+      this.retry(evt);
     }
   }
 

@@ -77,10 +77,6 @@ export class TaskBuilder extends Model {
   protected backoff: TaskBackoffModel = new TaskBackoffModel();
   @prop()
   protected input?: any;
-
-  @min(0)
-  @required()
-  protected attempt: number = 0;
   @min(1)
   @required()
   protected maxAttempts: number = 1;
@@ -126,11 +122,6 @@ export class TaskBuilder extends Model {
 
   setMaxAttempts(value: number): this {
     this.maxAttempts = value;
-    return this;
-  }
-
-  setAttempt(value: number): this {
-    this.attempt = value;
     return this;
   }
 

@@ -79,8 +79,9 @@ describe("TaskService", () => {
     expect(await service.client.isRunning()).toBe(true);
 
     const { tracker } = await service.client.track(task.id);
-    const result = await tracker.resolve();
+    const result = await tracker.wait();
     expect(result).toBe(5);
+    await expect(tracker.resolve()).resolves.toBe(5);
 
     await service.shutdown();
   });

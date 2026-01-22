@@ -271,6 +271,7 @@ describe("Task Engine", () => {
       streamBufferSize: 5,
       maxLoggingBuffer: 500,
       loggingBufferTruncation: 50,
+      gracefulShutdownMsTimeout: 2000,
     };
     engine = new TaskEngine(config);
     engine.start();
@@ -444,8 +445,7 @@ describe("Task Engine", () => {
 
     const persisted = await taskRepo.read(task.id);
     const outputResultsRaw =
-      (finished as any)?.stepResults ??
-      (persisted.output as any)?.stepResults;
+      (finished as any)?.stepResults ?? (persisted.output as any)?.stepResults;
     let outputResults: any[] = [];
     if (Array.isArray(outputResultsRaw)) {
       outputResults = outputResultsRaw;
@@ -462,9 +462,9 @@ describe("Task Engine", () => {
         ? persisted.stepResults
         : outputResults;
     expect(finalResults?.length).toBe(3);
-    expect(finalResults?.every((step) => step.status === TaskStatus.SUCCEEDED)).toBe(
-      true
-    );
+    expect(
+      finalResults?.every((step) => step.status === TaskStatus.SUCCEEDED)
+    ).toBe(true);
     expect(finalResults?.[0]?.output).toBe(10);
     expect(finalResults?.[1]?.output).toBe(13);
     expect(finalResults?.[2]?.output).toBe(23);
@@ -543,9 +543,8 @@ describe("Task Engine", () => {
       }).build()
     );
 
-    const condition = Condition.attr<TaskModel>("classification").eq(
-      "cleanup-target"
-    );
+    const condition =
+      Condition.attr<TaskModel>("classification").eq("cleanup-target");
     const cleanupBuilder = new TaskBuilder({
       classification: "cleanup-task",
       maxAttempts: 1,

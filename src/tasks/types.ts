@@ -36,8 +36,8 @@ export interface TaskFlags<LOG extends TaskLogger<any> = TaskLogger<any>>
 
 export type TaskEngineConfig<A extends Adapter<any, any, any, any>> = {
   adapter: A;
-  bus: TaskEventBus;
-  registry: TaskHandlerRegistry;
+  bus?: TaskEventBus;
+  registry?: TaskHandlerRegistry;
   workerId: string;
   concurrency: number;
   leaseMs: number;

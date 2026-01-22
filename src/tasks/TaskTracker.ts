@@ -134,7 +134,9 @@ export class TaskTracker<O = any>
     if (evt.payload.status === TaskStatus.FAILED) {
       this.fail(evt.payload.error!);
     }
-    if (evt.payload.status === TaskStatus.CANCELED) this.cancel(evt);
+    if (evt.payload.status === TaskStatus.CANCELED) {
+      this.cancel(evt);
+    }
   }
 
   private registerStatusHandler(

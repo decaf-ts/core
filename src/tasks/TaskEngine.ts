@@ -50,12 +50,12 @@ export class TaskEngine<
     return this.config.adapter;
   }
 
-  protected get registry() {
-    return this.config.registry;
+  protected get registry(): TaskHandlerRegistry {
+    return this.config.registry!;
   }
 
-  protected get bus() {
-    return this.config.bus;
+  protected get bus(): TaskEventBus {
+    return this.config.bus!;
   }
 
   protected get tasks(): Repo<TaskModel> {
@@ -128,7 +128,7 @@ export class TaskEngine<
     let task = await this.tasks.read(id, ctx);
     task = await this.ensureTaskError(task, ctx);
     log.info(`${task.classification} task found with id ${id}`);
-    const tracker = new TaskTracker<typeof task["output"]>(this.bus, task);
+    const tracker = new TaskTracker<(typeof task)["output"]>(this.bus, task);
     return { task, tracker };
   }
 
@@ -316,8 +316,10 @@ export class TaskEngine<
     const claimed = new TaskModel({
       ...source,
       status: TaskStatus.RUNNING,
-      leaseOwner: this.config.workerId,
-      leaseExpiry: new Date(now + this.config.leaseMs),
+      leaseOwner: this.config.workerId.toString(),
+      leaseExpiry: new Date(
+        now + (parseInt(this.config.leaseMs.toString()) || 60_000)
+      ),
     });
 
     log.info(

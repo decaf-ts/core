@@ -1,4 +1,12 @@
-import { apply, Constructor, Decoration, metadata, Metadata, methodMetadata, prop as property } from "@decaf-ts/decoration";
+import {
+  apply,
+  Constructor,
+  Decoration,
+  metadata,
+  Metadata,
+  methodMetadata,
+  prop as property,
+} from "@decaf-ts/decoration";
 import { inject, injectable } from "@decaf-ts/injectable-decorators";
 import { PersistenceKeys } from "../persistence//constants";
 import type { ModelConstructor } from "@decaf-ts/decorator-validation";
@@ -73,7 +81,7 @@ export function auth(model: string | Constructor) {
   const decorationKey = PersistenceKeys.AUTH;
 
   function auth(model: string | Constructor) {
-    return metadata(decorationKey,model)
+    return metadata(decorationKey, model);
   }
 
   return Decoration.for(decorationKey)
@@ -129,4 +137,3 @@ export function route(httpMethod: HttpVerbs, path: string) {
     })
     .apply();
 }
-

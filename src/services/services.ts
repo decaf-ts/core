@@ -346,6 +346,54 @@ export abstract class Service<
       }
     }
   }
+
+  static async shutdown<C extends Context<any> = any>(
+    ...args: MaybeContextualArg<C>
+  ): Promise<void> {
+    let ctx = args.pop();
+    if (typeof ctx !== "undefined" && !(ctx instanceof Context)) {
+      args.push(ctx);
+      ctx = undefined;
+    }
+
+    const flags = await Service.prototype.flags(
+      PersistenceKeys.SHUTDOWN,
+      {},
+      ...args
+    );
+    ctx = ctx
+      ? (new Context(ctx).accumulate({
+          ...flags,
+          parentContext: ctx,
+        }) as any)
+      : (new Context().accumulate(flags) as any);
+
+    args = [...args, ctx];
+
+    const { log, ctxArgs } = Service.prototype.logCtx(args, this.shutdown);
+    const services = Injectables.services();
+    for (const [key, service] of Object.entries(services).reverse()) {
+      try {
+        log.verbose(`Shutting down ${service.name} service...`);
+        const s = Injectables.get<Service>(service as Constructor<Service>);
+        if (!s)
+          throw new InternalError(`Failed to resolve injectable for ${key}`);
+        if (s instanceof ClientBasedService) {
+          log.verbose(`Gracefully shutting down ${service.name} service...`);
+          try {
+            await s.shutdown(...ctxArgs);
+          } catch (e: unknown) {
+            log.error(
+              `Failed to gracefully shutdown ${service.name} service`,
+              e as Error
+            );
+          }
+        }
+      } catch (e: unknown) {
+        throw new InternalError(`Failed to Shutdown services ${key}: ${e}`);
+      }
+    }
+  }
 }
 
 export abstract class ClientBasedService<

@@ -85,6 +85,12 @@ export enum PersistenceKeys {
   SHUTDOWN = "shutdown",
 
   BY_KEY = "by-key",
+
+  AUTH="auth",
+
+  AUTH_ROLE="auth-role",
+
+  DECAF_ROUTE = "DecafRoute"
 }
 
 export const DefaultContextFlags: ContextFlags<any> = Object.assign(

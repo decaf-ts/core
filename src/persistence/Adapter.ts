@@ -53,7 +53,7 @@ import {
   MethodOrOperation,
 } from "../utils/ContextualLoggedClass";
 import { Paginator } from "../query/Paginator";
-import { PreparedStatement } from "../query/index";
+import { PreparedStatement } from "../query/types";
 import { promiseSequence } from "../utils/utils";
 import { UUID } from "./generators";
 
@@ -275,7 +275,16 @@ export abstract class Adapter<
    * When overriding this method, ensure to call the base method first
    * @return {Promise<void>} A promise that resolves when shutdown is complete
    */
-  async shutdown(): Promise<void> {
+  async shutdown(...args: MaybeContextualArg<CONTEXT>): Promise<void> {
+    const {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      log,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      ctx,
+    } = // TODO pass context along. it should go everywhere
+      (await this.logCtx(args, PersistenceKeys.SHUTDOWN, true)).for(
+        this.shutdown
+      );
     await this.shutdownProxies();
     if (this.dispatch) await this.dispatch.close();
   }
@@ -415,7 +424,7 @@ export abstract class Adapter<
       flags.correlationId ||
       `${correlationPrefix}${operation}-${UUID.instance.generate()}`;
     const log = (flags.logger || Logging.for(this as any)) as Logger;
-    return Object.assign({}, flags, {
+    return Object.assign({}, DefaultAdapterFlags, flags, {
       affectedTables: model
         ? [
             ...new Set([
@@ -481,37 +490,51 @@ export abstract class Adapter<
     }
 
     overrides = ctx
-      ? Object.assign({}, overrides, ctx.toOverrides())
+      ? Object.assign({}, ctx.toOverrides(), overrides)
       : overrides;
     const flags = await this.flags(
       typeof operation === "string" ? operation : operation.name,
       model,
       overrides as Partial<FlagsOf<CONTEXT>>,
-      ...args,
-      ctx
+      ...[...args, ctx].filter(Boolean)
     );
 
     if (ctx) {
       if (!(ctx instanceof this.Context)) {
-        return new this.Context().accumulate({
+        const newCtx = new this.Context().accumulate({
           ...ctx["cache"],
           ...flags,
           parentContext: ctx,
         }) as any;
+        ctx.accumulate({
+          childContexts: [
+            ...(ctx.getOrUndefined("childContexts") || []),
+            newCtx,
+          ],
+        });
+        return newCtx;
       }
       const currentOp = ctx.get("operation");
-      const currentModel = ctx.get("affectedTables");
-      if (currentOp !== operation || model !== currentModel)
-        return new this.Context().accumulate({
+      const currentModel = ctx.getOrUndefined("affectedTables");
+      if (currentOp !== operation || (model && model !== currentModel)) {
+        const newCtx = new this.Context().accumulate({
           ...ctx["cache"],
           ...flags,
           parentContext: ctx,
         }) as any;
+
+        ctx.accumulate({
+          childContexts: [
+            ...(ctx.getOrUndefined("childContexts") || []),
+            newCtx,
+          ],
+        });
+        return newCtx;
+      }
       return ctx.accumulate(flags) as any;
     }
 
     return new this.Context().accumulate({
-      ...DefaultAdapterFlags,
       ...flags,
     }) as any;
   }
@@ -587,24 +610,28 @@ export abstract class Adapter<
     ...args: ContextualArgs<CONTEXT>
   ): M {
     const { log, ctx } = this.logCtx(args, this.revert);
-    const ob: Record<string, any> = {};
     const pk = Model.pk(clazz);
-    ob[pk as string] = id;
-    const m = new clazz(ob) as M;
+    const m = new clazz() as M;
+    m[pk] = id as any;
     log.silly(`Rebuilding model ${m.constructor.name} id ${id}`);
     const metadata = obj[PersistenceKeys.METADATA]; // TODO move to couchdb
-    const result = Object.keys(m).reduce((accum: M, key) => {
-      (accum as Record<string, any>)[key] =
-        obj[Model.columnName(clazz, key as keyof M)];
-      return accum;
-    }, m);
+    const result = Object.keys(m)
+      .filter((k) => k !== pk)
+      .reduce((accum: M, key) => {
+        (accum as Record<string, any>)[key] =
+          obj[Model.columnName(clazz, key as keyof M)];
+        return accum;
+      }, m);
 
     if (ctx.get("rebuildWithTransient") && transient) {
       log.verbose(
         `re-adding transient properties: ${Object.keys(transient).join(", ")}`
       );
       Object.entries(transient).forEach(([key, val]) => {
-        if (key in result)
+        if (
+          key in result &&
+          typeof result[key as keyof typeof result] !== "undefined"
+        )
           throw new InternalError(
             `Transient property ${key} already exists on model ${m.constructor.name}. should be impossible`
           );
@@ -659,7 +686,7 @@ export abstract class Adapter<
     model: Record<string, any>[],
     ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
-    const { log, ctxArgs } = this.logCtx(args, this.createAll);
+    const { log, ctx } = this.logCtx(args, this.createAll);
     if (!id || !model)
       throw new ValidationError("Ids and models cannot be null or undefined");
     if (id.length !== model.length)
@@ -668,7 +695,14 @@ export abstract class Adapter<
     log.debug(`Creating ${id.length} entries ${tableLabel} table`);
     return promiseSequence(
       id.map(
-        (i, count) => () => this.create(clazz, i, model[count], ...ctxArgs)
+        (i, count) => () =>
+          this.create(
+            clazz,
+            i,
+            model[count],
+            ...args,
+            ctx.override({ noEmitSingle: true }) as CONTEXT
+          )
       )
     );
   }
@@ -700,11 +734,19 @@ export abstract class Adapter<
     id: PrimaryKeyType[],
     ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
-    const { log, ctxArgs } = this.logCtx(args, this.readAll);
+    const { log, ctx } = this.logCtx(args, this.readAll);
     const tableName = Model.tableName(clazz);
     log.debug(`Reading ${id.length} entries ${tableName} table`);
     return promiseSequence(
-      id.map((i) => () => this.read(clazz, i, ...ctxArgs))
+      id.map(
+        (i) => () =>
+          this.read(
+            clazz,
+            i,
+            ...args,
+            ctx.override({ noEmitSingle: true }) as CONTEXT
+          )
+      )
     );
   }
 
@@ -740,14 +782,21 @@ export abstract class Adapter<
     model: Record<string, any>[],
     ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
-    const { log, ctxArgs } = this.logCtx(args, this.updateAll);
+    const { log, ctx } = this.logCtx(args, this.updateAll);
     if (id.length !== model.length)
       throw new InternalError("Ids and models must have the same length");
     const tableLabel = Model.tableName(clazz);
     log.debug(`Updating ${id.length} entries ${tableLabel} table`);
     return promiseSequence(
       id.map(
-        (i, count) => () => this.update(clazz, i, model[count], ...ctxArgs)
+        (i, count) => () =>
+          this.update(
+            clazz,
+            i,
+            model[count],
+            ...args,
+            ctx.override({ noEmitSingle: true }) as CONTEXT
+          )
       )
     );
   }
@@ -779,10 +828,18 @@ export abstract class Adapter<
     id: PrimaryKeyType[],
     ...args: ContextualArgs<CONTEXT>
   ): Promise<Record<string, any>[]> {
-    const { log, ctxArgs } = this.logCtx(args, this.deleteAll);
+    const { log, ctx } = this.logCtx(args, this.deleteAll);
     log.debug(`Deleting ${id.length} entries from ${tableName} table`);
     return promiseSequence(
-      id.map((i) => () => this.delete(tableName, i, ...ctxArgs))
+      id.map(
+        (i) => () =>
+          this.delete(
+            tableName,
+            i,
+            ...args,
+            ctx.override({ noEmitSingle: true }) as CONTEXT
+          )
+      )
     );
   }
 
@@ -810,7 +867,7 @@ export abstract class Adapter<
    * @return {void}
    */
   @final()
-  observe(observer: Observer, filter?: ObserverFilter): void {
+  observe(observer: Observer, filter?: ObserverFilter): () => void {
     if (!this.observerHandler)
       Object.defineProperty(this, "observerHandler", {
         value: this.ObserverHandler(),
@@ -824,6 +881,8 @@ export abstract class Adapter<
       this.dispatch = this.Dispatch();
       this.dispatch.observe(this);
     }
+
+    return () => this.unObserve(observer);
   }
 
   /**
@@ -864,7 +923,20 @@ export abstract class Adapter<
       throw new InternalError(
         "ObserverHandler not initialized. Did you register any observables?"
       );
-    await this.observerHandler.updateObservers(table, event, id, ...args);
+    const { ctx, ctxArgs } = this.logCtx(args, this.updateObservers);
+    if (!ctx.get("noEmit")) {
+      const isBulk = Array.isArray(id);
+      const emitSingle = !ctx.get("noEmitSingle");
+      const emitBulk = !ctx.get("noEmitBulk");
+      if ((isBulk && emitBulk) || (!isBulk && emitSingle)) {
+        await this.observerHandler.updateObservers(
+          table,
+          event,
+          id,
+          ...ctxArgs
+        );
+      }
+    }
   }
 
   /**

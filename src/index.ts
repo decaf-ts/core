@@ -22,6 +22,7 @@ export * from "./interfaces";
 export * from "./model";
 export * from "./query";
 export * from "./services";
+export * from "./tasks";
 export * from "./utils";
 
 // commented out

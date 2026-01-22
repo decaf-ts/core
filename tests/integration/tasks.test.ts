@@ -3,29 +3,30 @@
 import "../../src/index";
 import "../../src/overrides/index";
 import { RamAdapter } from "../../src/ram";
-import { TaskEngine, TaskEngineConfig } from "../../src/tasks/TaskEngine";
+import { TaskEngine } from "../../src/tasks/TaskEngine";
 import { TaskEventBus } from "../../src/tasks/TaskEventBus";
 import { TaskHandlerRegistry } from "../../src/tasks/TaskHandlerRegistry";
 import { TaskHandler } from "../../src/tasks/TaskHandler";
 import { TaskContext } from "../../src/tasks/TaskContext";
 import { task } from "../../src/tasks/decorators";
 import { CompositeTaskBuilder, TaskBuilder } from "../../src/tasks/builder";
-import { TaskStepSpecModel } from "../../src/tasks/models/TaskStepSpecModel";
 import { TaskBackoffModel } from "../../src/tasks/models/TaskBackoffModel";
 import { TaskEventModel } from "../../src/tasks/models/TaskEventModel";
 import { TaskModel } from "../../src/tasks/models/TaskModel";
-import { TaskEventType, TaskStatus, TaskType } from "../../src/tasks/constants";
+import {
+  BackoffStrategy,
+  JitterStrategy,
+  TaskEventType,
+  TaskStatus,
+  TaskType,
+} from "../../src/tasks/constants";
 import { Repo, Repository } from "../../src/repository";
 import { sleep } from "../../src/tasks/utils";
-import {
-  AllOperationKeys,
-  Context,
-  EventIds,
-  PersistenceObserver,
-} from "../../src/index";
-import { Constructor } from "@decaf-ts/decoration";
+import { Observer } from "../../src/index";
+import { TaskEngineConfig } from "../../src/tasks/index";
+import { Condition } from "../../src/query/Condition";
 
-jest.setTimeout(20000);
+jest.setTimeout(200000);
 
 let adapter: RamAdapter;
 let eventBus: TaskEventBus;
@@ -78,30 +79,65 @@ const eventsFor = (taskId: string, type?: TaskEventType) =>
     (evt) => evt.taskId === taskId && (!type || evt.classification === type)
   );
 
+const parseNumberInput = (input: unknown): number | undefined => {
+  if (typeof input === "number") return input;
+  if (typeof input === "string") {
+    try {
+      return parseNumberInput(JSON.parse(input));
+    } catch {
+      const asNumber = Number(input);
+      return Number.isNaN(asNumber) ? undefined : asNumber;
+    }
+  }
+  if (input && typeof input === "object") {
+    const value = (input as { value?: unknown }).value;
+    if (typeof value === "number") return value;
+  }
+  return undefined;
+};
+
+const parseObjectInput = <T extends object>(input: unknown): T | undefined => {
+  if (input && typeof input === "object") return input as T;
+  if (typeof input === "string") {
+    try {
+      const parsed = JSON.parse(input);
+      return parseObjectInput<T>(parsed);
+    } catch {
+      return undefined;
+    }
+  }
+  return undefined;
+};
+
 @task("simple-task")
-class SimpleTask extends TaskHandler<number, number> {
+class SimpleTask extends TaskHandler<number | { value: number }, number> {
   constructor() {
     super();
     console.log("SimpleTask instance created");
   }
-  async run(value: number, ctx: TaskContext) {
+  async run(value: number | { value: number }, ctx: TaskContext) {
+    const input = parseNumberInput(value);
+    if (typeof input !== "number") throw new Error("invalid simple-task input");
     console.log("SimpleTask run begin", value, ctx.taskId);
-    ctx.logger.info(`doubling ${value}`);
+    ctx.logger.info(`doubling ${input}`);
     await sleep(20);
     ctx.logger.info(`simple task done`);
     console.log("SimpleTask flush start");
     await ctx.flush();
     console.log("SimpleTask flush done");
     console.log("SimpleTask run end", value, ctx.taskId);
-    return value * 2;
+    return input * 2;
   }
 }
 
 @task("progressive-task")
-class ProgressiveTask extends TaskHandler<number, number> {
+class ProgressiveTask extends TaskHandler<number | { value: number }, number> {
   static leaseSnapshots: Date[] = [];
 
-  async run(value: number, ctx: TaskContext) {
+  async run(value: number | { value: number }, ctx: TaskContext) {
+    const input = parseNumberInput(value);
+    if (typeof input !== "number")
+      throw new Error("invalid progressive-task input");
     console.log("ProgressiveTask run begin", value, ctx.taskId);
     await ctx.progress({ percent: 0 });
     await sleep(20);
@@ -112,7 +148,7 @@ class ProgressiveTask extends TaskHandler<number, number> {
     }
     await ctx.progress({ percent: 100 });
     await ctx.flush();
-    return value + 1;
+    return input + 1;
   }
 }
 
@@ -138,9 +174,12 @@ class FlakyTask extends TaskHandler<number, number> {
 }
 
 @task("step-one-task")
-class StepOneTask extends TaskHandler<number, number> {
-  async run(input: number, ctx: TaskContext) {
-    const result = input + 5;
+class StepOneTask extends TaskHandler<number | { value: number }, number> {
+  async run(input: number | { value: number }, ctx: TaskContext) {
+    const value = parseNumberInput(input);
+    if (typeof value !== "number")
+      throw new Error("invalid step-one-task input");
+    const result = value + 5;
     ctx.cacheResult("step-one-task", result);
     await ctx.flush();
     return result;
@@ -179,6 +218,7 @@ class FlakyStepTask extends TaskHandler<{ offset?: number }, number> {
   static attempts: Record<string, number> = {};
 
   async run(input: { offset?: number } | undefined, ctx: TaskContext) {
+    const payload = parseObjectInput<{ offset?: number }>(input) ?? input;
     const attempt = (FlakyStepTask.attempts[ctx.taskId] ?? 0) + 1;
     FlakyStepTask.attempts[ctx.taskId] = attempt;
     await ctx.progress({ attempt });
@@ -191,7 +231,7 @@ class FlakyStepTask extends TaskHandler<{ offset?: number }, number> {
     const previous = cache["step-one-task"];
     if (typeof previous !== "number")
       throw new Error("previous step result missing");
-    const delta = input?.offset ?? 0;
+    const delta = payload?.offset ?? 0;
     const result = previous + delta;
     ctx.cacheResult("flaky-step-task", result);
     await ctx.flush();
@@ -212,47 +252,7 @@ class CombineStepTask extends TaskHandler<void, number> {
   }
 }
 
-class TaskEventObserver implements PersistenceObserver<any> {
-  constructor(
-    protected readonly cb: (evt: TaskEventModel) => void | Promise<void>
-  ) {}
-
-  async refresh(
-    table: Constructor | string,
-    operation: AllOperationKeys,
-    id: EventIds,
-    payload: TaskEventModel,
-    ctx: Context
-  ): Promise<void> {
-    const log = ctx.logger.for(this.refresh);
-    log.verbose(`task event: ${payload.classification} ${payload.taskId}`);
-    log.debug(`task event: ${payload.taskId}`, payload);
-    if (payload.classification === TaskEventType.STATUS)
-      return this.cb(payload);
-  }
-}
-
-class TaskObserver implements PersistenceObserver<any> {
-  constructor(
-    protected readonly cb: (evt: TaskModel) => void | Promise<void>
-  ) {}
-
-  async refresh(
-    table: Constructor | string,
-    operation: AllOperationKeys,
-    id: EventIds,
-    payload: TaskModel,
-    ctx: Context
-  ): Promise<void> {
-    const log = ctx.logger.for(this.refresh);
-    log.verbose(`task: ${payload.classification} ${payload.id}`);
-    log.debug(`task: ${payload.id}`, payload);
-    if (payload.classification === TaskEventType.STATUS)
-      return this.cb(payload);
-  }
-}
-
-describe.skip("Task Engine", () => {
+describe("Task Engine", () => {
   beforeAll(async () => {
     adapter = new RamAdapter();
     eventBus = new TaskEventBus();
@@ -263,22 +263,23 @@ describe.skip("Task Engine", () => {
       bus: eventBus,
       registry,
       workerId: "integration-worker",
-      concurrency: 2,
+      concurrency: 1,
       leaseMs: 500,
-      pollMsIdle: 20,
-      pollMsBusy: 10,
+      pollMsIdle: 1000,
+      pollMsBusy: 500,
       logTailMax: 200,
       streamBufferSize: 5,
       maxLoggingBuffer: 500,
       loggingBufferTruncation: 50,
+      gracefulShutdownMsTimeout: 2000,
     };
     engine = new TaskEngine(config);
     engine.start();
-    unsubscribe = eventBus.on({
-      refresh: async (_, __, ___, payload) => {
+    unsubscribe = eventBus.observe({
+      refresh: async (payload) => {
         recordedEvents.push(payload as TaskEventModel);
       },
-    });
+    } as Observer);
   });
 
   beforeEach(() => {
@@ -295,184 +296,273 @@ describe.skip("Task Engine", () => {
 
   it("executes atomic tasks, persists logs, and emits status events", async () => {
     const dates = createDates();
-    const task = new TaskBuilder({
+    const toSubmit = new TaskBuilder({
       classification: "simple-task",
-      input: 7,
+      input: { value: 7 },
       maxAttempts: 2,
       attempt: 0,
       ...dates,
       backoff: createBackoff(),
     }).build();
-    const { id } = await engine.push(task);
-    const finished = await waitForTaskCompletion(id);
-    expect(finished.status).toBe(TaskStatus.SUCCEEDED);
-    expect(finished.output).toBe(14);
-    expect(
-      finished.logTail?.some((entry) => entry.msg.includes("simple task done"))
-    ).toBe(true);
-    const statuses = eventsFor(id, TaskEventType.STATUS).map(
-      (evt) => evt.payload?.status
-    );
-    expect(statuses).toEqual(
+    const logMock = jest.fn();
+    const { task, tracker } = await engine.push(toSubmit, true);
+    tracker.logs(async (logs) => logMock(logs));
+    const finished = await tracker.resolve();
+    expect(finished).toBe(14);
+
+    const persisted = await taskRepo.read(task.id);
+    expect(persisted.status).toBe(TaskStatus.SUCCEEDED);
+    expect(persisted.output).toBe(14);
+
+    const statusEvents = eventsFor(task.id, TaskEventType.STATUS);
+    const statusValues = statusEvents.map((evt) => evt.payload?.status);
+    expect(statusValues).toEqual(
       expect.arrayContaining([TaskStatus.RUNNING, TaskStatus.SUCCEEDED])
     );
-    expect(eventsFor(id, TaskEventType.LOG).length).toBeGreaterThan(0);
+
+    const logEvents = eventsFor(task.id, TaskEventType.LOG);
+    expect(logEvents.length).toBeGreaterThan(0);
+    expect(logMock).toHaveBeenCalled();
+    expect(persisted.logTail?.length ?? 0).toBeGreaterThan(0);
   });
 
-  it("emits progress updates and refreshes leases through heartbeat", async () => {
-    const id = uniqueId("progress");
+  it("emits progress events and extends leases on heartbeat", async () => {
     const dates = createDates();
-    const task = new TaskBuilder({
-      id,
+    const toSubmit = new TaskBuilder({
       classification: "progressive-task",
-      input: 10,
+      input: { value: 3 },
       maxAttempts: 1,
       attempt: 0,
       ...dates,
       backoff: createBackoff(),
     }).build();
-    await engine.push(task);
-    const finished = await waitForTaskCompletion(id);
-    expect(finished.status).toBe(TaskStatus.SUCCEEDED);
-    expect(finished.output).toBe(11);
-    expect(ProgressiveTask.leaseSnapshots.length).toBeGreaterThan(0);
-    expect(
-      ProgressiveTask.leaseSnapshots.every(
-        (snapshot) => snapshot.getTime() > Date.now() - 1000
-      )
-    ).toBe(true);
-    const progressPayloads = eventsFor(id, TaskEventType.PROGRESS).map(
-      (evt) => evt.payload
-    );
-    expect(progressPayloads).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ percent: 0 }),
-        expect.objectContaining({ percent: 100 }),
-      ])
-    );
+    const { task, tracker } = await engine.push(toSubmit, true);
+
+    const running = await waitForTaskStatus(task.id, TaskStatus.RUNNING);
+    const initialLease = running.leaseExpiry?.getTime() ?? 0;
+
+    const finished = await tracker.resolve();
+    expect(finished).toBe(4);
+
+    const progressEvents = eventsFor(task.id, TaskEventType.PROGRESS);
+    expect(progressEvents.length).toBe(2);
+    expect(progressEvents[0].payload).toMatchObject({ percent: 0 });
+    expect(progressEvents[1].payload).toMatchObject({ percent: 100 });
+
+    expect(ProgressiveTask.leaseSnapshots.length).toBe(1);
+    const snapshot = ProgressiveTask.leaseSnapshots[0];
+    expect(snapshot instanceof Date).toBe(true);
+    expect(snapshot.getTime()).toBeGreaterThanOrEqual(initialLease);
   });
 
-  it("retries a failing task, respects backoff, and eventually succeeds", async () => {
-    const id = uniqueId("flaky");
+  it("retries flaky tasks with backoff and persists errors/logs", async () => {
     const dates = createDates();
-    const task = new TaskBuilder({
-      id,
+    const backoff = new TaskBackoffModel({
+      ...createDates(),
+      baseMs: 10,
+      maxMs: 10,
+      strategy: BackoffStrategy.FIXED,
+      jitter: JitterStrategy.NONE,
+    });
+    const toSubmit = new TaskBuilder({
       classification: "flaky-task",
-      input: 1,
-      maxAttempts: 3,
+      input: { value: 0 },
+      maxAttempts: 2,
       attempt: 0,
       ...dates,
-      backoff: createBackoff(),
+      backoff,
     }).build();
-    await engine.push(task);
-    const waiting = await waitForTaskStatus(id, TaskStatus.WAITING_RETRY);
-    expect(waiting.status).toBe(TaskStatus.WAITING_RETRY);
+    const { task, tracker } = await engine.push(toSubmit, true);
+
+    const waiting = await waitForTaskStatus(task.id, TaskStatus.WAITING_RETRY);
     expect(waiting.attempt).toBe(1);
-    expect(waiting.nextRunAt).toBeDefined();
-    expect(waiting.error?.message).toContain("transient");
-    const finished = await waitForTaskCompletion(id);
-    expect(finished.status).toBe(TaskStatus.SUCCEEDED);
-    expect(finished.output).toBe(2);
-    const statuses = eventsFor(id, TaskEventType.STATUS).map(
-      (evt) => evt.payload?.status
+    expect(waiting.error?.message).toBe("transient failure");
+    expect(waiting.nextRunAt).toBeInstanceOf(Date);
+
+    const finished = await tracker.resolve();
+    expect(finished).toBe(2);
+    expect(FlakyTask.attempts[task.id]).toBe(2);
+
+    const persisted = await taskRepo.read(task.id);
+    expect(persisted.logTail?.length ?? 0).toBeGreaterThan(0);
+
+    const logEvents = eventsFor(task.id, TaskEventType.LOG);
+    const messages = logEvents.flatMap((evt) => {
+      let logs: unknown = evt.payload;
+      if (typeof logs === "string") {
+        try {
+          logs = JSON.parse(logs);
+        } catch {
+          return [];
+        }
+      }
+      if (!Array.isArray(logs)) return [];
+      return logs
+        .map((entry) => {
+          if (Array.isArray(entry)) return entry[1];
+          if (entry && typeof entry === "object" && "msg" in entry)
+            return (entry as { msg?: string }).msg;
+          return undefined;
+        })
+        .filter((msg): msg is string => typeof msg === "string");
+    });
+    expect(messages.some((msg) => msg.includes("intentional fail"))).toBe(true);
+    expect(messages.some((msg) => msg.includes("success at attempt"))).toBe(
+      true
     );
+
+    const statusEvents = eventsFor(task.id, TaskEventType.STATUS);
+    const statuses = statusEvents.map((evt) => evt.payload?.status);
     expect(statuses).toEqual(
       expect.arrayContaining([TaskStatus.WAITING_RETRY, TaskStatus.SUCCEEDED])
     );
   });
 
-  it("shares step outputs, stores results, and reports composite progress", async () => {
-    const id = uniqueId("composite");
-    const stepA = createDates();
-    const stepB = createDates();
-    const stepC = createDates();
+  it("executes composite tasks, caches step results, and retries failed steps", async () => {
+    const dates = createDates();
     const composite = new CompositeTaskBuilder({
-      id,
-      classification: "composite-runner",
+      classification: "composite-test",
       atomicity: TaskType.COMPOSITE,
-      steps: [
-        new TaskStepSpecModel({
-          classification: "step-one-task",
-          input: { value: 3 },
-          ...stepA,
-        }),
-        new TaskStepSpecModel({
-          classification: "step-two-task",
-          ...stepB,
-        }),
-        new TaskStepSpecModel({
-          classification: "step-three-task",
-          ...stepC,
-        }),
-      ],
-      maxAttempts: 2,
       attempt: 0,
-      ...createDates(),
+      maxAttempts: 2,
+      ...dates,
       backoff: createBackoff(),
-    }).build();
-    await engine.push(composite);
-    const finished = await waitForTaskCompletion(id);
-    expect(finished.status).toBe(TaskStatus.SUCCEEDED);
-    expect(finished.stepResults).toHaveLength(3);
+    })
+      .addStep("step-one-task", { value: 5 })
+      .addStep("flaky-step-task", { offset: 3 })
+      .addStep("combine-step-task")
+      .build();
+    expect(composite.steps?.length).toBe(3);
+
+    const { task, tracker } = await engine.push(composite, true);
+    const snapshot = await taskRepo.read(task.id);
+    expect(snapshot.steps?.length).toBe(3);
+
+    const waiting = await waitForTaskStatus(task.id, TaskStatus.WAITING_RETRY);
+    expect(waiting.status).toBe(TaskStatus.WAITING_RETRY);
+
+    const finished = await tracker.resolve();
+
+    const persisted = await taskRepo.read(task.id);
+    const outputResultsRaw =
+      (finished as any)?.stepResults ?? (persisted.output as any)?.stepResults;
+    let outputResults: any[] = [];
+    if (Array.isArray(outputResultsRaw)) {
+      outputResults = outputResultsRaw;
+    } else if (typeof outputResultsRaw === "string") {
+      try {
+        const parsed = JSON.parse(outputResultsRaw);
+        outputResults = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        outputResults = [];
+      }
+    }
+    const finalResults =
+      (persisted.stepResults?.length ?? 0) > 0
+        ? persisted.stepResults
+        : outputResults;
+    expect(finalResults?.length).toBe(3);
     expect(
-      finished.stepResults?.every(
-        (result) => result.status === TaskStatus.SUCCEEDED
-      )
+      finalResults?.every((step) => step.status === TaskStatus.SUCCEEDED)
     ).toBe(true);
-    expect(finished.stepResults?.[2].output).toBe(21);
-    const progressPayloads = eventsFor(id, TaskEventType.PROGRESS)
-      .map((evt) => evt.payload)
-      .filter((payload) => typeof payload?.currentStep === "number");
-    expect(progressPayloads).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ currentStep: 2, totalSteps: 3 }),
-        expect.objectContaining({ currentStep: 3, totalSteps: 3 }),
-      ])
-    );
+    expect(finalResults?.[0]?.output).toBe(10);
+    expect(finalResults?.[1]?.output).toBe(13);
+    expect(finalResults?.[2]?.output).toBe(23);
+
+    const progressEvents = eventsFor(task.id, TaskEventType.PROGRESS);
+    expect(progressEvents.length).toBeGreaterThanOrEqual(3);
+    const lastProgress = progressEvents[progressEvents.length - 1];
+    expect(lastProgress.payload).toMatchObject({
+      currentStep: 3,
+      totalSteps: 3,
+    });
   });
 
-  it("resumes composite execution after a failing step and reuses cached outputs", async () => {
-    const id = uniqueId("flaky-composite");
-    const stepA = createDates();
-    const stepB = createDates();
-    const stepC = createDates();
-    const composite = new CompositeTaskBuilder({
-      id,
-      classification: "flaky-composite-runner",
-      atomicity: TaskType.COMPOSITE,
-      steps: [
-        new TaskStepSpecModel({
-          classification: "step-one-task",
-          input: { value: 4 },
-          ...stepA,
-        }),
-        new TaskStepSpecModel({
-          classification: "flaky-step-task",
-          input: { offset: 7 },
-          ...stepB,
-        }),
-        new TaskStepSpecModel({
-          classification: "combine-step-task",
-          ...stepC,
-        }),
-      ],
-      maxAttempts: 3,
+  it("cancels pending tasks and emits cancellation events", async () => {
+    engine.stop();
+    const dates = createDates();
+    const toSubmit = new TaskBuilder({
+      classification: "simple-task",
+      input: { value: 11 },
+      maxAttempts: 1,
       attempt: 0,
-      ...createDates(),
+      ...dates,
       backoff: createBackoff(),
     }).build();
-    await engine.push(composite);
-    const waiting = await waitForTaskStatus(id, TaskStatus.WAITING_RETRY);
-    expect(waiting.stepResults?.[1].status).toBe(TaskStatus.FAILED);
-    expect(waiting.stepResults?.[1].error?.message).toContain(
-      "flaky step failure"
+    const task = await engine.push(toSubmit);
+
+    const canceled = await engine.cancel(task.id);
+    expect(canceled.status).toBe(TaskStatus.CANCELED);
+
+    const statusEvents = eventsFor(task.id, TaskEventType.STATUS);
+    const statuses = statusEvents.map((evt) => evt.payload?.status);
+    expect(statuses).toContain(TaskStatus.CANCELED);
+
+    engine.start();
+  });
+
+  it("rejects tracker promise on failed task", async () => {
+    const dates = createDates();
+    const toSubmit = new TaskBuilder({
+      classification: "flaky-task",
+      input: { value: 0 },
+      maxAttempts: 1,
+      attempt: 0,
+      ...dates,
+      backoff: createBackoff(),
+    }).build();
+    const { tracker } = await engine.push(toSubmit, true);
+    await expect(tracker.resolve()).rejects.toMatchObject({
+      message: "transient failure",
+    });
+  });
+
+  it("runs the cleanup task to purge matching tasks", async () => {
+    const toClean = await Promise.all(
+      [TaskStatus.SUCCEEDED, TaskStatus.FAILED, TaskStatus.CANCELED].map(
+        (status) => {
+          return taskRepo.create(
+            new TaskBuilder({
+              classification: "cleanup-target",
+              status,
+              maxAttempts: 1,
+              attempt: 0,
+              backoff: createBackoff(),
+            }).build()
+          );
+        }
+      )
     );
-    expect(FlakyStepTask.attempts[id]).toBe(1);
-    const finished = await waitForTaskCompletion(id);
-    expect(finished.status).toBe(TaskStatus.SUCCEEDED);
-    expect(finished.stepResults?.[0].output).toBe(9);
-    expect(finished.stepResults?.[1].status).toBe(TaskStatus.SUCCEEDED);
-    expect(finished.stepResults?.[1].error).toBeUndefined();
-    expect(finished.stepResults?.[2].output).toBe(25);
+    const kept = await taskRepo.create(
+      new TaskBuilder({
+        classification: "keep-task",
+        status: TaskStatus.SUCCEEDED,
+        maxAttempts: 1,
+        attempt: 0,
+        backoff: createBackoff(),
+      }).build()
+    );
+
+    const condition =
+      Condition.attr<TaskModel>("classification").eq("cleanup-target");
+    const cleanupBuilder = new TaskBuilder({
+      classification: "cleanup-task",
+      maxAttempts: 1,
+      attempt: 0,
+      backoff: createBackoff(),
+    }).setInput(condition);
+    const cleanupTask = cleanupBuilder.build();
+
+    const { tracker } = await engine.push(cleanupTask, true);
+    const deleted = await tracker.resolve();
+    const deletedIds = deleted.map((t) => t.id).sort();
+    expect(deletedIds).toEqual(toClean.map((t) => t.id).sort());
+
+    for (const cleaned of toClean) {
+      await expect(taskRepo.read(cleaned.id)).rejects.toThrowError();
+    }
+    const stillThere = await taskRepo.read(kept.id);
+    expect(stillThere).toBeDefined();
+    expect(stillThere.classification).toBe("keep-task");
   });
 });

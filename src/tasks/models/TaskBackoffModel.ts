@@ -1,4 +1,5 @@
 import {
+  Model,
   model,
   type ModelArg,
   option,
@@ -7,10 +8,9 @@ import {
 } from "@decaf-ts/decorator-validation";
 import { BackoffStrategy, JitterStrategy } from "../constants";
 import { description } from "@decaf-ts/decoration";
-import { TaskBaseModel } from "./TaskBaseModel";
 
 @model()
-export class TaskBackoffModel extends TaskBaseModel {
+export class TaskBackoffModel extends Model {
   @required()
   @type(String)
   @option(BackoffStrategy)

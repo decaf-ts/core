@@ -8,6 +8,7 @@ import {
   generated,
   OperationKeys,
   timestamp,
+  afterUpdate,
 } from "@decaf-ts/db-decorators";
 import {
   apply as newApply,
@@ -33,6 +34,7 @@ import {
   RelationsMetadata,
 } from "./types";
 import {
+  cascadeDelete,
   oneToManyOnCreate,
   oneToManyOnDelete,
   oneToManyOnUpdate,
@@ -57,6 +59,11 @@ export function table<OPTS = string>(opts?: OPTS) {
     .define({
       decorator: function table(opts: OPTS) {
         return function table(target: any) {
+          Metadata.set(
+            PersistenceKeys.TABLE,
+            opts || target.name.toLowerCase(),
+            target
+          );
           return metadata(
             PersistenceKeys.TABLE,
             opts || target.name.toLowerCase()
@@ -400,10 +407,11 @@ export function oneToOne<M extends Model>(
       prop(),
       relation(key, meta),
       type([clazz, ...pkTypes]),
-      onCreate(oneToOneOnCreate, meta),
-      onUpdate(oneToOneOnUpdate, meta),
-      onDelete(oneToOneOnDelete, meta),
-      afterAny(pop, meta),
+      onCreate(oneToOneOnCreate, meta, { priority: 70 }),
+      onUpdate(oneToOneOnUpdate, meta, { priority: 70 }),
+      onDelete(oneToOneOnDelete, meta, { priority: 70 }),
+      afterUpdate(cascadeDelete, meta, { priority: 70 }),
+      afterAny(pop, meta, { priority: 70 }),
     ];
     return apply(...decs);
   }
@@ -472,10 +480,11 @@ export function oneToMany<M extends Model>(
       prop(),
       relation(key, metadata),
       list([clazz, ...pkTypes]),
-      onCreate(oneToManyOnCreate, metadata),
-      onUpdate(oneToManyOnUpdate, metadata),
-      onDelete(oneToManyOnDelete, metadata),
-      afterAny(pop, metadata),
+      onCreate(oneToManyOnCreate, metadata, { priority: 70 }),
+      onUpdate(oneToManyOnUpdate, metadata, { priority: 70 }),
+      onDelete(oneToManyOnDelete, metadata, { priority: 70 }),
+      afterUpdate(cascadeDelete, metadata, { priority: 70 }),
+      afterAny(pop, metadata, { priority: 70 }),
     ];
     return apply(...decs);
   }

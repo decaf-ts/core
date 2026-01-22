@@ -2,6 +2,7 @@
 export * from "./Dispatch";
 export * from "./constants";
 export * from "./Context";
+export * from "./decorators";
 export * from "./errors";
 export * from "./generators";
 export * from "./event-filters";

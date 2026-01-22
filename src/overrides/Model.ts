@@ -22,6 +22,8 @@ declare module "@decaf-ts/decorator-validation" {
       existingRelations?: string[]
     ): string[];
 
+    function fromTable<M extends Model>(tableName: string): Constructor<M>;
+
     /**
      * @description Gets all relation properties defined on a model.
      * @summary Retrieves the names of all properties marked as relations in the model hierarchy.

@@ -281,7 +281,7 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
    * @param {Adapter<any, any, any, any>} observer - The adapter to observe
    * @return {void}
    */
-  observe(observer: A): void {
+  observe(observer: A): () => void {
     if (!(observer instanceof Adapter))
       throw new UnsupportedError("Only Adapters can be observed by dispatch");
     this.adapter = observer;
@@ -291,6 +291,8 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
         `Dispatch initialized for ${this.adapter!.alias} adapter`
       )
     );
+
+    return () => this.unObserve(observer);
   }
 
   /**

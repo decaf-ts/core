@@ -52,7 +52,8 @@ import {
 import { Model } from "@decaf-ts/decorator-validation";
 import { prepared } from "../query/decorators";
 import { PreparedStatementKeys } from "../query/constants";
-import { Paginator, SerializedPage } from "../query/index";
+import { Paginator } from "../query/Paginator";
+import { SerializedPage } from "../query/Paginator";
 import { getFilters } from "../persistence/event-filters";
 
 /**
@@ -145,6 +146,8 @@ export class Repository<
   private _tableName!: string;
 
   protected _overrides: Partial<FlagsOf<ContextOf<A>>> = {
+    ignoreHandlers: false,
+    ignoreValidation: false,
     allowGenerationOverride: false,
     allowRawStatements: true,
     forcePrepareSimpleQueries: false,
@@ -1167,7 +1170,7 @@ export class Repository<
    * @see {Observable#observe}
    */
   @final()
-  observe(observer: Observer, filter?: ObserverFilter): void {
+  observe(observer: Observer, filter?: ObserverFilter): () => void {
     if (!this.observerHandler)
       Object.defineProperty(this, "observerHandler", {
         value: this.ObserverHandler(),
@@ -1195,6 +1198,7 @@ export class Repository<
     );
     this.observerHandler!.observe(observer, filter);
     log.verbose(`Registered new observer ${observer.toString()}`);
+    return () => this.unObserve(observer);
   }
 
   /**

@@ -12,7 +12,7 @@ import { Repository } from "../repository/Repository";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import { Service } from "../services/services";
 import { TaskHandler } from "../tasks/TaskHandler";
-import { TasksKey } from "../tasks/index";
+import { TasksKey } from "../tasks/constants";
 import { type Migration } from "../migrations/types";
 
 (Metadata as any).tasks = function tasks():
@@ -125,6 +125,17 @@ import { type Migration } from "../migrations/types";
     typeof model !== "function" ? (model.constructor as any) : model;
   const seq = Model.sequenceFor(constr);
   return !!seq.generated;
+}.bind(Model);
+
+(Model as any).fromTable = function fromTable<M extends Model>(
+  tableName: string
+): Constructor<M> {
+  const meta = Metadata["innerGet"](Symbol.for(PersistenceKeys.TABLE));
+  if (!meta || !meta[tableName] || !Model.get(meta[tableName].name))
+    throw new InternalError(
+      `No table metadata found for model. did you use @table()?`
+    );
+  return Model.get(meta[tableName].name) as Constructor<M>;
 }.bind(Model);
 
 (Metadata as any).createdBy = function createdBy<M extends Model>(

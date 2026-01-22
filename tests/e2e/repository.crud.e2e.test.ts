@@ -6,7 +6,13 @@ import { Context, NotFoundError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Product } from "./models/Product";
 import { generateGtin } from "./models/gtin";
 import { Model } from "@decaf-ts/decorator-validation";
-import { Observer, PersistenceKeys } from "../../src/index";
+import {
+  AllOperationKeys,
+  ContextualArgs,
+  EventIds,
+  Observer,
+  PersistenceKeys,
+} from "../../src/index";
 import { Constructor } from "@decaf-ts/decoration";
 import { Logging, LogLevel, style } from "@decaf-ts/logging";
 import { ProductStrength } from "./models/ProductStrength";
@@ -135,36 +141,6 @@ describe("e2e Repository test", () => {
         ],
       });
 
-      contextFactoryMock.mockImplementationOnce(
-        (
-          op: string,
-          overrides: Partial<any>,
-          model: Constructor,
-          ...args: any[]
-        ) => {
-          const log = logger
-            .for(style("adapter context factory").blue.bold)
-            .for(expect.getState().currentTestName);
-          try {
-            log.info(
-              `adapter context called for the first time with ${op}, ${JSON.stringify(overrides)}, ${model ? `name ${model.name}, ` : ""}${JSON.stringify(args)}`
-            );
-          } catch (e: unknown) {
-            log.warn(
-              `adapter context called for the first time with ${op}, ${model ? `name ${model.name}, ` : ""}, and not stringifyable args or overrides`
-            );
-          }
-          return adapterContextFactory(
-            op,
-            Object.assign({}, overrides, {
-              PERSISTENT_PROPERTY: true,
-            }),
-            model,
-            ...args
-          );
-        }
-      );
-
       created = await repo.create(model);
 
       expect(created).toBeDefined();
@@ -189,6 +165,8 @@ describe("e2e Repository test", () => {
       expect(read === created).toEqual(false); // different instances
     });
 
+    let updated: Product;
+
     it("updates", async () => {
       const toUpdate = new Product(
         Object.assign({}, created, {
@@ -196,7 +174,7 @@ describe("e2e Repository test", () => {
         })
       );
 
-      const updated = await repo.update(toUpdate);
+      updated = await repo.update(toUpdate);
 
       expect(updated).toBeDefined();
       expect(updated.equals(created)).toEqual(false);
@@ -216,6 +194,154 @@ describe("e2e Repository test", () => {
         expect.any(Object),
         expect.any(Context)
       );
+    });
+
+    it("properly handles deletion of children on cascade - strengths", async () => {
+      const toUpdate = new Product(
+        Object.assign({}, updated, {
+          inventedName: "yet_test_name",
+          strengths: [
+            {
+              productCode: created.productCode,
+              strength: "400mg",
+              substance: "other",
+            },
+            {
+              productCode: created.productCode,
+              strength: "1000mg",
+              substance: "aspirin",
+            },
+          ],
+        })
+      );
+
+      const strengthMock = jest.fn();
+      const strengthObserver = new (class implements Observer {
+        async refresh(...args: any[]): Promise<void> {
+          const operation = args[1];
+          strengthMock(...args);
+        }
+      })();
+
+      const strengthRepo = Repository.forModel(ProductStrength);
+      repo["adapter"].observe(
+        strengthObserver,
+        (
+          table: Constructor | string,
+          event: AllOperationKeys,
+          id: EventIds,
+          ...args: ContextualArgs<any>
+        ) => {
+          return table === ProductStrength;
+        }
+      );
+
+      const afterCascade = await repo.update(toUpdate);
+
+      expect(afterCascade).toBeDefined();
+      expect(afterCascade.equals(updated)).toEqual(false);
+      expect(
+        afterCascade.equals(
+          updated,
+          "updatedAt",
+          "inventedName",
+          "strengths",
+          "updatedBy",
+          "version"
+        )
+      ).toEqual(true); // minus the expected changes
+      expect(mock).toHaveBeenCalledWith(
+        Product,
+        OperationKeys.UPDATE,
+        updated.productCode,
+        expect.any(Object),
+        expect.any(Context)
+      );
+
+      expect(strengthMock).toHaveBeenCalledWith(
+        ProductStrength,
+        OperationKeys.DELETE,
+        [1, 2],
+        expect.any(Array),
+        expect.any(Context)
+      );
+      repo["adapter"].unObserve(strengthObserver);
+
+      updated = afterCascade;
+    });
+
+    it("properly handles deletion of children on cascade - market", async () => {
+      const toUpdate = new Product(
+        Object.assign({}, updated, {
+          inventedName: "yet_yet_test_name",
+          markets: [
+            {
+              productCode: updated.productCode,
+              marketId: "PT",
+              nationalCode: "PT",
+              mahName: "ProPharma PT",
+            },
+            {
+              productCode: updated.productCode,
+              marketId: "AS",
+              nationalCode: "AS",
+              mahName: "ProPharma AS",
+            },
+          ],
+        })
+      );
+
+      const marketMock = jest.fn();
+      const marketObserver = new (class implements Observer {
+        async refresh(...args: any[]): Promise<void> {
+          const operation = args[1];
+          marketMock(...args);
+        }
+      })();
+
+      const marketRepo = Repository.forModel(Market);
+      repo["adapter"].observe(
+        marketObserver,
+        (
+          table: Constructor | string,
+          event: AllOperationKeys,
+          id: EventIds,
+          ...args: ContextualArgs<any>
+        ) => {
+          return table === Market;
+        }
+      );
+
+      const afterCascade = await repo.update(toUpdate);
+
+      expect(afterCascade).toBeDefined();
+      expect(afterCascade.equals(updated)).toEqual(false);
+      expect(
+        afterCascade.equals(
+          updated,
+          "updatedAt",
+          "inventedName",
+          "markets",
+          "updatedBy",
+          "version"
+        )
+      ).toEqual(true); // minus the expected changes
+      expect(mock).toHaveBeenCalledWith(
+        Product,
+        OperationKeys.UPDATE,
+        updated.productCode,
+        expect.any(Object),
+        expect.any(Context)
+      );
+
+      expect(marketMock).toHaveBeenCalledWith(
+        Market,
+        OperationKeys.DELETE,
+        [`${toUpdate.productCode}:BR`, `${toUpdate.productCode}:US`],
+        expect.any(Array),
+        expect.any(Context)
+      );
+      repo["adapter"].unObserve(marketObserver);
     });
 
     it("deletes", async () => {
@@ -244,10 +370,10 @@ describe("e2e Repository test", () => {
       const marketRepo = Repository.forModel(Market);
       await expect(
         marketRepo.read(deleted.markets[0] as any)
-      ).resolves.toBeInstanceOf(Market);
+      ).rejects.toThrowError(NotFoundError);
       await expect(
         marketRepo.read(deleted.markets[1] as any)
-      ).resolves.toBeInstanceOf(Market);
+      ).rejects.toThrowError(NotFoundError);
     });
   });
 
@@ -392,12 +518,12 @@ describe("e2e Repository test", () => {
           NotFoundError
         );
 
-        await expect(
-          marketRepo.read(p.markets[0] as any)
-        ).resolves.toBeInstanceOf(Market);
-        await expect(
-          marketRepo.read(p.markets[1] as any)
-        ).resolves.toBeInstanceOf(Market);
+        await expect(marketRepo.read(p.markets[0] as any)).rejects.toThrowError(
+          NotFoundError
+        );
+        await expect(marketRepo.read(p.markets[1] as any)).rejects.toThrowError(
+          NotFoundError
+        );
       }
       expect(mock).toHaveBeenCalledWith(
         Product,

@@ -16,9 +16,9 @@ export interface Observable<
    * @summary Adds an observer to the list of observers that will be notified of state changes
    * @template REGISTRATION - The type of the registration arguments for the observer
    * @param {...REGISTRATION} args - @{link Observer} and additional arguments
-   * @return {void}
+   * @return {function(): void} the unregistration function
    */
-  observe(...args: REGISTRATION): void;
+  observe(...args: REGISTRATION): () => void;
 
   /**
    * @description Unregisters an observer from receiving notifications

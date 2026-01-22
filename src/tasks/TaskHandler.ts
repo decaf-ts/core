@@ -2,10 +2,7 @@ import { ITaskHandler } from "./types";
 import { TasksKey } from "./constants";
 import { Metadata } from "@decaf-ts/decoration";
 import { InternalError, wrapMethodWithContext } from "@decaf-ts/db-decorators";
-import {
-  AbsContextual,
-  MaybeContextualArg,
-} from "../utils/ContextualLoggedClass";
+import { AbsContextual, ContextualArgs } from "../utils/ContextualLoggedClass";
 import { TaskContext } from "./TaskContext";
 
 export abstract class TaskHandler<I, O>
@@ -34,18 +31,15 @@ export abstract class TaskHandler<I, O>
     super();
     wrapMethodWithContext(
       this,
-      this.runSuffix.bind(this),
+      this.runPrefix.bind(this),
       this.run.bind(this),
       this.runSuffix.bind(this),
       this.run.name
     );
   }
 
-  protected async runPrefix(
-    input: I,
-    ...args: MaybeContextualArg<TaskContext>
-  ) {
-    const { log, ctx, ctxArgs } = await this.logCtx(args, this.runPrefix, true);
+  protected async runPrefix(input: I, ...args: ContextualArgs<TaskContext>) {
+    const { log, ctx, ctxArgs } = this.logCtx(args, this.runPrefix);
     log.info(`Running task ${ctx.taskId} attempt ${ctx.attempt}`);
     return [input, ...ctxArgs];
   }

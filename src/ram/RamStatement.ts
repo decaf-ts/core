@@ -4,7 +4,8 @@ import { Model } from "@decaf-ts/decorator-validation";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Statement } from "../query/Statement";
 import { Metadata } from "@decaf-ts/decoration";
-import { Adapter, AdapterFlags } from "../persistence/index";
+import { Adapter } from "../persistence/Adapter";
+import { AdapterFlags } from "../persistence/types";
 import { OrderDirection } from "../repository/constants";
 
 /**

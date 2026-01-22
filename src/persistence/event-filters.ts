@@ -11,7 +11,7 @@ import {
   ContextualLoggedClass,
 } from "../utils/ContextualLoggedClass";
 import { TransactionOperationKeys } from "./constants";
-import { Repo } from "../repository/index";
+import type { Repo } from "../repository/Repository";
 
 export function onlyOnCreate(clazz: ModelConstructor<any>) {
   return onlyOnFilter(clazz, [

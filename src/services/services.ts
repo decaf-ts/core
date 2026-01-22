@@ -1,6 +1,6 @@
 import type {
-  AdapterFlags,
   AllOperationKeys,
+  ContextFlags,
   EventIds,
   FlagsOf,
   ObserverFilter,
@@ -8,7 +8,7 @@ import type {
   PersistenceObserver,
 } from "../persistence/types";
 import { Context } from "../persistence/Context";
-import { Logging, type Logger, final } from "@decaf-ts/logging";
+import { final, type Logger, Logging } from "@decaf-ts/logging";
 import {
   ContextualArgs,
   ContextualizedArgs,
@@ -18,7 +18,7 @@ import {
 } from "../utils/ContextualLoggedClass";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Constructor } from "@decaf-ts/decoration";
-import { DefaultAdapterFlags, PersistenceKeys } from "../persistence/constants";
+import { DefaultContextFlags, PersistenceKeys } from "../persistence/constants";
 import { injectableServiceKey } from "../utils/utils";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import { UUID } from "../persistence/generators";
@@ -26,7 +26,7 @@ import type { Observer } from "../interfaces/Observer";
 import { ObserverHandler } from "../persistence/ObserverHandler";
 
 export abstract class Service<
-    C extends Context<AdapterFlags> = Context<AdapterFlags>,
+    C extends Context<ContextFlags<any>> = Context<ContextFlags<any>>,
   >
   extends ContextualLoggedClass<C>
   implements PersistenceObservable<C>, PersistenceObserver<C>
@@ -48,7 +48,7 @@ export abstract class Service<
    * @see {Observable#observe}
    */
   @final()
-  observe(observer: Observer, filter?: ObserverFilter): void {
+  observe(observer: Observer, filter?: ObserverFilter): () => void {
     if (!this.observerHandler)
       Object.defineProperty(this, "observerHandler", {
         value: new ObserverHandler(),
@@ -59,6 +59,7 @@ export abstract class Service<
     log.verbose(
       `Registered new observer ${observer.constructor.name || observer.toString()}`
     );
+    return () => this.unObserve(observer);
   }
 
   /**
@@ -130,7 +131,7 @@ export abstract class Service<
       flags.correlationId || `${operation}-${UUID.instance.generate()}`;
     const log = (flags.logger || Logging.for(this as any)) as Logger;
     log.setConfig({ correlationId: flags.correlationId });
-    return Object.assign({}, DefaultAdapterFlags, flags, {
+    return Object.assign({}, DefaultContextFlags, flags, {
       args: args,
       timestamp: new Date(),
       operation: operation,
@@ -178,19 +179,51 @@ export abstract class Service<
       args.push(ctx);
       ctx = undefined;
     }
-
+    overrides = ctx
+      ? Object.assign({}, ctx.toOverrides(), overrides)
+      : overrides;
     const flags = await this.flags(
       typeof operation === "string" ? operation : operation.name,
       overrides as Partial<FlagsOf<C>>,
-      ...args
+      ...[...args, ctx].filter(Boolean)
     );
     if (ctx) {
-      return new this.Context(ctx).accumulate({
-        ...flags,
-        parentContext: ctx,
-      }) as any;
+      if (!(ctx instanceof this.Context)) {
+        const newCtx = new this.Context().accumulate({
+          ...ctx["cache"],
+          ...flags,
+          parentContext: ctx,
+        }) as any;
+        ctx.accumulate({
+          childContexts: [
+            ...(ctx.getOrUndefined("childContexts") || []),
+            newCtx,
+          ],
+        });
+        return newCtx;
+      }
+      const currentOp = ctx.get("operation");
+      if (currentOp !== operation) {
+        const newCtx = new this.Context().accumulate({
+          ...ctx["cache"],
+          ...flags,
+          parentContext: ctx,
+        }) as any;
+
+        ctx.accumulate({
+          childContexts: [
+            ...(ctx.getOrUndefined("childContexts") || []),
+            newCtx,
+          ],
+        });
+        return newCtx;
+      }
+      return ctx.accumulate(flags) as any;
     }
-    return new this.Context().accumulate(flags) as any;
+
+    return new this.Context().accumulate({
+      ...flags,
+    }) as any;
   }
 
   protected override logCtx<
@@ -313,6 +346,54 @@ export abstract class Service<
       }
     }
   }
+
+  static async shutdown<C extends Context<any> = any>(
+    ...args: MaybeContextualArg<C>
+  ): Promise<void> {
+    let ctx = args.pop();
+    if (typeof ctx !== "undefined" && !(ctx instanceof Context)) {
+      args.push(ctx);
+      ctx = undefined;
+    }
+
+    const flags = await Service.prototype.flags(
+      PersistenceKeys.SHUTDOWN,
+      {},
+      ...args
+    );
+    ctx = ctx
+      ? (new Context(ctx).accumulate({
+          ...flags,
+          parentContext: ctx,
+        }) as any)
+      : (new Context().accumulate(flags) as any);
+
+    args = [...args, ctx];
+
+    const { log, ctxArgs } = Service.prototype.logCtx(args, this.shutdown);
+    const services = Injectables.services();
+    for (const [key, service] of Object.entries(services).reverse()) {
+      try {
+        log.verbose(`Shutting down ${service.name} service...`);
+        const s = Injectables.get<Service>(service as Constructor<Service>);
+        if (!s)
+          throw new InternalError(`Failed to resolve injectable for ${key}`);
+        if (s instanceof ClientBasedService) {
+          log.verbose(`Gracefully shutting down ${service.name} service...`);
+          try {
+            await s.shutdown(...ctxArgs);
+          } catch (e: unknown) {
+            log.error(
+              `Failed to gracefully shutdown ${service.name} service`,
+              e as Error
+            );
+          }
+        }
+      } catch (e: unknown) {
+        throw new InternalError(`Failed to Shutdown services ${key}: ${e}`);
+      }
+    }
+  }
 }
 
 export abstract class ClientBasedService<
@@ -330,7 +411,9 @@ export abstract class ClientBasedService<
 
   @final()
   async boot(...args: MaybeContextualArg<C>) {
-    const { log, ctxArgs } = await this.logCtx(args, this.boot, true);
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
+    ).for(this.boot);
     log.verbose(`Initializing ${this.toString()}...`);
     const { config, client } = await this.initialize(...ctxArgs);
     this._config = config;

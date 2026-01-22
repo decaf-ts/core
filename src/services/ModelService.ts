@@ -27,8 +27,8 @@ import { create, del, read, service, update } from "../utils/decorators";
 import { OrderDirection } from "../repository/constants";
 import { type DirectionLimitOffset } from "../query/types";
 import { type Observer } from "../interfaces";
-import { PersistenceKeys } from "../persistence/index";
-import { PreparedStatementKeys } from "../query/index";
+import { PersistenceKeys } from "../persistence/constants";
+import { PreparedStatementKeys } from "../query/constants";
 
 export type ArrayMode = "one" | "many";
 
@@ -295,7 +295,7 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
   ): Promise<void> {
     return this.repo.refresh(table, event, id, ...args);
   }
-  override observe(observer: Observer, filter?: ObserverFilter): void {
+  override observe(observer: Observer, filter?: ObserverFilter): () => void {
     return this.repo.observe(observer, filter);
   }
 

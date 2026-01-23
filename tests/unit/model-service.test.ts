@@ -22,7 +22,7 @@ const adapter = new RamAdapter();
 @table("tst_user")
 @model()
 export class TestModel extends IdentifiedBaseModel {
-  @pk({ type: "Number", generated: true })
+  @pk({ type: Number, generated: true })
   id!: number;
 
   @column("tst_name")

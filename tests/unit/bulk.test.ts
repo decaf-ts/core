@@ -19,7 +19,7 @@ describe("Bulk operations", () => {
   @uses("ram")
   @model()
   class TestBulkModel extends BaseModel {
-    @pk({ type: "Number" })
+    @pk({ type: Number })
     id?: number = undefined;
 
     @required()

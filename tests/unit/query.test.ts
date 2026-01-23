@@ -28,7 +28,7 @@ describe("Queries", () => {
   @uses("ram")
   @model()
   class TestUser extends BaseModel {
-    @pk({ type: "Number" })
+    @pk({ type: Number })
     id!: number;
 
     @required()

@@ -97,7 +97,7 @@ export const DefaultSequenceOptions: SequenceOptions = NoneSequenceOptions;
  * @memberOf module:core
  */
 export const NumericSequence: SequenceOptions = {
-  type: "Number",
+  type: Number,
   generated: true,
   startWith: 0,
   incrementBy: 1,

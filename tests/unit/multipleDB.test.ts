@@ -31,7 +31,7 @@ describe("Multiple dbs of same flavour", () => {
   @uses("ram")
   @model()
   class TestUserMultipleDB extends BaseModel {
-    @pk({ type: "Number" })
+    @pk({ type: Number })
     id!: number;
 
     @required()

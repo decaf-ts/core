@@ -152,10 +152,6 @@ export interface ViewOptions {
   directions?: OrderDirection[];
 }
 
-export interface AggregateOptions extends ViewOptions {
-  value?: any;
-}
-
 export interface ViewMetadata extends ViewOptions {
   kind: ViewKind;
   attribute: string;

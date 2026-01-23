@@ -68,18 +68,10 @@ export interface LimitOption<M extends Model, R>
  * @interface OrderByOption
  * @memberOf module:core
  */
-export interface ThenByStarterOption<M extends Model, R> {
-  thenBy(selector: OrderBySelector<M>): ThenByOption<M, R>;
-  thenBy(
-    attribute: keyof M,
-    direction: OrderDirectionInput
-  ): ThenByOption<M, R>;
-}
-
 export interface OrderByResult<M extends Model, R>
   extends LimitOption<M, R>,
     OffsetOption<M, R>,
-    ThenByStarterOption<M, R> {}
+    OrderByThenByStarterOption<M, R> {}
 
 export interface OrderByOption<M extends Model, R>
   extends PreparableStatementExecutor<M, R> {
@@ -90,16 +82,31 @@ export interface OrderByOption<M extends Model, R>
   ): OrderByResult<M, R>;
 }
 /**
- * @summary OrderBy Option interface
- * @description Exposes the ORDER BY method and remaining options
+ * @summary OrderBy chaining starter interface
+ * @description Exposes the thenBy methods for continuing orderBy chains
  *
- * @interface ThenByOption
+ * @interface OrderByThenByStarterOption
  * @memberOf module:core
  */
-export interface ThenByOption<M extends Model, R>
+export interface OrderByThenByStarterOption<M extends Model, R> {
+  thenBy(selector: OrderBySelector<M>): OrderByThenByOption<M, R>;
+  thenBy(
+    attribute: keyof M,
+    direction: OrderDirectionInput
+  ): OrderByThenByOption<M, R>;
+}
+
+/**
+ * @summary OrderBy chaining continuation interface
+ * @description Exposes limit/offset and further thenBy chaining for multi-level sorts
+ *
+ * @interface OrderByThenByOption
+ * @memberOf module:core
+ */
+export interface OrderByThenByOption<M extends Model, R>
   extends LimitOption<M, R>,
     OffsetOption<M, R>,
-    ThenByStarterOption<M, R> {}
+    OrderByThenByStarterOption<M, R> {}
 /**
  * @summary Groups several order and grouping options
  *

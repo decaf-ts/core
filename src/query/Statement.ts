@@ -19,10 +19,10 @@ import type {
   OffsetOption,
   OrderAndGroupOption,
   OrderByResult,
+  OrderByThenByOption,
   PreparableStatementExecutor,
   SelectOption,
   StatementExecutor,
-  ThenByOption,
   WhereOption,
 } from "./options";
 import { Paginatable } from "../interfaces/Paginatable";
@@ -251,17 +251,17 @@ export abstract class Statement<
   }
 
   public thenBy(selector: GroupBySelector<M>): GroupByResult<M, R>;
-  public thenBy(selector: OrderBySelector<M>): ThenByOption<M, R>;
+  public thenBy(selector: OrderBySelector<M>): OrderByThenByOption<M, R>;
   public thenBy(
     attribute: keyof M,
     direction: OrderDirectionInput
-  ): ThenByOption<M, R>;
+  ): OrderByThenByOption<M, R>;
 
   @final()
   public thenBy(
     selectorOrAttribute: OrderBySelector<M> | keyof M,
     direction?: OrderDirectionInput
-  ): ThenByOption<M, R> | GroupByResult<M, R> {
+  ): OrderByThenByOption<M, R> | GroupByResult<M, R> {
     const isOrderingCriterion =
       Array.isArray(selectorOrAttribute) || typeof direction !== "undefined";
     if (isOrderingCriterion) {
@@ -270,7 +270,7 @@ export abstract class Statement<
       this.orderBySelectors.push(
         this.normalizeOrderCriterion(selectorOrAttribute, direction)
       );
-      return this as unknown as ThenByOption<M, R>;
+      return this as unknown as OrderByThenByOption<M, R>;
     }
     if (!this.groupBySelectors || !this.groupBySelectors.length)
       throw new QueryError(

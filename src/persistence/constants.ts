@@ -86,11 +86,11 @@ export enum PersistenceKeys {
 
   BY_KEY = "by-key",
 
-  AUTH="auth",
+  AUTH = "auth",
 
-  AUTH_ROLE="auth-role",
+  AUTH_ROLE = "auth-role",
 
-  DECAF_ROUTE = "DecafRoute"
+  DECAF_ROUTE = "DecafRoute",
 }
 
 export const DefaultContextFlags: ContextFlags<any> = Object.assign(

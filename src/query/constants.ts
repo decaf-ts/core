@@ -28,6 +28,12 @@ export enum Operator {
   // IS = "IS",
   /** Regular expression matching */
   REGEXP = "REGEXP",
+  GROUP_BY = "group-by",
+  COUNT = "count",
+  SUM = "sum",
+  MAX = "v_max",
+  MIN = "v_min",
+  DISTINCT = "distinct",
 }
 
 /**

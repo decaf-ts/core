@@ -477,7 +477,7 @@ export class RamAdapter extends Adapter<
     const { log, ctx } = this.logCtx(args, this.raw);
     log.debug(`performing raw query: ${JSON.stringify(rawInput)}`);
 
-    const { where, sort, limit, skip, from } = rawInput;
+    const { where, sort, limit, skip, from, groupBy } = rawInput;
     let { select } = rawInput;
     const collection = this.tableFor(from);
     if (!collection)
@@ -497,6 +497,18 @@ export class RamAdapter extends Adapter<
     if (sort) result = result.sort(sort);
 
     result = where ? result.filter(where) : result;
+
+    if (groupBy && groupBy.length) {
+      const groupedResults: any[] = [];
+      const seen = new Map<string, boolean>();
+      for (const item of result) {
+        const key = JSON.stringify(groupBy.map((field) => item[field as string]));
+        if (seen.has(key)) continue;
+        seen.set(key, true);
+        groupedResults.push(item);
+      }
+      result = groupedResults;
+    }
 
     const count = result.length;
 

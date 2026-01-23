@@ -28,8 +28,16 @@ export interface PreparableStatementExecutor<M extends Model, R>
  * @interface GroupByOption
  * @memberOf module:core
  */
+export interface GroupByResult<M extends Model, R>
+  extends PreparableStatementExecutor<M, R>,
+    OrderByOption<M, R>,
+    LimitOption<M, R>,
+    OffsetOption<M, R> {
+  thenBy(selector: GroupBySelector<M>): GroupByResult<M, R>;
+}
+
 export interface GroupByOption<M extends Model, R> extends Executor<R> {
-  groupBy(selector: GroupBySelector<M>): PreparableStatementExecutor<M, R>;
+  groupBy(selector: GroupBySelector<M>): GroupByResult<M, R>;
 }
 /**
  * @summary Offset Option interface

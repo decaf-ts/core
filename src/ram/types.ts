@@ -36,6 +36,7 @@ export type RawRamQuery<M extends Model = any> = {
   from: Constructor<M>;
   where: (el: M) => boolean;
   sort?: (el: M, el2: M) => number;
+  groupBy?: (keyof M)[];
   limit?: number;
   skip?: number;
 };

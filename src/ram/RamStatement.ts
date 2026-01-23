@@ -157,6 +157,7 @@ export class RamStatement<
           },
       limit: this.limitSelector,
       skip: this.offsetSelector,
+      groupBy: this.groupBySelectors,
     };
     if (this.orderBySelectors?.length) result.sort = this.getSort();
     return result as RawRamQuery<any>;

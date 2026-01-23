@@ -20,6 +20,7 @@ import {
   Condition,
 } from "../../src/index";
 import { RamRepository } from "../../src/ram/types";
+import { QueryError } from "../../src/query/errors";
 import { uses } from "@decaf-ts/decoration";
 
 jest.setTimeout(50000);
@@ -194,6 +195,39 @@ describe("Queries", () => {
 
       expect(sorted[i - 1].age).toBeGreaterThanOrEqual(sorted[i].age);
     }
+  });
+
+  it("groups results and supports chaining groupings with thenBy", async () => {
+    const repo: RamRepository<TestUser> = Repository.forModel<
+      TestUser,
+      RamRepository<TestUser>
+    >(TestUser);
+    const groupedBySex = await repo.select().groupBy("sex").execute();
+    expect(groupedBySex).toHaveLength(2);
+    expect(new Set(groupedBySex.map((user) => user.sex))).toEqual(
+      new Set(["M", "F"])
+    );
+
+    const groupedByAgeSex = await repo
+      .select()
+      .groupBy("age")
+      .thenBy("sex")
+      .execute();
+
+    const expectedCombos = new Set(created.map((u) => `${u.age}-${u.sex}`));
+    expect(new Set(groupedByAgeSex.map((u) => `${u.age}-${u.sex}`))).toEqual(
+      expectedCombos
+    );
+    expect(groupedByAgeSex).toHaveLength(expectedCombos.size);
+  });
+
+  it("throws if groupBy is invoked after orderBy", async () => {
+    const repo: RamRepository<TestUser> = Repository.forModel<
+      TestUser,
+      RamRepository<TestUser>
+    >(TestUser);
+    const builder = repo.select().orderBy(["age", OrderDirection.ASC]);
+    expect(() => (builder as any).groupBy("sex")).toThrow(QueryError);
   });
 
   it("supports secondary sorting with thenBy", async () => {

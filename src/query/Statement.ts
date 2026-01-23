@@ -13,6 +13,7 @@ import { final, Logger, toCamelCase } from "@decaf-ts/logging";
 import type {
   CountOption,
   DistinctOption,
+  GroupByResult,
   LimitOption,
   MaxOption,
   MinOption,
@@ -111,7 +112,7 @@ export abstract class Statement<
   protected fromSelector!: Constructor<M>;
   protected whereCondition?: Condition<M>;
   protected orderBySelectors?: OrderBySelector<M>[];
-  protected groupBySelector?: GroupBySelector<M>;
+  protected groupBySelectors?: GroupBySelector<M>[];
   protected limitSelector?: number;
   protected offsetSelector?: number;
 
@@ -250,6 +251,7 @@ export abstract class Statement<
     return this as OrderByResult<M, R>;
   }
 
+  public thenBy(selector: GroupBySelector<M>): GroupByResult<M, R>;
   public thenBy(selector: OrderBySelector<M>): ThenByOption<M, R>;
   public thenBy(
     attribute: keyof M,
@@ -260,13 +262,21 @@ export abstract class Statement<
   public thenBy(
     selectorOrAttribute: OrderBySelector<M> | keyof M,
     direction?: OrderDirectionInput
-  ): ThenByOption<M, R> {
-    if (!this.orderBySelectors || !this.orderBySelectors.length)
-      throw new QueryError("thenBy requires orderBy to be called first");
-    this.orderBySelectors.push(
-      this.normalizeOrderCriterion(selectorOrAttribute, direction)
-    );
-    return this as unknown as ThenByOption<M, R>;
+  ): ThenByOption<M, R> | GroupByResult<M, R> {
+    const isOrderingCriterion =
+      Array.isArray(selectorOrAttribute) || typeof direction !== "undefined";
+    if (isOrderingCriterion) {
+      if (!this.orderBySelectors || !this.orderBySelectors.length)
+        throw new QueryError("thenBy requires orderBy to be called first");
+      this.orderBySelectors.push(
+        this.normalizeOrderCriterion(selectorOrAttribute, direction)
+      );
+      return this as unknown as ThenByOption<M, R>;
+    }
+    if (!this.groupBySelectors || !this.groupBySelectors.length)
+      throw new QueryError("groupBy must be called before chaining group selectors");
+    this.groupBySelectors.push(selectorOrAttribute as GroupBySelector<M>);
+    return this as unknown as GroupByResult<M, R>;
   }
 
   private normalizeOrderCriterion(
@@ -300,9 +310,12 @@ export abstract class Statement<
   }
 
   @final()
-  public groupBy(selector: GroupBySelector<M>): LimitOption<M, R> {
-    this.groupBySelector = selector;
-    return this;
+  public groupBy(selector: GroupBySelector<M>): GroupByResult<M, R> {
+    if (this.orderBySelectors && this.orderBySelectors.length) {
+      throw new QueryError("groupBy must be called before orderBy.");
+    }
+    this.groupBySelectors = [selector];
+    return this as unknown as GroupByResult<M, R>;
   }
 
   @final()
@@ -447,7 +460,7 @@ export abstract class Statement<
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected squash(ctx: ContextOf<A>): PreparedStatement<any> | undefined {
     if (this.selectSelector && this.selectSelector.length) return undefined;
-    if (this.groupBySelector) return undefined;
+    if (this.groupBySelectors && this.groupBySelectors.length) return undefined;
     if (this.countSelector) return undefined;
     if (this.maxSelector) return undefined;
     if (this.minSelector) return undefined;
@@ -554,8 +567,11 @@ export abstract class Statement<
         });
       }
     }
-    if (this.groupBySelector)
-      method.push(QueryClause.GROUP_BY, this.groupBySelector as string);
+    if (this.groupBySelectors?.length) {
+      const [primary, ...rest] = this.groupBySelectors;
+      method.push(QueryClause.GROUP_BY, primary as string);
+      rest.forEach((attr) => method.push(QueryClause.THEN_BY, attr as string));
+    }
     if (this.limitSelector) params.limit = this.limitSelector;
     if (this.offsetSelector) {
       params.skip = this.offsetSelector;
@@ -569,7 +585,7 @@ export abstract class Statement<
   protected isSimpleQuery() {
     return !(
       (this.selectSelector && this.selectSelector.length) ||
-      this.groupBySelector ||
+      (this.groupBySelectors && this.groupBySelectors.length) ||
       this.countSelector ||
       this.maxSelector ||
       this.minSelector

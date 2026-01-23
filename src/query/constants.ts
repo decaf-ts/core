@@ -34,6 +34,7 @@ export enum Operator {
   MAX = "v_max",
   MIN = "v_min",
   DISTINCT = "distinct",
+  VIEW = "view",
 }
 
 /**

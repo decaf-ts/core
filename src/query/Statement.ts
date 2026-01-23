@@ -14,7 +14,6 @@ import type {
   CountOption,
   DistinctOption,
   GroupByResult,
-  LimitOption,
   MaxOption,
   MinOption,
   OffsetOption,
@@ -274,7 +273,9 @@ export abstract class Statement<
       return this as unknown as ThenByOption<M, R>;
     }
     if (!this.groupBySelectors || !this.groupBySelectors.length)
-      throw new QueryError("groupBy must be called before chaining group selectors");
+      throw new QueryError(
+        "groupBy must be called before chaining group selectors"
+      );
     this.groupBySelectors.push(selectorOrAttribute as GroupBySelector<M>);
     return this as unknown as GroupByResult<M, R>;
   }
@@ -287,10 +288,7 @@ export abstract class Statement<
       const [attribute, dir] = selectorOrAttribute;
       return [attribute, this.normalizeOrderDirection(dir)];
     }
-    return [
-      selectorOrAttribute,
-      this.normalizeOrderDirection(direction),
-    ];
+    return [selectorOrAttribute, this.normalizeOrderDirection(direction)];
   }
 
   private normalizeOrderDirection(
@@ -558,10 +556,7 @@ export abstract class Statement<
       method.push(QueryClause.ORDER_BY, primary[0] as string);
       params.direction = primary[1];
       if (secondary.length) {
-        params.order = this.orderBySelectors.map(([attr, dir]) => [
-          attr,
-          dir,
-        ]);
+        params.order = this.orderBySelectors.map(([attr, dir]) => [attr, dir]);
         secondary.forEach(([attr]) => {
           method.push(QueryClause.THEN_BY, attr as string);
         });

@@ -1,4 +1,4 @@
-import { QueryOptions } from "./types";
+import { QueryOptions, ViewKind, ViewMetadata, ViewOptions } from "./types";
 import { MethodQueryBuilder } from "./MethodQueryBuilder";
 import { QueryError } from "./errors";
 import {
@@ -6,9 +6,11 @@ import {
   Decoration,
   Metadata,
   methodMetadata,
+  propMetadata,
 } from "@decaf-ts/decoration";
 import { PersistenceKeys } from "../persistence/constants";
 import type { Repo } from "../repository";
+import { Operator } from "./constants";
 
 export function prepared() {
   function prepared() {
@@ -111,6 +113,45 @@ export function query(options: QueryOptions = {}) {
     .define({
       decorator: query,
       args: [options],
+    })
+    .apply();
+}
+
+function nextViewSlot(
+  target: any,
+  key: PersistenceKeys | Operator,
+  attr: string
+): string {
+  const existing = Metadata.get(target.constructor, key) || {};
+  const attrBucket = existing[attr] || {};
+  const next = Object.keys(attrBucket).length + 1;
+  return String(next);
+}
+
+function applyViewDecorator(
+  metaKey: PersistenceKeys | Operator,
+  kind: ViewKind,
+  opts?: ViewOptions
+) {
+  return function decorator(target: any, attr: any) {
+    const slot = opts?.name || nextViewSlot(target, metaKey, attr as string);
+    const key = Metadata.key(metaKey, attr as string, slot);
+    const value: ViewMetadata = {
+      ...(opts || {}),
+      kind,
+      attribute: attr as string,
+    };
+    return propMetadata(key, value)(target, attr);
+  };
+}
+
+export function view<OPTS extends ViewOptions>(opts?: OPTS) {
+  return Decoration.for(Operator.VIEW)
+    .define({
+      decorator: function view(o?: ViewOptions) {
+        return applyViewDecorator(Operator.VIEW, "view", o);
+      },
+      args: [opts],
     })
     .apply();
 }

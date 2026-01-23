@@ -123,3 +123,40 @@ export interface FilterDescriptor {
   field: string;
   operator?: string;
 }
+
+export type ViewKey = string | string[];
+
+export type ViewKind =
+  | "view"
+  | "groupBy"
+  | "count"
+  | "sum"
+  | "max"
+  | "min"
+  | "distinct";
+
+export interface ViewAuthOptions {
+  expression?: string;
+  field?: string;
+  roles?: string[];
+  mode?: "any" | "all";
+}
+
+export interface ViewOptions {
+  name?: string;
+  key?: ViewKey;
+  value?: ViewKey | null;
+  condition?: Condition<any> | string;
+  auth?: string | ViewAuthOptions;
+  compositions?: string[];
+  directions?: OrderDirection[];
+}
+
+export interface AggregateOptions extends ViewOptions {
+  value?: any;
+}
+
+export interface ViewMetadata extends ViewOptions {
+  kind: ViewKind;
+  attribute: string;
+}

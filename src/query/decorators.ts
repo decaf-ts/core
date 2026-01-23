@@ -128,7 +128,7 @@ function nextViewSlot(
   return String(next);
 }
 
-function applyViewDecorator(
+export function applyViewDecorator(
   metaKey: PersistenceKeys | Operator,
   kind: ViewKind,
   opts?: ViewOptions

@@ -51,79 +51,70 @@ export class RamStatement<
    * @return {function(Model, Model): number} A comparator function for sorting model instances
    */
   private getSort() {
+    const selectors = this.orderBySelectors;
     return (el1: Model, el2: Model) => {
-      if (!this.orderBySelector)
+      if (!selectors || !selectors.length)
         throw new InternalError(
-          "orderBySelector not set. Should be impossible"
+          "orderBySelectors not set. Should be impossible"
         );
-      const selector = this.orderBySelector;
-      const [key, direction] = selector;
-      const normalizedDirection = String(direction).toLowerCase();
-      const directionFactor =
-        normalizedDirection === OrderDirection.ASC ? 1 : -1;
-      const value1 = el1[key as keyof Model];
-      const value2 = el2[key as keyof Model];
-
-      if (value1 === value2) return 0;
-
-      if (value1 == null || value2 == null)
-        return directionFactor * (value1 == null ? 1 : -1);
-
-      const { designType: type } = Metadata.getPropDesignTypes(
-        el1.constructor as any,
-        key
-      );
-      const resolvedType =
-        (type && type.name && type.name.toLowerCase()) || typeof value1;
-
-      switch (resolvedType) {
-        case "string":
-          return (
-            directionFactor *
-            this.compareStrings(
-              value1 as unknown as string,
-              value2 as unknown as string
-            )
-          );
-        case "number":
-          return (
-            directionFactor *
-            this.compareNumbers(
-              value1 as unknown as number,
-              value2 as unknown as number
-            )
-          );
-        case "bigint":
-          return (
-            directionFactor *
-            this.compareBigInts(
-              value1 as unknown as bigint,
-              value2 as unknown as bigint
-            )
-          );
-        case "boolean":
-          return (
-            directionFactor *
-            this.compareBooleans(
-              value1 as unknown as boolean,
-              value2 as unknown as boolean
-            )
-          );
-        case "date":
-        case "object":
-          if (value1 instanceof Date && value2 instanceof Date) {
-            return (
-              directionFactor *
-              this.compareDates(value1 as Date, value2 as Date)
-            );
-          }
-          break;
-        default:
-          break;
+      for (const [key, direction] of selectors) {
+        const normalizedDirection = String(direction).toLowerCase();
+        const directionFactor =
+          normalizedDirection === OrderDirection.ASC ? 1 : -1;
+        const comparison = this.compareByKey(el1, el2, key as keyof Model);
+        if (comparison !== 0) return directionFactor * comparison;
       }
-
-      throw new QueryError(`sorting not supported for type ${resolvedType}`);
+      return 0;
     };
+  }
+
+  private compareByKey(el1: Model, el2: Model, key: keyof Model): number {
+    const value1 = el1[key];
+    const value2 = el2[key];
+
+    if (value1 === value2) return 0;
+
+    if (value1 == null || value2 == null) return value1 == null ? 1 : -1;
+
+    const { designType: type } = Metadata.getPropDesignTypes(
+      el1.constructor as any,
+      key as string
+    );
+    const resolvedType =
+      (type && type.name && type.name.toLowerCase()) || typeof value1;
+
+    switch (resolvedType) {
+      case "string":
+        return this.compareStrings(
+          value1 as unknown as string,
+          value2 as unknown as string
+        );
+      case "number":
+        return this.compareNumbers(
+          value1 as unknown as number,
+          value2 as unknown as number
+        );
+      case "bigint":
+        return this.compareBigInts(
+          value1 as unknown as bigint,
+          value2 as unknown as bigint
+        );
+      case "boolean":
+        return this.compareBooleans(
+          value1 as unknown as boolean,
+          value2 as unknown as boolean
+        );
+      case "date":
+      case "object":
+        if (value1 instanceof Date && value2 instanceof Date) {
+          return this.compareDates(value1 as Date, value2 as Date);
+        }
+        break;
+      default:
+        break;
+    }
+
+    throw new QueryError(`sorting not supported for type ${resolvedType}`);
   }
 
   private compareBooleans(a: boolean, b: boolean): number {
@@ -167,7 +158,7 @@ export class RamStatement<
       limit: this.limitSelector,
       skip: this.offsetSelector,
     };
-    if (this.orderBySelector) result.sort = this.getSort();
+    if (this.orderBySelectors?.length) result.sort = this.getSort();
     return result as RawRamQuery<any>;
   }
 

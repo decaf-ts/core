@@ -4,6 +4,7 @@ import type {
   FromSelector,
   GroupBySelector,
   OrderBySelector,
+  OrderDirectionInput,
   SelectSelector,
 } from "./selectors";
 import { Condition } from "./Condition";
@@ -17,9 +18,11 @@ import type {
   MinOption,
   OffsetOption,
   OrderAndGroupOption,
+  OrderByResult,
   PreparableStatementExecutor,
   SelectOption,
   StatementExecutor,
+  ThenByOption,
   WhereOption,
 } from "./options";
 import { Paginatable } from "../interfaces/Paginatable";
@@ -107,7 +110,7 @@ export abstract class Statement<
   protected countSelector?: SelectSelector<M>;
   protected fromSelector!: Constructor<M>;
   protected whereCondition?: Condition<M>;
-  protected orderBySelector?: OrderBySelector<M>;
+  protected orderBySelectors?: OrderBySelector<M>[];
   protected groupBySelector?: GroupBySelector<M>;
   protected limitSelector?: number;
   protected offsetSelector?: number;
@@ -230,12 +233,70 @@ export abstract class Statement<
     return this;
   }
 
+  public orderBy(selector: OrderBySelector<M>): OrderByResult<M, R>;
+  public orderBy(
+    attribute: keyof M,
+    direction: OrderDirectionInput
+  ): OrderByResult<M, R>;
+
   @final()
   public orderBy(
-    selector: OrderBySelector<M>
-  ): LimitOption<M, R> & OffsetOption<M, R> {
-    this.orderBySelector = selector;
-    return this;
+    selectorOrAttribute: OrderBySelector<M> | keyof M,
+    direction?: OrderDirectionInput
+  ): OrderByResult<M, R> {
+    this.orderBySelectors = [
+      this.normalizeOrderCriterion(selectorOrAttribute, direction),
+    ];
+    return this as OrderByResult<M, R>;
+  }
+
+  public thenBy(selector: OrderBySelector<M>): ThenByOption<M, R>;
+  public thenBy(
+    attribute: keyof M,
+    direction: OrderDirectionInput
+  ): ThenByOption<M, R>;
+
+  @final()
+  public thenBy(
+    selectorOrAttribute: OrderBySelector<M> | keyof M,
+    direction?: OrderDirectionInput
+  ): ThenByOption<M, R> {
+    if (!this.orderBySelectors || !this.orderBySelectors.length)
+      throw new QueryError("thenBy requires orderBy to be called first");
+    this.orderBySelectors.push(
+      this.normalizeOrderCriterion(selectorOrAttribute, direction)
+    );
+    return this as unknown as ThenByOption<M, R>;
+  }
+
+  private normalizeOrderCriterion(
+    selectorOrAttribute: OrderBySelector<M> | keyof M,
+    direction?: OrderDirectionInput
+  ): OrderBySelector<M> {
+    if (Array.isArray(selectorOrAttribute)) {
+      const [attribute, dir] = selectorOrAttribute;
+      return [attribute, this.normalizeOrderDirection(dir)];
+    }
+    return [
+      selectorOrAttribute,
+      this.normalizeOrderDirection(direction),
+    ];
+  }
+
+  private normalizeOrderDirection(
+    direction?: OrderDirectionInput
+  ): OrderDirection {
+    if (!direction) {
+      throw new QueryError(
+        "orderBy direction is required when specifying the attribute separately."
+      );
+    }
+    const normalized = String(direction).toLowerCase();
+    if (normalized === OrderDirection.ASC) return OrderDirection.ASC;
+    if (normalized === OrderDirection.DSC) return OrderDirection.DSC;
+    throw new QueryError(
+      `Invalid OrderBy direction ${direction}. Expected one of: ${Object.values(OrderDirection).join(", ")}.`
+    );
   }
 
   @final()
@@ -399,8 +460,8 @@ export abstract class Statement<
       attrFromWhere = this.whereCondition["attr1"] as string;
     }
 
-    const order: OrderBySelector<M> = this.orderBySelector
-      ? this.orderBySelector
+    const order: OrderBySelector<M> = this.orderBySelectors?.[0]
+      ? this.orderBySelectors[0]
       : attrFromWhere
         ? [attrFromWhere as keyof M, OrderDirection.DSC]
         : [Model.pk(this.fromSelector), OrderDirection.DSC];
@@ -479,9 +540,19 @@ export abstract class Statement<
         QueryClause.SELECT,
         this.selectSelector.join(` ${QueryClause.AND.toLowerCase()} `)
       );
-    if (this.orderBySelector) {
-      method.push(QueryClause.ORDER_BY, this.orderBySelector[0] as string);
-      params.direction = this.orderBySelector[1];
+    if (this.orderBySelectors?.length) {
+      const [primary, ...secondary] = this.orderBySelectors;
+      method.push(QueryClause.ORDER_BY, primary[0] as string);
+      params.direction = primary[1];
+      if (secondary.length) {
+        params.order = this.orderBySelectors.map(([attr, dir]) => [
+          attr,
+          dir,
+        ]);
+        secondary.forEach(([attr]) => {
+          method.push(QueryClause.THEN_BY, attr as string);
+        });
+      }
     }
     if (this.groupBySelector)
       method.push(QueryClause.GROUP_BY, this.groupBySelector as string);

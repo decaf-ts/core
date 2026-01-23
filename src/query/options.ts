@@ -4,6 +4,7 @@ import {
   LimitSelector,
   OffsetSelector,
   OrderBySelector,
+  OrderDirectionInput,
   SelectSelector,
 } from "./selectors";
 import { Executor } from "../interfaces";
@@ -59,9 +60,26 @@ export interface LimitOption<M extends Model, R>
  * @interface OrderByOption
  * @memberOf module:core
  */
+export interface ThenByStarterOption<M extends Model, R> {
+  thenBy(selector: OrderBySelector<M>): ThenByOption<M, R>;
+  thenBy(
+    attribute: keyof M,
+    direction: OrderDirectionInput
+  ): ThenByOption<M, R>;
+}
+
+export interface OrderByResult<M extends Model, R>
+  extends LimitOption<M, R>,
+    OffsetOption<M, R>,
+    ThenByStarterOption<M, R> {}
+
 export interface OrderByOption<M extends Model, R>
   extends PreparableStatementExecutor<M, R> {
-  orderBy(selector: OrderBySelector<M>): LimitOption<M, R> & OffsetOption<M, R>;
+  orderBy(selector: OrderBySelector<M>): OrderByResult<M, R>;
+  orderBy(
+    attribute: keyof M,
+    direction: OrderDirectionInput
+  ): OrderByResult<M, R>;
 }
 /**
  * @summary OrderBy Option interface
@@ -73,9 +91,7 @@ export interface OrderByOption<M extends Model, R>
 export interface ThenByOption<M extends Model, R>
   extends LimitOption<M, R>,
     OffsetOption<M, R>,
-    PreparableStatementExecutor<M, R> {
-  thenBy(selector: OrderBySelector<M>): ThenByOption<M, R>;
-}
+    ThenByStarterOption<M, R> {}
 /**
  * @summary Groups several order and grouping options
  *

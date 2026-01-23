@@ -30,6 +30,7 @@ export type OrderLimitOffsetExtract = {
 
 export type DirectionLimitOffset = {
   direction?: OrderDirection;
+  order?: OrderBySelector<any>[];
   limit?: number;
   offset?: number;
   bookmark?: string | number;

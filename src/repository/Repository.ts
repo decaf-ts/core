@@ -26,7 +26,7 @@ import { ObserverHandler } from "../persistence/ObserverHandler";
 import { QueryError } from "../query/errors";
 import type { DirectionLimitOffset, QueryOptions } from "../query/types";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
-import { WhereOption } from "../query/options";
+import { CountWhereOption, WhereOption } from "../query/options";
 import { Condition } from "../query/Condition";
 import { Queriable } from "../interfaces/Queriable";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
@@ -1016,13 +1016,13 @@ export class Repository<
    * @summary Starts building a query that will count records
    * @template S - The select selector type
    * @param {S} [selector] - Optional field to count (counts all if not specified)
-   * @return A count query builder
+   * @return A count query builder with distinct() available
    */
-  count<S extends SelectSelector<M>>(selector?: S) {
+  count<S extends SelectSelector<M>>(selector?: S): CountWhereOption<M> {
     return this.adapter
       .Statement<M>(this._overrides)
       .count(selector)
-      .from(this.class);
+      .from(this.class) as unknown as CountWhereOption<M>;
   }
 
   /**

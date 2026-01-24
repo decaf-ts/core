@@ -1,5 +1,8 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const TEST_ROOT: "src" | "lib" | "dist" = process.env.TEST_ROOT || "src";
+const TEST_ROOT: "src" | "lib" | "dist" = (process.env.TEST_ROOT || "src") as
+  | "src"
+  | "lib"
+  | "dist";
 
 import { Adapter, Context } from "../../src/index";
 import { Constructor } from "@decaf-ts/decoration";

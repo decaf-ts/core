@@ -154,7 +154,7 @@ export class RamStatement<
     if (this.sumSelector)
       this.ensureNumericSelector(this.sumSelector, "SUM operation");
     if (this.avgSelector)
-      this.ensureNumericSelector(this.avgSelector, "AVG operation");
+      this.ensureNumberOrDateSelector(this.avgSelector, "AVG operation");
 
     const result: RawRamQuery<M> = {
       select: this.selectSelector,
@@ -171,6 +171,7 @@ export class RamStatement<
     };
 
     if (typeof this.countSelector !== "undefined") result.count = this.countSelector;
+    if (this.countDistinctSelector) result.countDistinct = this.countDistinctSelector;
     if (this.minSelector) result.min = this.minSelector;
     if (this.maxSelector) result.max = this.maxSelector;
     if (this.sumSelector) result.sum = this.sumSelector;

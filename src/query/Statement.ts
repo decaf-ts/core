@@ -11,6 +11,7 @@ import { Condition } from "./Condition";
 import { prefixMethod } from "@decaf-ts/db-decorators";
 import { final, Logger, toCamelCase } from "@decaf-ts/logging";
 import type {
+  CountDistinctOption,
   CountOption,
   DistinctOption,
   GroupByResult,
@@ -110,8 +111,10 @@ export abstract class Statement<
   protected maxSelector?: SelectSelector<M>;
   protected minSelector?: SelectSelector<M>;
   protected countSelector?: SelectSelector<M> | null;
+  protected countDistinctSelector?: SelectSelector<M> | null;
   protected sumSelector?: SelectSelector<M>;
   protected avgSelector?: SelectSelector<M>;
+  private _inCountMode: boolean = false;
   protected fromSelector!: Constructor<M>;
   protected whereCondition?: Condition<M>;
   protected orderBySelectors?: OrderBySelector<M>[];
@@ -195,12 +198,29 @@ export abstract class Statement<
     return this as SelectOption<M, M[]> | SelectOption<M, Pick<M, S[number]>[]>;
   }
 
+  // Overload for standalone distinct - requires a selector
+  distinct<S extends SelectSelector<M>>(selector: S): DistinctOption<M, M[S][]>;
+  // Overload for count().distinct() - no selector needed
+  distinct(): CountDistinctOption<M>;
+
   @final()
   distinct<S extends SelectSelector<M>>(
-    selector: S
-  ): DistinctOption<M, M[S][]> {
+    selector?: S
+  ): DistinctOption<M, M[S][]> | CountDistinctOption<M> {
+    // When chained after count(), make it a count distinct
+    if (this._inCountMode) {
+      // Use the count selector as the field to count distinct on
+      this.countDistinctSelector = this.countSelector;
+      this.countSelector = undefined;
+      this._inCountMode = false;
+      return this as unknown as CountDistinctOption<M>;
+    }
+    // Standalone distinct requires a selector
+    if (!selector) {
+      throw new QueryError("distinct() requires a selector when not chained after count()");
+    }
     this.distinctSelector = selector;
-    return this as DistinctOption<M, M[S][]>;
+    return this as unknown as DistinctOption<M, M[S][]>;
   }
 
   @final()
@@ -228,9 +248,10 @@ export abstract class Statement<
   }
 
   @final()
-  count<S extends SelectSelector<M>>(selector?: S): CountOption<M, number> {
+  count<S extends SelectSelector<M>>(selector?: S): CountOption<M> {
     this.countSelector = selector ?? null;
-    return this as CountOption<M, number>;
+    this._inCountMode = true;
+    return this as unknown as CountOption<M>;
   }
 
   @final()
@@ -266,7 +287,7 @@ export abstract class Statement<
     return this as OrderByResult<M, R>;
   }
 
-  public thenBy(selector: GroupBySelector<M>): GroupByResult<M, R>;
+  public thenBy(selector: GroupBySelector<M>): GroupByResult<M>;
   public thenBy(selector: OrderBySelector<M>): OrderByThenByOption<M, R>;
   public thenBy(
     attribute: keyof M,
@@ -277,7 +298,7 @@ export abstract class Statement<
   public thenBy(
     selectorOrAttribute: OrderBySelector<M> | keyof M,
     direction?: OrderDirectionInput
-  ): OrderByThenByOption<M, R> | GroupByResult<M, R> {
+  ): OrderByThenByOption<M, R> | GroupByResult<M> {
     const isOrderingCriterion =
       Array.isArray(selectorOrAttribute) || typeof direction !== "undefined";
     if (isOrderingCriterion) {
@@ -293,7 +314,7 @@ export abstract class Statement<
         "groupBy must be called before chaining group selectors"
       );
     this.groupBySelectors.push(selectorOrAttribute as GroupBySelector<M>);
-    return this as unknown as GroupByResult<M, R>;
+    return this as unknown as GroupByResult<M>;
   }
 
   private normalizeOrderCriterion(
@@ -324,12 +345,14 @@ export abstract class Statement<
   }
 
   @final()
-  public groupBy(selector: GroupBySelector<M>): GroupByResult<M, R> {
+  public groupBy<Key extends GroupBySelector<M>>(
+    selector: Key
+  ): GroupByResult<M, [Key]> {
     if (this.orderBySelectors && this.orderBySelectors.length) {
       throw new QueryError("groupBy must be called before orderBy.");
     }
     this.groupBySelectors = [selector];
-    return this as unknown as GroupByResult<M, R>;
+    return this as unknown as GroupByResult<M, [Key]>;
   }
 
   @final()
@@ -346,19 +369,56 @@ export abstract class Statement<
 
   @final()
   async execute(...args: MaybeContextualArg<ContextOf<A>>): Promise<R> {
-    const { log, ctxArgs } = this.logCtx(args, this.execute);
+    const { log, ctx, ctxArgs } = this.logCtx(args, this.execute);
     try {
       if (this.prepared) return this.executePrepared(...(args as any));
       log.silly(`Building raw statement...`);
       const query: Q = this.build();
       log.silly(`executing raw statement`);
-      return (await this.raw<R>(
+      const results = (await this.raw<R>(
         query,
         ...(ctxArgs as ContextualArgs<ContextOf<A>>)
       )) as unknown as R;
+      if (!this.selectSelector) {
+        const pkAttr = Model.pk(this.fromSelector);
+        const processor = function recordProcessor(
+          this: Statement<M, A, R, Q>,
+          r: any
+        ) {
+          const id = r[pkAttr];
+          return this.adapter.revert(
+            r,
+            this.fromSelector as Constructor<any>,
+            id,
+            undefined,
+            ctx
+          ) as any;
+        }.bind(this as any);
+
+        if (this.groupBySelectors?.length) {
+          return this.revertGroupedResults(results, processor) as R;
+        }
+        if (Array.isArray(results)) return results.map(processor) as R;
+        return processor(results) as R;
+      }
+      return results;
     } catch (e: unknown) {
       throw new QueryError(e as Error);
     }
+  }
+
+  private revertGroupedResults(
+    value: any,
+    processor: (record: any) => any
+  ): any {
+    if (Array.isArray(value)) return value.map(processor);
+    if (value && typeof value === "object") {
+      return Object.entries(value).reduce<Record<string, any>>((acc, [key, val]) => {
+        acc[key] = this.revertGroupedResults(val, processor);
+        return acc;
+      }, {});
+    }
+    return value;
   }
 
   protected async executePrepared(
@@ -476,6 +536,7 @@ export abstract class Statement<
     if (this.selectSelector && this.selectSelector.length) return undefined;
     if (this.groupBySelectors && this.groupBySelectors.length) return undefined;
     if (typeof this.countSelector !== "undefined") return undefined;
+    if (this.countDistinctSelector) return undefined;
     if (this.maxSelector) return undefined;
     if (this.minSelector) return undefined;
     if (this.sumSelector) return undefined;
@@ -600,6 +661,7 @@ export abstract class Statement<
       (this.selectSelector && this.selectSelector.length) ||
       (this.groupBySelectors && this.groupBySelectors.length) ||
       typeof this.countSelector !== "undefined" ||
+      this.countDistinctSelector ||
       this.maxSelector ||
       this.minSelector ||
       this.sumSelector ||

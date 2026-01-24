@@ -485,6 +485,7 @@ export class RamAdapter extends Adapter<
       from,
       groupBy,
       count: countField,
+      countDistinct: countDistinctField,
       min: minField,
       max: maxField,
       sum: sumField,
@@ -523,6 +524,17 @@ export class RamAdapter extends Adapter<
         const count = result.filter(r => r[countField as string] !== undefined && r[countField as string] !== null).length;
         return count as unknown as RawResult<R, D>;
       }
+    }
+
+    if (countDistinctField !== undefined) {
+      const seen = new Set();
+      for (const item of result) {
+        const value = item[countDistinctField as string];
+        if (value !== undefined && value !== null) {
+          seen.add(JSON.stringify(value));
+        }
+      }
+      return seen.size as unknown as RawResult<R, D>;
     }
 
     if (minField !== undefined) {
@@ -597,18 +609,30 @@ export class RamAdapter extends Adapter<
     }
 
     if (avgField !== undefined) {
+      const fieldType = this.resolveFieldType(clazz, avgField as string);
+      const isDateField = fieldType === "date";
       this.ensureFieldType(
         clazz,
         avgField as string,
         "AVG operation",
-        (type) => this.isNumericType(type),
-        "numeric"
+        (type) => this.isNumericType(type) || type === "date",
+        "numeric or date"
       );
       if (result.length === 0) return null as unknown as RawResult<R, D>;
       const values = result
         .map((r) => r[avgField as string])
         .filter((v) => v !== undefined && v !== null);
       if (values.length === 0) return null as unknown as RawResult<R, D>;
+
+      if (isDateField) {
+        const timestamps = values.map((v) =>
+          v instanceof Date ? v.getTime() : new Date(v).getTime()
+        );
+        const avgTimestamp =
+          timestamps.reduce((acc, t) => acc + t, 0) / timestamps.length;
+        return new Date(avgTimestamp) as unknown as RawResult<R, D>;
+      }
+
       const total = values.reduce(
         (acc, v) =>
           acc + this.toNumericValue(v, avgField as string, "AVG operation"),
@@ -633,38 +657,88 @@ export class RamAdapter extends Adapter<
       return distinctResults as unknown as RawResult<R, D>;
     }
 
+    let count: number;
+    let output: any[] | Record<string, any>;
     if (groupBy && groupBy.length) {
-      const groupedResults: any[] = [];
-      const seen = new Map<string, boolean>();
-      for (const item of result) {
-        const key = JSON.stringify(groupBy.map((field) => item[field as string]));
-        if (seen.has(key)) continue;
-        seen.set(key, true);
-        groupedResults.push(item);
-      }
-      result = groupedResults;
+      const grouped = this.groupRecords(result, groupBy as (keyof Model)[]);
+      const keys = Object.keys(grouped);
+      count = keys.length;
+      output = this.applyGroupPagination(grouped, skip, limit);
+    } else {
+      count = result.length;
+      let paged = result;
+      if (skip) paged = paged.slice(skip);
+      if (limit) paged = paged.slice(0, limit);
+      output = paged;
     }
 
-    const count = result.length;
-
-    if (skip) result = result.slice(skip);
-    if (limit) result = result.slice(0, limit);
-
-    if (select) {
+    if (select && !(groupBy && groupBy.length)) {
       select = Array.isArray(select) ? select : [select];
-      result = result.map((r) =>
-        Object.entries(r).reduce((acc: Record<string, any>, [key, val]) => {
+      output = (output as any[]).map((row) =>
+        Object.entries(row).reduce((acc: Record<string, any>, [key, val]) => {
           if ((select as string[]).includes(key)) acc[key] = val;
           return acc;
         }, {})
       );
     }
 
-    if (docsOnly) return result as unknown as RawResult<R, D>;
+    if (docsOnly) return output as unknown as RawResult<R, D>;
     return {
-      data: result,
-      count: count,
+      data: output,
+      count,
     } as RawResult<R, D>;
+  }
+
+  private groupRecords(
+    records: any[],
+    selectors: (keyof Model)[]
+  ): Record<string, any> {
+    if (!selectors.length) return records as Record<string, any>;
+    const [current, ...rest] = selectors;
+    const grouped: Record<string, any[]> = {};
+    for (const record of records) {
+      const key = this.normalizeGroupKey(record[current as string]);
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(record);
+    }
+    if (!rest.length) return grouped;
+    const nested: Record<string, any> = {};
+    for (const [key, values] of Object.entries(grouped)) {
+      nested[key] = this.groupRecords(values, rest);
+    }
+    return nested;
+  }
+
+  private normalizeGroupKey(value: any): string {
+    if (value === undefined) return "undefined";
+    if (value === null) return "null";
+    if (typeof value === "symbol") return value.toString();
+    if (typeof value === "object") {
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    }
+    return String(value);
+  }
+
+  private applyGroupPagination(
+    grouped: Record<string, any>,
+    skip?: number,
+    limit?: number
+  ): Record<string, any> {
+    if (typeof skip === "undefined" && typeof limit === "undefined") {
+      return grouped;
+    }
+    const keys = Object.keys(grouped);
+    const start = skip ?? 0;
+    const end = typeof limit === "undefined" ? undefined : start + limit;
+    const paged: Record<string, any> = {};
+    for (const key of keys.slice(start, end)) {
+      paged[key] = grouped[key];
+    }
+    return paged;
   }
 
   /**

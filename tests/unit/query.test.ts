@@ -202,23 +202,35 @@ describe("Queries", () => {
       TestUser,
       RamRepository<TestUser>
     >(TestUser);
-    const groupedBySex = await repo.select().groupBy("sex").execute();
-    expect(groupedBySex).toHaveLength(2);
-    expect(new Set(groupedBySex.map((user) => user.sex))).toEqual(
-      new Set(["M", "F"])
-    );
+    const groupedBySex = (await repo.select().groupBy("sex").execute()) as Record<
+      string,
+      TestUser[]
+    >;
+    expect(Object.keys(groupedBySex).sort()).toEqual(["F", "M"]);
+    expect(groupedBySex.M).toHaveLength(created.filter((c) => c.sex === "M").length);
+    expect(groupedBySex.F).toHaveLength(created.filter((c) => c.sex === "F").length);
+    expect(
+      groupedBySex.M.every((user) => user.sex === "M") &&
+        groupedBySex.F.every((user) => user.sex === "F")
+    ).toBe(true);
 
-    const groupedByAgeSex = await repo
+    const groupedByAgeSex = (await repo
       .select()
       .groupBy("age")
       .thenBy("sex")
-      .execute();
+      .execute()) as Record<string, Record<string, TestUser[]>>;
 
     const expectedCombos = new Set(created.map((u) => `${u.age}-${u.sex}`));
-    expect(new Set(groupedByAgeSex.map((u) => `${u.age}-${u.sex}`))).toEqual(
-      expectedCombos
-    );
-    expect(groupedByAgeSex).toHaveLength(expectedCombos.size);
+    const combos = new Set<string>();
+    for (const [age, sexes] of Object.entries(groupedByAgeSex)) {
+      for (const [sex, list] of Object.entries(
+        sexes as Record<string, TestUser[]>
+      )) {
+        combos.add(`${age}-${sex}`);
+        expect(list.every((user) => user.sex === sex)).toBe(true);
+      }
+    }
+    expect(combos).toEqual(expectedCombos);
   });
 
   it("throws if groupBy is invoked after orderBy", async () => {

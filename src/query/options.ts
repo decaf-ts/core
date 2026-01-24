@@ -13,6 +13,22 @@ import { Condition } from "./Condition";
 import { Paginatable } from "../interfaces/Paginatable";
 import { Constructor } from "@decaf-ts/decoration";
 
+type NormalizedGroupKey<M extends Model, K extends keyof M> =
+  M[K] extends PropertyKey ? M[K] : PropertyKey;
+
+type GroupByReturnValue<
+  M extends Model,
+  Keys extends readonly GroupBySelector<M>[],
+> = Keys extends [
+  infer Head extends keyof M,
+  ...infer Tail extends readonly GroupBySelector<M>[]
+]
+  ? Record<
+      NormalizedGroupKey<M, Head>,
+      GroupByReturnValue<M, Tail>
+    >
+  : M[];
+
 export interface StatementExecutor<M extends Model, R>
   extends Executor<R>,
     Paginatable<M, R, any> {}
@@ -28,16 +44,22 @@ export interface PreparableStatementExecutor<M extends Model, R>
  * @interface GroupByOption
  * @memberOf module:core
  */
-export interface GroupByResult<M extends Model, R>
-  extends PreparableStatementExecutor<M, R>,
-    OrderByOption<M, R>,
-    LimitOption<M, R>,
-    OffsetOption<M, R> {
-  thenBy(selector: GroupBySelector<M>): GroupByResult<M, R>;
+export interface GroupByResult<
+  M extends Model,
+  Keys extends readonly GroupBySelector<M>[] = readonly GroupBySelector<M>[],
+> extends PreparableStatementExecutor<M, GroupByReturnValue<M, Keys>>,
+    OrderByOption<M, GroupByReturnValue<M, Keys>>,
+    LimitOption<M, GroupByReturnValue<M, Keys>>,
+    OffsetOption<M, GroupByReturnValue<M, Keys>> {
+  thenBy<Key extends GroupBySelector<M>>(
+    selector: Key
+  ): GroupByResult<M, [...Keys, Key]>;
 }
 
-export interface GroupByOption<M extends Model, R> extends Executor<R> {
-  groupBy(selector: GroupBySelector<M>): GroupByResult<M, R>;
+export interface GroupByOption<M extends Model> {
+  groupBy<Key extends GroupBySelector<M>>(
+    selector: Key
+  ): GroupByResult<M, [Key]>;
 }
 /**
  * @summary Offset Option interface
@@ -120,7 +142,7 @@ export interface OrderByThenByOption<M extends Model, R>
 export interface OrderAndGroupOption<M extends Model, R>
   extends OrderByOption<M, R>,
     PreparableStatementExecutor<M, R>,
-    GroupByOption<M, R>,
+    GroupByOption<M>,
     LimitOption<M, R>,
     OffsetOption<M, R> {}
 /**
@@ -190,14 +212,80 @@ export interface MaxOption<M extends Model, R> extends FromOption<M, R> {}
 export interface MinOption<M extends Model, R> extends FromOption<M, R> {}
 
 /**
+ * @summary Count Distinct Where Option Interface
+ * @description Exposes the remaining options after COUNT DISTINCT...FROM
+ *
+ * @interface CountDistinctWhereOption
+ * @memberOf module:core
+ */
+export interface CountDistinctWhereOption<M extends Model>
+  extends OrderAndGroupOption<M, number> {
+  /**
+   * @summary filter the records by a condition
+   * @param {Condition} condition
+   */
+  where(condition: Condition<M>): CountDistinctWhereOption<M>;
+}
+
+/**
+ * @summary Count Where Option Interface
+ * @description Exposes the remaining options after COUNT...FROM with distinct() available
+ *
+ * @interface CountWhereOption
+ * @memberOf module:core
+ */
+export interface CountWhereOption<M extends Model>
+  extends OrderAndGroupOption<M, number> {
+  /**
+   * @summary Makes the count distinct
+   * @description When chained after count(), counts only distinct values
+   * @return A count distinct query builder
+   */
+  distinct(): CountDistinctWhereOption<M>;
+
+  /**
+   * @summary filter the records by a condition
+   * @param {Condition} condition
+   */
+  where(condition: Condition<M>): CountWhereOption<M>;
+}
+
+/**
  * @summary Count Option Interface
  * @description Exposes the remaining options after a COUNT
  *
  * @interface CountOption
- * @extends FromOption
  * @memberOf module:core
  */
-export interface CountOption<M extends Model, R> extends FromOption<M, R> {}
+export interface CountOption<M extends Model> {
+  /**
+   * @summary Makes the count distinct
+   * @description When chained after count(), counts only distinct values
+   * @return A count distinct query builder
+   */
+  distinct(): CountDistinctOption<M>;
+
+  /**
+   * @summary selects records from a table
+   * @param {Constructor} tableName
+   */
+  from(tableName: Constructor<M> | string): CountWhereOption<M>;
+}
+
+/**
+ * @summary Count Distinct Option Interface
+ * @description Exposes the remaining options after a COUNT DISTINCT
+ *
+ * @interface CountDistinctOption
+ * @memberOf module:core
+ */
+export interface CountDistinctOption<M extends Model> {
+  /**
+   * @summary selects records from a table
+   * @param {Constructor} tableName
+   */
+  from(tableName: Constructor<M> | string): CountWhereOption<M>;
+}
 
 /**
  * @summary Sum Option Interface
@@ -234,7 +322,7 @@ export interface SelectOption<M extends Model, R> extends FromOption<M, R> {
 
   min<S extends SelectSelector<M>>(selector: S): MinOption<M, M[S]>;
 
-  count<S extends SelectSelector<M>>(selector?: S): CountOption<M, number>;
+  count<S extends SelectSelector<M>>(selector?: S): CountOption<M>;
 
   sum<S extends SelectSelector<M>>(selector: S): SumOption<M, number>;
 

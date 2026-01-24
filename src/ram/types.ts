@@ -24,6 +24,7 @@ export type RawRamQuery<M extends Model = any> = {
   limit?: number;
   skip?: number;
   count?: keyof M | null;
+  countDistinct?: keyof M;
   min?: keyof M;
   max?: keyof M;
   sum?: keyof M;

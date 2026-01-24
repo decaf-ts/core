@@ -1,13 +1,16 @@
 import { RamAdapter } from "../../src/ram/RamAdapter";
-import { Model } from "@decaf-ts/decorator-validation";
+import { Model, model } from "@decaf-ts/decorator-validation";
 import { pk } from "../../src";
-import { RamContext } from "../../src/ram/index";
+import { prop } from "@decaf-ts/decoration";
 
+@model()
 class TestModel extends Model {
   @pk()
   id!: string;
 
+  @prop()
   name!: string;
+  @prop()
   value!: number;
 
   constructor() {
@@ -20,6 +23,13 @@ describe("RamAdapter Aggregate Operations", () => {
 
   beforeAll(() => {
     adapter = new RamAdapter({ user: "test" });
+  });
+
+  afterEach(() => {
+    const storage = (adapter as any).client as Map<string, Map<string, any>>;
+    if (!storage) return;
+    const table = Model.tableName(TestModel);
+    storage.set(table, new Map());
   });
 
   describe("MIN operation", () => {
@@ -133,7 +143,9 @@ describe("RamAdapter Aggregate Operations", () => {
       );
 
       expect(Array.isArray(distinct)).toBe(true);
-      expect((distinct as any[]).sort()).toEqual([5, 10]);
+      expect((distinct as any[]).slice().sort((a, b) => a - b)).toEqual([
+        5, 10,
+      ]);
     });
   });
 });

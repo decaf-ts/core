@@ -121,14 +121,23 @@ export function index(
   directions: OrderDirection[],
   compositions: string[]
 ): ReturnType<typeof propMetadata>;
+export function index(
+  directions: readonly OrderDirection[],
+  compositions: readonly string[]
+): ReturnType<typeof propMetadata>;
+export function index(
+  directions: readonly OrderDirection[],
+  compositions: readonly string[],
+  name: string
+): ReturnType<typeof propMetadata>;
 export function index(compositions: string[]): ReturnType<typeof propMetadata>;
 export function index(
   compositions: string[],
   name: string
 ): ReturnType<typeof propMetadata>;
 export function index(
-  directions?: OrderDirection[] | string[] | string,
-  compositions?: string[] | string,
+  directions?: readonly OrderDirection[] | readonly string[] | string,
+  compositions?: readonly string[] | string,
   name?: string
 ) {
   function index(

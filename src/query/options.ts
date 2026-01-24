@@ -200,6 +200,26 @@ export interface MinOption<M extends Model, R> extends FromOption<M, R> {}
 export interface CountOption<M extends Model, R> extends FromOption<M, R> {}
 
 /**
+ * @summary Sum Option Interface
+ * @description Exposes the remaining options after a SUM
+ *
+ * @interface SumOption
+ * @extends FromOption
+ * @memberOf module:core
+ */
+export interface SumOption<M extends Model, R> extends FromOption<M, R> {}
+
+/**
+ * @summary Avg Option Interface
+ * @description Exposes the remaining options after an AVG
+ *
+ * @interface AvgOption
+ * @extends FromOption
+ * @memberOf module:core
+ */
+export interface AvgOption<M extends Model, R> extends FromOption<M, R> {}
+
+/**
  * @summary Select Option Interface
  * @description Exposes the remaining options after a SELECT
  *
@@ -215,6 +235,10 @@ export interface SelectOption<M extends Model, R> extends FromOption<M, R> {
   min<S extends SelectSelector<M>>(selector: S): MinOption<M, M[S]>;
 
   count<S extends SelectSelector<M>>(selector?: S): CountOption<M, number>;
+
+  sum<S extends SelectSelector<M>>(selector: S): SumOption<M, number>;
+
+  avg<S extends SelectSelector<M>>(selector: S): AvgOption<M, number>;
 }
 
 /**
@@ -310,6 +334,13 @@ export interface AttributeOption<M extends Model> {
    */
   in(val: any[]): Condition<M>;
   /**
+   * @summary Test value is between min and max (inclusive)
+   * @param {any} min the minimum value
+   * @param {any} max the maximum value
+   * @method
+   */
+  between(min: any, max: any): Condition<M>;
+  /**
    * @summary Test matches {@link RegExp}
    *
    * @param {any} val the value to test
@@ -326,4 +357,5 @@ export interface AttributeOption<M extends Model> {
  */
 export interface ConditionBuilderOption<M extends Model> {
   attribute(attr: keyof M): AttributeOption<M>;
+  attr(attr: keyof M): AttributeOption<M>;
 }

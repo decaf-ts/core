@@ -20,7 +20,8 @@ export enum Operator {
   SMALLER = "SMALLER",
   /** Less than or equal comparison (<=) */
   SMALLER_EQ = "SMALLER_EQ",
-  // BETWEEN = "BETWEEN",
+  /** Between comparison (BETWEEN) */
+  BETWEEN = "BETWEEN",
   /** Negation operator (NOT) */
   NOT = "NOT",
   /** Inclusion operator (IN) */

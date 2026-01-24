@@ -1012,6 +1012,90 @@ export class Repository<
   }
 
   /**
+   * @description Creates a count query
+   * @summary Starts building a query that will count records
+   * @template S - The select selector type
+   * @param {S} [selector] - Optional field to count (counts all if not specified)
+   * @return A count query builder
+   */
+  count<S extends SelectSelector<M>>(selector?: S) {
+    return this.adapter
+      .Statement<M>(this._overrides)
+      .count(selector)
+      .from(this.class);
+  }
+
+  /**
+   * @description Creates a min query
+   * @summary Starts building a query that will find the minimum value
+   * @template S - The select selector type
+   * @param {S} selector - Field to find minimum value of
+   * @return A min query builder
+   */
+  min<S extends SelectSelector<M>>(selector: S) {
+    return this.adapter
+      .Statement<M>(this._overrides)
+      .min(selector)
+      .from(this.class);
+  }
+
+  /**
+   * @description Creates a max query
+   * @summary Starts building a query that will find the maximum value
+   * @template S - The select selector type
+   * @param {S} selector - Field to find maximum value of
+   * @return A max query builder
+   */
+  max<S extends SelectSelector<M>>(selector: S) {
+    return this.adapter
+      .Statement<M>(this._overrides)
+      .max(selector)
+      .from(this.class);
+  }
+
+  /**
+   * @description Creates a sum query
+   * @summary Starts building a query that will sum values
+   * @template S - The select selector type
+   * @param {S} selector - Field to sum
+   * @return A sum query builder
+   */
+  sum<S extends SelectSelector<M>>(selector: S) {
+    return this.adapter
+      .Statement<M>(this._overrides)
+      .sum(selector)
+      .from(this.class);
+  }
+
+  /**
+   * @description Creates an average query
+   * @summary Starts building a query that will compute the average value
+   * @template S - The select selector type
+   * @param {S} selector - Field to average
+   * @return An average query builder
+   */
+  avg<S extends SelectSelector<M>>(selector: S) {
+    return this.adapter
+      .Statement<M>(this._overrides)
+      .avg(selector)
+      .from(this.class);
+  }
+
+  /**
+   * @description Creates a distinct query
+   * @summary Starts building a query that will find distinct values
+   * @template S - The select selector type
+   * @param {S} selector - Field to find distinct values of
+   * @return A distinct query builder
+   */
+  distinct<S extends SelectSelector<M>>(selector: S) {
+    return this.adapter
+      .Statement<M>(this._overrides)
+      .distinct(selector)
+      .from(this.class);
+  }
+
+  /**
    * @description Executes a query with the specified conditions and options.
    * @summary Provides a simplified way to query the database with common query parameters.
    * @param {Condition<M>} condition - The condition to filter records.

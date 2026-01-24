@@ -23,6 +23,8 @@ import type {
   PreparableStatementExecutor,
   SelectOption,
   StatementExecutor,
+  SumOption,
+  AvgOption,
   WhereOption,
 } from "./options";
 import { Paginatable } from "../interfaces/Paginatable";
@@ -107,7 +109,9 @@ export abstract class Statement<
   protected distinctSelector?: SelectSelector<M>;
   protected maxSelector?: SelectSelector<M>;
   protected minSelector?: SelectSelector<M>;
-  protected countSelector?: SelectSelector<M>;
+  protected countSelector?: SelectSelector<M> | null;
+  protected sumSelector?: SelectSelector<M>;
+  protected avgSelector?: SelectSelector<M>;
   protected fromSelector!: Constructor<M>;
   protected whereCondition?: Condition<M>;
   protected orderBySelectors?: OrderBySelector<M>[];
@@ -212,8 +216,20 @@ export abstract class Statement<
   }
 
   @final()
+  sum<S extends SelectSelector<M>>(selector: S): SumOption<M, number> {
+    this.sumSelector = selector;
+    return this as SumOption<M, number>;
+  }
+
+  @final()
+  avg<S extends SelectSelector<M>>(selector: S): AvgOption<M, number> {
+    this.avgSelector = selector;
+    return this as AvgOption<M, number>;
+  }
+
+  @final()
   count<S extends SelectSelector<M>>(selector?: S): CountOption<M, number> {
-    this.countSelector = selector;
+    this.countSelector = selector ?? null;
     return this as CountOption<M, number>;
   }
 
@@ -459,9 +475,11 @@ export abstract class Statement<
   protected squash(ctx: ContextOf<A>): PreparedStatement<any> | undefined {
     if (this.selectSelector && this.selectSelector.length) return undefined;
     if (this.groupBySelectors && this.groupBySelectors.length) return undefined;
-    if (this.countSelector) return undefined;
+    if (typeof this.countSelector !== "undefined") return undefined;
     if (this.maxSelector) return undefined;
     if (this.minSelector) return undefined;
+    if (this.sumSelector) return undefined;
+    if (this.avgSelector) return undefined;
 
     let attrFromWhere: string | undefined;
     if (this.whereCondition) {
@@ -581,9 +599,11 @@ export abstract class Statement<
     return !(
       (this.selectSelector && this.selectSelector.length) ||
       (this.groupBySelectors && this.groupBySelectors.length) ||
-      this.countSelector ||
+      typeof this.countSelector !== "undefined" ||
       this.maxSelector ||
-      this.minSelector
+      this.minSelector ||
+      this.sumSelector ||
+      this.avgSelector
     );
   }
 

@@ -39,6 +39,12 @@ export type RawRamQuery<M extends Model = any> = {
   groupBy?: (keyof M)[];
   limit?: number;
   skip?: number;
+  count?: keyof M | null;
+  min?: keyof M;
+  max?: keyof M;
+  sum?: keyof M;
+  avg?: keyof M;
+  distinct?: keyof M;
 };
 
 /**

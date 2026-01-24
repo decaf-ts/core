@@ -85,7 +85,7 @@ describe("TaskTracker hooks", () => {
       expect.objectContaining(failEvt)
     );
     await expect(failurePromise).rejects.toMatchObject({
-      message: "boom",
+      message: expect.stringContaining("boom"),
     });
 
     const terminalFailureError = new TaskErrorModel({
@@ -101,7 +101,7 @@ describe("TaskTracker hooks", () => {
     const terminalFailureSpy = jest.fn();
     terminalFailureTracker.onFailure((evt) => terminalFailureSpy(evt.payload));
     await expect(terminalFailurePromise).rejects.toMatchObject({
-      message: "already failed",
+      message: expect.stringContaining("already failed"),
     });
     expect(terminalFailureSpy).toHaveBeenCalledTimes(1);
     expect(terminalFailureSpy).toHaveBeenCalledWith(
@@ -122,7 +122,7 @@ describe("TaskTracker hooks", () => {
     cancelTracker.onCancel((evt) => cancelSpy(evt.payload));
 
     await expect(cancelPromise).rejects.toMatchObject({
-      message: "canceled",
+      message: expect.stringContaining("canceled"),
     });
     expect(cancelSpy).toHaveBeenCalledTimes(1);
   });
@@ -146,20 +146,22 @@ describe("TaskTracker hooks", () => {
       buildStatusEvent(failTask.id, TaskStatus.FAILED, { error: failureError }),
       new Context()
     );
-    await expect(failPromise).rejects.toMatchObject({ message: "boom" });
+    await expect(failPromise).rejects.toMatchObject({
+      message: expect.stringContaining("boom"),
+    });
 
-    const retryTask = createTask();
-    const retryTracker = new TaskTracker(bus, retryTask);
-    const retryPromise = retryTracker.resolve();
-    const retryError = new TaskErrorModel({ message: "retry soon" });
-    await retryTracker.refresh(
-      buildStatusEvent(retryTask.id, TaskStatus.WAITING_RETRY, {
-        error: retryError,
+    const scheduledTask = createTask();
+    const scheduledTracker = new TaskTracker(bus, scheduledTask);
+    const scheduledPromise = scheduledTracker.resolve();
+    const scheduledTo = new Date();
+    await scheduledTracker.refresh(
+      buildStatusEvent(scheduledTask.id, TaskStatus.SCHEDULED, {
+        scheduledTo,
       }),
       new Context()
     );
-    await expect(retryPromise).rejects.toMatchObject({
-      message: "retry soon",
+    await expect(scheduledPromise).rejects.toMatchObject({
+      message: expect.stringContaining("rescheduled"),
     });
   });
 
@@ -175,15 +177,15 @@ describe("TaskTracker hooks", () => {
       }),
       new Context()
     );
-    const finalError = new TaskErrorModel({ message: "finally canceled" });
+    const finalError = new TaskErrorModel({ message: "finally failed" });
     await tracker.refresh(
-      buildStatusEvent(task.id, TaskStatus.CANCELED, {
+      buildStatusEvent(task.id, TaskStatus.FAILED, {
         error: finalError,
       }),
       new Context()
     );
     await expect(waitPromise).rejects.toMatchObject({
-      message: "finally canceled",
+      message: expect.stringContaining("finally failed"),
     });
   });
 });

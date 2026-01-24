@@ -2,6 +2,7 @@ import { TaskEngineConfig } from "./types";
 
 export enum TaskStatus {
   PENDING = "pending",
+  SCHEDULED = "scheduled",
   RUNNING = "running",
   FAILED = "failed",
   SUCCEEDED = "succeeded",

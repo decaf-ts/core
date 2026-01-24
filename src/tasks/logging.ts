@@ -198,7 +198,10 @@ export function getLogPipe<LOG extends Logger>(
               status = status.red.bold;
               break;
             case TaskStatus.CANCELED:
-              status = status.red;
+              status = status.magenta.bold;
+              break;
+            case TaskStatus.SCHEDULED:
+              status = status.cyan;
               break;
             default:
               throw new InternalError(

@@ -56,4 +56,6 @@ export type TaskProgressPayload = {
   totalSteps?: number;
   output?: any;
   error?: TaskErrorModel;
+  nextRunAt?: Date;
+  scheduledTo?: Date;
 };

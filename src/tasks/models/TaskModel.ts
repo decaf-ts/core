@@ -88,6 +88,10 @@ export class TaskModel<INPUT = any, OUTPUT = any> extends Model {
   @description("Next execution timestamp")
   nextRunAt?: Date;
 
+  @date()
+  @description("Task scheduled timestamp")
+  scheduledTo?: Date;
+
   // worker lease / claim
   @prop()
   @description("Task lease owner identifier")

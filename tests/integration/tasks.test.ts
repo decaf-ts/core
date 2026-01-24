@@ -513,7 +513,7 @@ describe("Task Engine", () => {
     }).build();
     const { tracker } = await engine.push(toSubmit, true);
     await expect(tracker.resolve()).rejects.toMatchObject({
-      message: "transient failure",
+      message: expect.stringContaining("transient failure"),
     });
   });
 

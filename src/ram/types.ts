@@ -15,22 +15,6 @@ import { MultiLock } from "@decaf-ts/transactional-decorators";
  */
 export type RamStorage = Map<string, Map<string | number, any>>;
 
-/**
- * @description Query specification for RAM adapter
- * @summary Defines the structure of a query for retrieving data from the in-memory storage.
- * It specifies what fields to select, which model to query, filtering conditions,
- * sorting criteria, and pagination options.
- * @template M - The model type being queried
- * @typedef {Object} RawRamQuery
- * @property select - Fields to select from the model, or undefined for all fields
- * @property {Constructor<M>} from - The model constructor to query
- * @property {function(M): boolean} where - Predicate function for filtering entities
- * @property {function(M, M): number} [sort] - Optional comparator function for sorting results
- * @property {number} [limit] - Optional maximum number of results to return
- * @property {number} [skip] - Optional number of results to skip (for pagination)
- * @memberOf module:core
- * @category Ram
- */
 export type RawRamQuery<M extends Model = any> = {
   select: undefined | (keyof M)[];
   from: Constructor<M>;

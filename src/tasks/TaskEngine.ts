@@ -26,6 +26,11 @@ import {
 import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { computeBackoffMs, serializeError, sleep } from "./utils";
 import { TaskContext } from "./TaskContext";
+import {
+  TaskStateChangeError,
+  TaskStateChangeRequest,
+} from "./TaskStateChangeError";
+import { DateTarget } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
 import { TaskLogger } from "./logging";
 import { TaskEngineConfig, TaskProgressPayload } from "./types";
@@ -120,6 +125,60 @@ export class TaskEngine<
     return { task: t, tracker } as any;
   }
 
+  schedule<I, O>(
+    task: TaskModel<I, O>,
+    ...args: MaybeContextualArg<any>
+  ): {
+    for: (when: DateTarget) => Promise<TaskModel<I, O>>;
+  };
+  schedule<I, O>(
+    task: TaskModel<I, O>,
+    track: false,
+    ...args: MaybeContextualArg<any>
+  ): {
+    for: (when: DateTarget) => Promise<TaskModel<I, O>>;
+  };
+  schedule<I, O>(
+    task: TaskModel<I, O>,
+    track: true,
+    ...args: MaybeContextualArg<any>
+  ): {
+    for: (
+      when: DateTarget
+    ) => Promise<{ task: TaskModel<I, O>; tracker: TaskTracker<O> }>;
+  };
+  schedule<I, O, TRACK extends boolean>(
+    task: TaskModel<I, O>,
+    track: TRACK = false as TRACK,
+    ...args: MaybeContextualArg<any>
+  ): {
+    for: (
+      when: DateTarget
+    ) => Promise<
+      TRACK extends true
+        ? { task: TaskModel<I, O>; tracker: TaskTracker<O> }
+        : TaskModel<I, O>
+    >;
+  } {
+    return {
+      for: async (
+        when: DateTarget
+      ): Promise<
+        TRACK extends true
+          ? { task: TaskModel<I, O>; tracker: TaskTracker<O> }
+          : TaskModel<I, O>
+      > => {
+        const scheduledTo: Date = when instanceof Date ? when : when.build();
+        task.status = TaskStatus.SCHEDULED;
+        task.scheduledTo = scheduledTo;
+        task.nextRunAt = undefined;
+        task.leaseOwner = undefined;
+        task.leaseExpiry = undefined;
+        return (await this.push(task, track, ...args)) as any;
+      },
+    };
+  }
+
   async track(id: string, ...args: MaybeContextualArg<any>) {
     const { ctx, log } = (
       await this.logCtx(args, OperationKeys.READ, true)
@@ -172,6 +231,8 @@ export class TaskEngine<
     t.error = cancelError;
     t.leaseOwner = undefined;
     t.leaseExpiry = undefined;
+    t.nextRunAt = undefined;
+    t.scheduledTo = undefined;
     const saved = await this.tasks.update(t, ctx);
     await this.emitStatus(ctx, saved, TaskStatus.CANCELED, cancelError);
     return saved;
@@ -278,7 +339,14 @@ export class TaskEngine<
       .eq(TaskStatus.RUNNING)
       .and(Condition.attribute<TaskModel>("leaseExpiry").lte(now));
 
-    const runnable = condPending.or(condRetry).or(condLeaseExpired);
+    const condScheduled = Condition.attribute<TaskModel>("status")
+      .eq(TaskStatus.SCHEDULED)
+      .and(Condition.attribute<TaskModel>("scheduledTo").lte(now));
+
+    const runnable = condPending
+      .or(condRetry)
+      .or(condLeaseExpired)
+      .or(condScheduled);
 
     // Fetch more than concurrency because some will fail to claim due to conflicts
     const candidates: TaskModel[] = await this.tasks
@@ -320,6 +388,8 @@ export class TaskEngine<
       leaseExpiry: new Date(
         now + (parseInt(this.config.leaseMs.toString()) || 60_000)
       ),
+      scheduledTo: undefined,
+      nextRunAt: undefined,
     });
 
     log.info(
@@ -413,12 +483,16 @@ export class TaskEngine<
       );
       await this.emitStatus(taskCtx, task, TaskStatus.SUCCEEDED, output);
     } catch (err: any) {
-      log.error("task execution error", err);
       try {
         task = await this.tasks.read(task.id, taskCtx);
       } catch {
         // keep best-effort task state for retries/failures
       }
+      if (err instanceof TaskStateChangeError) {
+        await this.handleTaskStateChange(err.request, task, taskCtx);
+        return;
+      }
+      log.error("task execution error", err);
       if (task.atomicity === TaskType.COMPOSITE) {
         const normalizedResults = this.normalizeStepResults(task.stepResults);
         task.stepResults = normalizedResults;
@@ -476,6 +550,82 @@ export class TaskEngine<
           }
         );
       }
+    }
+  }
+
+  private async handleTaskStateChange(
+    request: TaskStateChangeRequest,
+    task: TaskModel,
+    ctx: TaskContext
+  ): Promise<void> {
+    task.leaseOwner = undefined;
+    task.leaseExpiry = undefined;
+    switch (request.status) {
+      case TaskStatus.CANCELED: {
+        const cancelError =
+          request.error ??
+          new TaskErrorModel({
+            message: `Task ${task.id} canceled`,
+          });
+        task.status = TaskStatus.CANCELED;
+        task.error = cancelError;
+        task.nextRunAt = undefined;
+        task.scheduledTo = undefined;
+        task = await this.tasks.update(task, ctx);
+        await this.emitStatus(ctx, task, TaskStatus.CANCELED, cancelError);
+        await ctx.pipe(LogLevel.warn, `Task canceled via context`);
+        return;
+      }
+      case TaskStatus.WAITING_RETRY: {
+        const nextAttempt = (task.attempt ?? 0) + 1;
+        const backoff = this.normalizeBackoff(task.backoff);
+        const delay = computeBackoffMs(nextAttempt, backoff);
+        const nextRunAt =
+          request.scheduledTo instanceof Date
+            ? request.scheduledTo
+            : new Date(Date.now() + delay);
+        const retryError =
+          request.error ??
+          new TaskErrorModel({
+            message: `Task ${task.id} requested retry`,
+          });
+        task.status = TaskStatus.WAITING_RETRY;
+        task.attempt = nextAttempt;
+        task.error = retryError;
+        task.nextRunAt = nextRunAt;
+        task.scheduledTo = undefined;
+        task = await this.tasks.update(task, ctx);
+        await this.emitStatus(ctx, task, TaskStatus.WAITING_RETRY, retryError);
+        await ctx.pipe(LogLevel.warn, `Retry requested`, {
+          nextRunAt,
+          delayMs: delay,
+          attempt: nextAttempt,
+        });
+        return;
+      }
+      case TaskStatus.SCHEDULED: {
+        if (!request.scheduledTo)
+          throw new InternalError("Scheduled state requires a target date");
+        const rescheduleError =
+          request.error ??
+          new TaskErrorModel({
+            message: `Task ${task.id} rescheduled`,
+          });
+        task.status = TaskStatus.SCHEDULED;
+        task.scheduledTo = request.scheduledTo;
+        task.error = rescheduleError;
+        task.nextRunAt = undefined;
+        task = await this.tasks.update(task, ctx);
+        await this.emitStatus(ctx, task, TaskStatus.SCHEDULED, rescheduleError);
+        await ctx.pipe(LogLevel.info, `Task rescheduled`, {
+          scheduledTo: request.scheduledTo.toISOString(),
+        });
+        return;
+      }
+      default:
+        throw new InternalError(
+          `Unsupported task state change requested: ${request.status}`
+        );
     }
   }
 
@@ -685,6 +835,8 @@ export class TaskEngine<
     if (outputOrError && outputOrError instanceof TaskErrorModel)
       payload.error = outputOrError;
     else if (outputOrError) payload.output = outputOrError;
+    if (task.nextRunAt) payload.nextRunAt = task.nextRunAt;
+    if (task.scheduledTo) payload.scheduledTo = task.scheduledTo;
     const evt = await this.persistEvent(
       ctx,
       task.id,

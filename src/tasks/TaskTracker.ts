@@ -3,13 +3,25 @@ import { TaskEventModel } from "./models/TaskEventModel";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Logger, LogLevel } from "@decaf-ts/logging";
 import { TaskEventType, TaskStatus } from "./constants";
-import { EventPipe, LogPipe, LogPipeOptions } from "./types";
+import {
+  EventPipe,
+  LogPipe,
+  LogPipeOptions,
+  TaskProgressPayload,
+} from "./types";
 import { getLogPipe } from "./logging";
 import { TaskModel } from "./models/TaskModel";
 import { Context, EventIds } from "../persistence/index";
 import { TaskErrorModel } from "./models/TaskErrorModel";
 import { TaskEventBus } from "./TaskEventBus";
 import { ContextualArgs } from "../utils/index";
+import {
+  TaskCancelError,
+  TaskControlError,
+  TaskFailError,
+  TaskRescheduleError,
+  TaskRetryError,
+} from "./TaskErrors";
 
 export class TaskTracker<O = any>
   implements Observer<[TaskEventModel, Context]>
@@ -20,8 +32,6 @@ export class TaskTracker<O = any>
 
   private resolved = false;
   private terminalContext?: Context;
-  private lastTerminalPayload?: O | TaskErrorModel;
-
   constructor(
     protected bus: TaskEventBus,
     private readonly task: TaskModel
@@ -52,6 +62,7 @@ export class TaskTracker<O = any>
       TaskStatus.FAILED,
       TaskStatus.CANCELED,
       TaskStatus.WAITING_RETRY,
+      TaskStatus.SCHEDULED,
     ]);
   }
 
@@ -84,21 +95,26 @@ export class TaskTracker<O = any>
     this.pipes[type].add(pipe);
   }
 
-  protected succeed(result: O) {
-    this.complete(result);
+  protected succeed(_result?: O) {
+    void _result;
+    this.complete();
   }
-  protected fail(error: TaskErrorModel) {
-    this.complete(error);
+  protected fail(_error?: TaskControlError) {
+    void _error;
+    this.complete();
   }
 
   protected cancel(evt: TaskEventModel) {
-    if (!evt.payload?.error) return;
-    this.fail(evt.payload.error);
+    if (!evt.payload) return;
+    this.fail();
   }
 
-  protected retry(evt: TaskEventModel) {
-    if (!evt.payload) return;
-    if (evt.payload.error) this.task.error = evt.payload.error;
+  protected retry() {
+    // intentionally no-op so waits remain active until final status
+  }
+
+  protected reschedule() {
+    // intentionally no-op so waits remain active until final status
   }
 
   onSucceed(handler: EventPipe) {
@@ -149,25 +165,21 @@ export class TaskTracker<O = any>
     return this.task.output as O;
   }
 
-  private extractError(evt: TaskEventModel): TaskErrorModel {
-    if (evt.payload?.error) return evt.payload.error;
-    if (this.task.error) return this.task.error;
-    if (this.lastTerminalPayload instanceof TaskErrorModel)
-      return this.lastTerminalPayload;
+  private extractError(evt: TaskEventModel): TaskControlError {
     const status = evt.payload?.status ?? this.task.status;
-    const message =
-      status === TaskStatus.WAITING_RETRY
-        ? `Task ${this.task.id} scheduled for retry`
-        : `Task ${this.task.id} ${status}`;
-    return new TaskErrorModel({ message });
+    const meta = this.buildMeta(status, evt.payload);
+    return this.createTaskControlError(
+      status,
+      evt.payload?.error ?? this.task.error,
+      meta
+    );
   }
 
-  private complete(payload: O | TaskErrorModel) {
+  private complete() {
     if (this.resolved) return;
     this.resolved = true;
     this.unregistration();
     this.pipes = undefined;
-    this.lastTerminalPayload = payload;
   }
 
   protected isTerminalStatus(status: TaskStatus) {
@@ -181,20 +193,30 @@ export class TaskTracker<O = any>
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected async track(evt: TaskEventModel, ctx: Context) {
     if (!evt.payload) return;
-    this.task.status = evt.payload.status;
+    const status = evt.payload.status;
+    this.task.status = status;
     if (evt.payload.output !== undefined) this.task.output = evt.payload.output;
     if (evt.payload.error) this.task.error = evt.payload.error;
-    if (evt.payload.status === TaskStatus.SUCCEEDED) {
-      this.succeed(evt.payload.output as O);
+    if (evt.payload.nextRunAt !== undefined)
+      this.task.nextRunAt = evt.payload.nextRunAt;
+    if (evt.payload.scheduledTo !== undefined)
+      this.task.scheduledTo = evt.payload.scheduledTo;
+
+    if (status === TaskStatus.SUCCEEDED) {
+      this.succeed();
+      return;
     }
-    if (evt.payload.status === TaskStatus.FAILED) {
-      this.fail(evt.payload.error!);
+    if (status === TaskStatus.FAILED) {
+      this.fail();
     }
-    if (evt.payload.status === TaskStatus.CANCELED) {
+    if (status === TaskStatus.CANCELED) {
       this.cancel(evt);
     }
-    if (evt.payload.status === TaskStatus.WAITING_RETRY) {
-      this.retry(evt);
+    if (status === TaskStatus.WAITING_RETRY) {
+      this.retry();
+    }
+    if (status === TaskStatus.SCHEDULED) {
+      this.reschedule();
     }
   }
 
@@ -222,8 +244,15 @@ export class TaskTracker<O = any>
   }
 
   private buildTerminalEvent(status: TaskStatus) {
-    const payload: { status: TaskStatus; output?: O; error?: TaskErrorModel } =
-      { status };
+    const payload: {
+      status: TaskStatus;
+      output?: O;
+      error?: TaskErrorModel;
+      nextRunAt?: Date;
+      scheduledTo?: Date;
+    } = {
+      status,
+    };
     if (status === TaskStatus.SUCCEEDED) {
       payload.output = this.task.output as O;
     }
@@ -233,11 +262,43 @@ export class TaskTracker<O = any>
     ) {
       payload.error = this.task.error;
     }
+    if (this.task.nextRunAt) payload.nextRunAt = this.task.nextRunAt;
+    if (this.task.scheduledTo) payload.scheduledTo = this.task.scheduledTo;
     return new TaskEventModel({
       classification: TaskEventType.STATUS,
       taskId: this.task.id,
       payload,
     });
+  }
+
+  private createTaskControlError(
+    status: TaskStatus,
+    error?: TaskErrorModel,
+    meta?: Record<string, any>
+  ): TaskControlError {
+    switch (status) {
+      case TaskStatus.FAILED:
+        return new TaskFailError(this.task.id, error, meta);
+      case TaskStatus.CANCELED:
+        return new TaskCancelError(this.task.id, error, meta);
+      case TaskStatus.WAITING_RETRY:
+        return new TaskRetryError(this.task.id, error, meta);
+      case TaskStatus.SCHEDULED:
+        return new TaskRescheduleError(this.task.id, error, meta);
+      default:
+        return new TaskFailError(this.task.id, error, meta);
+    }
+  }
+
+  private buildMeta(
+    status: TaskStatus,
+    payload?: TaskProgressPayload
+  ): Record<string, any> | undefined {
+    const meta: Record<string, any> = {};
+    if (payload?.nextRunAt) meta.nextRunAt = payload.nextRunAt;
+    if (payload?.scheduledTo) meta.scheduledTo = payload.scheduledTo;
+    if (!Object.keys(meta).length) return undefined;
+    return meta;
   }
 
   private resolveTerminalState() {
@@ -246,9 +307,18 @@ export class TaskTracker<O = any>
       this.succeed(this.task.output as O);
       return;
     }
-    if (this.task.error) {
-      this.fail(this.task.error);
-    }
+    const payload: TaskProgressPayload = {
+      status: this.task.status,
+      nextRunAt: this.task.nextRunAt,
+      scheduledTo: this.task.scheduledTo,
+    };
+    this.fail(
+      this.createTaskControlError(
+        this.task.status,
+        this.task.error,
+        this.buildMeta(this.task.status, payload)
+      )
+    );
   }
 
   async refresh(evt: TaskEventModel, ctx: Context): Promise<void> {

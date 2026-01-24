@@ -13,3 +13,4 @@ export * from "./TaskService";
 export * from "./TaskTracker";
 export * from "./types";
 export * from "./utils";
+export * from "./TaskErrors";

@@ -117,6 +117,10 @@ export function index(
   directions: OrderDirection[],
   name: string
 ): ReturnType<typeof propMetadata>;
+export function index(
+  directions: OrderDirection[],
+  compositions: string[]
+): ReturnType<typeof propMetadata>;
 export function index(compositions: string[]): ReturnType<typeof propMetadata>;
 export function index(
   compositions: string[],

@@ -379,6 +379,9 @@ export abstract class Statement<
         query,
         ...(ctxArgs as ContextualArgs<ContextOf<A>>)
       )) as unknown as R;
+      if (this.hasAggregation()) {
+        return results;
+      }
       if (!this.selectSelector) {
         const pkAttr = Model.pk(this.fromSelector);
         const processor = function recordProcessor(
@@ -441,6 +444,9 @@ export abstract class Statement<
       true,
       ...ctxArgs
     );
+    if (this.hasAggregation()) {
+      return results;
+    }
     if (!this.selectSelector) {
       return results as unknown as R;
     }
@@ -666,6 +672,19 @@ export abstract class Statement<
       this.minSelector ||
       this.sumSelector ||
       this.avgSelector
+    );
+  }
+
+  protected hasAggregation(): boolean {
+    return (
+      typeof this.countSelector !== "undefined" ||
+      typeof this.countDistinctSelector !== "undefined" ||
+      typeof this.maxSelector !== "undefined" ||
+      typeof this.minSelector !== "undefined" ||
+      typeof this.sumSelector !== "undefined" ||
+      typeof this.avgSelector !== "undefined" ||
+      typeof this.distinctSelector !== "undefined" ||
+      ((this.groupBySelectors?.length || 0) > 0)
     );
   }
 

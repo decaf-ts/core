@@ -301,7 +301,13 @@ export class RamStatement<
               );
           }
         } else if (operator === Operator.NOT) {
-          throw new InternalError("Not implemented");
+          if (!(attr1 instanceof Condition)) {
+            throw new InternalError(
+              "NOT operator requires a nested condition to negate"
+            );
+          }
+          const nested = this.parseCondition(attr1 as Condition<M>);
+          return !nested.where(m);
         } else {
           const op1: RawRamQuery<any> = this.parseCondition(
             attr1 as Condition<M>

@@ -57,9 +57,31 @@ export type PreparedStatement<M extends Model> = {
  * @interface QueryAssist
  * @memberOf module:query
  */
+/**
+ * @description
+ * Supported query action types for method-based queries.
+ *
+ * @summary
+ * The `QueryAction` type defines the possible actions that can be
+ * performed by a query built from a method name.
+ *
+ * @memberOf module:query
+ */
+export type QueryAction =
+  | "find"
+  | "page"
+  | "count"
+  | "sum"
+  | "avg"
+  | "min"
+  | "max"
+  | "distinct"
+  | "group";
+
 export interface QueryAssist {
-  action: "find";
+  action: QueryAction;
   select: undefined | string[];
+  selector?: string;
   where?: Condition<any>;
   groupBy?: string[];
   orderBy?: OrderBySelector<any>[];
@@ -80,6 +102,14 @@ export interface QueryAssist {
  */
 export enum QueryClause {
   FIND_BY = "findBy",
+  PAGE_BY = "pageBy",
+  COUNT_BY = "countBy",
+  SUM_BY = "sumBy",
+  AVG_BY = "avgBy",
+  MIN_BY = "minBy",
+  MAX_BY = "maxBy",
+  DISTINCT_BY = "distinctBy",
+  GROUP_BY_PREFIX = "groupBy",
   SELECT = "Select",
   AND = "And",
   OR = "Or",

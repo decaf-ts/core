@@ -163,7 +163,14 @@ export abstract class Statement<
     log.silly(
       `statement force simple ${forceSimple}, forceComplex: ${forceComplex}`
     );
-    if ((forceSimple && this.isSimpleQuery()) || forceComplex) {
+    // Simple queries or simple aggregation queries (aggregations without where conditions)
+    // Also exclude multi-level groupBy from simple aggregation squashing
+    const isSimpleAggregation =
+      this.hasAggregation() &&
+      !this.whereCondition &&
+      !this.selectSelector?.length &&
+      (this.groupBySelectors?.length || 0) <= 1;
+    if ((forceSimple && (this.isSimpleQuery() || isSimpleAggregation)) || forceComplex) {
       log.silly(
         `squashing ${!forceComplex ? "simple" : "complex"} query to prepared statement`
       );
@@ -539,6 +546,86 @@ export abstract class Statement<
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected squash(ctx: ContextOf<A>): PreparedStatement<any> | undefined {
+    // If there's a where condition with complex conditions (nested Conditions), can't squash
+    if (this.whereCondition) {
+      if (this.whereCondition["comparison"] instanceof Condition)
+        return undefined;
+    }
+
+    // Try to squash simple aggregation queries without where conditions
+    if (!this.whereCondition && !this.selectSelector?.length) {
+      // Count query
+      if (typeof this.countSelector !== "undefined" && !this.countDistinctSelector) {
+        return {
+          class: this.fromSelector,
+          method: PreparedStatementKeys.COUNT_OF,
+          args: this.countSelector !== null ? [this.countSelector] : [],
+          params: {},
+        } as PreparedStatement<M>;
+      }
+
+      // Max query
+      if (this.maxSelector) {
+        return {
+          class: this.fromSelector,
+          method: PreparedStatementKeys.MAX_OF,
+          args: [this.maxSelector],
+          params: {},
+        } as PreparedStatement<M>;
+      }
+
+      // Min query
+      if (this.minSelector) {
+        return {
+          class: this.fromSelector,
+          method: PreparedStatementKeys.MIN_OF,
+          args: [this.minSelector],
+          params: {},
+        } as PreparedStatement<M>;
+      }
+
+      // Avg query
+      if (this.avgSelector) {
+        return {
+          class: this.fromSelector,
+          method: PreparedStatementKeys.AVG_OF,
+          args: [this.avgSelector],
+          params: {},
+        } as PreparedStatement<M>;
+      }
+
+      // Sum query
+      if (this.sumSelector) {
+        return {
+          class: this.fromSelector,
+          method: PreparedStatementKeys.SUM_OF,
+          args: [this.sumSelector],
+          params: {},
+        } as PreparedStatement<M>;
+      }
+
+      // Distinct query
+      if (this.distinctSelector) {
+        return {
+          class: this.fromSelector,
+          method: PreparedStatementKeys.DISTINCT_OF,
+          args: [this.distinctSelector],
+          params: {},
+        } as PreparedStatement<M>;
+      }
+
+      // Group by query (simple single-level grouping)
+      if (this.groupBySelectors?.length === 1) {
+        return {
+          class: this.fromSelector,
+          method: PreparedStatementKeys.GROUP_OF,
+          args: [this.groupBySelectors[0]],
+          params: {},
+        } as PreparedStatement<M>;
+      }
+    }
+
+    // Can't squash complex queries with select/groupBy/aggregations that have where conditions
     if (this.selectSelector && this.selectSelector.length) return undefined;
     if (this.groupBySelectors && this.groupBySelectors.length) return undefined;
     if (typeof this.countSelector !== "undefined") return undefined;
@@ -550,9 +637,6 @@ export abstract class Statement<
 
     let attrFromWhere: string | undefined;
     if (this.whereCondition) {
-      // if (this.orderBySelector) return undefined;
-      if (this.whereCondition["comparison"] instanceof Condition)
-        return undefined;
       attrFromWhere = this.whereCondition["attr1"] as string;
     }
 
@@ -611,6 +695,16 @@ export abstract class Statement<
         return this;
       }
     }
+
+    // Also try to squash aggregation queries
+    if ((ctx as ContextOf<A>).get("forcePrepareSimpleQueries") || (ctx as ContextOf<A>).get("forcePrepareComplexQueries")) {
+      const squashed = this.squash(ctx as ContextOf<A>);
+      if (squashed) {
+        this.prepared = squashed;
+        return this;
+      }
+    }
+
     const args: (string | number)[] = [];
     const params: any = {} as any;
 
@@ -620,7 +714,43 @@ export abstract class Statement<
       params,
     } as any;
 
-    const method: string[] = [QueryClause.FIND_BY];
+    // Determine the method prefix based on the query type
+    let methodPrefix: string = QueryClause.FIND_BY;
+    let selectorField: string | undefined;
+
+    if (typeof this.countSelector !== "undefined") {
+      methodPrefix = QueryClause.COUNT_BY;
+      selectorField = this.countSelector !== null ? this.countSelector as string : undefined;
+    } else if (this.sumSelector) {
+      methodPrefix = QueryClause.SUM_BY;
+      selectorField = this.sumSelector as string;
+    } else if (this.avgSelector) {
+      methodPrefix = QueryClause.AVG_BY;
+      selectorField = this.avgSelector as string;
+    } else if (this.minSelector) {
+      methodPrefix = QueryClause.MIN_BY;
+      selectorField = this.minSelector as string;
+    } else if (this.maxSelector) {
+      methodPrefix = QueryClause.MAX_BY;
+      selectorField = this.maxSelector as string;
+    } else if (this.distinctSelector) {
+      methodPrefix = QueryClause.DISTINCT_BY;
+      selectorField = this.distinctSelector as string;
+    } else if (
+      this.groupBySelectors?.length &&
+      !this.selectSelector?.length &&
+      !this.whereCondition
+    ) {
+      // Group-only query (no select, no where)
+      methodPrefix = QueryClause.GROUP_BY_PREFIX;
+      selectorField = this.groupBySelectors[0] as string;
+    }
+    // If there's a where condition or selectSelector, use findBy prefix even with groupBy
+
+    const method: string[] = [methodPrefix];
+    if (selectorField) {
+      method.push(selectorField);
+    }
 
     if (this.whereCondition) {
       const parsed = this.prepareCondition(
@@ -647,9 +777,14 @@ export abstract class Statement<
         });
       }
     }
-    if (this.groupBySelectors?.length) {
+    // Handle groupBy for non-aggregation queries (already handled for group prefix)
+    if (this.groupBySelectors?.length && methodPrefix !== QueryClause.GROUP_BY_PREFIX) {
       const [primary, ...rest] = this.groupBySelectors;
       method.push(QueryClause.GROUP_BY, primary as string);
+      rest.forEach((attr) => method.push(QueryClause.THEN_BY, attr as string));
+    } else if (this.groupBySelectors?.length && methodPrefix === QueryClause.GROUP_BY_PREFIX) {
+      // For group prefix, add additional group fields as ThenBy
+      const rest = this.groupBySelectors.slice(1);
       rest.forEach((attr) => method.push(QueryClause.THEN_BY, attr as string));
     }
     if (this.limitSelector) params.limit = this.limitSelector;
@@ -671,7 +806,8 @@ export abstract class Statement<
       this.maxSelector ||
       this.minSelector ||
       this.sumSelector ||
-      this.avgSelector
+      this.avgSelector ||
+      this.distinctSelector
     );
   }
 

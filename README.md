@@ -6,6 +6,16 @@ Decaf Core provides the foundational building blocks for the Decaf TypeScript ec
 
 > Release docs refreshed on 2025-11-26. See [workdocs/reports/RELEASE_NOTES.md](./workdocs/reports/RELEASE_NOTES.md) for ticket summaries.
 
+### Core Concepts
+
+*   **`Repository`**: A class that implements the repository pattern, providing a consistent API for CRUD operations and querying.
+*   **`Adapter`**: An abstract class that defines the interface for connecting to different database backends.
+*   **`Statement`**: A query builder for creating complex database queries in a fluent, type-safe manner.
+*   **`TaskEngine`**: A system for managing background jobs and asynchronous operations.
+*   **`ModelService` and `PersistenceService`**: Base classes for creating services that encapsulate business logic and data access.
+*   **Migrations**: A system for managing database schema changes over time.
+*   **RAM Adapter**: An in-memory adapter for testing and development.
+
 ![Licence](https://img.shields.io/github/license/decaf-ts/core.svg?style=plastic)
 ![GitHub language count](https://img.shields.io/github/languages/count/decaf-ts/core?style=plastic)
 ![GitHub top language](https://img.shields.io/github/languages/top/decaf-ts/core?style=plastic)
@@ -29,7 +39,7 @@ Decaf Core provides the foundational building blocks for the Decaf TypeScript ec
 
 Documentation [here](https://decaf-ts.github.io/injectable-decorators/), Test results [here](https://decaf-ts.github.io/injectable-decorators/workdocs/reports/html/test-report.html) and Coverage [here](https://decaf-ts.github.io/injectable-decorators/workdocs/reports/coverage/lcov-report/index.html)
 
-Minimal size: 32 KB kb gzipped
+Minimal size: 33.6 KB kb gzipped
 
 
 # Core Package — Detailed Description
@@ -133,235 +143,230 @@ Design intent
 - Enable DI and decorators for ergonomic repository wiring and testing
 
 
-# How To Use — Core Package
+# How to Use
 
-Below are practical, focused examples for the public APIs exposed by the Core package. Each example includes a short description and valid TypeScript code. Examples are inspired by and aligned with the unit tests under core/tests.
+This guide provides detailed, real-life examples of how to use the main features of the `@decaf-ts/core` library.
 
-Prerequisites used across examples:
-- Ensure your model builder is set for tests/dev scenarios: Model.setBuilder(Model.fromModel)
-- Use the RAM adapter for quick in-memory demos
+## Repository and Adapter Interaction
+
+The `Repository` and `Adapter` are the core of the persistence layer. The `Repository` provides a high-level API for your application to interact with, while the `Adapter` handles the specific implementation details of your chosen database.
+
+### The `prepare` -> `action` -> `revert` Loop
+
+This loop is the foundation of the persistence process. It ensures data is correctly transformed, validated, and persisted.
+
+```mermaid
+sequenceDiagram
+    participant C as Client Code
+    participant R as Repository
+    participant V as Validators/Decorators
+    participant A as Adapter
+    participant DB as Database
+
+    C->>+R: create(model)
+    R->>R: 1. createPrefix(model)
+    R->>+V: 2. Enforce DB Decorators (ON)
+    V-->>-R:
+    R->>+A: 3. prepare(model)
+    A-->>-R: { record, id, transient }
+    R->>+A: 4. create(table, id, record)
+    A->>+DB: 5. Database Insert
+    DB-->>-A: Result
+    A-->>-R: record
+    R->>+A: 6. revert(record)
+    A-->>-R: model instance
+    R->>R: 7. createSuffix(model)
+    R->>+V: 8. Enforce DB Decorators (AFTER)
+    V-->>-R:
+    R-->>-C: created model
+```
+
+1.  **`createPrefix`**: The `Repository`'s `createPrefix` method is called. This is where you can add logic to be executed before the main `create` operation.
+2.  **Decorators (ON)**: Any decorators configured to run `ON` the `CREATE` operation are executed. This is a good place for validation or data transformation.
+3.  **`prepare`**: The `Adapter`'s `prepare` method is called to convert the model into a format suitable for the database. This includes separating transient properties.
+4.  **`create`**: The `Adapter`'s `create` method is called to persist the data to the database.
+5.  **Database Insert**: The `Adapter` communicates with the database to perform the insert operation.
+6.  **`revert`**: The `Adapter`'s `revert` method is called to convert the database record back into a model instance.
+7.  **`createSuffix`**: The `Repository`'s `createSuffix` method is called. This is where you can add logic to be executed after the main `create` operation.
+8.  **Decorators (AFTER)**: Any decorators configured to run `AFTER` the `CREATE` operation are executed.
+
+## Core Decorators
+
+The library provides a set of powerful decorators for defining models and their behavior.
+
+*   `@table(name)`: Specifies the database table name for a model.
+*   `@pk()`: Marks a property as the primary key.
+*   `@column(name)`: Maps a property to a database column with a different name.
+*   `@createdAt()`: Automatically sets the property to the current timestamp when a model is created.
+*   `@updatedAt()`: Automatically sets the property to the current timestamp when a model is created or updated.
+*   `@index()`: Creates a database index on a property.
+
 ```typescript
-import { Model, model } from "@decaf-ts/decorator-validation";
-import type { ModelArg } from "@decaf-ts/decorator-validation";
-import {
-  Adapter,
-  OrderDirection,
-  Paginator,
-  Repository,
-  repository,
-  uses,
-  pk,
-  column,
-  table,
-} from "@decaf-ts/core";
-import { RamAdapter, RamRepository } from "@decaf-ts/core/ram";
+import { table, pk, column, createdAt, updatedAt, index } from '@decaf-ts/core';
+import { model, Model } from '@decaf-ts/decorator-validation';
 
-@table("tst_user")
+@table('users')
 @model()
-class User extends Model {
-  @pk() id!: string;
-  @column("tst_name") name!: string;
-  @column("tst_nif") nif!: string;
-  constructor(arg?: ModelArg<User>) { super(arg); }
+export class User extends Model {
+  @pk()
+  id: string;
+
+  @column('user_name')
+  @index()
+  name: string;
+
+  @createdAt()
+  createdAt: Date;
+
+  @updatedAt()
+  updatedAt: Date;
 }
 ```
 
+## Complex Relations
 
-- Repository + RAM adapter: basic CRUD
-Description: Create a RamAdapter and a Repository for a model and perform CRUD operations; mirrors core/tests/unit/RamAdapter.test.ts and adapter.test.ts.
+You can model complex relationships between your classes using `@oneToOne`, `@oneToMany`, and `@manyToOne`.
+
 ```typescript
-import { NotFoundError } from "@decaf-ts/db-decorators";
+import { table, pk, oneToOne, oneToMany, manyToOne } from '@decaf-ts/core';
+import { model, Model } from '@decaf-ts/decorator-validation';
+import { User } from './User';
 
-async function crudExample() {
-  const adapter = new RamAdapter();
-  const repo: RamRepository<User> = new Repository(adapter, User);
-
-  // CREATE
-  const created = await repo.create(
-    new User({ id: Date.now().toString(), name: "Alice", nif: "123456789" })
-  );
-
-  // READ
-  const read = await repo.read(created.id);
-  console.log(read.equals(created)); // true (same data, different instance)
-
-  // UPDATE
-  const updated = await repo.update(Object.assign(read, {name: "Alice 2" }));
-
-  // DELETE
-  const deleted = await repo.delete(created.id);
-  console.log(deleted.equals(updated)); // true
-}
-```
-
-
-- Adapter current and registered models; @repository class decorator
-Description: Show how to set/get current adapter and register a repository via the @repository decorator; mirrors adapter.test.ts.
-```typescript
-
+@table('profiles')
 @model()
-class Managed extends Model { constructor(arg?: ModelArg<Managed>) { super(arg); } }
+export class Profile extends Model {
+  @pk()
+  id: string;
 
-@repository(Managed)
-@uses("ram")
-class ManagedRepository extends Repository<Managed> {
-  // Concrete adapter-backed methods would be provided by adapter implementation
-  // For quick test or demo, use a RamAdapter
+  bio: string;
 }
 
-async function adapterRegistryExample() {
-  const adapter = new RamAdapter();
+@table('posts')
+@model()
+export class Post extends Model {
+  @pk()
+  id: string;
 
-  Adapter.setCurrent("ram"); // set current flavour
-  console.log(Adapter.current === Adapter.get("ram")); // true
+  title: string;
 
-  // Models managed by current or specific adapter flavour
-  const managed = Adapter.models("ram");
-  console.log(Array.isArray(managed));
+  @manyToOne(() => User)
+  author: User;
 }
-```
 
-- Query building with select/order and execution
-Description: Build a statement with orderBy and run it, as done in core/tests/unit/Pagination.test.ts.
+@table('users')
+@model()
+export class User extends Model {
+  @pk()
+  id: string;
 
-```typescript
-async function queryExample() {
-  const adapter = new RamAdapter();
-  const repo: RamRepository<User> = new Repository(adapter, User);
+  @oneToOne(() => Profile)
+  profile: Profile;
 
-  // Seed data
-  await repo.createAll(
-    Array.from({ length: 5 }).map((_, i) =>
-      new User({ id: (i + 1).toString(), name: `u${i + 1}`, nif: "123456789" })
-    )
-  );
-
-  const results = await repo
-    .select()
-    .orderBy(["id", OrderDirection.ASC])
-    .execute();
-
-  console.log(results.map((u) => u.id)); // ["1","2","3","4","5"]
+  @oneToMany(() => Post)
+  posts: Post[];
 }
 ```
 
-- Pagination with Paginator
-Description: Paginate query results using Statement.paginate(size), then page through results; mirrors Pagination.test.ts.
+## Extending the Adapter
+
+You can create your own persistence layer by extending the `Adapter` class.
 
 ```typescript
-async function paginationExample() {
-  const adapter = new RamAdapter();
-  const repo: RamRepository<User> = new Repository(adapter, User);
+import { Adapter, Model, Constructor, PrimaryKeyType } from '@decaf-ts/core';
 
-  // Seed data
-  const size = 25;
-  await repo.createAll(
-    Array.from({ length: size }).map((_, i) =>
-      new User({ id: (i + 1).toString(), name: `u${i + 1}`, nif: "123456789" })
-    )
-  );
+class MyCustomAdapter extends Adapter<any, any, any, any> {
+  constructor() {
+    super({}, 'my-custom-adapter');
+  }
 
-  const paginator: Paginator<User> = await repo
-    .select()
-    .orderBy(["id", OrderDirection.DSC])
-    .paginate(10);
+  async create<M extends Model>(
+    clazz: Constructor<M>,
+    id: PrimaryKeyType,
+    model: Record<string, any>
+  ): Promise<Record<string, any>> {
+    console.log(`Creating in ${Model.tableName(clazz)} with id ${id}`);
+    // Your database insert logic here
+    return model;
+  }
 
-  const page1 = await paginator.page(); // first page by default
-  const page2 = await paginator.next();
-  const page3 = await paginator.next();
-
-  console.log(page1.length, page2.length, page3.length); // 10, 10, 5
+  // Implement other abstract methods: read, update, delete, raw
 }
 ```
 
+## Services
 
-- Conditions: building filters
-Description: Compose conditions with the builder and apply them in a where clause.
+The `ModelService` provides a convenient way to interact with your repositories.
+
 ```typescript
-import { Condition } from "@decaf-ts/core";
+import { ModelService, Repository } from '@decaf-ts/core';
+import { User } from './models';
 
-async function conditionExample() {
-  const adapter = new RamAdapter();
-  const repo: RamRepository<User> = new Repository(adapter, User);
+class UserService extends ModelService<User, Repository<User, any>> {
+  constructor() {
+    super(User);
+  }
 
-  await repo.createAll([
-    new User({ id: "1", name: "Alice", nif: "111111111" }),
-    new User({ id: "2", name: "Bob", nif: "222222222" }),
-  ]);
-
-  const cond = Condition.attr<User>("name")
-    .eq("Alice")
-    .build();
-
-  const results = await repo.select().where(cond).execute();
-  console.log(results.length); // 1
+  async findActiveUsers(): Promise<User[]> {
+    return this.repository.select().where({ status: 'active' }).execute();
+  }
 }
+
+const userService = new UserService();
+const activeUsers = await userService.findActiveUsers();
 ```
 
+## Task Engine
 
-- Adapter mapping: prepare and revert
-Description: Convert a model to a storage record and back using Adapter.prepare and Adapter.revert; mirrors adapter.test.ts.
+The `TaskEngine` is a powerful tool for managing background jobs.
+
+### Creating a Task Handler
+
+A `TaskHandler` defines the logic for a specific task.
+
 ```typescript
-async function mappingExample() {
-  const adapter = new RamAdapter();
-  const repo: RamRepository<User> = new Repository(adapter, User);
+import { TaskHandler, TaskContext } from '@decaf-ts/core';
 
-  const toCreate = new User({ id: "abc", name: "Test", nif: "123456789" });
-
-  // prepare: model -> record
-  const pk = "id"; // infer with findPrimaryKey(toCreate).id if available
-  const { record, id } = adapter.prepare(toCreate, pk);
-  console.log(id === toCreate.id); // true
-
-  // revert: record -> model instance
-  const model = adapter.revert(record, User, pk, id) as User;
-  console.log(model instanceof User); // true
-}
-```
-
-
-- Auto-resolving repositories with InjectablesRegistry
-Description: Retrieve a repository by model name or constructor using the DI registry; see repository/injectables.ts flow.
-```typescript
-import { Injectables } from "@decaf-ts/injectable-decorators";
-import { InjectablesRegistry } from "@decaf-ts/core";
-
-async function injectablesExample() {
-  // Register current adapter so repositories can be created
-  new RamAdapter();
-  Adapter.setCurrent("ram");
-
-  // Resolve by constructor
-  const userRepo = Injectables.get<Repository<User>>(User);
-  if (userRepo) {
-    const u = await userRepo.create(
-      new User({ id: "1", name: "A", nif: "123456789" })
-    );
-    console.log(!!u);
+class MyTaskHandler implements TaskHandler<any, any> {
+  async run(input: any, context: TaskContext): Promise<any> {
+    console.log('Running my task with input:', input);
+    await context.progress({ message: 'Step 1 complete' });
+    // ... task logic
+    return { result: 'success' };
   }
 }
 ```
 
+### Using the Task Engine
 
-## Coding Principles
+```typescript
+import { TaskEngine, TaskModel, TaskHandlerRegistry } from '@decaf-ts/core';
+import { MyTaskHandler } from './MyTaskHandler';
 
-- group similar functionality in folders (analog to namespaces but without any namespace declaration)
-- one class per file;
-- one interface per file (unless interface is just used as a type);
-- group types as other interfaces in a types.ts file per folder;
-- group constants or enums in a constants.ts file per folder;
-- group decorators in a decorators.ts file per folder;
-- always import from the specific file, never from a folder or index file (exceptions for dependencies on other packages);
-- prefer the usage of established design patters where applicable:
-  - Singleton (can be an anti-pattern. use with care);
-  - factory;
-  - observer;
-  - strategy;
-  - builder;
-  - etc;
+// 1. Register the handler
+const registry = new TaskHandlerRegistry();
+registry.register('my-task', new MyTaskHandler());
 
-## Release Documentation Hooks
-Stay aligned with the automated release pipeline by reviewing [Release Notes](./workdocs/reports/RELEASE_NOTES.md) and [Dependencies](./workdocs/reports/DEPENDENCIES.md) after trying these recipes (updated on 2025-11-26).
+// 2. Create the task engine
+const taskEngine = new TaskEngine({ adapter, registry });
+
+// 3. Push a task
+const task = new TaskModel({
+  classification: 'my-task',
+  input: { some: 'data' },
+});
+const { tracker } = await taskEngine.push(task, true);
+
+// 4. Track the task's progress and result
+tracker.on('progress', (payload) => {
+  console.log('Task progress:', payload);
+});
+
+const result = await tracker.resolve();
+console.log('Task result:', result);
+
+// 5. Schedule a task
+taskEngine.schedule(task).for(new Date(Date.now() + 5000)); // 5 seconds from now
+```
 
 
 ### Related

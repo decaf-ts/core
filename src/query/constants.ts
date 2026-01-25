@@ -57,4 +57,11 @@ export enum PreparedStatementKeys {
   FIND_BY = QueryClause.FIND_BY,
   FIND_ONE_BY = "findOneBy",
   PAGE_BY = "paginateBy",
+  COUNT_OF = "countOf",
+  MAX_OF = "maxOf",
+  MIN_OF = "minOf",
+  AVG_OF = "avgOf",
+  SUM_OF = "sumOf",
+  DISTINCT_OF = "distinctOf",
+  GROUP_OF = "groupOf",
 }

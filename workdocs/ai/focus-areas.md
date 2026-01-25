@@ -1,0 +1,9 @@
+- repository. how it extends on the previous. aditional public apis. how to extend, howto use logCtx to control Context.
+- Context. what it does. how to use. how to create, how to retrieve. how to use with logCtx and MaybeContextualArgs and ContextualArgs;
+- Adapter: Facade design pattern. it's public and protected api. How to extends. the loop prepare-operation-revert with repository.
+- the various decorators and overides on previsous decortors (including the new flavour resolver and what it means for @uses. highlight the need to always import adapters before models to ensure decoration overide.
+- querying api. how to use, how extens Statement, Paginator.
+- services. how to use, extends, use context, use with decorators, boot.
+- tasks: how to use task engine. all features. how to extend
+- migrations. how to use
+- ram implementarion of adapter

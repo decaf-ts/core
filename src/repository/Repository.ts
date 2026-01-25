@@ -1231,6 +1231,153 @@ export class Repository<
       .execute(...ctxArgs);
   }
 
+  /**
+   * @description Counts records, optionally filtered by a key value
+   * @summary Returns the count of records matching the optional key condition
+   * @param {string} key - The field to count (optional, counts all if not specified)
+   * @param {...any[]} args - Additional arguments including context
+   * @return {Promise<number>} The count of matching records
+   */
+  @prepared()
+  async countOf(
+    key?: keyof M,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<number> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.COUNT_OF, true)
+    ).for(this.countOf);
+    log.verbose(
+      `counting ${Model.tableName(this.class)}${key ? ` by ${key as string}` : ""}`
+    );
+    return this.count(key as any).execute(...ctxArgs);
+  }
+
+  /**
+   * @description Finds the maximum value of a field
+   * @summary Returns the maximum value for the specified field across all records
+   * @param {string} key - The field to find the maximum value of
+   * @param {...any[]} args - Additional arguments including context
+   * @return {Promise<any>} The maximum value
+   */
+  @prepared()
+  async maxOf<K extends keyof M>(
+    key: K,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<M[K]> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.MAX_OF, true)
+    ).for(this.maxOf);
+    log.verbose(
+      `finding max of ${key as string} in ${Model.tableName(this.class)}`
+    );
+    return this.max(key as any).execute(...ctxArgs);
+  }
+
+  /**
+   * @description Finds the minimum value of a field
+   * @summary Returns the minimum value for the specified field across all records
+   * @param {string} key - The field to find the minimum value of
+   * @param {...any[]} args - Additional arguments including context
+   * @return {Promise<any>} The minimum value
+   */
+  @prepared()
+  async minOf<K extends keyof M>(
+    key: K,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<M[K]> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.MIN_OF, true)
+    ).for(this.minOf);
+    log.verbose(
+      `finding min of ${key as string} in ${Model.tableName(this.class)}`
+    );
+    return this.min(key as any).execute(...ctxArgs);
+  }
+
+  /**
+   * @description Calculates the average value of a field
+   * @summary Returns the average value for the specified numeric field across all records
+   * @param {string} key - The field to calculate the average of
+   * @param {...any[]} args - Additional arguments including context
+   * @return {Promise<number>} The average value
+   */
+  @prepared()
+  async avgOf<K extends keyof M>(
+    key: K,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<number> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.AVG_OF, true)
+    ).for(this.avgOf);
+    log.verbose(
+      `calculating average of ${key as string} in ${Model.tableName(this.class)}`
+    );
+    return this.avg(key as any).execute(...ctxArgs);
+  }
+
+  /**
+   * @description Calculates the sum of a field
+   * @summary Returns the sum of values for the specified numeric field across all records
+   * @param {string} key - The field to sum
+   * @param {...any[]} args - Additional arguments including context
+   * @return {Promise<number>} The sum
+   */
+  @prepared()
+  async sumOf<K extends keyof M>(
+    key: K,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<number> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.SUM_OF, true)
+    ).for(this.sumOf);
+    log.verbose(
+      `calculating sum of ${key as string} in ${Model.tableName(this.class)}`
+    );
+    return this.sum(key as any).execute(...ctxArgs);
+  }
+
+  /**
+   * @description Finds distinct values of a field
+   * @summary Returns an array of unique values for the specified field
+   * @param {string} key - The field to get distinct values of
+   * @param {...any[]} args - Additional arguments including context
+   * @return {Promise<any[]>} An array of distinct values
+   */
+  @prepared()
+  async distinctOf<K extends keyof M>(
+    key: K,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<M[K][]> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.DISTINCT_OF, true)
+    ).for(this.distinctOf);
+    log.verbose(
+      `finding distinct values of ${key as string} in ${Model.tableName(this.class)}`
+    );
+    return this.distinct(key as any).execute(...ctxArgs);
+  }
+
+  /**
+   * @description Groups records by a field
+   * @summary Returns records grouped by the specified field
+   * @param {string} key - The field to group by
+   * @param {...any[]} args - Additional arguments including context
+   * @return {Promise<Record<string, M[]>>} Records grouped by the field value
+   */
+  @prepared()
+  async groupOf<K extends keyof M>(
+    key: K,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<Record<string, M[]>> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.GROUP_OF, true)
+    ).for(this.groupOf);
+    log.verbose(`grouping ${Model.tableName(this.class)} by ${key as string}`);
+    return this.select()
+      .groupBy(key as any)
+      .execute(...ctxArgs) as Promise<Record<string, M[]>>;
+  }
+
   async statement(name: string, ...args: MaybeContextualArg<ContextOf<A>>) {
     if (!Repository.statements(this, name as keyof typeof this))
       throw new QueryError(`Invalid prepared statement requested ${name}`);

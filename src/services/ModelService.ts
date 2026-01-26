@@ -89,7 +89,7 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     return new Proxy(target, {
       get(original, prop, receiver) {
         if (prop === "repo") {
-          return (original.repo as any).for(conf, ...args);
+          return (original.repo as any).override(conf, ...args);
         }
         return Reflect.get(original, prop, receiver);
       },

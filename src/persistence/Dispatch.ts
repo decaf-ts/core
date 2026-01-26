@@ -1,7 +1,7 @@
 import {
+  BulkCrudOperationKeys,
   InternalError,
   OperationKeys,
-  BulkCrudOperationKeys,
 } from "@decaf-ts/db-decorators";
 import { Model, ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Observer } from "../interfaces";
@@ -253,7 +253,11 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
           ];
 
           if (ctx.get("observeFullResult")) {
-            resultArgs.push(result);
+            resultArgs.push(
+              Array.isArray(result)
+                ? result.map((r) => tableName(r))
+                : tableName(result)
+            );
           }
           this.updateObservers(...resultArgs, ...ctxArgs).catch((e: unknown) =>
             log.error(

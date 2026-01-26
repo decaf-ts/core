@@ -1408,7 +1408,7 @@ export class Repository<
         writable: false,
       });
     const log = this.log.for(this.observe);
-    const tableName = Model.tableName(this.class);
+    const tableName = this.class.name; // Model.tableName(this.class);
     this.adapter.observe(
       this,
       (

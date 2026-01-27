@@ -322,7 +322,7 @@ export class TaskEngine<
 
   private async claimBatch(ctx: Context<any>): Promise<TaskModel[]> {
     const log = ctx.logger.for(this.claimBatch);
-    const now = ctx.timestamp;
+    const now = new Date();
 
     // Runnable:
     // - PENDING

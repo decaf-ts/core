@@ -1,3 +1,8 @@
+/**
+ * @description Exports for the query module.
+ * @summary This file exports all the necessary components for the query functionality, including Condition, constants, errors, and more.
+ * @module core/query
+ */
 export * from "./Condition";
 export * from "./constants";
 export * from "./errors";

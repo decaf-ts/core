@@ -27,7 +27,7 @@ import { E2eConfig } from "../e2e.config";
 @model()
 export class Leaflet extends BaseIdentifiedModel {
   @audit()
-  @pk({ type: "String", generated: false })
+  @pk({ type: String, generated: false })
   @composed(["productCode", "batchNumber", "lang", "countryMarket"], ":", [
     "batchNumber",
     "countryMarket",

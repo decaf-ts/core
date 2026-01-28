@@ -21,7 +21,7 @@ const config: Config.InitialOptions = {
         filename: "test-report.html",
         openReport: true,
         expand: true,
-        pageTitle: "core Test Report",
+        pageTitle: "@decaf-ts/core",
         stripSkippedTest: true,
         darkTheme: true,
         enableMergeData: true,

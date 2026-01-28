@@ -5,33 +5,35 @@ import {
   type MethodOrOperation,
 } from "../utils/ContextualLoggedClass";
 import { ClientBasedService } from "../services/services";
-import { TaskEngine, type TaskEngineConfig } from "./TaskEngine";
+import { TaskEngine } from "./TaskEngine";
+import { Context } from "../persistence/Context";
+import { Adapter } from "../persistence/Adapter";
 import {
-  Adapter,
   type AllOperationKeys,
-  Context,
   type ContextOf,
   type EventIds,
   type ObserverFilter,
-  PersistenceKeys,
-  UnsupportedError,
-} from "../persistence/index";
+} from "../persistence/types";
+import { PersistenceKeys } from "../persistence/constants";
+import { UnsupportedError } from "../persistence/errors";
 import {
   BulkCrudOperationKeys,
   InternalError,
   OperationKeys,
   type PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
-import { OrderDirection, type Repo, repository } from "../repository/index";
+import { OrderDirection } from "../repository/constants";
+import { type Repo } from "../repository/Repository";
+import { repository } from "../repository/decorators";
 import { TaskModel } from "./models/TaskModel";
-import { create, del, read, update } from "../utils/index";
-import {
-  type DirectionLimitOffset,
-  PreparedStatementKeys,
-} from "../query/index";
+import { create, del, read, update } from "../utils/decorators";
+import { PreparedStatementKeys } from "../query/constants";
+import { type DirectionLimitOffset } from "../query/types";
 import type { Constructor } from "@decaf-ts/decoration";
-import type { Observer } from "../interfaces/index";
-import { ArrayMode } from "../services/index";
+import type { Observer } from "../interfaces/Observer";
+import type { ArrayMode } from "../services/ModelService";
+import { TaskEngineConfig } from "./types";
+import { TaskTracker } from "./TaskTracker";
 
 export class TaskService<
   A extends Adapter<any, any, any, any>,
@@ -62,6 +64,53 @@ export class TaskService<
     };
   }
 
+  async push<I, O>(
+    task: TaskModel<I, O>,
+    ...args: MaybeContextualArg<any>
+  ): Promise<TaskModel<I, O>>;
+  async push<I, O>(
+    task: TaskModel<I, O>,
+    track: false,
+    ...args: MaybeContextualArg<any>
+  ): Promise<TaskModel<I, O>>;
+  async push<I, O>(
+    task: TaskModel<I, O>,
+    track: true,
+    ...args: MaybeContextualArg<any>
+  ): Promise<{
+    task: TaskModel<I, O>;
+    tracker: TaskTracker<O>;
+  }>;
+  async push<I, O, TRACK extends boolean>(
+    task: TaskModel<I, O>,
+    track: TRACK = false as TRACK,
+    ...args: MaybeContextualArg<any>
+  ): Promise<
+    TRACK extends true
+      ? { task: TaskModel<I, O>; tracker: TaskTracker<O> }
+      : TaskModel
+  > {
+    const { ctxArgs } = (
+      await this.logCtx(args, OperationKeys.CREATE, true)
+    ).for(this.push);
+
+    const created = (await this.client.push(task, track, ...ctxArgs)) as any;
+    if (!(await this.client.isRunning())) {
+      void this.client.start();
+    }
+    return created;
+  }
+
+  async track(
+    id: string,
+    ...args: MaybeContextualArg<any>
+  ): Promise<{ task: TaskModel; tracker: TaskTracker<any> }> {
+    const { ctxArgs } = (
+      await this.logCtx(args, OperationKeys.CREATE, true)
+    ).for(this.push);
+    return this.client.track(id, ...ctxArgs);
+  }
+
   @create()
   async create(
     model: TaskModel,
@@ -70,8 +119,11 @@ export class TaskService<
     const { ctxArgs } = (
       await this.logCtx(args, OperationKeys.CREATE, true)
     ).for(this.create);
-    return this.repo.create(model, ...ctxArgs);
-    if (!this.client.isRunning()) this.client.start();
+    const created = await this.repo.create(model, ...ctxArgs);
+    if (!(await this.client.isRunning())) {
+      void this.client.start();
+    }
+    return created;
   }
 
   @create()
@@ -82,8 +134,9 @@ export class TaskService<
     const { ctxArgs } = (
       await this.logCtx(args, BulkCrudOperationKeys.CREATE_ALL, true)
     ).for(this.createAll);
-    return this.repo.createAll(models, ...ctxArgs);
-    if (!this.client.isRunning()) this.client.start();
+    const created = await this.repo.createAll(models, ...ctxArgs);
+    if (!(await this.client.isRunning())) void this.client.start();
+    return created;
   }
 
   @del()
@@ -237,7 +290,7 @@ export class TaskService<
   ): Promise<void> {
     return this.repo.refresh(table, event, id, ...args);
   }
-  override observe(observer: Observer, filter?: ObserverFilter): void {
+  override observe(observer: Observer, filter?: ObserverFilter): () => void {
     return this.repo.observe(observer, filter);
   }
 
@@ -323,8 +376,12 @@ export class TaskService<
   }
 
   override async shutdown(...args: MaybeContextualArg<any>): Promise<void> {
-    const { ctxArgs } = await this.logCtx(args, "shutdown", true);
+    const { ctxArgs, ctx, log } = (
+      await this.logCtx(args, PersistenceKeys.SHUTDOWN, true)
+    ).for(this.shutdown);
     await super.shutdown(...ctxArgs);
-    this.client.stop();
+    log.info(`attempting to gracefully shutdown task runner`);
+    await this.client.stop(ctx);
+    log.verbose(`gracefully shutdown task runner`);
   }
 }

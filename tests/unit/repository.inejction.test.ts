@@ -16,7 +16,7 @@ describe("repository injection", () => {
   it("Properly injects a repository", async () => {
     @model()
     class RepoInjectionModel extends Model {
-      @pk({ type: "Number" })
+      @pk({ type: Number })
       id!: number;
 
       @required()

@@ -15,7 +15,7 @@ describe("repository non explicit injection", () => {
 
   @model()
   class RepoInjectionModel2 extends Model {
-    @pk({ type: "Number" })
+    @pk({ type: Number })
     id!: number;
 
     @required()

@@ -188,7 +188,8 @@ describe("Statement execution strategy", () => {
 
     const result = await repoWithOverrides
       .select()
-      .orderBy(["name", OrderDirection.ASC])
+      .orderBy("name", "ASC")
+      .thenBy(["age", OrderDirection.DSC])
       .paginate(2);
 
     const page = await result.page();

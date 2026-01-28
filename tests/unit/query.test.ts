@@ -20,6 +20,7 @@ import {
   Condition,
 } from "../../src/index";
 import { RamRepository } from "../../src/ram/types";
+import { QueryError } from "../../src/query/errors";
 import { uses } from "@decaf-ts/decoration";
 
 jest.setTimeout(50000);
@@ -28,7 +29,7 @@ describe("Queries", () => {
   @uses("ram")
   @model()
   class TestUser extends BaseModel {
-    @pk({ type: "Number" })
+    @pk({ type: Number })
     id!: number;
 
     @required()
@@ -192,6 +193,133 @@ describe("Queries", () => {
     for (let i = 0; i < sorted.length; i++) {
       if (i === 0) continue;
 
+      expect(sorted[i - 1].age).toBeGreaterThanOrEqual(sorted[i].age);
+    }
+  });
+
+  it("groups results and supports chaining groupings with thenBy", async () => {
+    const repo: RamRepository<TestUser> = Repository.forModel<
+      TestUser,
+      RamRepository<TestUser>
+    >(TestUser);
+    const groupedBySex = (await repo.select().groupBy("sex").execute()) as Record<
+      string,
+      TestUser[]
+    >;
+    expect(Object.keys(groupedBySex).sort()).toEqual(["F", "M"]);
+    expect(groupedBySex.M).toHaveLength(created.filter((c) => c.sex === "M").length);
+    expect(groupedBySex.F).toHaveLength(created.filter((c) => c.sex === "F").length);
+    expect(
+      groupedBySex.M.every((user) => user.sex === "M") &&
+        groupedBySex.F.every((user) => user.sex === "F")
+    ).toBe(true);
+
+    const groupedByAgeSex = (await repo
+      .select()
+      .groupBy("age")
+      .thenBy("sex")
+      .execute()) as Record<string, Record<string, TestUser[]>>;
+
+    const expectedCombos = new Set(created.map((u) => `${u.age}-${u.sex}`));
+    const combos = new Set<string>();
+    for (const [age, sexes] of Object.entries(groupedByAgeSex)) {
+      for (const [sex, list] of Object.entries(
+        sexes as Record<string, TestUser[]>
+      )) {
+        combos.add(`${age}-${sex}`);
+        expect(list.every((user) => user.sex === sex)).toBe(true);
+      }
+    }
+    expect(combos).toEqual(expectedCombos);
+  });
+
+  it("throws if groupBy is invoked after orderBy", async () => {
+    const repo: RamRepository<TestUser> = Repository.forModel<
+      TestUser,
+      RamRepository<TestUser>
+    >(TestUser);
+    const builder = repo.select().orderBy(["age", OrderDirection.ASC]);
+    expect(() => (builder as any).groupBy("sex")).toThrow(QueryError);
+  });
+
+  it("supports secondary sorting with thenBy", async () => {
+    const repo: RamRepository<TestUser> = Repository.forModel<
+      TestUser,
+      RamRepository<TestUser>
+    >(TestUser);
+    const sorted = await repo
+      .select()
+      .orderBy(["age", OrderDirection.ASC])
+      .thenBy(["name", OrderDirection.DSC])
+      .execute();
+
+    const ages = sorted.map((user) => user.age);
+    const sortedAges = [...ages].sort((a, b) => a - b);
+    expect(ages).toEqual(sortedAges);
+
+    const youngestGroup = sorted
+      .filter((user) => user.age === 18)
+      .map((user) => user.name);
+    expect(youngestGroup).toEqual([
+      "user_name_3",
+      "user_name_2",
+      "user_name_1",
+    ]);
+  });
+
+  it("allows limit and offset after chained thenBy", async () => {
+    const repo: RamRepository<TestUser> = Repository.forModel<
+      TestUser,
+      RamRepository<TestUser>
+    >(TestUser);
+    const results = await repo
+      .select()
+      .orderBy("age", OrderDirection.DSC)
+      .thenBy("name", "asc")
+      .limit(5)
+      .offset(2)
+      .execute();
+
+    expect(results).toHaveLength(5);
+    for (let i = 1; i < results.length; i++) {
+      const prev = results[i - 1];
+      const curr = results[i];
+      if (prev.age === curr.age) {
+        expect(prev.name <= curr.name).toBe(true);
+      } else {
+        expect(prev.age).toBeGreaterThanOrEqual(curr.age);
+      }
+    }
+  });
+
+  it("supports orderBy with attribute and enum direction arguments", async () => {
+    const repo: RamRepository<TestUser> = Repository.forModel<
+      TestUser,
+      RamRepository<TestUser>
+    >(TestUser);
+    const sorted = await repo
+      .select()
+      .orderBy("age", OrderDirection.ASC)
+      .execute();
+
+    expect(sorted.length).toEqual(created.length);
+    for (let i = 1; i < sorted.length; i++) {
+      expect(sorted[i - 1].age).toBeLessThanOrEqual(sorted[i].age);
+    }
+  });
+
+  it("supports orderBy with attribute and string direction arguments", async () => {
+    const repo: RamRepository<TestUser> = Repository.forModel<
+      TestUser,
+      RamRepository<TestUser>
+    >(TestUser);
+    const sorted = await repo
+      .select()
+      .orderBy("age", "DESC")
+      .execute();
+
+    expect(sorted.length).toEqual(created.length);
+    for (let i = 1; i < sorted.length; i++) {
       expect(sorted[i - 1].age).toBeGreaterThanOrEqual(sorted[i].age);
     }
   });

@@ -127,6 +127,20 @@ export class Condition<M extends Model<any>> extends Model<InferAsync<M>> {
               condition: invalidOpMessage,
             },
           } as ModelErrorDefinition;
+        // Validate BETWEEN operator has array with 2 values
+        if (this.operator === Operator.BETWEEN) {
+          if (
+            !Array.isArray(this.comparison) ||
+            this.comparison.length !== 2
+          ) {
+            return {
+              comparison: {
+                condition:
+                  "BETWEEN operator requires an array with exactly 2 values [min, max]",
+              },
+            } as ModelErrorDefinition;
+          }
+        }
       }
 
       if (this.attr1 instanceof Condition) {
@@ -350,6 +364,17 @@ export class Condition<M extends Model<any>> extends Model<InferAsync<M>> {
      */
     regexp(val: any) {
       return this.setOp(Operator.REGEXP, new RegExp(val).source);
+    }
+
+    /**
+     * @description Creates a between condition
+     * @summary Builds a condition that checks if the attribute value is between min and max (inclusive)
+     * @param {any} min - The minimum value (inclusive)
+     * @param {any} max - The maximum value (inclusive)
+     * @return {Condition<M>} A new condition representing the between comparison
+     */
+    between(min: any, max: any) {
+      return this.setOp(Operator.BETWEEN, [min, max]);
     }
 
     /**

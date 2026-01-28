@@ -26,7 +26,7 @@ import { ObserverHandler } from "../persistence/ObserverHandler";
 import { QueryError } from "../query/errors";
 import type { DirectionLimitOffset, QueryOptions } from "../query/types";
 import { OrderBySelector, SelectSelector } from "../query/selectors";
-import { WhereOption } from "../query/options";
+import { CountWhereOption, WhereOption } from "../query/options";
 import { Condition } from "../query/Condition";
 import { Queriable } from "../interfaces/Queriable";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
@@ -52,7 +52,8 @@ import {
 import { Model } from "@decaf-ts/decorator-validation";
 import { prepared } from "../query/decorators";
 import { PreparedStatementKeys } from "../query/constants";
-import { Paginator, SerializedPage } from "../query/index";
+import { Paginator } from "../query/Paginator";
+import { SerializedPage } from "../query/Paginator";
 import { getFilters } from "../persistence/event-filters";
 
 /**
@@ -145,6 +146,8 @@ export class Repository<
   private _tableName!: string;
 
   protected _overrides: Partial<FlagsOf<ContextOf<A>>> = {
+    ignoreHandlers: false,
+    ignoreValidation: false,
     allowGenerationOverride: false,
     allowRawStatements: true,
     forcePrepareSimpleQueries: false,
@@ -1009,6 +1012,90 @@ export class Repository<
   }
 
   /**
+   * @description Creates a count query
+   * @summary Starts building a query that will count records
+   * @template S - The select selector type
+   * @param {S} [selector] - Optional field to count (counts all if not specified)
+   * @return A count query builder with distinct() available
+   */
+  count<S extends SelectSelector<M>>(selector?: S): CountWhereOption<M> {
+    return this.adapter
+      .Statement<M>(this._overrides)
+      .count(selector)
+      .from(this.class) as unknown as CountWhereOption<M>;
+  }
+
+  /**
+   * @description Creates a min query
+   * @summary Starts building a query that will find the minimum value
+   * @template S - The select selector type
+   * @param {S} selector - Field to find minimum value of
+   * @return A min query builder
+   */
+  min<S extends SelectSelector<M>>(selector: S) {
+    return this.adapter
+      .Statement<M>(this._overrides)
+      .min(selector)
+      .from(this.class);
+  }
+
+  /**
+   * @description Creates a max query
+   * @summary Starts building a query that will find the maximum value
+   * @template S - The select selector type
+   * @param {S} selector - Field to find maximum value of
+   * @return A max query builder
+   */
+  max<S extends SelectSelector<M>>(selector: S) {
+    return this.adapter
+      .Statement<M>(this._overrides)
+      .max(selector)
+      .from(this.class);
+  }
+
+  /**
+   * @description Creates a sum query
+   * @summary Starts building a query that will sum values
+   * @template S - The select selector type
+   * @param {S} selector - Field to sum
+   * @return A sum query builder
+   */
+  sum<S extends SelectSelector<M>>(selector: S) {
+    return this.adapter
+      .Statement<M>(this._overrides)
+      .sum(selector)
+      .from(this.class);
+  }
+
+  /**
+   * @description Creates an average query
+   * @summary Starts building a query that will compute the average value
+   * @template S - The select selector type
+   * @param {S} selector - Field to average
+   * @return An average query builder
+   */
+  avg<S extends SelectSelector<M>>(selector: S) {
+    return this.adapter
+      .Statement<M>(this._overrides)
+      .avg(selector)
+      .from(this.class);
+  }
+
+  /**
+   * @description Creates a distinct query
+   * @summary Starts building a query that will find distinct values
+   * @template S - The select selector type
+   * @param {S} selector - Field to find distinct values of
+   * @return A distinct query builder
+   */
+  distinct<S extends SelectSelector<M>>(selector: S) {
+    return this.adapter
+      .Statement<M>(this._overrides)
+      .distinct(selector)
+      .from(this.class);
+  }
+
+  /**
    * @description Executes a query with the specified conditions and options.
    * @summary Provides a simplified way to query the database with common query parameters.
    * @param {Condition<M>} condition - The condition to filter records.
@@ -1144,6 +1231,153 @@ export class Repository<
       .execute(...ctxArgs);
   }
 
+  /**
+   * @description Counts records, optionally filtered by a key value
+   * @summary Returns the count of records matching the optional key condition
+   * @param {string} key - The field to count (optional, counts all if not specified)
+   * @param {...any[]} args - Additional arguments including context
+   * @return {Promise<number>} The count of matching records
+   */
+  @prepared()
+  async countOf(
+    key?: keyof M,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<number> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.COUNT_OF, true)
+    ).for(this.countOf);
+    log.verbose(
+      `counting ${Model.tableName(this.class)}${key ? ` by ${key as string}` : ""}`
+    );
+    return this.count(key as any).execute(...ctxArgs);
+  }
+
+  /**
+   * @description Finds the maximum value of a field
+   * @summary Returns the maximum value for the specified field across all records
+   * @param {string} key - The field to find the maximum value of
+   * @param {...any[]} args - Additional arguments including context
+   * @return {Promise<any>} The maximum value
+   */
+  @prepared()
+  async maxOf<K extends keyof M>(
+    key: K,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<M[K]> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.MAX_OF, true)
+    ).for(this.maxOf);
+    log.verbose(
+      `finding max of ${key as string} in ${Model.tableName(this.class)}`
+    );
+    return this.max(key as any).execute(...ctxArgs);
+  }
+
+  /**
+   * @description Finds the minimum value of a field
+   * @summary Returns the minimum value for the specified field across all records
+   * @param {string} key - The field to find the minimum value of
+   * @param {...any[]} args - Additional arguments including context
+   * @return {Promise<any>} The minimum value
+   */
+  @prepared()
+  async minOf<K extends keyof M>(
+    key: K,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<M[K]> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.MIN_OF, true)
+    ).for(this.minOf);
+    log.verbose(
+      `finding min of ${key as string} in ${Model.tableName(this.class)}`
+    );
+    return this.min(key as any).execute(...ctxArgs);
+  }
+
+  /**
+   * @description Calculates the average value of a field
+   * @summary Returns the average value for the specified numeric field across all records
+   * @param {string} key - The field to calculate the average of
+   * @param {...any[]} args - Additional arguments including context
+   * @return {Promise<number>} The average value
+   */
+  @prepared()
+  async avgOf<K extends keyof M>(
+    key: K,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<number> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.AVG_OF, true)
+    ).for(this.avgOf);
+    log.verbose(
+      `calculating average of ${key as string} in ${Model.tableName(this.class)}`
+    );
+    return this.avg(key as any).execute(...ctxArgs);
+  }
+
+  /**
+   * @description Calculates the sum of a field
+   * @summary Returns the sum of values for the specified numeric field across all records
+   * @param {string} key - The field to sum
+   * @param {...any[]} args - Additional arguments including context
+   * @return {Promise<number>} The sum
+   */
+  @prepared()
+  async sumOf<K extends keyof M>(
+    key: K,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<number> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.SUM_OF, true)
+    ).for(this.sumOf);
+    log.verbose(
+      `calculating sum of ${key as string} in ${Model.tableName(this.class)}`
+    );
+    return this.sum(key as any).execute(...ctxArgs);
+  }
+
+  /**
+   * @description Finds distinct values of a field
+   * @summary Returns an array of unique values for the specified field
+   * @param {string} key - The field to get distinct values of
+   * @param {...any[]} args - Additional arguments including context
+   * @return {Promise<any[]>} An array of distinct values
+   */
+  @prepared()
+  async distinctOf<K extends keyof M>(
+    key: K,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<M[K][]> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.DISTINCT_OF, true)
+    ).for(this.distinctOf);
+    log.verbose(
+      `finding distinct values of ${key as string} in ${Model.tableName(this.class)}`
+    );
+    return this.distinct(key as any).execute(...ctxArgs);
+  }
+
+  /**
+   * @description Groups records by a field
+   * @summary Returns records grouped by the specified field
+   * @param {string} key - The field to group by
+   * @param {...any[]} args - Additional arguments including context
+   * @return {Promise<Record<string, M[]>>} Records grouped by the field value
+   */
+  @prepared()
+  async groupOf<K extends keyof M>(
+    key: K,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<Record<string, M[]>> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.GROUP_OF, true)
+    ).for(this.groupOf);
+    log.verbose(`grouping ${Model.tableName(this.class)} by ${key as string}`);
+    return this.select()
+      .groupBy(key as any)
+      .execute(...ctxArgs) as Promise<Record<string, M[]>>;
+  }
+
   async statement(name: string, ...args: MaybeContextualArg<ContextOf<A>>) {
     if (!Repository.statements(this, name as keyof typeof this))
       throw new QueryError(`Invalid prepared statement requested ${name}`);
@@ -1167,14 +1401,14 @@ export class Repository<
    * @see {Observable#observe}
    */
   @final()
-  observe(observer: Observer, filter?: ObserverFilter): void {
+  observe(observer: Observer, filter?: ObserverFilter): () => void {
     if (!this.observerHandler)
       Object.defineProperty(this, "observerHandler", {
         value: this.ObserverHandler(),
         writable: false,
       });
     const log = this.log.for(this.observe);
-    const tableName = Model.tableName(this.class);
+    const tableName = this.class.name; // Model.tableName(this.class);
     this.adapter.observe(
       this,
       (
@@ -1195,6 +1429,7 @@ export class Repository<
     );
     this.observerHandler!.observe(observer, filter);
     log.verbose(`Registered new observer ${observer.toString()}`);
+    return () => this.unObserve(observer);
   }
 
   /**

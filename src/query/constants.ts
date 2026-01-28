@@ -20,7 +20,8 @@ export enum Operator {
   SMALLER = "SMALLER",
   /** Less than or equal comparison (<=) */
   SMALLER_EQ = "SMALLER_EQ",
-  // BETWEEN = "BETWEEN",
+  /** Between comparison (BETWEEN) */
+  BETWEEN = "BETWEEN",
   /** Negation operator (NOT) */
   NOT = "NOT",
   /** Inclusion operator (IN) */
@@ -28,6 +29,13 @@ export enum Operator {
   // IS = "IS",
   /** Regular expression matching */
   REGEXP = "REGEXP",
+  GROUP_BY = "group-by",
+  COUNT = "count",
+  SUM = "sum",
+  MAX = "v_max",
+  MIN = "v_min",
+  DISTINCT = "distinct",
+  VIEW = "view",
 }
 
 /**
@@ -49,4 +57,11 @@ export enum PreparedStatementKeys {
   FIND_BY = QueryClause.FIND_BY,
   FIND_ONE_BY = "findOneBy",
   PAGE_BY = "paginateBy",
+  COUNT_OF = "countOf",
+  MAX_OF = "maxOf",
+  MIN_OF = "minOf",
+  AVG_OF = "avgOf",
+  SUM_OF = "sumOf",
+  DISTINCT_OF = "distinctOf",
+  GROUP_OF = "groupOf",
 }

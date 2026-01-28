@@ -77,7 +77,7 @@ describe("Multi Adapter full test", () => {
     @uses("dummy")
     @model()
     class TestCountryModel2 extends BaseModel {
-      @pk({ type: "Number" })
+      @pk({ type: Number })
       id!: number;
 
       @required()

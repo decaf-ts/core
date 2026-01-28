@@ -68,6 +68,9 @@ export class Product extends BaseIdentifiedModel {
   @column()
   counter?: number;
 
+  @column()
+  launchDate?: Date;
+
   @oneToMany(
     () => ProductStrength,
     { update: Cascade.CASCADE, delete: Cascade.CASCADE },
@@ -77,7 +80,7 @@ export class Product extends BaseIdentifiedModel {
 
   @oneToMany(
     () => Market,
-    { update: Cascade.NONE, delete: Cascade.NONE },
+    { update: Cascade.CASCADE, delete: Cascade.CASCADE },
     false
   )
   markets!: Market[];

@@ -5,8 +5,13 @@ import {
   LogLevel,
   LogMeta,
   StringLike,
+  style,
+  StyledString,
 } from "@decaf-ts/logging";
-import { LogPipe } from "./types";
+import { EventPipe, LogPipe, LogPipeOptions } from "./types";
+import { TaskEventModel } from "./models/TaskEventModel";
+import { TaskEventType, TaskStatus } from "./constants";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 export class TaskLogger<LOG extends Logger> implements Logger {
   protected history: [LogLevel, string, any][] = [];
@@ -21,7 +26,7 @@ export class TaskLogger<LOG extends Logger> implements Logger {
       (this as any)[level] = new Proxy(this[level], {
         apply: (target, thisArg, argArray) => {
           target.apply(thisArg, argArray as [string, any]);
-          thisArg.push(...argArray);
+          thisArg.push(level, ...argArray);
         },
       });
     });
@@ -40,10 +45,10 @@ export class TaskLogger<LOG extends Logger> implements Logger {
     : [LogLevel, string, any][] {
     const result = this.history;
     this.history = [];
-    if (pipe)
-      return pipe(result).catch((e) =>
-        this.logger.error(`Failed to pipe logs`, e)
-      ) as any;
+    if (pipe && result.length)
+      return pipe(result)
+        .catch((e) => this.logger.error(`Failed to pipe logs`, e))
+        .finally(() => (this.history = [])) as any;
 
     this.history = [];
     return result as any;
@@ -126,4 +131,91 @@ export class TaskLogger<LOG extends Logger> implements Logger {
   warn(msg: StringLike, meta?: LogMeta): void {
     this.logger.warn(msg, meta);
   }
+}
+
+export function getLogPipe<LOG extends Logger>(
+  log: LOG,
+  opts: LogPipeOptions = { logProgress: true, logStatus: true, style: true }
+): EventPipe {
+  return async function logPipe(evt: TaskEventModel) {
+    log = log.for(evt.taskId, {
+      style: false,
+      timestamp: false,
+      logLevel: false,
+    });
+
+    switch (evt.classification) {
+      case TaskEventType.LOG: {
+        const logs: [LogLevel, string, any][] = evt.payload;
+        // eslint-disable-next-line prefer-const
+        for (let [level, msg, payload] of logs) {
+          if (!opts.style) {
+            msg = style(msg) as any;
+            msg = (msg as unknown as StyledString).clear().toString();
+          }
+
+          const args: [string, any?] = [msg];
+          switch (level) {
+            case LogLevel.verbose:
+              args.push(1);
+            // eslint-disable-next-line no-fallthrough
+            default:
+              args.push(payload);
+          }
+          try {
+            log[level](...args);
+          } catch (e: unknown) {
+            log.error(`Failed to pipe task logs`, e as Error);
+          }
+        }
+        break;
+      }
+      case TaskEventType.PROGRESS: {
+        if (opts.logProgress) {
+          const { currentStep, totalSteps } = evt.payload;
+          log.info(`### STEP ${currentStep}/${totalSteps}`);
+        }
+        break;
+      }
+      case TaskEventType.STATUS: {
+        if (opts.logStatus) {
+          const statusValue = evt.payload?.status ?? evt.payload;
+          let status = style(statusValue);
+          switch (statusValue) {
+            case TaskStatus.SUCCEEDED:
+              status = status.green.bold;
+              break;
+            case TaskStatus.RUNNING:
+              status = status.blue.bold;
+              break;
+            case TaskStatus.PENDING:
+              status = status.yellow;
+              break;
+            case TaskStatus.WAITING_RETRY:
+              status = status.yellow.bold;
+              break;
+            case TaskStatus.FAILED:
+              status = status.red.bold;
+              break;
+            case TaskStatus.CANCELED:
+              status = status.magenta.bold;
+              break;
+            case TaskStatus.SCHEDULED:
+              status = status.cyan;
+              break;
+            default:
+              throw new InternalError(
+                `Received unknown task status: ${evt.payload}`
+              );
+          }
+          log.info(`### STATUS ${status}`);
+        }
+        break;
+      }
+      default:
+        throw new InternalError(
+          `Unknown task event classification: ${evt.classification}`
+        );
+    }
+  };
 }

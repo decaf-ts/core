@@ -148,6 +148,7 @@ export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
     }
 
     const decs = [
+      prop(),
       index([OrderDirection.ASC, OrderDirection.DSC]),
       required(),
       readonly(),

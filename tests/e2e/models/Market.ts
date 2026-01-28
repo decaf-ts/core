@@ -18,7 +18,7 @@ import { E2eConfig } from "../e2e.config";
 @table(TableNames.Market)
 @model()
 export class Market extends BaseIdentifiedModel {
-  @pk({ type: "String", generated: false })
+  @pk({ type: String, generated: false })
   @composed(["productCode", "marketId"], ":", true)
   @description("Unique identifier composed of product code and market ID.")
   id!: string;

@@ -3,6 +3,7 @@ import {
   LoggerOfFlags,
   OperationKeys,
   RepositoryFlags,
+  ContextFlags as CtxFlags,
 } from "@decaf-ts/db-decorators";
 import { Adapter } from "./Adapter";
 import { Observable, type Observer } from "../interfaces/index";
@@ -155,17 +156,33 @@ export type PreparedModel = {
   transient?: Record<string, any>;
 };
 
-export type AdapterFlags<LOG extends Logger = Logger> = RepositoryFlags<LOG> & {
-  allowGenerationOverride: boolean;
-  enforceUpdateValidation: boolean;
-  allowRawStatements: boolean;
-  forcePrepareSimpleQueries: boolean;
-  forcePrepareComplexQueries: boolean;
-  cacheForPopulate: Record<string, any>;
-  observeFullResult: boolean;
-  paginateByBookmark: boolean;
-  dryRun: boolean;
-};
+export type ContextFlags<LOG extends Logger> = CtxFlags<LOG> &
+  Pick<
+    RepositoryFlags<LOG>,
+    | "operation"
+    | "correlationId"
+    | "ignoreDevSafeGuards"
+    | "parentContext"
+    | "childContexts"
+  > & {
+    pending?: Record<string, string[]>;
+  };
+
+export type AdapterFlags<LOG extends Logger = Logger> = RepositoryFlags<LOG> &
+  ContextFlags<LOG> & {
+    allowGenerationOverride: boolean;
+    enforceUpdateValidation: boolean;
+    allowRawStatements: boolean;
+    forcePrepareSimpleQueries: boolean;
+    forcePrepareComplexQueries: boolean;
+    cacheForPopulate: Record<string, any>;
+    noEmit: boolean;
+    noEmitSingle: boolean;
+    noEmitBulk: boolean;
+    observeFullResult: boolean;
+    paginateByBookmark: boolean;
+    dryRun: boolean;
+  };
 
 export type RawResult<R, D extends boolean> = D extends true
   ? R

@@ -6,6 +6,7 @@ import {
   RawRamQuery,
 } from "./types";
 import { RamStatement } from "./RamStatement";
+import { QueryError } from "../query";
 import { Repository } from "../repository/Repository";
 import { Dispatch } from "../persistence/Dispatch";
 import {
@@ -240,16 +241,18 @@ export class RamAdapter extends Adapter<
     const { log } = this.logCtx(args, this.create);
     const tableName = Model.tableName(clazz);
     log.debug(`creating record in table ${tableName} with id ${id}`);
+    await this.lock.acquire(tableName);
     if (!this.client.has(tableName)) this.client.set(tableName, new Map());
     if (
       this.client.get(tableName) &&
       this.client.get(tableName)?.has(id as any)
-    )
+    ) {
+      this.lock.release(tableName);
       throw new ConflictError(
         `Record with id ${id} already exists in table ${tableName}`
       );
+    }
 
-    await this.lock.acquire(tableName);
     this.client.get(tableName)?.set(id as any, model);
     this.lock.release(tableName);
     return model;
@@ -291,10 +294,11 @@ export class RamAdapter extends Adapter<
     log.debug(`reading record in table ${tableName} with id ${id}`);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.client.get(tableName)?.has(id as any))
+    if (!this.client.get(tableName)?.has(id as any)) {
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
+    }
     return this.client.get(tableName)?.get(id as any);
   }
 
@@ -337,14 +341,16 @@ export class RamAdapter extends Adapter<
     const tableName = Model.tableName(clazz);
     log.debug(`updating record in table ${tableName} with id ${id}`);
 
+    await this.lock.acquire(tableName);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.client.get(tableName)?.has(id as any))
+    if (!this.client.get(tableName)?.has(id as any)) {
+      this.lock.release(tableName);
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
+    }
 
-    await this.lock.acquire(tableName);
     this.client.get(tableName)?.set(id as any, model);
     this.lock.release(tableName);
     return model;
@@ -389,16 +395,16 @@ export class RamAdapter extends Adapter<
     const tableName = Model.tableName(clazz);
     log.debug(`deleting record from table ${tableName} with id ${id}`);
 
+    await this.lock.acquire(tableName);
     if (!this.client.has(tableName))
       throw new NotFoundError(`Table ${tableName} not found`);
-    if (!this.client.get(tableName)?.has(id as any))
+    if (!this.client.get(tableName)?.has(id as any)) {
+      this.lock.release(tableName);
       throw new NotFoundError(
         `Record with id ${id} not found in table ${tableName}`
       );
+    }
 
-    await this.lock.acquire(tableName);
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const table = this.client.get(tableName);
     const natived = this.client.get(tableName)?.get(id as any);
     this.client.get(tableName)?.delete(id as any);
     this.lock.release(tableName);
@@ -407,15 +413,14 @@ export class RamAdapter extends Adapter<
 
   /**
    * @description Gets or creates a table in the in-memory storage
-   * @summary Retrieves the Map representing a table for a given model or table name.
-   * If the table doesn't exist, it creates a new one. This is a helper method used
-   * by other methods to access the correct storage location.
+   * @summary Retrieves the Map representing a table for a given model class.
+   * If the table doesn't exist, it creates a new one so callers can insert or
+   * query entities without null reference checks.
    * @template M - The model type for the table
-   * @param {string | Constructor<M>} from - The model class or table name
+   * @param {Constructor<M>} from - The model class
    * @return {Map<string | number, any> | undefined} The table Map or undefined
    */
-  protected tableFor<M extends Model>(from: string | Constructor<M>) {
-    if (typeof from === "string") from = Model.get(from) as Constructor<M>;
+  protected tableFor<M extends Model>(from: Constructor<M>) {
     const table = Model.tableName(from);
     if (!this.client.has(table)) this.client.set(table, new Map());
     return this.client.get(table);
@@ -472,11 +477,26 @@ export class RamAdapter extends Adapter<
     const { log, ctx } = this.logCtx(args, this.raw);
     log.debug(`performing raw query: ${JSON.stringify(rawInput)}`);
 
-    const { where, sort, limit, skip, from } = rawInput;
+    const {
+      where,
+      sort,
+      limit,
+      skip,
+      from,
+      groupBy,
+      count: countField,
+      countDistinct: countDistinctField,
+      min: minField,
+      max: maxField,
+      sum: sumField,
+      avg: avgField,
+      distinct: distinctField,
+    } = rawInput;
     let { select } = rawInput;
     const collection = this.tableFor(from);
     if (!collection)
       throw new InternalError(`Table ${from} not found in RamAdapter`);
+    const clazz = from;
     const id = Model.pk(from);
     const props = Metadata.get(from, Metadata.key(DBKeys.ID, id as string));
 
@@ -493,26 +513,232 @@ export class RamAdapter extends Adapter<
 
     result = where ? result.filter(where) : result;
 
-    const count = result.length;
+    // Handle aggregate operations
+    if ('count' in rawInput) {
+      // Count operation
+      if (!countField) {
+        // Count all records (COUNT(*))
+        return result.length as unknown as RawResult<R, D>;
+      } else {
+        // Count specific field (non-null values) (COUNT(field))
+        const count = result.filter(r => r[countField as string] !== undefined && r[countField as string] !== null).length;
+        return count as unknown as RawResult<R, D>;
+      }
+    }
 
-    if (skip) result = result.slice(skip);
-    if (limit) result = result.slice(0, limit);
+    if (countDistinctField !== undefined) {
+      const seen = new Set();
+      for (const item of result) {
+        const value = item[countDistinctField as string];
+        if (value !== undefined && value !== null) {
+          seen.add(JSON.stringify(value));
+        }
+      }
+      return seen.size as unknown as RawResult<R, D>;
+    }
 
-    if (select) {
+    if (minField !== undefined) {
+      this.ensureFieldType(
+        clazz,
+        minField as string,
+        "MIN operation",
+        (type) => this.isNumericType(type) || type === "date",
+        "numeric or date"
+      );
+      // Min operation
+      if (result.length === 0) return null as unknown as RawResult<R, D>;
+      const values = result.map(r => r[minField as string]).filter(v => v !== undefined && v !== null);
+      if (values.length === 0) return null as unknown as RawResult<R, D>;
+
+      // Find minimum value preserving original type
+      let minValue = values[0];
+      for (const v of values) {
+        const comparison = v instanceof Date ? v.getTime() : (typeof v === 'bigint' ? Number(v) : Number(v));
+        const minComparison = minValue instanceof Date ? minValue.getTime() : (typeof minValue === 'bigint' ? Number(minValue) : Number(minValue));
+        if (comparison < minComparison) {
+          minValue = v;
+        }
+      }
+      return minValue as unknown as RawResult<R, D>;
+    }
+
+    if (maxField !== undefined) {
+      this.ensureFieldType(
+        clazz,
+        maxField as string,
+        "MAX operation",
+        (type) => this.isNumericType(type) || type === "date",
+        "numeric or date"
+      );
+      // Max operation
+      if (result.length === 0) return null as unknown as RawResult<R, D>;
+      const values = result.map(r => r[maxField as string]).filter(v => v !== undefined && v !== null);
+      if (values.length === 0) return null as unknown as RawResult<R, D>;
+
+      // Find maximum value preserving original type
+      let maxValue = values[0];
+      for (const v of values) {
+        const comparison = v instanceof Date ? v.getTime() : (typeof v === 'bigint' ? Number(v) : Number(v));
+        const maxComparison = maxValue instanceof Date ? maxValue.getTime() : (typeof maxValue === 'bigint' ? Number(maxValue) : Number(maxValue));
+        if (comparison > maxComparison) {
+          maxValue = v;
+        }
+      }
+      return maxValue as unknown as RawResult<R, D>;
+    }
+
+    if (sumField !== undefined) {
+      this.ensureFieldType(
+        clazz,
+        sumField as string,
+        "SUM operation",
+        (type) => this.isNumericType(type),
+        "numeric"
+      );
+      if (result.length === 0) return null as unknown as RawResult<R, D>;
+      const values = result
+        .map((r) => r[sumField as string])
+        .filter((v) => v !== undefined && v !== null);
+      if (values.length === 0) return null as unknown as RawResult<R, D>;
+      const sum = values.reduce(
+        (acc, v) =>
+          acc + this.toNumericValue(v, sumField as string, "SUM operation"),
+        0
+      );
+      return sum as unknown as RawResult<R, D>;
+    }
+
+    if (avgField !== undefined) {
+      const fieldType = this.resolveFieldType(clazz, avgField as string);
+      const isDateField = fieldType === "date";
+      this.ensureFieldType(
+        clazz,
+        avgField as string,
+        "AVG operation",
+        (type) => this.isNumericType(type) || type === "date",
+        "numeric or date"
+      );
+      if (result.length === 0) return null as unknown as RawResult<R, D>;
+      const values = result
+        .map((r) => r[avgField as string])
+        .filter((v) => v !== undefined && v !== null);
+      if (values.length === 0) return null as unknown as RawResult<R, D>;
+
+      if (isDateField) {
+        const timestamps = values.map((v) =>
+          v instanceof Date ? v.getTime() : new Date(v).getTime()
+        );
+        const avgTimestamp =
+          timestamps.reduce((acc, t) => acc + t, 0) / timestamps.length;
+        return new Date(avgTimestamp) as unknown as RawResult<R, D>;
+      }
+
+      const total = values.reduce(
+        (acc, v) =>
+          acc + this.toNumericValue(v, avgField as string, "AVG operation"),
+        0
+      );
+      const average = total / values.length;
+      return average as unknown as RawResult<R, D>;
+    }
+
+    if (distinctField !== undefined) {
+      // Distinct operation
+      const seen = new Set();
+      const distinctResults: any[] = [];
+      for (const item of result) {
+        const value = item[distinctField as string];
+        const key = JSON.stringify(value);
+        if (!seen.has(key)) {
+          seen.add(key);
+          distinctResults.push(value);
+        }
+      }
+      return distinctResults as unknown as RawResult<R, D>;
+    }
+
+    let count: number;
+    let output: any[] | Record<string, any>;
+    if (groupBy && groupBy.length) {
+      const grouped = this.groupRecords(result, groupBy as (keyof Model)[]);
+      const keys = Object.keys(grouped);
+      count = keys.length;
+      output = this.applyGroupPagination(grouped, skip, limit);
+    } else {
+      count = result.length;
+      let paged = result;
+      if (skip) paged = paged.slice(skip);
+      if (limit) paged = paged.slice(0, limit);
+      output = paged;
+    }
+
+    if (select && !(groupBy && groupBy.length)) {
       select = Array.isArray(select) ? select : [select];
-      result = result.map((r) =>
-        Object.entries(r).reduce((acc: Record<string, any>, [key, val]) => {
+      output = (output as any[]).map((row) =>
+        Object.entries(row).reduce((acc: Record<string, any>, [key, val]) => {
           if ((select as string[]).includes(key)) acc[key] = val;
           return acc;
         }, {})
       );
     }
 
-    if (docsOnly) return result as unknown as RawResult<R, D>;
+    if (docsOnly) return output as unknown as RawResult<R, D>;
     return {
-      data: result,
-      count: count,
+      data: output,
+      count,
     } as RawResult<R, D>;
+  }
+
+  private groupRecords(
+    records: any[],
+    selectors: (keyof Model)[]
+  ): Record<string, any> {
+    if (!selectors.length) return records as Record<string, any>;
+    const [current, ...rest] = selectors;
+    const grouped: Record<string, any[]> = {};
+    for (const record of records) {
+      const key = this.normalizeGroupKey(record[current as string]);
+      if (!grouped[key]) grouped[key] = [];
+      grouped[key].push(record);
+    }
+    if (!rest.length) return grouped;
+    const nested: Record<string, any> = {};
+    for (const [key, values] of Object.entries(grouped)) {
+      nested[key] = this.groupRecords(values, rest);
+    }
+    return nested;
+  }
+
+  private normalizeGroupKey(value: any): string {
+    if (value === undefined) return "undefined";
+    if (value === null) return "null";
+    if (typeof value === "symbol") return value.toString();
+    if (typeof value === "object") {
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    }
+    return String(value);
+  }
+
+  private applyGroupPagination(
+    grouped: Record<string, any>,
+    skip?: number,
+    limit?: number
+  ): Record<string, any> {
+    if (typeof skip === "undefined" && typeof limit === "undefined") {
+      return grouped;
+    }
+    const keys = Object.keys(grouped);
+    const start = skip ?? 0;
+    const end = typeof limit === "undefined" ? undefined : start + limit;
+    const paged: Record<string, any> = {};
+    for (const key of keys.slice(start, end)) {
+      paged[key] = grouped[key];
+    }
+    return paged;
   }
 
   /**
@@ -619,6 +845,58 @@ export class RamAdapter extends Adapter<
         propMetadata(updatedByKey, {})
       )
       .apply();
+  }
+
+  private ensureFieldType(
+    clazz: Constructor<Model>,
+    field: string,
+    context: string,
+    predicate: (type: string) => boolean,
+    description: string
+  ) {
+    const type = this.resolveFieldType(clazz, field);
+    if (!type || !predicate(type)) {
+      throw new QueryError(
+        `${context} requires ${description} attribute, but "${field}" is ${
+          type || "unknown"
+        }`
+      );
+    }
+  }
+
+  private resolveFieldType(
+    clazz: Constructor<Model>,
+    field: string
+  ): string | undefined {
+    const propKey = field as keyof Model<false>;
+    const metaType =
+      Metadata.type(clazz, propKey) ??
+      Metadata.getPropDesignTypes(clazz, propKey)?.designType;
+    return this.normalizeMetaType(metaType);
+  }
+
+  private normalizeMetaType(metaType: any): string | undefined {
+    if (!metaType) return undefined;
+    if (typeof metaType === "string") return metaType.toLowerCase();
+    if (typeof metaType === "function" && metaType.name)
+      return metaType.name.toLowerCase();
+    return undefined;
+  }
+
+  private isNumericType(type?: string): boolean {
+    return type === "number" || type === "bigint";
+  }
+
+  private toNumericValue(
+    value: any,
+    field: string,
+    context: string
+  ): number {
+    if (typeof value === "number") return value;
+    if (typeof value === "bigint") return Number(value);
+    throw new QueryError(
+      `${context} on "${field}" requires numeric values, but got ${typeof value}`
+    );
   }
 
   protected override getClient(): RamStorage {

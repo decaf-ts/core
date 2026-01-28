@@ -1,9 +1,13 @@
-import { TaskBaseModel } from "./TaskBaseModel";
-import { model, type ModelArg, required } from "@decaf-ts/decorator-validation";
+import {
+  Model,
+  model,
+  type ModelArg,
+  required,
+} from "@decaf-ts/decorator-validation";
 import { description, prop } from "@decaf-ts/decoration";
 
 @model()
-export class TaskErrorModel extends TaskBaseModel {
+export class TaskErrorModel extends Model {
   @required()
   @description("The error message")
   message!: string;

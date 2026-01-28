@@ -1,4 +1,4 @@
-import { QueryOptions } from "./types";
+import { QueryOptions, ViewKind, ViewMetadata, ViewOptions } from "./types";
 import { MethodQueryBuilder } from "./MethodQueryBuilder";
 import { QueryError } from "./errors";
 import {
@@ -6,9 +6,12 @@ import {
   Decoration,
   Metadata,
   methodMetadata,
+  propMetadata,
 } from "@decaf-ts/decoration";
 import { PersistenceKeys } from "../persistence/constants";
 import type { Repo } from "../repository";
+import { Operator } from "./constants";
+import type { DirectionLimitOffset } from "./types";
 
 export function prepared() {
   function prepared() {
@@ -39,15 +42,71 @@ export function query(options: QueryOptions = {}) {
             (descriptor as TypedPropertyDescriptor<any>).value,
             {
               apply(target: any, thisArg: any, args: any[]): any {
-                const { select, where, groupBy, orderBy, limit, offset } =
-                  MethodQueryBuilder.build(target.name, ...args);
+                const {
+                  action,
+                  select,
+                  selector,
+                  where,
+                  groupBy,
+                  orderBy,
+                  limit,
+                  offset,
+                } = MethodQueryBuilder.build(target.name, ...args);
 
-                let stmt = (thisArg as Repo<any>).select(select as any);
+                const repo = thisArg as Repo<any>;
+
+                // Build statement based on action type
+                let stmt: any;
+                switch (action) {
+                  case "find":
+                  case "page":
+                    stmt = repo.select(select as any);
+                    break;
+                  case "count":
+                    stmt = repo.count(selector as any);
+                    break;
+                  case "sum":
+                    stmt = repo.sum(selector as any);
+                    break;
+                  case "avg":
+                    stmt = repo.avg(selector as any);
+                    break;
+                  case "min":
+                    stmt = repo.min(selector as any);
+                    break;
+                  case "max":
+                    stmt = repo.max(selector as any);
+                    break;
+                  case "distinct":
+                    stmt = repo.distinct(selector as any);
+                    break;
+                  case "group":
+                    stmt = repo.select();
+                    if (selector) {
+                      stmt = stmt.groupBy(selector as any);
+                    }
+                    break;
+                  default:
+                    throw new QueryError(`Unsupported action: ${action}`);
+                }
+
                 if (where) stmt = stmt.where(where) as any;
-                // if (orderBy) stmt = stmt.orderBy(orderBy[0]);
-                if (groupBy) {
-                  // group by not implemented yet
-                  /* stmt = stmt.groupBy(groupBy); */
+
+                // Apply groupBy for non-group actions (groupBy from method name pattern)
+                if (groupBy && groupBy.length > 0 && action !== "group") {
+                  stmt = stmt.groupBy(groupBy[0] as any);
+                  for (let i = 1; i < groupBy.length; i++) {
+                    stmt = stmt.thenBy(groupBy[i] as any);
+                  }
+                } else if (
+                  groupBy &&
+                  groupBy.length > 0 &&
+                  action === "group"
+                ) {
+                  // For group action, apply additional groupBy fields after the selector
+                  for (const field of groupBy) {
+                    stmt = stmt.thenBy(field as any);
+                  }
                 }
 
                 // allow limit and offset by default
@@ -82,6 +141,18 @@ export function query(options: QueryOptions = {}) {
                   }
                 }
 
+                // For page action, call paginate instead of execute
+                if (action === "page") {
+                  // Extract pagination parameters from args
+                  // The last argument should be DirectionLimitOffset or page size
+                  const lastArg = args[args.length - 1];
+                  const pageSize =
+                    typeof lastArg === "number"
+                      ? lastArg
+                      : ((lastArg as DirectionLimitOffset)?.limit ?? 10);
+                  return stmt.paginate(pageSize);
+                }
+
                 return stmt.execute();
               },
             }
@@ -111,6 +182,45 @@ export function query(options: QueryOptions = {}) {
     .define({
       decorator: query,
       args: [options],
+    })
+    .apply();
+}
+
+function nextViewSlot(
+  target: any,
+  key: PersistenceKeys | Operator,
+  attr: string
+): string {
+  const existing = Metadata.get(target.constructor, key) || {};
+  const attrBucket = existing[attr] || {};
+  const next = Object.keys(attrBucket).length + 1;
+  return String(next);
+}
+
+export function applyViewDecorator(
+  metaKey: PersistenceKeys | Operator,
+  kind: ViewKind,
+  opts?: ViewOptions
+) {
+  return function decorator(target: any, attr: any) {
+    const slot = opts?.name || nextViewSlot(target, metaKey, attr as string);
+    const key = Metadata.key(metaKey, attr as string, slot);
+    const value: ViewMetadata = {
+      ...(opts || {}),
+      kind,
+      attribute: attr as string,
+    };
+    return propMetadata(key, value)(target, attr);
+  };
+}
+
+export function view<OPTS extends ViewOptions>(opts?: OPTS) {
+  return Decoration.for(Operator.VIEW)
+    .define({
+      decorator: function view(o?: ViewOptions) {
+        return applyViewDecorator(Operator.VIEW, "view", o);
+      },
+      args: [opts],
     })
     .apply();
 }

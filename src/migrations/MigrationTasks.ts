@@ -47,16 +47,11 @@ export class MigrationTask extends TaskHandler<MigrationStepInput, void> {
 
     const qr = adapter.client;
     const args = input.args ?? [];
-    //
-    // if (typeof (migration as any).boot === "function") {
-    //   await (migration as any).boot(...args, ctx);
-    // }
 
     try {
       await migration.up(qr, adapter, ...args, ctx);
     } catch (e: unknown) {
       ctx.logger.error(`Up phase for ${input.reference} failed: ${e}`);
-      // await ctx.flush();
       return;
     }
 
@@ -64,14 +59,12 @@ export class MigrationTask extends TaskHandler<MigrationStepInput, void> {
       await migration.migrate(qr, adapter, ...args, ctx);
     } catch (e: unknown) {
       ctx.logger.error(`migration phase for ${input.reference} failed: ${e}`);
-      // await ctx.flush();
       return;
     }
     try {
       await migration.down(qr, adapter, ...args, ctx);
     } catch (e: unknown) {
       ctx.logger.error(`down phase for ${input.reference} failed: ${e}`);
-      // await ctx.flush();
       return;
     }
     ctx.logger.info(`migration ${input.reference} completed`);

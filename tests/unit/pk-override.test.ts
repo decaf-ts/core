@@ -30,7 +30,7 @@ describe("pk decoration overrides", () => {
     @uses(CustomFlavour)
     @model()
     class CustomModel extends Model {
-      @pk({ type: "Number", generated: false })
+      @pk({ type: Number, generated: false })
       id!: number;
 
       constructor(arg?: ModelArg<CustomModel>) {
@@ -39,7 +39,7 @@ describe("pk decoration overrides", () => {
     }
     expect(captured).toHaveLength(1);
     expect(captured[0]).toMatchObject({
-      type: "Number",
+      type: Number,
       generated: false,
       startWith: 0,
       incrementBy: 1,
@@ -52,24 +52,24 @@ describe("pk decoration overrides", () => {
     @uses(CustomFlavour)
     @model()
     class FirstModel extends Model {
-      @pk({ type: "Number", generated: true })
+      @pk({ type: Number, generated: true })
       id!: number;
     }
 
     @uses(CustomFlavour)
     @model()
     class SecondModel extends Model {
-      @pk({ type: "String", generated: false })
+      @pk({ type: String, generated: false })
       id!: string;
     }
 
     expect(captured).toHaveLength(2);
     expect(captured[0]).toMatchObject({
-      type: "Number",
+      type: Number,
       generated: true,
     });
     expect(captured[1]).toMatchObject({
-      type: "String",
+      type: String,
       generated: false,
     });
     void FirstModel;

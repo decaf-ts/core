@@ -1,5 +1,6 @@
 import {
   model,
+  isEqual,
   Model,
   type ModelArg,
   ModelConstructor,
@@ -62,7 +63,8 @@ export async function createOrUpdate<M extends Model, F extends AdapterFlags>(
   model: M,
   context: Context<F>,
   alias: string,
-  repository?: Repo<M>
+  repository?: Repo<M>,
+  overrides?: Record<string, any>
 ): Promise<M> {
   const log = context.logger.for(createOrUpdate);
   if (!repository) {
@@ -75,6 +77,8 @@ export async function createOrUpdate<M extends Model, F extends AdapterFlags>(
     );
     log.info(`Retrieved ${repository.toString()}`);
   }
+
+  repository = overrides ? repository.override(overrides) : repository;
 
   let result: M;
 
@@ -245,7 +249,9 @@ export async function oneToOneOnCreate<M extends Model, R extends Repo<M>>(
   if (!constructor)
     throw new InternalError(`Could not find model ${data.class}`);
   const repo: Repo<any> = Repository.forModel(constructor, this.adapter.alias);
-  const created = await repo.create(propertyValue, context);
+  const created = await repo
+    .override(this._overrides)
+    .create(propertyValue, context);
   const pk = Model.pk(created);
   await cacheModelForPopulate(context, model, key, created[pk], created);
   (model as any)[key] = created[pk];
@@ -315,7 +321,9 @@ export async function oneToOneOnUpdate<M extends Model, R extends Repo<M>>(
       key,
       this.adapter.alias
     );
-    const read = await innerRepo.read(propertyValue, context);
+    const read = await innerRepo
+      .override(this._overrides)
+      .read(propertyValue, context);
     await cacheModelForPopulate(context, model, key, propertyValue, read);
     (model as any)[key] = propertyValue;
     return;
@@ -324,7 +332,9 @@ export async function oneToOneOnUpdate<M extends Model, R extends Repo<M>>(
   const updated = await createOrUpdate(
     model[key] as M,
     context,
-    this.adapter.alias
+    this.adapter.alias,
+    undefined,
+    this._overrides
   );
   const pk = Model.pk(updated);
   await cacheModelForPopulate(
@@ -512,7 +522,13 @@ export async function oneToManyOnCreate<M extends Model, R extends Repo<M>>(
 
   for (const m of propertyValues) {
     log.info(`Creating or updating one-to-many model: ${JSON.stringify(m)}`);
-    const record = await createOrUpdate(m, context, this.adapter.alias);
+    const record = await createOrUpdate(
+      m,
+      context,
+      this.adapter.alias,
+      undefined,
+      this._overrides
+    );
     log.info(`caching: ${JSON.stringify(record)} under ${record[pkName]}`);
     await cacheModelForPopulate(context, model, key, record[pkName], record);
     log.info(`Creating or updating one-to-many model: ${JSON.stringify(m)}`);
@@ -1133,6 +1149,13 @@ export function getPopulateKey(
 ) {
   return [PersistenceKeys.POPULATE, tableName, fieldName, id].join(".");
 }
+export function getTagForDeleteKey(
+  tableName: string,
+  fieldName: string,
+  id: string | number
+) {
+  return [PersistenceKeys.TAG_FOR_DELETION, tableName, id].join(".");
+}
 
 /**
  * @description Caches a model for later population
@@ -1238,8 +1261,7 @@ export async function populate<M extends Model, R extends Repo<M>>(
     c: ContextOf<R>,
     model: M,
     propName: string,
-    propKeyValues: any[],
-    alias?: string
+    propKeyValues: any[]
   ) {
     let cacheKey: string;
     let val: any;
@@ -1252,11 +1274,7 @@ export async function populate<M extends Model, R extends Repo<M>>(
         if (!val) throw new Error("Not found in cache");
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: any) {
-        const repo = repositoryFromTypeMetadata(
-          model,
-          propName as keyof M,
-          alias
-        );
+        const repo = repositoryFromTypeMetadata(model, propName as keyof M);
         if (!repo) throw new InternalError("Could not find repo");
         val = await repo.read(proKeyValue, context);
       }
@@ -1268,10 +1286,60 @@ export async function populate<M extends Model, R extends Repo<M>>(
     context,
     model,
     key as string,
-    isArr ? nested : [nested],
-    this.adapter.alias
+    isArr ? nested : [nested]
   );
   (model as any)[key] = isArr ? res : res[0];
+}
+
+export async function cascadeDelete<M extends Model, R extends Repo<M>>(
+  this: R,
+  context: ContextOf<R>,
+  data: RelationsMetadata,
+  key: keyof M,
+  model: M,
+  oldModel: M
+): Promise<void> {
+  if (data.cascade.update !== Cascade.CASCADE) return;
+  const nested: any = model[key];
+  const isArr = Array.isArray(nested);
+  if (typeof nested === "undefined" || (isArr && nested.length === 0)) return;
+  if (!oldModel)
+    throw new InternalError(
+      "No way to compare old model. do you have updateValidation and mergeModels enabled?"
+    );
+
+  function reduceToPk(obj: any): any {
+    if (Array.isArray(obj)) return obj.map(reduceToPk);
+    return typeof obj !== "object" ? obj : obj[Model.pk(obj)];
+  }
+
+  const newVal = reduceToPk(model[key]);
+  const oldVal = reduceToPk(oldModel[key]);
+  if (typeof oldVal === "undefined" || isEqual(newVal, oldVal)) {
+    return;
+  }
+  if (Array.isArray(newVal) !== Array.isArray(oldVal))
+    throw new InternalError(`Cannot cascade update for different array types`);
+  const newToCompare = (Array.isArray(newVal) ? newVal : [newVal]).filter(
+    Boolean
+  ) as any[];
+  const oldToCompare = (Array.isArray(oldVal) ? oldVal : [oldVal]).filter(
+    Boolean
+  ) as any[];
+  const toDelete = (oldToCompare as any[]).filter(
+    (v) => !(newToCompare as any[]).includes(v)
+  );
+  const repo = repositoryFromTypeMetadata(model, key as keyof M);
+  if (!repo) throw new InternalError("Could not find repo");
+  console.log("herehere");
+  try {
+    const deleted = await repo.deleteAll(toDelete, context);
+    context.logger.debug(
+      `Deleted ${deleted.length} entries from table ${Model.tableName(repo.class)} due to cascade rules with `
+    );
+  } catch (e: unknown) {
+    throw new InternalError(`Error deleting cascade entries: ${e}`);
+  }
 }
 
 /**

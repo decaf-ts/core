@@ -2,6 +2,13 @@ import { Constructor } from "@decaf-ts/decoration";
 import { OrderDirection } from "../repository";
 import { Model } from "@decaf-ts/decorator-validation";
 
+export type OrderDirectionInput =
+  | OrderDirection
+  | "asc"
+  | "desc"
+  | "ASC"
+  | "DESC";
+
 /**
  * @description Type for selecting the data source in a query
  * @summary Defines the type for specifying the table or model to query from
@@ -15,7 +22,7 @@ export type GroupBySelector<M extends Model> = keyof M;
 
 export type OrderBySelector<M extends Model> = [
   keyof M,
-  OrderDirection | "asc" | "desc",
+  OrderDirectionInput,
 ];
 
 /**

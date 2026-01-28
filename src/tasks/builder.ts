@@ -77,10 +77,6 @@ export class TaskBuilder extends Model {
   protected backoff: TaskBackoffModel = new TaskBackoffModel();
   @prop()
   protected input?: any;
-
-  @min(0)
-  @required()
-  protected attempt: number = 0;
   @min(1)
   @required()
   protected maxAttempts: number = 1;
@@ -129,11 +125,6 @@ export class TaskBuilder extends Model {
     return this;
   }
 
-  setAttempt(value: number): this {
-    this.attempt = value;
-    return this;
-  }
-
   constructor(arg?: ModelArg<TaskBuilder>) {
     super(arg);
     Model.fromModel(this, arg);
@@ -155,6 +146,7 @@ export class CompositeTaskBuilder extends TaskBuilder {
   constructor(arg?: ModelArg<CompositeTaskBuilder>) {
     super(arg);
     Model.fromModel(this, arg);
+    this.atomicity = TaskType.COMPOSITE;
   }
 
   setSteps(value: TaskStepSpecModel[]): this {
@@ -164,10 +156,13 @@ export class CompositeTaskBuilder extends TaskBuilder {
 
   addStep(classification: string, input?: any): this {
     this.steps = this.steps || [];
+    const now = new Date();
     this.steps.push(
       new TaskStepSpecModel({
         classification,
         input,
+        createdAt: now,
+        updatedAt: now,
       })
     );
     return this;

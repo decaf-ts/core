@@ -1,35 +1,38 @@
-import { pk } from "../../identity/index";
+import { pk } from "../../identity/decorators";
 import {
+  date,
   Model,
   model,
   type ModelArg,
   option,
   required,
 } from "@decaf-ts/decorator-validation";
-import { createdAt, table } from "../../model/index";
+import { table } from "../../model/decorators";
 import { prop } from "@decaf-ts/decoration";
-import { composed, readonly, serialize } from "@decaf-ts/db-decorators";
+import { composed, readonly, transient } from "@decaf-ts/db-decorators";
 import { TaskEventType } from "../constants";
 import { uuid } from "../../persistence/decorators";
 
 @table("task_event")
 @model()
 export class TaskEventModel extends Model {
-  @composed(["taskId", "uuid", ":"])
-  @pk({ type: String, generated: false })
-  id!: string; // e.g. `${taskId}:${ts}:${rand}`
+  @composed(["taskId", "classification", "uuid"], ":")
+  @pk()
+  id!: string;
 
-  @uuid(false)
   @readonly()
   @required()
+  @transient()
+  @uuid(false)
   uuid!: string;
 
   @readonly()
   @required()
   taskId!: string;
 
-  @createdAt()
-  ts!: Date;
+  @date()
+  @required()
+  ts: Date = new Date();
 
   @readonly()
   @required()
@@ -38,7 +41,6 @@ export class TaskEventModel extends Model {
 
   @prop()
   @readonly()
-  @serialize()
   payload?: any;
 
   constructor(arg?: ModelArg<TaskEventModel>) {

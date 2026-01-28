@@ -3,7 +3,7 @@ import {
   DefaultRepositoryFlags,
   OperationKeys,
 } from "@decaf-ts/db-decorators";
-import { AdapterFlags } from "./types";
+import { AdapterFlags, ContextFlags } from "./types";
 import { PreparedStatementKeys } from "../query/constants";
 
 /**
@@ -79,11 +79,26 @@ export enum PersistenceKeys {
 
   UUID = "uuid",
 
+  TAG_FOR_DELETION = "tag_for_deletion",
+
   INITIALIZATION = "initialization",
   SHUTDOWN = "shutdown",
 
   BY_KEY = "by-key",
+
+  AUTH = "auth",
+
+  AUTH_ROLE = "auth-role",
+
+  DECAF_ROUTE = "DecafRoute",
 }
+
+export const DefaultContextFlags: ContextFlags<any> = Object.assign(
+  {},
+  {
+    ignoreDevSafeGuards: false,
+  }
+) as ContextFlags<any>;
 
 export const DefaultAdapterFlags: AdapterFlags = Object.assign(
   {},
@@ -94,6 +109,9 @@ export const DefaultAdapterFlags: AdapterFlags = Object.assign(
     forcePrepareSimpleQueries: false,
     forcePrepareComplexQueries: false,
     cacheForPopulate: {},
+    noEmit: false,
+    noEmitSingle: false,
+    noEmitBulk: false,
     observeFullResult: true,
     paginateByBookmark: false,
     dryRun: false,

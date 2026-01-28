@@ -15,7 +15,7 @@ DummyAdapter.decoration();
 
 @uses(RamFlavour)
 class Base1 extends Model {
-  @pk({ type: "Number", generated: true })
+  @pk({ type: Number, generated: true })
   id1!: number;
 
   @required()
@@ -32,7 +32,7 @@ class Base1 extends Model {
 Adapter.setCurrent("dummy");
 @uses("dummy")
 class Base2 extends Model {
-  @pk({ type: "Number", generated: true })
+  @pk({ type: Number, generated: true })
   id1!: number;
 
   @required()

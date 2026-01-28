@@ -252,6 +252,30 @@ class CombineStepTask extends TaskHandler<void, number> {
   }
 }
 
+@task("multiple-entities-task")
+class MultipleEntitiesTask extends TaskHandler<
+  number | { value: number },
+  number
+> {
+  constructor() {
+    super();
+    console.log("SimpleTask instance created");
+  }
+  async run(value: number | { value: number }, ctx: TaskContext) {
+    const input = parseNumberInput(value);
+    if (typeof input !== "number") throw new Error("invalid simple-task input");
+    console.log("SimpleTask run begin", value, ctx.taskId);
+    ctx.logger.info(`doubling ${input}`);
+    await sleep(20);
+    ctx.logger.info(`simple task done`);
+    console.log("SimpleTask flush start");
+    await ctx.flush();
+    console.log("SimpleTask flush done");
+    console.log("SimpleTask run end", value, ctx.taskId);
+    return input * 2;
+  }
+}
+
 describe("Task Engine", () => {
   beforeAll(async () => {
     adapter = new RamAdapter();
@@ -564,5 +588,79 @@ describe("Task Engine", () => {
     const stillThere = await taskRepo.read(kept.id);
     expect(stillThere).toBeDefined();
     expect(stillThere.classification).toBe("keep-task");
+  });
+
+  it("Maintains the input format", async () => {
+    const newTask = new TaskModel({
+      atomicity: "atomic",
+      status: "pending",
+      attempt: 0,
+      logTail: [],
+      id: undefined,
+      classification: "cache-product",
+      input: [
+        {
+          productRecall: false,
+          createdAt: "28/01/2026 13:33:42:445",
+          updatedAt: "28/01/2026 13:33:42:445",
+          version: 1,
+          createdBy:
+            "x509::/C=US/ST=North Carolina/O=Hyperledger/OU=client/CN=pharmaledgerassoc.ca::/CN=pharmaledgerassoc-ca/O=Pharmaledger Association/OU=Fabric for Pharmaledger/C=GB/ST=Greater London/L=London",
+          updatedBy:
+            "x509::/C=US/ST=North Carolina/O=Hyperledger/OU=client/CN=pharmaledgerassoc.ca::/CN=pharmaledgerassoc-ca/O=Pharmaledger Association/OU=Fabric for Pharmaledger/C=GB/ST=Greater London/L=London",
+          productCode: "32582945817893",
+          inventedName: "Azitrex",
+          nameMedicinalProduct: "Azithromycin",
+          internalMaterialCode: undefined,
+          imageData: undefined,
+          strengths: undefined,
+          markets: undefined,
+          owner: "PharmaledgerassocMSP",
+        },
+        {
+          productRecall: false,
+          createdAt: "28/01/2026 13:33:42:445",
+          updatedAt: "28/01/2026 13:33:42:445",
+          version: 1,
+          createdBy:
+            "x509::/C=US/ST=North Carolina/O=Hyperledger/OU=client/CN=pharmaledgerassoc.ca::/CN=pharmaledgerassoc-ca/O=Pharmaledger Association/OU=Fabric for Pharmaledger/C=GB/ST=Greater London/L=London",
+          updatedBy:
+            "x509::/C=US/ST=North Carolina/O=Hyperledger/OU=client/CN=pharmaledgerassoc.ca::/CN=pharmaledgerassoc-ca/O=Pharmaledger Association/OU=Fabric for Pharmaledger/C=GB/ST=Greater London/L=London",
+          productCode: "13369695333171",
+          inventedName: "Azimax",
+          nameMedicinalProduct: "Azithromycin",
+          internalMaterialCode: undefined,
+          imageData: undefined,
+          strengths: undefined,
+          markets: undefined,
+          owner: "PharmaledgerassocMSP",
+        },
+      ],
+      output: undefined,
+      error: undefined,
+      maxAttempts: 2,
+      backoff: {
+        strategy: "exponential",
+        baseMs: 1000,
+        maxMs: 60000,
+        jitter: "full",
+      },
+      nextRunAt: undefined,
+      scheduledTo: undefined,
+      leaseOwner: undefined,
+      leaseExpiry: undefined,
+      steps: undefined,
+      currentStep: undefined,
+      stepResults: undefined,
+      createdAt: undefined,
+      updatedAt: undefined,
+      createdBy: undefined,
+      updatedBy: undefined,
+    });
+
+    const task = await engine.push(newTask, false);
+    expect(task.input?.constructor.name).toEqual(
+      newTask.input?.constructor.name
+    );
   });
 });

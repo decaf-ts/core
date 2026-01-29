@@ -116,7 +116,7 @@ describe("TaskTracker hooks", () => {
       error: new TaskErrorModel({ message: "canceled" }),
     });
     const cancelTracker = new TaskTracker(bus, canceledTask);
-    const cancelPromise = cancelTracker.wait();
+    const cancelPromise = cancelTracker.resolve();
     cancelPromise.catch(() => undefined);
     const cancelSpy = jest.fn();
     cancelTracker.onCancel((evt) => cancelSpy(evt.payload));

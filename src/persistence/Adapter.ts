@@ -514,9 +514,13 @@ export abstract class Adapter<
         });
         return newCtx;
       }
-      const currentOp = ctx.get("operation");
+      const currentOp = ctx.getOrUndefined("operation");
       const currentModel = ctx.getOrUndefined("affectedTables");
-      if (currentOp !== operation || (model && model !== currentModel)) {
+      if (
+        !currentOp ||
+        currentOp !== operation ||
+        (model && model !== currentModel)
+      ) {
         const newCtx = new this.Context().accumulate({
           ...ctx["cache"],
           ...flags,

@@ -63,6 +63,7 @@ export class TaskTracker<O = any>
       TaskStatus.SUCCEEDED,
       TaskStatus.FAILED,
       TaskStatus.CANCELED,
+      TaskStatus.SCHEDULED,
     ]);
   }
 
@@ -70,7 +71,6 @@ export class TaskTracker<O = any>
     return this.awaitStatusTerminal([
       TaskStatus.SUCCEEDED,
       TaskStatus.FAILED,
-      TaskStatus.CANCELED,
     ]);
   }
 

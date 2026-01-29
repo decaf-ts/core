@@ -39,7 +39,7 @@ Decaf Core provides the foundational building blocks for the Decaf TypeScript ec
 
 Documentation [here](https://decaf-ts.github.io/injectable-decorators/), Test results [here](https://decaf-ts.github.io/injectable-decorators/workdocs/reports/html/test-report.html) and Coverage [here](https://decaf-ts.github.io/injectable-decorators/workdocs/reports/coverage/lcov-report/index.html)
 
-Minimal size: 33.6 KB kb gzipped
+Minimal size: 35 KB kb gzipped
 
 
 # Core Package — Detailed Description

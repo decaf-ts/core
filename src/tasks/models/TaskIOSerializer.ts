@@ -16,12 +16,11 @@ export class TaskIOSerializer<M extends Model> extends JSONSerializer<M> {
    * @description returns a shallow copy of the object, containing an enumerable {@link ModelKeys#ANCHOR} property
    * so the object can be recognized upon deserialization
    *
-   * @param {T} model
+   * @param {any} value
    * @protected
    */
-   
-  protected override preSerialize(model: M, ...args: any[]) {
-    return this.serializeValue(model, ...args);
+  protected override preSerialize(value: any, ...args: any[]) {
+    return this.serializeValue(value, ...args);
   }
 
   /**
@@ -37,23 +36,36 @@ export class TaskIOSerializer<M extends Model> extends JSONSerializer<M> {
   }
 
   private serializeValue(value: any, ...args: any[]): any {
-    if (value === null || typeof value !== "object") return value;
+    if (value === undefined || value === null) return value;
+    if (typeof value !== "object") return value;
     if (value instanceof Date) return value.toISOString();
     if (Array.isArray(value)) {
       return value.map((item) => this.serializeValue(item, ...args));
     }
     if (value instanceof Condition) {
-      const condition = this.serializePlain(value, ...args);
+      const condition = this.serializePlain(
+        value as Record<string, any>,
+        ...args
+      );
       condition[ModelKeys.ANCHOR] = "??condition";
       return condition;
     }
     if (Model.isModel(value)) {
-      const toSerialize = this.serializePlain(value, ...args);
-      const metadata = this.getMetadata(value.constructor as Constructor);
-      if (metadata) toSerialize[ModelKeys.ANCHOR] = metadata;
-      return toSerialize;
+      return this.serializeModel(value, ...args);
     }
     return this.serializePlain(value, ...args);
+  }
+
+  private serializeModel(value: Model, ...args: any[]): Record<string, any> {
+    const serialized = this.serializePlain(
+      value as Record<string, any>,
+      ...args
+    );
+    const metadata =
+      this.getMetadata(value.constructor as Constructor) ??
+      value.constructor?.name;
+    if (metadata) serialized[ModelKeys.ANCHOR] = metadata;
+    return serialized;
   }
 
   private serializePlain(

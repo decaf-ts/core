@@ -850,17 +850,21 @@ export class TaskEngine<
     else if (outputOrError) payload.output = outputOrError;
     if (task.nextRunAt) payload.nextRunAt = task.nextRunAt;
     if (task.scheduledTo) payload.scheduledTo = task.scheduledTo;
-    const evt = await this.persistEvent(
+    const persisted = await this.persistEvent(
       ctx,
       task.id,
       TaskEventType.STATUS,
       payload
     );
-    if (originalError) {
-      evt.payload = evt.payload ?? {};
-      evt.payload.originalError = originalError;
-    }
-    this.bus.emit(evt, ctx);
+    const emittedPayload =
+      originalError !== undefined
+        ? Object.assign({}, payload, { originalError })
+        : payload;
+    const emitted = new TaskEventModel({
+      ...persisted,
+      payload: emittedPayload,
+    });
+    this.bus.emit(emitted, ctx);
   }
 
   private async emitLog(

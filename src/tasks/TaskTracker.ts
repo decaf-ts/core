@@ -23,6 +23,8 @@ import {
   TaskRetryError,
 } from "./TaskErrors";
 
+type NextAction = "cancelled" | "retry" | "reschedule" | "failed";
+
 export class TaskTracker<O = any>
   implements Observer<[TaskEventModel, Context]>
 {
@@ -61,8 +63,6 @@ export class TaskTracker<O = any>
       TaskStatus.SUCCEEDED,
       TaskStatus.FAILED,
       TaskStatus.CANCELED,
-      TaskStatus.WAITING_RETRY,
-      TaskStatus.SCHEDULED,
     ]);
   }
 
@@ -165,14 +165,20 @@ export class TaskTracker<O = any>
     return this.task.output as O;
   }
 
-  private extractError(evt: TaskEventModel): TaskControlError {
+  private extractError(evt: TaskEventModel): Error {
     const status = evt.payload?.status ?? this.task.status;
+    const nextAction = this.getNextAction(status);
+    const originalError = evt.payload?.originalError;
+    if (originalError instanceof Error) {
+      return this.assignNextAction(originalError, nextAction);
+    }
     const meta = this.buildMeta(status, evt.payload);
-    return this.createTaskControlError(
+    const controlError = this.createTaskControlError(
       status,
       evt.payload?.error ?? this.task.error,
       meta
     );
+    return this.assignNextAction(controlError, nextAction);
   }
 
   private complete() {
@@ -287,6 +293,26 @@ export class TaskTracker<O = any>
         return new TaskRescheduleError(this.task.id, error, meta);
       default:
         return new TaskFailError(this.task.id, error, meta);
+    }
+  }
+
+  private assignNextAction(error: Error, action?: NextAction) {
+    if (action) (error as any).nextAction = action;
+    return error;
+  }
+
+  private getNextAction(status?: TaskStatus): NextAction | undefined {
+    switch (status) {
+      case TaskStatus.CANCELED:
+        return "cancelled";
+      case TaskStatus.WAITING_RETRY:
+        return "retry";
+      case TaskStatus.SCHEDULED:
+        return "reschedule";
+      case TaskStatus.FAILED:
+        return "failed";
+      default:
+        return undefined;
     }
   }
 

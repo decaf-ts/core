@@ -11,7 +11,6 @@ import {
   onCreate,
   readonly,
 } from "@decaf-ts/db-decorators";
-import { index } from "../model/decorators";
 import type { Sequence } from "../persistence/Sequence";
 import { OrderDirection } from "../repository/constants";
 import {
@@ -23,6 +22,7 @@ import {
 } from "@decaf-ts/decoration";
 import { Repository } from "../repository/Repository";
 import { ContextOf } from "../persistence/types";
+import { index } from "../model/indexing";
 const defaultPkPriority = 60; // Default priority for primary key to run latter than other properties
 
 /**

@@ -1,9 +1,9 @@
 import { model, required } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { BaseModel } from "./BaseModel";
-import { index, table } from "./decorators";
+import { table } from "./decorators";
 import { pk } from "../identity/decorators";
-
+import { index } from "./indexing";
 /**
  * @description RAM sequence model for auto-incrementing values
  * @summary A model class that represents a sequence in the RAM adapter. It stores the current value

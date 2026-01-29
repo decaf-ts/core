@@ -9,12 +9,7 @@ import {
   PersistenceKeys,
   pk,
 } from "../../src/index";
-import {
-  Model,
-  model,
-  ModelArg,
-  required,
-} from "@decaf-ts/decorator-validation";
+import { model, ModelArg, required } from "@decaf-ts/decorator-validation";
 
 jest.setTimeout(500000);
 
@@ -211,16 +206,19 @@ describe("Many to many relations", () => {
     );
     const junctionRepository = Repository.forModel(JunctionModel);
     // const results = await repository?.readAll(recordIds);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const users = await userRepo.readAll([
       createdUser.id,
       createdUser2.id,
       createdUserWithRoleIds.id,
     ]);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const roles = await roleRepo.readAll([
       createdRole.id,
       createdRole2.id,
       createdRoleWithUserIds.id,
     ]);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const entries = await junctionRepository.select().execute();
 
     expect(createdRole.users.length).toBe(2);

@@ -2,7 +2,8 @@ import { inject, injectable } from "@decaf-ts/injectable-decorators";
 import { DBKeys, IRepository } from "@decaf-ts/db-decorators";
 import { Model } from "@decaf-ts/decorator-validation";
 import { Repository } from "./Repository";
-import { Adapter, PersistenceKeys } from "../persistence";
+import { PersistenceKeys } from "../persistence/constants";
+import { Adapter } from "../persistence/Adapter";
 import { Metadata, metadata, Constructor } from "@decaf-ts/decoration";
 
 /**

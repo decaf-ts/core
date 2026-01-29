@@ -19,27 +19,9 @@ export class TaskIOSerializer<M extends Model> extends JSONSerializer<M> {
    * @param {T} model
    * @protected
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   protected override preSerialize(model: M, ...args: any[]) {
-    if (model === null || typeof model !== "object") {
-      return model;
-    }
-    const toSerialize: Record<string, any> = Object.assign({}, model);
-    if (model instanceof Condition) {
-      toSerialize[ModelKeys.ANCHOR] = "??condition";
-      return toSerialize;
-    }
-    if (Model.isModel(model)) {
-      let metadata;
-      try {
-        metadata = Metadata.modelName(model.constructor as Constructor);
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      } catch (error: unknown) {
-        metadata = undefined;
-      }
-      if (metadata) toSerialize[ModelKeys.ANCHOR] = metadata;
-    }
-    return toSerialize;
+    return this.serializeValue(model, ...args);
   }
 
   /**
@@ -51,11 +33,67 @@ export class TaskIOSerializer<M extends Model> extends JSONSerializer<M> {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   override deserialize(str: string, ...args: any[]): M {
     const deserialization = JSON.parse(str);
-    const className = deserialization[ModelKeys.ANCHOR];
-    if (!className) return deserialization as M;
-    if (className === "??condition")
-      return Condition.from(deserialization) as unknown as M;
-    return Model.build(deserialization, className) as unknown as M;
+    return this.rebuildValue(deserialization) as M;
+  }
+
+  private serializeValue(value: any, ...args: any[]): any {
+    if (value === null || typeof value !== "object") return value;
+    if (value instanceof Date) return value.toISOString();
+    if (Array.isArray(value)) {
+      return value.map((item) => this.serializeValue(item, ...args));
+    }
+    if (value instanceof Condition) {
+      const condition = this.serializePlain(value, ...args);
+      condition[ModelKeys.ANCHOR] = "??condition";
+      return condition;
+    }
+    if (Model.isModel(value)) {
+      const toSerialize = this.serializePlain(value, ...args);
+      const metadata = this.getMetadata(value.constructor as Constructor);
+      if (metadata) toSerialize[ModelKeys.ANCHOR] = metadata;
+      return toSerialize;
+    }
+    return this.serializePlain(value, ...args);
+  }
+
+  private serializePlain(
+    value: Record<string, any>,
+    ...args: any[]
+  ): Record<string, any> {
+    const result: Record<string, any> = {};
+    for (const [key, child] of Object.entries(value)) {
+      result[key] = this.serializeValue(child, ...args);
+    }
+    return result;
+  }
+
+  private getMetadata(constructor: Constructor): string | undefined {
+    try {
+      return Metadata.modelName(constructor);
+    } catch {
+      return undefined;
+    }
+  }
+
+  private rebuildValue(value: any): any {
+    if (value === null || typeof value !== "object") return value;
+    if (Array.isArray(value)) {
+      return value.map((item) => this.rebuildValue(item));
+    }
+    const anchor = value[ModelKeys.ANCHOR];
+    const rebuilt = this.rebuildObject(value);
+    if (!anchor) return rebuilt;
+    if (anchor === "??condition") return Condition.from(rebuilt);
+    return Model.build(rebuilt, anchor);
+  }
+
+  private rebuildObject(value: Record<string, any>): Record<string, any> {
+    const result: Record<string, any> = {};
+    for (const [key, child] of Object.entries(value)) {
+      if (key === ModelKeys.ANCHOR) continue;
+      result[key] = this.rebuildValue(child);
+    }
+    return result;
   }
 
   /**

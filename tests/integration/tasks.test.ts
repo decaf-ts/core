@@ -22,9 +22,10 @@ import {
 } from "../../src/tasks/constants";
 import { Repo, Repository } from "../../src/repository";
 import { sleep } from "../../src/tasks/utils";
-import { Observer } from "../../src/index";
+import { Observer, TaskService } from "../../src/index";
 import { TaskEngineConfig } from "../../src/tasks/index";
 import { Condition } from "../../src/query/Condition";
+import { ValidationError } from "@decaf-ts/db-decorators";
 
 jest.setTimeout(200000);
 
@@ -32,6 +33,7 @@ let adapter: RamAdapter;
 let eventBus: TaskEventBus;
 let registry: TaskHandlerRegistry;
 let engine: TaskEngine<RamAdapter>;
+let taskService: TaskService<any>;
 let taskRepo: Repo<TaskModel>;
 let unsubscribe: (() => void) | undefined;
 
@@ -276,6 +278,13 @@ class MultipleEntitiesTask extends TaskHandler<
   }
 }
 
+@task("failing-task")
+class FailingTask extends TaskHandler<void, any> {
+  async run(_: void, ctx: TaskContext) {
+    throw new ValidationError("FAILED");
+  }
+}
+
 describe("Task Engine", () => {
   beforeAll(async () => {
     adapter = new RamAdapter();
@@ -297,8 +306,13 @@ describe("Task Engine", () => {
       loggingBufferTruncation: 50,
       gracefulShutdownMsTimeout: 2000,
     };
-    engine = new TaskEngine(config);
+    // engine = new TaskEngine(config);
+
+    taskService = new TaskService();
+    await taskService.boot(config);
+    engine = taskService.client as any;
     engine.start();
+
     unsubscribe = eventBus.observe({
       refresh: async (payload) => {
         recordedEvents.push(payload as TaskEventModel);
@@ -316,6 +330,120 @@ describe("Task Engine", () => {
   afterAll(() => {
     engine?.stop();
     if (unsubscribe) unsubscribe();
+  });
+
+  it("properly handles failed task's errors via resolve", async () => {
+    const toSubmit = new TaskBuilder()
+      .setClassification("failing-task")
+      .setMaxAttempts(1)
+      .build();
+
+    const { task, tracker } = await engine.push(toSubmit, true);
+
+    try {
+      await tracker.resolve();
+    } catch (error) {
+      expect(error).toBeInstanceOf(ValidationError);
+      expect(error.message).toBe("[ValidationError][422] FAILED");
+      expect(error.nextAction).toBe(TaskStatus.FAILED);
+
+      const t = await taskService.read(task.id);
+
+      expect(t.error).toBeDefined();
+    }
+  });
+
+  it("properly handles failed task's errors via wait", async () => {
+    const toSubmit = new TaskBuilder()
+      .setClassification("failing-task")
+      .setMaxAttempts(1)
+      .build();
+
+    const { task, tracker } = await engine.push(toSubmit, true);
+
+    try {
+      await tracker.wait();
+    } catch (e: unknown) {
+      expect(e).toBeInstanceOf(ValidationError);
+      expect((e as ValidationError).message).toBe(
+        "[ValidationError][422] FAILED"
+      );
+      expect((e as ValidationError).nextAction).toBe(TaskStatus.FAILED);
+    }
+  });
+
+  it("Maintains the input format", async () => {
+    const newTask = new TaskModel({
+      atomicity: "atomic",
+      status: "pending",
+      attempt: 0,
+      logTail: [],
+      id: undefined,
+      classification: "cache-product",
+      input: [
+        {
+          productRecall: false,
+          createdAt: "28/01/2026 13:33:42:445",
+          updatedAt: "28/01/2026 13:33:42:445",
+          version: 1,
+          createdBy:
+            "x509::/C=US/ST=North Carolina/O=Hyperledger/OU=client/CN=pharmaledgerassoc.ca::/CN=pharmaledgerassoc-ca/O=Pharmaledger Association/OU=Fabric for Pharmaledger/C=GB/ST=Greater London/L=London",
+          updatedBy:
+            "x509::/C=US/ST=North Carolina/O=Hyperledger/OU=client/CN=pharmaledgerassoc.ca::/CN=pharmaledgerassoc-ca/O=Pharmaledger Association/OU=Fabric for Pharmaledger/C=GB/ST=Greater London/L=London",
+          productCode: "32582945817893",
+          inventedName: "Azitrex",
+          nameMedicinalProduct: "Azithromycin",
+          internalMaterialCode: undefined,
+          imageData: undefined,
+          strengths: undefined,
+          markets: undefined,
+          owner: "PharmaledgerassocMSP",
+        },
+        {
+          productRecall: false,
+          createdAt: "28/01/2026 13:33:42:445",
+          updatedAt: "28/01/2026 13:33:42:445",
+          version: 1,
+          createdBy:
+            "x509::/C=US/ST=North Carolina/O=Hyperledger/OU=client/CN=pharmaledgerassoc.ca::/CN=pharmaledgerassoc-ca/O=Pharmaledger Association/OU=Fabric for Pharmaledger/C=GB/ST=Greater London/L=London",
+          updatedBy:
+            "x509::/C=US/ST=North Carolina/O=Hyperledger/OU=client/CN=pharmaledgerassoc.ca::/CN=pharmaledgerassoc-ca/O=Pharmaledger Association/OU=Fabric for Pharmaledger/C=GB/ST=Greater London/L=London",
+          productCode: "13369695333171",
+          inventedName: "Azimax",
+          nameMedicinalProduct: "Azithromycin",
+          internalMaterialCode: undefined,
+          imageData: undefined,
+          strengths: undefined,
+          markets: undefined,
+          owner: "PharmaledgerassocMSP",
+        },
+      ],
+      output: undefined,
+      error: undefined,
+      maxAttempts: 2,
+      backoff: {
+        strategy: "exponential",
+        baseMs: 1000,
+        maxMs: 60000,
+        jitter: "full",
+      },
+      nextRunAt: undefined,
+      scheduledTo: undefined,
+      leaseOwner: undefined,
+      leaseExpiry: undefined,
+      steps: undefined,
+      currentStep: undefined,
+      stepResults: undefined,
+      createdAt: undefined,
+      updatedAt: undefined,
+      createdBy: undefined,
+      updatedBy: undefined,
+    });
+
+    const task = await engine.push(newTask, false);
+    expect(task.input?.constructor.name).toEqual(
+      newTask.input?.constructor.name
+    );
   });
 
   it("executes atomic tasks, persists logs, and emits status events", async () => {
@@ -588,79 +716,5 @@ describe("Task Engine", () => {
     const stillThere = await taskRepo.read(kept.id);
     expect(stillThere).toBeDefined();
     expect(stillThere.classification).toBe("keep-task");
-  });
-
-  it("Maintains the input format", async () => {
-    const newTask = new TaskModel({
-      atomicity: "atomic",
-      status: "pending",
-      attempt: 0,
-      logTail: [],
-      id: undefined,
-      classification: "cache-product",
-      input: [
-        {
-          productRecall: false,
-          createdAt: "28/01/2026 13:33:42:445",
-          updatedAt: "28/01/2026 13:33:42:445",
-          version: 1,
-          createdBy:
-            "x509::/C=US/ST=North Carolina/O=Hyperledger/OU=client/CN=pharmaledgerassoc.ca::/CN=pharmaledgerassoc-ca/O=Pharmaledger Association/OU=Fabric for Pharmaledger/C=GB/ST=Greater London/L=London",
-          updatedBy:
-            "x509::/C=US/ST=North Carolina/O=Hyperledger/OU=client/CN=pharmaledgerassoc.ca::/CN=pharmaledgerassoc-ca/O=Pharmaledger Association/OU=Fabric for Pharmaledger/C=GB/ST=Greater London/L=London",
-          productCode: "32582945817893",
-          inventedName: "Azitrex",
-          nameMedicinalProduct: "Azithromycin",
-          internalMaterialCode: undefined,
-          imageData: undefined,
-          strengths: undefined,
-          markets: undefined,
-          owner: "PharmaledgerassocMSP",
-        },
-        {
-          productRecall: false,
-          createdAt: "28/01/2026 13:33:42:445",
-          updatedAt: "28/01/2026 13:33:42:445",
-          version: 1,
-          createdBy:
-            "x509::/C=US/ST=North Carolina/O=Hyperledger/OU=client/CN=pharmaledgerassoc.ca::/CN=pharmaledgerassoc-ca/O=Pharmaledger Association/OU=Fabric for Pharmaledger/C=GB/ST=Greater London/L=London",
-          updatedBy:
-            "x509::/C=US/ST=North Carolina/O=Hyperledger/OU=client/CN=pharmaledgerassoc.ca::/CN=pharmaledgerassoc-ca/O=Pharmaledger Association/OU=Fabric for Pharmaledger/C=GB/ST=Greater London/L=London",
-          productCode: "13369695333171",
-          inventedName: "Azimax",
-          nameMedicinalProduct: "Azithromycin",
-          internalMaterialCode: undefined,
-          imageData: undefined,
-          strengths: undefined,
-          markets: undefined,
-          owner: "PharmaledgerassocMSP",
-        },
-      ],
-      output: undefined,
-      error: undefined,
-      maxAttempts: 2,
-      backoff: {
-        strategy: "exponential",
-        baseMs: 1000,
-        maxMs: 60000,
-        jitter: "full",
-      },
-      nextRunAt: undefined,
-      scheduledTo: undefined,
-      leaseOwner: undefined,
-      leaseExpiry: undefined,
-      steps: undefined,
-      currentStep: undefined,
-      stepResults: undefined,
-      createdAt: undefined,
-      updatedAt: undefined,
-      createdBy: undefined,
-      updatedBy: undefined,
-    });
-
-    const task = await engine.push(newTask, false);
-    expect(task.input?.constructor.name).toEqual(
-      newTask.input?.constructor.name
-    );
   });
 });

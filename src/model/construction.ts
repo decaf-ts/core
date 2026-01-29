@@ -16,7 +16,7 @@ import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { AdapterFlags, ContextOf } from "../persistence/types";
 import { Context } from "../persistence/Context";
 import { Sequence } from "../persistence/Sequence";
-import { pk } from "../identity";
+import { pk } from "../identity/decorators";
 
 /**
  * @description Creates or updates a model instance
@@ -1039,7 +1039,7 @@ export function getAndConstructJunctionTable(
   });
 
   // Apply the decorators
-  pk({ type: "Number" })(DynamicJunctionModel.prototype, "id");
+  pk({ type: Number })(DynamicJunctionModel.prototype, "id");
   required()(DynamicJunctionModel.prototype, fkA as any);
   required()(DynamicJunctionModel.prototype, fkB as any);
 

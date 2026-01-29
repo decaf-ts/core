@@ -524,12 +524,18 @@ export class TaskEngine<
         log.warn(
           `task ${task.id} waiting retry state ${task.status} attempt ${task.attempt}`
         );
-        await this.emitStatus(taskCtx, task, TaskStatus.WAITING_RETRY);
         await taskCtx.pipe(LogLevel.warn, `Retry scheduled`, {
           nextRunAt,
           delayMs: delay,
           attempt: nextAttempt,
         });
+        await this.emitStatus(
+          taskCtx,
+          task,
+          TaskStatus.WAITING_RETRY,
+          serialized,
+          err
+        );
       } else {
         task.attempt = nextAttempt;
         task.status = TaskStatus.FAILED;
@@ -541,13 +547,19 @@ export class TaskEngine<
         log.error(
           `task ${task.id} failed state ${task.status} attempt ${task.attempt}`
         );
-        await this.emitStatus(taskCtx, task, TaskStatus.FAILED, serialized);
         await taskCtx.pipe(
           LogLevel.error,
           `Task failed (max attempts reached)`,
           {
             maxAttempts: task.maxAttempts,
           }
+        );
+        await this.emitStatus(
+          taskCtx,
+          task,
+          TaskStatus.FAILED,
+          serialized,
+          err
         );
       }
     }
@@ -825,7 +837,8 @@ export class TaskEngine<
     ctx: TaskContext | Context,
     task: TaskModel,
     status: TaskStatus,
-    outputOrError?: any | Error
+    outputOrError?: any | Error,
+    originalError?: Error
   ): Promise<void> {
     if (ctx instanceof TaskContext) {
       await ctx.flush();
@@ -843,6 +856,10 @@ export class TaskEngine<
       TaskEventType.STATUS,
       payload
     );
+    if (originalError) {
+      evt.payload = evt.payload ?? {};
+      evt.payload.originalError = originalError;
+    }
     this.bus.emit(evt, ctx);
   }
 

@@ -17,6 +17,7 @@ Injectables.setRegistry(new InjectablesRegistry());
 export * from "./overrides";
 export * from "./repository";
 
+export * from "./auth";
 export * from "./identity";
 export * from "./interfaces";
 export * from "./model";

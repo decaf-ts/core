@@ -16,7 +16,7 @@ import {
   option,
   required,
 } from "@decaf-ts/decorator-validation";
-import { ValidationError } from "@decaf-ts/db-decorators";
+import { InternalError, ValidationError } from "@decaf-ts/db-decorators";
 import { prop } from "@decaf-ts/decoration";
 
 export class TaskBackoffBuilder<NESTED extends boolean = false> extends Model {
@@ -69,6 +69,8 @@ export class TaskBackoffBuilder<NESTED extends boolean = false> extends Model {
 export class TaskBuilder extends Model {
   @required()
   protected classification!: string;
+  @prop()
+  protected name?: string;
   @required()
   protected status: TaskStatus = TaskStatus.PENDING;
   @required()
@@ -86,8 +88,8 @@ export class TaskBuilder extends Model {
     return this;
   }
 
-  setStatus(value: TaskStatus): this {
-    this.status = value;
+  setName(value: string): this {
+    this.name = value;
     return this;
   }
 
@@ -147,6 +149,11 @@ export class CompositeTaskBuilder extends TaskBuilder {
     super(arg);
     Model.fromModel(this, arg);
     this.atomicity = TaskType.COMPOSITE;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  override setAtomicity(value: TaskType): this {
+    throw new InternalError(`Atomicity locked to ${TaskType.COMPOSITE}`);
   }
 
   setSteps(value: TaskStepSpecModel[]): this {

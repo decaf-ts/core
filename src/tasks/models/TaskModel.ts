@@ -46,6 +46,10 @@ export class TaskModel<INPUT = any, OUTPUT = any> extends Model {
   @description("Holds task classification - must match @task()")
   classification!: string;
 
+  @prop()
+  @description("optional task name for ambiguity")
+  name?: string;
+
   // execution
   @required()
   @type(String)

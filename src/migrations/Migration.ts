@@ -11,9 +11,10 @@ import { MigrationRuleError } from "../persistence/errors";
 export abstract class AbsMigration<
     A extends Adapter<any, any, any, any>,
     QUERYRUNNER = ConnectionForAdapter<A>,
+    R = void,
   >
   extends AbsContextual<ContextOf<A>>
-  implements Migration<QUERYRUNNER, A>
+  implements Migration<QUERYRUNNER, A, R>
 {
   private _reference?: string;
   private _precedence?: Migration<any, any>;
@@ -126,7 +127,7 @@ export abstract class AbsMigration<
     qr: QUERYRUNNER,
     adapter: A,
     ...args: ContextualArgs<ContextOf<A>>
-  ): Promise<void>;
+  ): Promise<R>;
 
   abstract up(qr: QUERYRUNNER, adapter: A, ctx: ContextOf<A>): Promise<void>;
 }

@@ -16,12 +16,13 @@ import { InternalError } from "@decaf-ts/db-decorators";
 export class MigrationService<
     PERSIST extends boolean,
     A extends Adapter<any, any, any, any> = any,
+    R = void,
   >
   extends ClientBasedService<
     PERSIST extends boolean ? A : void,
     MigrationConfig<PERSIST>
   >
-  implements Migration<any, any>
+  implements Migration<any, A, R>
 {
   flavour?: string;
   readonly reference: string = MigrationService.name;
@@ -151,7 +152,7 @@ export class MigrationService<
     qr?: any,
     adapter?: any,
     ...args: MaybeContextualArg<ContextOf<any>>
-  ): Promise<void> {
+  ): Promise<R> {
     const { ctxArgs, log } = (
       await this.logCtx(args, PersistenceKeys.MIGRATION, true)
     ).for(this.migrate);
@@ -221,6 +222,7 @@ export class MigrationService<
         );
       }
     }
+    return undefined as unknown as R;
   }
 
   async up(

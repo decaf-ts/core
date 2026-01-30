@@ -2,7 +2,11 @@ import { Adapter } from "../persistence/Adapter";
 
 import { AdapterFlags, ContextOf } from "../persistence/types";
 import { ContextualArgs } from "../utils/ContextualLoggedClass";
-export interface Migration<QUERYRUNNER, A extends Adapter<any, any, any, any>> {
+export interface Migration<
+  QUERYRUNNER,
+  A extends Adapter<any, any, any, any>,
+  R = void,
+> {
   flavour?: string;
   precedence: Migration<any, any> | Migration<any, any>[] | null;
   reference: string;
@@ -16,7 +20,7 @@ export interface Migration<QUERYRUNNER, A extends Adapter<any, any, any, any>> {
     qr: QUERYRUNNER,
     adapter: A,
     ...args: ContextualArgs<ContextOf<A>>
-  ): Promise<void>;
+  ): Promise<R>;
   down(
     qr: QUERYRUNNER,
     adapter: A,

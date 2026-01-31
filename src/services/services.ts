@@ -342,7 +342,7 @@ export abstract class Service<
           await s.boot(...ctxArgs);
         }
       } catch (e: unknown) {
-        throw new InternalError(`Failed to boot ${key} service:${e}`);
+        throw new InternalError(`Failed to boot ${service.name} service:${e}`);
       }
     }
   }

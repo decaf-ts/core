@@ -1,6 +1,6 @@
 {
   "name": "@decaf-ts/core",
-  "version": "0.8.37",
+  "version": "0.8.38",
   "description": "Core persistence module for the decaf framework",
   "type": "module",
   "exports": {

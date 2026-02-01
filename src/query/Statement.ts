@@ -546,6 +546,19 @@ export abstract class Statement<
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected squash(ctx: ContextOf<A>): PreparedStatement<any> | undefined {
+    const defaultQuery = this.matchDefaultQueryCondition();
+    if (defaultQuery) {
+      const direction = this.getOrderDirection();
+      return {
+        class: this.fromSelector,
+        method: PreparedStatementKeys.FIND,
+        args: [defaultQuery.value, direction],
+        params: {
+          direction,
+        },
+      } as PreparedStatement<M>;
+    }
+
     // If there's a where condition with complex conditions (nested Conditions), can't squash
     if (this.whereCondition) {
       if (this.whereCondition["comparison"] instanceof Condition)
@@ -674,6 +687,95 @@ export abstract class Statement<
     }
 
     return squashed;
+  }
+
+  private matchDefaultQueryCondition():
+    | {
+        value: string;
+        attributes: string[];
+      }
+    | undefined {
+    if (!this.whereCondition) return undefined;
+    const found = this.extractDefaultStartsWithAttributes(this.whereCondition);
+    if (!found) return undefined;
+    const defaultAttrs = Model.defaultQueryAttributes(this.fromSelector);
+    if (!defaultAttrs || !defaultAttrs.length) return undefined;
+    const normalizedDefault = Array.from(new Set(defaultAttrs.map(String)));
+    const normalizedFound = Array.from(new Set(found.attributes.map(String)));
+    if (normalizedDefault.length !== normalizedFound.length) return undefined;
+    if (normalizedDefault.every((attr) => normalizedFound.includes(attr))) {
+      return {
+        value: found.value,
+        attributes: normalizedDefault,
+      };
+    }
+    return undefined;
+  }
+
+  private extractDefaultStartsWithAttributes(
+    condition: Condition<M>
+  ): { attributes: string[]; value: string } | undefined {
+    const collected = this.collectStartsWithAttributes(condition);
+    if (!collected) return undefined;
+    return {
+      attributes: Array.from(new Set(collected.attributes)),
+      value: collected.value,
+    };
+  }
+
+  private collectStartsWithAttributes(
+    condition: Condition<M> | undefined
+  ): { attributes: string[]; value: string } | undefined {
+    if (!condition) return undefined;
+    const { attr1, operator, comparison } = condition as unknown as {
+      attr1: string | Condition<M>;
+      operator: Operator | GroupOperator;
+      comparison: any;
+    };
+    if (operator === Operator.STARTS_WITH) {
+      if (typeof attr1 !== "string" || typeof comparison !== "string")
+        return undefined;
+      return {
+        attributes: [attr1],
+        value: comparison,
+      };
+    }
+    if (operator === GroupOperator.OR) {
+      const left =
+        attr1 instanceof Condition
+          ? this.collectStartsWithAttributes(attr1 as Condition<M>)
+          : undefined;
+      const right =
+        comparison instanceof Condition
+          ? this.collectStartsWithAttributes(comparison as Condition<M>)
+          : undefined;
+      if (left && right && left.value === right.value) {
+        return {
+          attributes: [...left.attributes, ...right.attributes],
+          value: left.value,
+        };
+      }
+      return undefined;
+    }
+    if (operator === GroupOperator.AND) {
+      const left =
+        attr1 instanceof Condition
+          ? this.collectStartsWithAttributes(attr1 as Condition<M>)
+          : undefined;
+      if (left) return left;
+      const right =
+        comparison instanceof Condition
+          ? this.collectStartsWithAttributes(comparison as Condition<M>)
+          : undefined;
+      return right;
+    }
+    return undefined;
+  }
+
+  private getOrderDirection(): OrderDirection {
+    return (
+      (this.orderBySelectors?.[0]?.[1] as OrderDirection) ?? OrderDirection.ASC
+    );
   }
 
   async prepare(ctx?: ContextOf<A>): Promise<StatementExecutor<M, R>> {

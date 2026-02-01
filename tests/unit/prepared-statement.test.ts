@@ -203,5 +203,46 @@ describe("prepared statements", () => {
         pageResult.data.map((record) => record.attr1)
       );
     });
+
+    it("prepares default find when raw statements are disabled", async () => {
+      const preparedRepo = searchRepo.override({
+        allowRawStatements: false,
+        forcePrepareSimpleQueries: true,
+        forcePrepareComplexQueries: false,
+      });
+
+      const matches = await preparedRepo.find("ap", OrderDirection.ASC);
+      expect(matches.map((record) => record.attr1)).toEqual([
+        "apple",
+        "apricot",
+      ]);
+      expect(
+        matches.every(
+          (record) =>
+            record.attr1?.startsWith("ap") || record.attr2?.startsWith("ap")
+        )
+      ).toEqual(true);
+    });
+
+    it("prepares default paging when raw statements are disabled", async () => {
+      const preparedRepo = searchRepo.override({
+        allowRawStatements: false,
+        forcePrepareSimpleQueries: true,
+        forcePrepareComplexQueries: false,
+      });
+
+      const pageResult = await preparedRepo.page("a", OrderDirection.ASC, {
+        offset: 1,
+        limit: 2,
+      });
+
+      expect(pageResult.data.length).toEqual(2);
+      expect(
+        pageResult.data.every(
+          (record) =>
+            record.attr1?.startsWith("a") || record.attr2?.startsWith("a")
+        )
+      ).toEqual(true);
+    });
   });
 });

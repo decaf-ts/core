@@ -117,7 +117,7 @@ export abstract class Paginator<
       query.method &&
       query.method.match(
         new RegExp(
-          `${PreparedStatementKeys.FIND_BY}|${PreparedStatementKeys.LIST_BY}`,
+          `${PreparedStatementKeys.FIND_BY}|${PreparedStatementKeys.LIST_BY}|${PreparedStatementKeys.FIND}`,
           "gi"
         )
       )
@@ -155,6 +155,20 @@ export abstract class Paginator<
     const repo = Repository.forModel(this.clazz, this.adapter.alias);
     const statement = this.query as PreparedStatement<M>;
     const { method, args, params } = statement;
+    if (method === PreparedStatementKeys.FIND) {
+      const preparedArgs = [PreparedStatementKeys.PAGE, ...args];
+      const preparedParams: DirectionLimitOffset = {
+        limit: this.size,
+        offset: page,
+        bookmark: this._bookmark,
+      };
+      preparedArgs.push(preparedParams);
+      const result = await repo.statement(
+        ...(preparedArgs as [string, any]),
+        ...ctxArgs
+      );
+      return this.apply(result);
+    }
     const regexp = new RegExp(
       `^${PreparedStatementKeys.FIND_BY}|${PreparedStatementKeys.LIST_BY}`,
       "gi"

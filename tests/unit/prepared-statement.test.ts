@@ -2,6 +2,10 @@ import { minlength, model, required } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import {
+  defaultQueryAttr,
+  SerializedPage,
+} from "../../src/query";
+import {
   BaseModel,
   pk,
   Repository,
@@ -111,5 +115,93 @@ describe("prepared statements", () => {
     const result = await prepared.execute();
 
     await expect(repo.statement("select")).rejects.toThrowError(QueryError);
+  });
+
+  @uses("ram")
+  @model()
+  class DefaultQueryModel extends BaseModel {
+    @pk({ type: Number })
+    id?: number = undefined;
+
+    @required()
+    @defaultQueryAttr()
+    attr1?: string = undefined;
+
+    @required()
+    @defaultQueryAttr()
+    attr2?: string = undefined;
+
+    constructor(arg?: ModelArg<DefaultQueryModel>) {
+      super(arg);
+    }
+  }
+
+  describe("default query statements", () => {
+    let searchRepo: RamRepository<DefaultQueryModel>;
+
+    beforeAll(async () => {
+      searchRepo = Repository.forModel<
+        DefaultQueryModel,
+        RamRepository<DefaultQueryModel>
+      >(DefaultQueryModel);
+      const models = [
+        new DefaultQueryModel({ attr1: "apple", attr2: "zebra" }),
+        new DefaultQueryModel({ attr1: "apricot", attr2: "alpha" }),
+        new DefaultQueryModel({ attr1: "banana", attr2: "alpha" }),
+        new DefaultQueryModel({ attr1: "delta", attr2: "aardvark" }),
+      ];
+      await searchRepo.createAll(models);
+    });
+
+    it("finds records using default query attributes", async () => {
+      const matches = await searchRepo.find("ap", OrderDirection.ASC);
+      expect(matches.map((record) => record.attr1)).toEqual([
+        "apple",
+        "apricot",
+      ]);
+      expect(
+        matches.every(
+          (record) =>
+            record.attr1?.startsWith("ap") || record.attr2?.startsWith("ap")
+        )
+      ).toEqual(true);
+
+      const stmtMatches = (await searchRepo.statement(
+        "find",
+        "ap",
+        "asc"
+      )) as DefaultQueryModel[];
+      expect(stmtMatches.map((record) => record.attr1)).toEqual(
+        matches.map((record) => record.attr1)
+      );
+    });
+
+    it("paginates records using default query attributes", async () => {
+      const pageResult = await searchRepo.page("a", OrderDirection.DSC, {
+        offset: 1,
+        limit: 2,
+      });
+      expect(pageResult.data.length).toEqual(2);
+      expect(
+        pageResult.data.every(
+          (record) =>
+            record.attr1?.startsWith("a") || record.attr2?.startsWith("a")
+        )
+      ).toEqual(true);
+
+      const stmtPage = (await searchRepo.statement(
+        "page",
+        "a",
+        "desc",
+        {
+          offset: 1,
+          limit: 2,
+        }
+      )) as SerializedPage<DefaultQueryModel>;
+
+      expect(stmtPage.data.map((record) => record.attr1)).toEqual(
+        pageResult.data.map((record) => record.attr1)
+      );
+    });
   });
 });

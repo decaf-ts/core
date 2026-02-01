@@ -164,6 +164,36 @@ describe("Queries", () => {
     );
   });
 
+  it("Supports startsWith conditional queries", async () => {
+    const repo = Repository.forModel<TestUser, RamRepository<TestUser>>(
+      TestUser
+    );
+    const prefix = "user_name_1";
+    const condition = Condition.attribute<TestUser>("name").startsWith(prefix);
+    const selected = await repo.select().where(condition).execute();
+    const expected = created.filter((c) => c.name.startsWith(prefix));
+
+    expect(selected.length).toEqual(expected.length);
+    expect(selected.every((record) => record.name.startsWith(prefix))).toEqual(
+      true
+    );
+  });
+
+  it("Supports endsWith conditional queries", async () => {
+    const repo = Repository.forModel<TestUser, RamRepository<TestUser>>(
+      TestUser
+    );
+    const suffix = "_5";
+    const condition = Condition.attribute<TestUser>("name").endsWith(suffix);
+    const selected = await repo.select().where(condition).execute();
+    const expected = created.filter((c) => c.name.endsWith(suffix));
+
+    expect(selected.length).toEqual(expected.length);
+    expect(selected.every((record) => record.name.endsWith(suffix))).toEqual(
+      true
+    );
+  });
+
   it("Sorts strings", async () => {
     const repo: RamRepository<TestUser> = Repository.forModel<
       TestUser,

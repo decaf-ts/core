@@ -84,18 +84,6 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     throw new InternalError(`No ModelService found for alias ${alias}`);
   }
 
-  for(conf: any, ...args: any[]): this {
-    const target = this as any;
-    return new Proxy(target, {
-      get(original, prop, receiver) {
-        if (prop === "repo") {
-          return (original.repo as any).override(conf, ...args);
-        }
-        return Reflect.get(original, prop, receiver);
-      },
-    }) as this;
-  }
-
   @create()
   async create(
     model: M,

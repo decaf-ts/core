@@ -139,6 +139,18 @@ describe("Condition", () => {
       expect(condition).toBeDefined();
       expect(condition.hasErrors()).toBeUndefined();
     });
+
+    it("creates STARTS_WITH condition", () => {
+      const condition = Condition.attr<TestModel>("name").startsWith("John");
+      expect(condition).toBeDefined();
+      expect(condition.hasErrors()).toBeUndefined();
+    });
+
+    it("creates ENDS_WITH condition", () => {
+      const condition = Condition.attr<TestModel>("name").endsWith("Doe");
+      expect(condition).toBeDefined();
+      expect(condition.hasErrors()).toBeUndefined();
+    });
   });
 
   describe("Complex conditions", () => {

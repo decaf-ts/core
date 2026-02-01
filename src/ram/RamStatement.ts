@@ -239,6 +239,38 @@ export class RamStatement<
               return !!(m[attr1 as keyof Model] as unknown as string).match(
                 new RegExp(comparison, "g")
               );
+            case Operator.STARTS_WITH: {
+              const attr = attr1 as keyof Model;
+              const attrName = attr as string;
+              const attrValue = m[attr] as unknown;
+              if (typeof attrValue !== "string") {
+                throw new QueryError(
+                  `Invalid startsWith comparison on a non string attribute "${attrName}"`
+                );
+              }
+              if (typeof comparison !== "string") {
+                throw new QueryError(
+                  `STARTS_WITH operator requires a string comparison, got ${typeof comparison}`
+                );
+              }
+              return (attrValue as string).startsWith(comparison);
+            }
+            case Operator.ENDS_WITH: {
+              const attr = attr1 as keyof Model;
+              const attrName = attr as string;
+              const attrValue = m[attr] as unknown;
+              if (typeof attrValue !== "string") {
+                throw new QueryError(
+                  `Invalid endsWith comparison on a non string attribute "${attrName}"`
+                );
+              }
+              if (typeof comparison !== "string") {
+                throw new QueryError(
+                  `ENDS_WITH operator requires a string comparison, got ${typeof comparison}`
+                );
+              }
+              return (attrValue as string).endsWith(comparison);
+            }
             case Operator.SMALLER:
               return m[attr1 as keyof Model] < comparison;
             case Operator.SMALLER_EQ:

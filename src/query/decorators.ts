@@ -13,6 +13,15 @@ import type { Repo } from "../repository";
 import { Operator } from "./constants";
 import type { DirectionLimitOffset } from "./types";
 
+export function defaultQueryAttr() {
+  return function defaultQueryAttr(obj: object, prop?: any) {
+    const key = Metadata.key(PersistenceKeys.DEFAULT_QUERY_ATTR);
+    let meta = Metadata.get(obj.constructor as any, key) || [];
+    meta = [...new Set([...meta, prop])];
+    return apply(propMetadata(key, meta))(obj, prop);
+  };
+}
+
 export function prepared() {
   function prepared() {
     return function prepared(obj: object, prop?: any, descriptor?: any) {

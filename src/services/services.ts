@@ -24,6 +24,7 @@ import { Injectables } from "@decaf-ts/injectable-decorators";
 import { UUID } from "../persistence/generators";
 import type { Observer } from "../interfaces/Observer";
 import { ObserverHandler } from "../persistence/ObserverHandler";
+import { Repository } from "../repository/index";
 
 export abstract class Service<
     C extends Context<ContextFlags<any>> = Context<ContextFlags<any>>,
@@ -37,6 +38,18 @@ export abstract class Service<
 
   protected constructor(readonly name?: string) {
     super();
+  }
+
+  for(conf: any, ...args: any[]): this {
+    return new Proxy(this, {
+      get(original, prop, receiver) {
+        const orig = Reflect.get(original, prop, receiver);
+        if (typeof orig !== "object") return orig;
+        if (orig instanceof Service) return orig.for(conf, ...args);
+        if (orig instanceof Repository) return orig.override(conf);
+        return orig;
+      },
+    });
   }
 
   /**

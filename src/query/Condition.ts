@@ -367,6 +367,26 @@ export class Condition<M extends Model<any>> extends Model<InferAsync<M>> {
     }
 
     /**
+     * @description Creates a startsWith string condition
+     * @summary Builds a condition that checks if the attribute string starts with the specified prefix
+     * @param {string} prefix - The prefix to match at the start of the string
+     * @return {Condition<M>} A new condition representing the startsWith comparison
+     */
+    startsWith(prefix: string) {
+      return this.setOp(Operator.STARTS_WITH, prefix);
+    }
+
+    /**
+     * @description Creates an endsWith string condition
+     * @summary Builds a condition that checks if the attribute string ends with the specified suffix
+     * @param {string} suffix - The suffix to match at the end of the string
+     * @return {Condition<M>} A new condition representing the endsWith comparison
+     */
+    endsWith(suffix: string) {
+      return this.setOp(Operator.ENDS_WITH, suffix);
+    }
+
+    /**
      * @description Creates a between condition
      * @summary Builds a condition that checks if the attribute value is between min and max (inclusive)
      * @param {any} min - The minimum value (inclusive)

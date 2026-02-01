@@ -29,6 +29,10 @@ export enum Operator {
   // IS = "IS",
   /** Regular expression matching */
   REGEXP = "REGEXP",
+  /** String starts-with comparison */
+  STARTS_WITH = "STARTS_WITH",
+  /** String ends-with comparison */
+  ENDS_WITH = "ENDS_WITH",
   GROUP_BY = "group-by",
   COUNT = "count",
   SUM = "sum",
@@ -57,6 +61,8 @@ export enum PreparedStatementKeys {
   FIND_BY = QueryClause.FIND_BY,
   FIND_ONE_BY = "findOneBy",
   PAGE_BY = "paginateBy",
+  FIND = "find",
+  PAGE = "page",
   COUNT_OF = "countOf",
   MAX_OF = "maxOf",
   MIN_OF = "minOf",

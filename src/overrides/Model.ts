@@ -61,6 +61,10 @@ declare module "@decaf-ts/decorator-validation" {
 
     function updatedBy<M extends Model>(m: Constructor<M> | M): keyof M;
 
+    function defaultQueryAttributes<M extends Model>(
+      m: Constructor<M> | M
+    ): string[];
+
     /**
      * @description Gets all relation properties defined on a model.
      * @summary Retrieves the names of all properties marked as relations in the model hierarchy.

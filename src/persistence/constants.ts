@@ -93,6 +93,8 @@ export enum PersistenceKeys {
   DECAF_ROUTE = "DecafRoute",
 
   THROTTLE = "throttle",
+
+  DEFAULT_QUERY_ATTR = "default-query-attr",
 }
 
 export const DefaultContextFlags: ContextFlags<any> = Object.assign(
@@ -163,6 +165,8 @@ export const MultipleSelectOperationKeys: (
   PreparedStatementKeys.PAGE_BY,
   PreparedStatementKeys.LIST_BY,
   PreparedStatementKeys.FIND_BY,
+  PreparedStatementKeys.FIND,
+  PreparedStatementKeys.PAGE,
 ];
 
 export const PaginationOperationKeys: (
@@ -171,4 +175,4 @@ export const PaginationOperationKeys: (
   | BulkCrudOperationKeys
   | PersistenceKeys
   | PreparedStatementKeys
-)[] = [PreparedStatementKeys.PAGE_BY];
+)[] = [PreparedStatementKeys.PAGE_BY, PreparedStatementKeys.PAGE];

@@ -435,6 +435,20 @@ export interface AttributeOption<M extends Model> {
    * @method
    */
   regexp(val: string | RegExp): Condition<M>;
+  /**
+   * @summary Test string starts with value
+   *
+   * @param {string} val the prefix to test
+   * @method
+   */
+  startsWith(val: string): Condition<M>;
+  /**
+   * @summary Test string ends with value
+   *
+   * @param {string} val the suffix to test
+   * @method
+   */
+  endsWith(val: string): Condition<M>;
 }
 /**
  * @description The starting point for creating query conditions

@@ -33,5 +33,7 @@ describe("AttributeOption Interface", () => {
     expect(attr.in([18, 25, 30])).toBeDefined();
     expect(attr.between(18, 65)).toBeDefined();
     expect(attr.regexp("^test")).toBeDefined();
+    expect(attr.startsWith("test")).toBeDefined();
+    expect(attr.endsWith("test")).toBeDefined();
   });
 });

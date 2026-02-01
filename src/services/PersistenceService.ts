@@ -6,6 +6,7 @@ import { Context } from "../persistence/Context";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Constructor } from "@decaf-ts/decoration";
 import { PersistenceKeys } from "../persistence/constants";
+import { UnsupportedError } from "../persistence/index";
 
 export class PersistenceService<
   A extends Adapter<any, any, any, any>,
@@ -16,6 +17,11 @@ export class PersistenceService<
 > {
   constructor() {
     super();
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  override for(conf: any, ...args: any[]): this {
+    throw new UnsupportedError("Persistence service cannot be overridden");
   }
 
   override async initialize(

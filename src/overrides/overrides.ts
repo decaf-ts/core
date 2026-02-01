@@ -199,6 +199,18 @@ import { type Migration } from "../migrations/types";
   return metadata ? metadata : (attribute as string);
 };
 
+(Model as any).defaultQueryAttributes = function defaultQueryAttributes<
+  M extends Model,
+>(m: Constructor<M> | M): string[] {
+  const constr = typeof m === "function" ? m : m.constructor;
+  return (
+    Metadata.get(
+      constr as any,
+      Metadata.key(PersistenceKeys.DEFAULT_QUERY_ATTR)
+    ) || [Model.pk(m)]
+  );
+};
+
 (Model as any).sequenceName = function <M extends Model>(
   model: M | Constructor<M>,
   ...args: string[]

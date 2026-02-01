@@ -1195,6 +1195,89 @@ export class Repository<
   }
 
   @prepared()
+  async find(
+    value: string,
+    order: OrderDirection = OrderDirection.ASC,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<M[]> {
+    if (typeof value !== "string")
+      throw new QueryError("Find value must be a string");
+    const attrs = this.getDefaultQueryAttributes();
+    const condition = this.buildDefaultStartsWithCondition(value, attrs);
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.FIND, true)
+    ).for(this.find);
+    log.verbose(
+      `finding ${Model.tableName(this.class)} by default attributes ${attrs.join(
+        ", "
+      )}`
+    );
+    return this.select()
+      .where(condition)
+      .orderBy([attrs[0], order])
+      .execute(...ctxArgs);
+  }
+
+  @prepared()
+  async page(
+    value: string,
+    direction: OrderDirection = OrderDirection.ASC,
+    ref: Omit<DirectionLimitOffset, "direction"> = {
+      offset: 1,
+      limit: 10,
+    },
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<SerializedPage<M>> {
+    if (typeof value !== "string")
+      throw new QueryError("Page value must be a string");
+    const requestedPage = ref.offset || 1;
+    const { offset, bookmark, limit } = ref;
+    if (!offset && !bookmark)
+      throw new QueryError(`PaginateBy needs a page or a bookmark`);
+    const attrs = this.getDefaultQueryAttributes();
+    const condition = this.buildDefaultStartsWithCondition(value, attrs);
+    const { log, ctx, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.PAGE, true)
+    ).for(this.page);
+    log.verbose(
+      `paging ${Model.tableName(this.class)} by default attributes ${attrs.join(
+        ", "
+      )}`
+    );
+    const limitValue = limit ?? 10;
+    const orderKey = attrs[0];
+    const overrideControls = this.override({
+      forcePrepareComplexQueries: false,
+      forcePrepareSimpleQueries: false,
+    } as any);
+
+    let paginator: Paginator<M>;
+    if (bookmark && ctx.get("paginateByBookmark")) {
+      const pk = Model.pk(this.class) as keyof M;
+      const bookmarkCondition =
+        direction === OrderDirection.ASC
+          ? this.attr(pk).gt(bookmark)
+          : this.attr(pk).lt(bookmark);
+      paginator = await overrideControls
+        .select()
+        .where(condition.and(bookmarkCondition))
+        .orderBy([orderKey, direction])
+        .paginate(limitValue, ...ctxArgs);
+    } else if (offset) {
+      paginator = await overrideControls
+        .select()
+        .where(condition)
+        .orderBy([orderKey, direction])
+        .paginate(limitValue, ...ctxArgs);
+    } else {
+      throw new QueryError(`PaginateBy needs a page or a bookmark`);
+    }
+    const paged = await paginator.page(requestedPage, bookmark, ...ctxArgs);
+    const serialization = paginator.serialize(paged) as SerializedPage<M>;
+    return serialization;
+  }
+
+  @prepared()
   async findOneBy(
     key: keyof M,
     value: any,
@@ -1386,6 +1469,33 @@ export class Repository<
     ).for(this.statement);
     log.verbose(`Executing prepared statement ${name}`);
     return (this as any)[name](...ctxArgs);
+  }
+
+  private getDefaultQueryAttributes(): (keyof M)[] {
+    const attrs = Model.defaultQueryAttributes(this.class);
+    if (!attrs || !attrs.length)
+      throw new QueryError(
+        `No default query attributes defined for ${Model.tableName(this.class)}`
+      );
+    return attrs as (keyof M)[];
+  }
+
+  private buildDefaultStartsWithCondition(
+    value: string,
+    attrs: (keyof M)[]
+  ): Condition<M> {
+    if (typeof value !== "string")
+      throw new QueryError("Default query value must be a string");
+    let condition: Condition<M> | undefined;
+    for (const attr of attrs) {
+      const attrCondition = this.attr(attr).startsWith(value);
+      condition = condition ? condition.or(attrCondition) : attrCondition;
+    }
+    if (!condition)
+      throw new QueryError(
+        `No default query attributes available for ${Model.tableName(this.class)}`
+      );
+    return condition;
   }
 
   attr(prop: keyof M) {

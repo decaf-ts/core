@@ -179,6 +179,7 @@ export type AdapterFlags<LOG extends Logger = Logger> = RepositoryFlags<LOG> &
     noEmit: boolean;
     noEmitSingle: boolean;
     noEmitBulk: boolean;
+    breakOnSingleFailureInBulk: boolean;
     observeFullResult: boolean;
     paginateByBookmark: boolean;
     dryRun: boolean;

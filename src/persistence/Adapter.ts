@@ -86,6 +86,41 @@ Decoration["flavourResolver"] = (obj: object) => {
   }
 };
 
+function resolveBulkSequenceResult<T>(
+  result: T[] | PromiseSettledResult<T>[],
+  continueOnError: boolean,
+  log: Logger,
+  operation: string
+): T[] {
+  if (!continueOnError) {
+    return result as T[];
+  }
+
+  const settled = result as PromiseSettledResult<T>[];
+  const fulfilled: T[] = [];
+  const errors: any[] = [];
+  for (const entry of settled) {
+    if (entry.status === "fulfilled") {
+      fulfilled.push(entry.value);
+    } else {
+      errors.push(entry.reason);
+    }
+  }
+
+  if (errors.length) {
+    log.warn(
+      `Bulk ${operation} encountered ${errors.length} failure(s) while continuing`
+    );
+    const aggregate = new AggregateError(
+      errors,
+      `Bulk ${operation} failed for ${errors.length} item(s)`
+    );
+    (aggregate as any).results = settled;
+    throw aggregate;
+  }
+  return fulfilled;
+}
+
 export type AdapterSubClass<A> =
   A extends Adapter<any, any, any, any> ? A : never;
 
@@ -697,17 +732,27 @@ export abstract class Adapter<
       throw new ValidationError("Ids and models must have the same length");
     const tableLabel = Model.tableName(clazz);
     log.debug(`Creating ${id.length} entries ${tableLabel} table`);
-    return promiseSequence(
-      id.map(
-        (i, count) => () =>
-          this.create(
-            clazz,
-            i,
-            model[count],
-            ...args,
-            ctx.override({ noEmitSingle: true }) as CONTEXT
-          )
-      )
+    const breakOnSingleFailure =
+      ctx.get("breakOnSingleFailureInBulk") ?? true;
+    const continueOnError = !breakOnSingleFailure;
+    const tasks = id.map(
+      (i, count) => () =>
+        this.create(
+          clazz,
+          i,
+          model[count],
+          ...args,
+          ctx.override({ noEmitSingle: true }) as CONTEXT
+        )
+    );
+    const rawResult = continueOnError
+      ? await promiseSequence(tasks, true)
+      : await promiseSequence(tasks);
+    return resolveBulkSequenceResult(
+      rawResult,
+      continueOnError,
+      log,
+      BulkCrudOperationKeys.CREATE_ALL
     );
   }
 
@@ -741,8 +786,10 @@ export abstract class Adapter<
     const { log, ctx } = this.logCtx(args, this.readAll);
     const tableName = Model.tableName(clazz);
     log.debug(`Reading ${id.length} entries ${tableName} table`);
-    return promiseSequence(
-      id.map(
+    const breakOnSingleFailure =
+      ctx.get("breakOnSingleFailureInBulk") ?? true;
+    const continueOnError = !breakOnSingleFailure;
+    const tasks = id.map(
         (i) => () =>
           this.read(
             clazz,
@@ -750,7 +797,15 @@ export abstract class Adapter<
             ...args,
             ctx.override({ noEmitSingle: true }) as CONTEXT
           )
-      )
+    );
+    const rawResult = continueOnError
+      ? await promiseSequence(tasks, true)
+      : await promiseSequence(tasks);
+    return resolveBulkSequenceResult(
+      rawResult,
+      continueOnError,
+      log,
+      BulkCrudOperationKeys.READ_ALL
     );
   }
 
@@ -791,8 +846,10 @@ export abstract class Adapter<
       throw new InternalError("Ids and models must have the same length");
     const tableLabel = Model.tableName(clazz);
     log.debug(`Updating ${id.length} entries ${tableLabel} table`);
-    return promiseSequence(
-      id.map(
+    const breakOnSingleFailure =
+      ctx.get("breakOnSingleFailureInBulk") ?? true;
+    const continueOnError = !breakOnSingleFailure;
+    const tasks = id.map(
         (i, count) => () =>
           this.update(
             clazz,
@@ -801,7 +858,15 @@ export abstract class Adapter<
             ...args,
             ctx.override({ noEmitSingle: true }) as CONTEXT
           )
-      )
+    );
+    const rawResult = continueOnError
+      ? await promiseSequence(tasks, true)
+      : await promiseSequence(tasks);
+    return resolveBulkSequenceResult(
+      rawResult,
+      continueOnError,
+      log,
+      BulkCrudOperationKeys.UPDATE_ALL
     );
   }
 
@@ -834,8 +899,10 @@ export abstract class Adapter<
   ): Promise<Record<string, any>[]> {
     const { log, ctx } = this.logCtx(args, this.deleteAll);
     log.debug(`Deleting ${id.length} entries from ${tableName} table`);
-    return promiseSequence(
-      id.map(
+    const breakOnSingleFailure =
+      ctx.get("breakOnSingleFailureInBulk") ?? true;
+    const continueOnError = !breakOnSingleFailure;
+    const tasks = id.map(
         (i) => () =>
           this.delete(
             tableName,
@@ -843,7 +910,15 @@ export abstract class Adapter<
             ...args,
             ctx.override({ noEmitSingle: true }) as CONTEXT
           )
-      )
+    );
+    const rawResult = continueOnError
+      ? await promiseSequence(tasks, true)
+      : await promiseSequence(tasks);
+    return resolveBulkSequenceResult(
+      rawResult,
+      continueOnError,
+      log,
+      BulkCrudOperationKeys.DELETE_ALL
     );
   }
 

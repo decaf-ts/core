@@ -91,6 +91,8 @@ export enum PersistenceKeys {
   AUTH_ROLE = "auth-role",
 
   DECAF_ROUTE = "DecafRoute",
+
+  THROTTLE = "throttle",
 }
 
 export const DefaultContextFlags: ContextFlags<any> = Object.assign(
@@ -112,6 +114,7 @@ export const DefaultAdapterFlags: AdapterFlags = Object.assign(
     noEmit: false,
     noEmitSingle: false,
     noEmitBulk: false,
+    breakOnSingleFailureInBulk: true,
     observeFullResult: true,
     paginateByBookmark: false,
     dryRun: false,

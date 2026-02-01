@@ -15,11 +15,35 @@ export function injectableServiceKey(
         .replaceAll(".", "-");
 }
 
-export function promiseSequence<T>(tasks: (() => Promise<T>)[]): Promise<T[]> {
-  return tasks.reduce(
-    (chain, task) => chain.then(async (results) => [...results, await task()]),
-    Promise.resolve([] as T[])
-  );
+export function promiseSequence<T>(
+  tasks: (() => Promise<T>)[],
+  continueOnError?: false
+): Promise<T[]>;
+export function promiseSequence<T>(
+  tasks: (() => Promise<T>)[],
+  continueOnError: true
+): Promise<PromiseSettledResult<T>[]>;
+export async function promiseSequence<T>(
+  tasks: (() => Promise<T>)[],
+  continueOnError = false
+): Promise<T[] | PromiseSettledResult<T>[]> {
+  if (!continueOnError) {
+    const results: T[] = [];
+    for (const task of tasks) {
+      results.push(await task());
+    }
+    return results;
+  }
+
+  const settled: PromiseSettledResult<T>[] = [];
+  for (const task of tasks) {
+    try {
+      settled.push({ status: "fulfilled", value: await task() });
+    } catch (reason) {
+      settled.push({ status: "rejected", reason });
+    }
+  }
+  return settled;
 }
 
 export function isOperationBlocked(

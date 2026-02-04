@@ -30,18 +30,19 @@ export class Context<
   getFromChildren<K extends keyof F>(key: K): F[K] | undefined {
     const res = this.getOrUndefined(key);
     if (res) return res;
-    const children = this.getOrUndefined("childContexts");
+    let children = this.getOrUndefined("childContexts");
     if (children && children.length) {
-      return children
-        .filter((child) => child !== this)
-        .map((child) => (child as any).getFromChildren(key))
-        .flat()
-        .reduce(
-          (acc, el) => {
-            return Object.assign(acc, el);
-          },
-          {} as Record<any, any>
-        );
+      children = children.filter((child) => child !== this);
+      if (children.length)
+        return children
+          .map((child) => (child as any).getFromChildren(key))
+          .flat()
+          .reduce(
+            (acc, el) => {
+              return Object.assign(acc, el);
+            },
+            {} as Record<any, any>
+          );
     }
     return undefined;
   }

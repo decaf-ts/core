@@ -19,11 +19,10 @@ import {
   TaskCancelError,
   TaskControlError,
   TaskFailError,
+  TaskNextAction,
   TaskRescheduleError,
   TaskRetryError,
 } from "./TaskErrors";
-
-type NextAction = "cancelled" | "retry" | "reschedule" | "failed";
 
 export class TaskTracker<O = any>
   implements Observer<[TaskEventModel, Context]>
@@ -71,6 +70,7 @@ export class TaskTracker<O = any>
     return this.awaitStatusTerminal([
       TaskStatus.SUCCEEDED,
       TaskStatus.FAILED,
+      TaskStatus.CANCELED,
     ]);
   }
 
@@ -296,21 +296,21 @@ export class TaskTracker<O = any>
     }
   }
 
-  private assignNextAction(error: Error, action?: NextAction) {
+  private assignNextAction(error: Error, action?: TaskNextAction) {
     if (action) (error as any).nextAction = action;
     return error;
   }
 
-  private getNextAction(status?: TaskStatus): NextAction | undefined {
+  private getNextAction(status?: TaskStatus): TaskNextAction | undefined {
     switch (status) {
       case TaskStatus.CANCELED:
-        return "cancelled";
+        return TaskStatus.CANCELED;
       case TaskStatus.WAITING_RETRY:
-        return "retry";
+        return TaskStatus.WAITING_RETRY;
       case TaskStatus.SCHEDULED:
-        return "reschedule";
+        return TaskStatus.SCHEDULED;
       case TaskStatus.FAILED:
-        return "failed";
+        return TaskStatus.FAILED;
       default:
         return undefined;
     }

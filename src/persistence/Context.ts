@@ -33,6 +33,7 @@ export class Context<
     const children = this.getOrUndefined("childContexts");
     if (children && children.length) {
       return children
+        .filter()
         .map((child) => (child as any).getFromChildren(key))
         .flat()
         .reduce(

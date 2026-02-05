@@ -21,11 +21,19 @@ import {
   TaskType,
 } from "../../src/tasks/constants";
 import { Repo, Repository } from "../../src/repository";
+import { repository } from "../../src/repository/decorators";
 import { sleep } from "../../src/tasks/utils";
-import { Observer, TaskService } from "../../src/index";
+import { Observer, Service, TaskService, pk } from "../../src/index";
 import { TaskEngineConfig } from "../../src/tasks/index";
 import { Condition } from "../../src/query/Condition";
 import { ValidationError } from "@decaf-ts/db-decorators";
+import { service } from "../../src/utils/decorators";
+import {
+  Model,
+  ModelArg,
+  model,
+  required,
+} from "@decaf-ts/decorator-validation";
 
 jest.setTimeout(200000);
 
@@ -96,6 +104,28 @@ const parseNumberInput = (input: unknown): number | undefined => {
     if (typeof value === "number") return value;
   }
   return undefined;
+};
+
+const getStepResults = (...candidates: any[]): any[] => {
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (Array.isArray(candidate)) return candidate;
+    if (Array.isArray(candidate.stepResults)) return candidate.stepResults;
+    const raw = candidate.output ?? candidate.stepResults;
+    if (Array.isArray(raw)) return raw;
+    if (raw && Array.isArray(raw.stepResults)) return raw.stepResults;
+    if (typeof raw === "string") {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+        if (parsed && Array.isArray(parsed.stepResults))
+          return parsed.stepResults;
+      } catch {
+        // ignore parse errors
+      }
+    }
+  }
+  return [];
 };
 
 const parseObjectInput = <T extends object>(input: unknown): T | undefined => {
@@ -282,6 +312,73 @@ class MultipleEntitiesTask extends TaskHandler<
 class FailingTask extends TaskHandler<void, any> {
   async run(_: void, ctx: TaskContext) {
     throw new ValidationError("FAILED");
+  }
+}
+
+@service("task-calculator-service")
+class TaskCalculatorService extends Service {
+  private readonly factor = 3;
+
+  multiply(value: number) {
+    return value * this.factor;
+  }
+}
+
+@model()
+class RepositoryInjectionModel extends Model {
+  @pk({ type: Number, generated: true })
+  id!: number;
+
+  @required()
+  value!: number;
+
+  constructor(arg?: ModelArg<RepositoryInjectionModel>) {
+    super(arg);
+  }
+}
+
+@task("service-injected-task")
+class ServiceInjectedTask extends TaskHandler<number | { value: number }, number> {
+  @service("task-calculator-service")
+  private calculator!: TaskCalculatorService;
+
+  async run(input: number | { value: number }, ctx: TaskContext) {
+    const value = parseNumberInput(input);
+    if (typeof value !== "number")
+      throw new Error("invalid service-injected-task input");
+    const result = this.calculator.multiply(value);
+    await ctx.flush();
+    return result;
+  }
+}
+
+@task("repo-write-step")
+class RepositoryWriteStep extends TaskHandler<{ value: number }, number> {
+  @repository(RepositoryInjectionModel)
+  private repo!: Repo<RepositoryInjectionModel>;
+
+  async run(input: { value: number }, ctx: TaskContext) {
+    const entity = new RepositoryInjectionModel({ value: input.value });
+    const created = await this.repo.create(entity);
+    ctx.cacheResult("repo-write-step", created.id);
+    await ctx.flush();
+    return created.id as number;
+  }
+}
+
+@task("repo-read-step")
+class RepositoryReadStep extends TaskHandler<void, number> {
+  @repository(RepositoryInjectionModel)
+  private repo!: Repo<RepositoryInjectionModel>;
+
+  async run(_: void, ctx: TaskContext) {
+    const cache = ctx.resultCache ?? {};
+    const createdId = cache["repo-write-step"];
+    if (typeof createdId !== "number")
+      throw new Error("repo-write-step result missing");
+    const entity = await this.repo.read(createdId);
+    await ctx.flush();
+    return entity.value;
   }
 }
 
@@ -478,6 +575,33 @@ describe("Task Engine", () => {
     expect(persisted.logTail?.length ?? 0).toBeGreaterThan(0);
   });
 
+  it("executes atomic tasks whose handler injects a service", async () => {
+    const dates = createDates();
+    const toSubmit = new TaskBuilder({
+      classification: "service-injected-task",
+      input: { value: 6 },
+      maxAttempts: 1,
+      attempt: 0,
+      ...dates,
+      backoff: createBackoff(),
+    }).build();
+
+    const handler = registry.get("service-injected-task") as ServiceInjectedTask;
+    expect(handler).toBeDefined();
+    const injectedService = (handler as any).calculator;
+    expect(injectedService).toBeDefined();
+    const serviceInstance = Service.get("task-calculator-service");
+    expect(injectedService).toBe(serviceInstance);
+
+    const { task, tracker } = await engine.push(toSubmit, true);
+    const finished = await tracker.resolve();
+    expect(finished).toBe(18);
+
+    const persisted = await taskRepo.read(task.id);
+    expect(persisted.status).toBe(TaskStatus.SUCCEEDED);
+    expect(persisted.output).toBe(18);
+  });
+
   it("emits progress events and extends leases on heartbeat", async () => {
     const dates = createDates();
     const toSubmit = new TaskBuilder({
@@ -628,6 +752,51 @@ describe("Task Engine", () => {
       currentStep: 3,
       totalSteps: 3,
     });
+  });
+
+  it("executes composite tasks whose steps inject repositories", async () => {
+    const dates = createDates();
+    const composite = new CompositeTaskBuilder({
+      classification: "repository-injected-composite",
+      atomicity: TaskType.COMPOSITE,
+      attempt: 0,
+      maxAttempts: 1,
+      ...dates,
+      backoff: createBackoff(),
+    })
+      .addStep("repo-write-step", { value: 11 })
+      .addStep("repo-read-step")
+      .build();
+
+    const writer = registry.get("repo-write-step") as RepositoryWriteStep;
+    const reader = registry.get("repo-read-step") as RepositoryReadStep;
+    expect(writer).toBeDefined();
+    expect(reader).toBeDefined();
+    const recordsRepo = Repository.forModel(
+      RepositoryInjectionModel,
+      adapter.alias
+    );
+    expect((writer as any).repo).toBe(recordsRepo);
+    expect((reader as any).repo).toBe(recordsRepo);
+
+    const { task, tracker } = await engine.push(composite, true);
+    const finished = await tracker.resolve();
+
+    const persisted = await taskRepo.read(task.id);
+    expect(persisted.status).toBe(TaskStatus.SUCCEEDED);
+    const stepResults = getStepResults(finished, persisted);
+    expect(stepResults.length).toBe(2);
+
+    const writeResult = stepResults[0];
+    const readResult = stepResults[1];
+    expect(writeResult).toBeDefined();
+    expect(readResult).toBeDefined();
+    const createdId = writeResult!.output as number;
+    expect(typeof createdId).toBe("number");
+    expect(readResult!.output).toBe(11);
+
+    const stored = await recordsRepo.read(createdId);
+    expect(stored.value).toBe(11);
   });
 
   it("cancels pending tasks and emits cancellation events", async () => {

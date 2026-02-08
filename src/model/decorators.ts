@@ -273,14 +273,20 @@ export function updatedAt() {
 }
 
 export function getPkTypes(model: Constructor | (() => Constructor)) {
-  const resolvedClazz =
-    typeof model === "function" && model.name
-      ? (model as Constructor)
-      : (model as () => Constructor)();
-  const pk = Model.pk(resolvedClazz as Constructor);
-  return (
-    Metadata.allowedTypes(resolvedClazz as Constructor, pk as string) || []
-  );
+  return [
+    // this needs to return a function to keep cross references possible even if currently we only have access to first defined type
+    () => {
+      const resolvedClazz =
+        typeof model === "function" && model.name
+          ? (model as Constructor)
+          : (model as () => Constructor)();
+      const pk = Model.pk(resolvedClazz as Constructor);
+      return (Metadata.allowedTypes(
+        resolvedClazz as Constructor,
+        pk as string
+      ) || [])[0];
+    },
+  ];
 }
 
 /**

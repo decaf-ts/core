@@ -27,15 +27,22 @@ export class Context<
     this.accumulate({ pending: pending });
   }
 
-  getFromChildren<K extends keyof F>(key: K): F[K] | undefined {
+  getFromChildren<K extends keyof F>(
+    key: K,
+    visited: Set<Context<any>> = new Set()
+  ): F[K] | undefined {
+    if (visited.has(this)) return undefined;
+    visited.add(this);
     const res = this.getOrUndefined(key);
     if (res !== undefined && res !== null) return res;
     let children = this.getOrUndefined("childContexts" as K);
     if (children && (children as any).length) {
-      children = (children as any[]).filter((child) => child !== this) as any;
+      children = (children as any[]).filter(
+        (child: any) => !visited.has(child)
+      ) as any;
       if ((children as any[]).length) {
         const results = (children as any[])
-          .map((child) => child.getFromChildren(key))
+          .map((child: any) => child.getFromChildren(key, visited))
           .flat()
           .filter(
             (el: unknown) => el !== undefined && el !== null

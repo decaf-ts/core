@@ -452,6 +452,6 @@ export abstract class ClientBasedService<
 
   async shutdown(...args: MaybeContextualArg<C>): Promise<void> {
     const { log } = await this.logCtx(args, this.shutdown, true);
-    log.info(`Shutting down ${this.name} service...`);
+    log.info(`Shutting down...`);
   }
 }

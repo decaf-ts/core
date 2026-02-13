@@ -474,12 +474,17 @@ export async function oneToOneOnDelete<M extends Model, R extends Repo<M>>(
  *
  *   oneToManyOnCreate-->>Caller: void
  */
-export async function oneToManyOnCreate<M extends Model, R extends Repo<M>>(
+export async function oneToManyOnCreateUpdate<
+  M extends Model,
+  R extends Repo<M>,
+>(
   this: R,
   context: ContextOf<R>,
   data: RelationsMetadata,
   key: keyof M,
-  model: M
+  model: M,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  oldModel?: M
 ): Promise<void> {
   const propertyValues: any = model[key];
   if (!propertyValues || !propertyValues.length) return;
@@ -491,11 +496,13 @@ export async function oneToManyOnCreate<M extends Model, R extends Repo<M>>(
     throw new InternalError(
       `Invalid operation. All elements of property ${key as string} must match the same type.`
     );
-  const log = context.logger.for(oneToManyOnCreate);
+  const log = context.logger.for(oneToManyOnCreateUpdate);
   const uniqueValues = new Set([...propertyValues]);
   if (arrayType !== "object") {
     const repo = repositoryFromTypeMetadata(model, key, this.adapter.alias);
-    const read = await repo.readAll([...uniqueValues.values()], context);
+    const read = await repo
+      .override(this._overrides)
+      .readAll([...uniqueValues.values()], context);
     for (let i = 0; i < read.length; i++) {
       const model = read[i];
       log.info(`FOUND ONE TO MANY VALUE: ${JSON.stringify(model)}`);
@@ -575,15 +582,17 @@ export async function oneToManyOnUpdate<M extends Model, R extends Repo<M>>(
   context: ContextOf<R>,
   data: RelationsMetadata,
   key: keyof M,
-  model: M
+  model: M,
+  oldModel?: M
 ): Promise<void> {
   const { cascade } = data;
   if (cascade.update !== Cascade.CASCADE) return;
-  return oneToManyOnCreate.apply(this as any, [
+  return oneToManyOnCreateUpdate.apply(this as any, [
     context,
     data,
     key as keyof Model,
     model,
+    oldModel,
   ]);
 }
 

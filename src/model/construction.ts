@@ -679,7 +679,7 @@ export async function oneToManyOnDelete<M extends Model, R extends Repo<M>>(
   const ids = [...uniqueValues.values()];
   let deleted: Model[];
   try {
-    deleted = await repo.deleteAll(ids, context);
+    deleted = await repo.override(this._overrides).deleteAll(ids, context);
   } catch (e: unknown) {
     context.logger.error(`Failed to delete all records`, e);
     throw e;
@@ -720,7 +720,7 @@ export async function manyToOneOnCreate<M extends Model, R extends Repo<M>>(
       key,
       this.adapter.alias
     );
-    const read = await innerRepo.read(propertyValue);
+    const read = await innerRepo.override(this._overrides).read(propertyValue);
     await cacheModelForPopulate(context, model, key, propertyValue, read);
     (model as any)[key] = propertyValue;
     return;
@@ -736,7 +736,9 @@ export async function manyToOneOnCreate<M extends Model, R extends Repo<M>>(
   const record = await createOrUpdate(
     propertyValue,
     context,
-    this.adapter.alias
+    this.adapter.alias,
+    undefined,
+    this._overrides
   );
   const pk = Model.pk(record);
 
@@ -821,7 +823,7 @@ export async function manyToOneOnDelete<M extends Model, R extends Repo<M>>(
 
   const repoId = isInstantiated ? value[repo["pk"] as string] : value;
 
-  const deleted = await repo.delete(repoId);
+  const deleted = await repo.override(this._overrides).delete(repoId);
   await cacheModelForPopulate(context, model, key, repoId, deleted);
 
   (model as any)[key] = repoId;
@@ -849,7 +851,9 @@ export async function manyToManyOnCreate<M extends Model, R extends Repo<M>>(
   // If it's a primitive value (ID), read the existing record
   if (arrayType !== "object") {
     const repo = repositoryFromTypeMetadata(modelA, key, this.adapter.alias);
-    const read = await repo.readAll([...uniqueValues.values()], context);
+    const read = await repo
+      .override(this._overrides)
+      .readAll([...uniqueValues.values()], context);
     for (let i = 0; i < read.length; i++) {
       const model = read[i];
       log.info(`FOUND MANY TO MANY VALUE: ${JSON.stringify(model)}`);
@@ -884,7 +888,9 @@ export async function manyToManyOnCreate<M extends Model, R extends Repo<M>>(
     const record = await createOrUpdate(
       propertyValue,
       context,
-      this.adapter.alias
+      this.adapter.alias,
+      undefined,
+      this._overrides
     );
     log.info(`caching: ${JSON.stringify(record)} under ${record[pkName]}`);
     await cacheModelForPopulate(context, modelA, key, record[pkName], record);
@@ -980,7 +986,9 @@ async function getOrCreateJunctionModel<M extends Model, R extends Repo<M>>(
     const record: any = await createOrUpdate(
       new JunctionModel(junctionRegister),
       context,
-      this.adapter.alias
+      this.adapter.alias,
+      undefined,
+      this._overrides
     );
     if (record?.id) recordIds.push(record.id);
   }
@@ -992,7 +1000,9 @@ async function getOrCreateJunctionModel<M extends Model, R extends Repo<M>>(
     const repository = Repository.forModel<M, Repo<M>>(
       JunctionModel as unknown as ModelConstructor<M>
     );
-    const results = await repository?.readAll(recordIds);
+    const results = await repository
+      ?.override(this._overrides)
+      .readAll(recordIds);
     console.log("results:", results);
   } else
     console.error(
@@ -1119,7 +1129,7 @@ export async function manyToManyOnDelete<M extends Model, R extends Repo<M>>(
   const ids = [...uniqueValues.values()];
   let deleted: Model[];
   try {
-    deleted = await repo.deleteAll(ids, context);
+    deleted = await repo.override(this._overrides).deleteAll(ids, context);
   } catch (e: unknown) {
     context.logger.error(`Failed to delete all records`, e);
     throw e;
@@ -1266,6 +1276,9 @@ export async function populate<M extends Model, R extends Repo<M>>(
   const isArr = Array.isArray(nested);
   if (typeof nested === "undefined" || (isArr && nested.length === 0)) return;
 
+  // eslint-disable-next-line @typescript-eslint/no-this-alias
+  const self = this;
+
   async function fetchPopulateValues(
     c: ContextOf<R>,
     model: M,
@@ -1285,7 +1298,9 @@ export async function populate<M extends Model, R extends Repo<M>>(
       } catch (e: any) {
         const repo = repositoryFromTypeMetadata(model, propName as keyof M);
         if (!repo) throw new InternalError("Could not find repo");
-        val = await repo.read(proKeyValue, context);
+        val = await repo
+          .override((self as any)._overrides)
+          .read(proKeyValue, context);
       }
       results.push(val);
     }
@@ -1342,7 +1357,9 @@ export async function cascadeDelete<M extends Model, R extends Repo<M>>(
   if (!repo) throw new InternalError("Could not find repo");
   console.log("herehere");
   try {
-    const deleted = await repo.deleteAll(toDelete, context);
+    const deleted = await repo
+      .override(this._overrides)
+      .deleteAll(toDelete, context);
     context.logger.debug(
       `Deleted ${deleted.length} entries from table ${Model.tableName(repo.class)} due to cascade rules with `
     );

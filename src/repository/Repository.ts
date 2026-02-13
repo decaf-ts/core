@@ -731,7 +731,18 @@ export class Repository<
       );
     let oldModel: M | undefined;
     if (ctx.get("applyUpdateValidation")) {
-      oldModel = await this.read(pk as string, ctx);
+      if (!ignoreHandlers)
+        await enforceDBDecorators(
+          this,
+          ctx as any,
+          model,
+          OperationKeys.READ,
+          OperationKeys.ON
+        );
+      oldModel = await this.override({ ignoreHandlers: true } as any).read(
+        pk as string,
+        ctx
+      );
       if (ctx.get("mergeForUpdate"))
         model = Model.merge(oldModel, model, this.class);
     }

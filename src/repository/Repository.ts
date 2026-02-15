@@ -522,7 +522,7 @@ export class Repository<
     if (Model.generatedBySequence(this.class)) {
       if (!opts.name) opts.name = Model.sequenceName(models[0], "pk");
       ids = await (
-        await this.adapter.Sequence(opts)
+        await this.adapter.Sequence(opts, this._overrides)
       ).range(models.length, ...ctxArgs);
     } else if (!Model.generated(this.class, this.pk)) {
       ids = models.map((m, i) => {
@@ -731,18 +731,7 @@ export class Repository<
       );
     let oldModel: M | undefined;
     if (ctx.get("applyUpdateValidation")) {
-      if (!ignoreHandlers)
-        await enforceDBDecorators(
-          this,
-          ctx as any,
-          model,
-          OperationKeys.READ,
-          OperationKeys.ON
-        );
-      oldModel = await this.override({ ignoreHandlers: true } as any).read(
-        pk as string,
-        ctx
-      );
+      oldModel = await this.read(pk as string, ctx);
       if (ctx.get("mergeForUpdate"))
         model = Model.merge(oldModel, model, this.class);
     }

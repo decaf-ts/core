@@ -235,7 +235,9 @@ export async function oneToOneOnCreate<M extends Model, R extends Repo<M>>(
       key,
       this.adapter.alias
     );
-    const read = await innerRepo.read(propertyValue, context);
+    const read = await innerRepo
+      .override(this._overrides)
+      .read(propertyValue, context);
     await cacheModelForPopulate(context, model, key, propertyValue, read);
     (model as any)[key] = propertyValue;
     return;
@@ -491,56 +493,105 @@ export async function oneToManyOnCreateUpdate<
 
   if (!validBidirectionalRelation(model, data)) return;
 
-  const arrayType = typeof propertyValues[0];
-  if (!propertyValues.every((item: any) => typeof item === arrayType))
-    throw new InternalError(
-      `Invalid operation. All elements of property ${key as string} must match the same type.`
-    );
   const log = context.logger.for(oneToManyOnCreateUpdate);
-  const uniqueValues = new Set([...propertyValues]);
-  if (arrayType !== "object") {
-    const repo = repositoryFromTypeMetadata(model, key, this.adapter.alias);
-    const read = await repo
-      .override(this._overrides)
-      .readAll([...uniqueValues.values()], context);
-    for (let i = 0; i < read.length; i++) {
-      const model = read[i];
-      log.info(`FOUND ONE TO MANY VALUE: ${JSON.stringify(model)}`);
-      await cacheModelForPopulate(
-        context,
-        model,
-        key,
-        [...uniqueValues.values()][i],
-        read
-      );
-    }
-    // for (const model of read) {
-    //   // const read = await repo.read(id, context);
-    //
-    // }
-    (model as any)[key] = [...uniqueValues];
-    log.info(`SET ONE TO MANY IDS: ${(model as any)[key]}`);
-    return;
-  }
 
-  const pkName = Model.pk(propertyValues[0].constructor);
-
+  const repo = repositoryFromTypeMetadata(model, key, this.adapter.alias);
+  const pkName = Model.pk(
+    typeof data.class === "function" && !data.class.name
+      ? (data.class as any)()
+      : data.class
+  );
   const result: Set<string> = new Set();
 
-  for (const m of propertyValues) {
-    log.info(`Creating or updating one-to-many model: ${JSON.stringify(m)}`);
-    const record = await createOrUpdate(
-      m,
-      context,
-      this.adapter.alias,
-      undefined,
-      this._overrides
+  for (const property of propertyValues) {
+    let m: M;
+    if (typeof property !== "object") {
+      m = await repo.override(this._overrides).read(property, context);
+      log.debug(`read: ${m[pkName as keyof typeof m]}`);
+    } else {
+      log.verbose(
+        `Creating or updating one-to-many model: ${property[pkName as keyof typeof property]}`
+      );
+      m = await createOrUpdate(
+        property,
+        context,
+        this.adapter.alias,
+        undefined,
+        this._overrides
+      );
+    }
+    log.debug(
+      `caching for populate: ${JSON.stringify(m)} under ${m[pkName as keyof typeof m]}`
     );
-    log.info(`caching: ${JSON.stringify(record)} under ${record[pkName]}`);
-    await cacheModelForPopulate(context, model, key, record[pkName], record);
-    log.info(`Creating or updating one-to-many model: ${JSON.stringify(m)}`);
-    result.add(record[pkName]);
+    await cacheModelForPopulate(
+      context,
+      model,
+      key,
+      m[pkName as keyof typeof m] as string | number,
+      m
+    );
+    result.add(m[pkName as keyof typeof m] as string);
   }
+
+  // const arrayType = typeof propertyValues[0];
+  // if (!propertyValues.every((item: any) => typeof item === arrayType))
+  //   throw new InternalError(
+  //     `Invalid operation. All elements of property ${key as string} must match the same type.`
+  //   );
+  // const log = context.logger.for(oneToManyOnCreateUpdate);
+  // const uniqueValues = new Set([...propertyValues]);
+  // if (arrayType !== "object") {
+  //   const repo = repositoryFromTypeMetadata(model, key, this.adapter.alias);
+  //   const read = await repo
+  //     .override(this._overrides)
+  //     .readAll([...uniqueValues.values()], context);
+  //   for (let i = 0; i < read.length; i++) {
+  //     const model = read[i];
+  //     log.info(`FOUND ONE TO MANY VALUE: ${JSON.stringify(model)}`);
+  //     await cacheModelForPopulate(
+  //       context,
+  //       model,
+  //       key,
+  //       [...uniqueValues.values()][i],
+  //       read
+  //     );
+  //   }
+  //   // for (const model of read) {
+  //   //   // const read = await repo.read(id, context);
+  //   //
+  //   // }
+  //   (model as any)[key] = [...uniqueValues];
+  //   log.info(`SET ONE TO MANY IDS: ${(model as any)[key]}`);
+  //   return;
+  // }
+  //
+  // const pkName = Model.pk(propertyValues[0].constructor);
+  //
+  // const result: Set<string> = new Set();
+  //
+  // for (const m of propertyValues) {
+  //   log.info(`Creating or updating one-to-many model: ${JSON.stringify(m)}`);
+  //   const record = await createOrUpdate(
+  //     m,
+  //     context,
+  //     this.adapter.alias,
+  //     undefined,
+  //     this._overrides
+  //   );
+  //   log.info(`caching: ${JSON.stringify(record)} under ${record[pkName]}`);
+  //
+  //   if (!record[pkName]) {
+  //     console.error(`Missing pk for relation ${String(key)}:`, {
+  //       pkName,
+  //       record,
+  //       pkValue: record[pkName],
+  //       pkComputed: Model.pk(record, true),
+  //     });
+  //   }
+  //   await cacheModelForPopulate(context, model, key, record[pkName], record);
+  // log.info(`Creating or updating one-to-many model: ${JSON.stringify(m)}`);
+  // result.add(record[pkName]);
+  // }
 
   (model as any)[key] = [...result];
 }
@@ -720,7 +771,9 @@ export async function manyToOneOnCreate<M extends Model, R extends Repo<M>>(
       key,
       this.adapter.alias
     );
-    const read = await innerRepo.override(this._overrides).read(propertyValue);
+    const read = await innerRepo
+      .override(this._overrides)
+      .read(propertyValue, context);
     await cacheModelForPopulate(context, model, key, propertyValue, read);
     (model as any)[key] = propertyValue;
     return;
@@ -940,7 +993,10 @@ async function getNextId<M extends Model, R extends Repo<M>>(
   let sequence: Sequence;
   try {
     // Access adapter through the public property 'db' or use type assertion
-    sequence = await (repo as any).adapter.Sequence(pkProps);
+    sequence = await (repo as any).adapter.Sequence(
+      pkProps,
+      repo["_overrides"]
+    );
     return await sequence.next(context);
   } catch (e: any) {
     throw new InternalError(

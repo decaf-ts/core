@@ -114,7 +114,7 @@ export abstract class Statement<
   protected countDistinctSelector?: SelectSelector<M> | null;
   protected sumSelector?: SelectSelector<M>;
   protected avgSelector?: SelectSelector<M>;
-  private _inCountMode: boolean = false;
+  protected _inCountMode: boolean = false;
   protected fromSelector!: Constructor<M>;
   protected whereCondition?: Condition<M>;
   protected orderBySelectors?: OrderBySelector<M>[];
@@ -170,7 +170,10 @@ export abstract class Statement<
       !this.whereCondition &&
       !this.selectSelector?.length &&
       (this.groupBySelectors?.length || 0) <= 1;
-    if ((forceSimple && (this.isSimpleQuery() || isSimpleAggregation)) || forceComplex) {
+    if (
+      (forceSimple && (this.isSimpleQuery() || isSimpleAggregation)) ||
+      forceComplex
+    ) {
       log.silly(
         `squashing ${!forceComplex ? "simple" : "complex"} query to prepared statement`
       );
@@ -224,7 +227,9 @@ export abstract class Statement<
     }
     // Standalone distinct requires a selector
     if (!selector) {
-      throw new QueryError("distinct() requires a selector when not chained after count()");
+      throw new QueryError(
+        "distinct() requires a selector when not chained after count()"
+      );
     }
     this.distinctSelector = selector;
     return this as unknown as DistinctOption<M, M[S][]>;
@@ -417,16 +422,19 @@ export abstract class Statement<
     }
   }
 
-  private revertGroupedResults(
+  protected revertGroupedResults(
     value: any,
     processor: (record: any) => any
   ): any {
     if (Array.isArray(value)) return value.map(processor);
     if (value && typeof value === "object") {
-      return Object.entries(value).reduce<Record<string, any>>((acc, [key, val]) => {
-        acc[key] = this.revertGroupedResults(val, processor);
-        return acc;
-      }, {});
+      return Object.entries(value).reduce<Record<string, any>>(
+        (acc, [key, val]) => {
+          acc[key] = this.revertGroupedResults(val, processor);
+          return acc;
+        },
+        {}
+      );
     }
     return value;
   }
@@ -568,7 +576,10 @@ export abstract class Statement<
     // Try to squash simple aggregation queries without where conditions
     if (!this.whereCondition && !this.selectSelector?.length) {
       // Count query
-      if (typeof this.countSelector !== "undefined" && !this.countDistinctSelector) {
+      if (
+        typeof this.countSelector !== "undefined" &&
+        !this.countDistinctSelector
+      ) {
         return {
           class: this.fromSelector,
           method: PreparedStatementKeys.COUNT_OF,
@@ -799,7 +810,10 @@ export abstract class Statement<
     }
 
     // Also try to squash aggregation queries
-    if ((ctx as ContextOf<A>).get("forcePrepareSimpleQueries") || (ctx as ContextOf<A>).get("forcePrepareComplexQueries")) {
+    if (
+      (ctx as ContextOf<A>).get("forcePrepareSimpleQueries") ||
+      (ctx as ContextOf<A>).get("forcePrepareComplexQueries")
+    ) {
       const squashed = this.squash(ctx as ContextOf<A>);
       if (squashed) {
         this.prepared = squashed;
@@ -822,7 +836,10 @@ export abstract class Statement<
 
     if (typeof this.countSelector !== "undefined") {
       methodPrefix = QueryClause.COUNT_BY;
-      selectorField = this.countSelector !== null ? this.countSelector as string : undefined;
+      selectorField =
+        this.countSelector !== null
+          ? (this.countSelector as string)
+          : undefined;
     } else if (this.sumSelector) {
       methodPrefix = QueryClause.SUM_BY;
       selectorField = this.sumSelector as string;
@@ -880,11 +897,17 @@ export abstract class Statement<
       }
     }
     // Handle groupBy for non-aggregation queries (already handled for group prefix)
-    if (this.groupBySelectors?.length && methodPrefix !== QueryClause.GROUP_BY_PREFIX) {
+    if (
+      this.groupBySelectors?.length &&
+      methodPrefix !== QueryClause.GROUP_BY_PREFIX
+    ) {
       const [primary, ...rest] = this.groupBySelectors;
       method.push(QueryClause.GROUP_BY, primary as string);
       rest.forEach((attr) => method.push(QueryClause.THEN_BY, attr as string));
-    } else if (this.groupBySelectors?.length && methodPrefix === QueryClause.GROUP_BY_PREFIX) {
+    } else if (
+      this.groupBySelectors?.length &&
+      methodPrefix === QueryClause.GROUP_BY_PREFIX
+    ) {
       // For group prefix, add additional group fields as ThenBy
       const rest = this.groupBySelectors.slice(1);
       rest.forEach((attr) => method.push(QueryClause.THEN_BY, attr as string));
@@ -922,7 +945,7 @@ export abstract class Statement<
       typeof this.sumSelector !== "undefined" ||
       typeof this.avgSelector !== "undefined" ||
       typeof this.distinctSelector !== "undefined" ||
-      ((this.groupBySelectors?.length || 0) > 0)
+      (this.groupBySelectors?.length || 0) > 0
     );
   }
 

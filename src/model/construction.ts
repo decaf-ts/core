@@ -9,7 +9,12 @@ import {
 } from "@decaf-ts/decorator-validation";
 import { Repo, Repository } from "../repository/Repository";
 import { RelationsMetadata } from "./types";
-import { InternalError, NotFoundError } from "@decaf-ts/db-decorators";
+import {
+  InternalError,
+  NotFoundError,
+  OperationKeys,
+  BulkCrudOperationKeys,
+} from "@decaf-ts/db-decorators";
 import { PersistenceKeys } from "../persistence/constants";
 import { Cascade } from "../repository/constants";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
@@ -1344,7 +1349,17 @@ export async function populate<M extends Model, R extends Repo<M>>(
     let cacheKey: string;
     let val: any;
     const results: M[] = [];
-    const cache = c.get("cacheForPopulate") || {};
+    let operation: string | undefined;
+    try {
+      operation = c.get("operation" as any);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e: any) {
+      operation = undefined;
+    }
+    const isRead =
+      operation === OperationKeys.READ ||
+      operation === BulkCrudOperationKeys.READ_ALL;
+    const cache = isRead ? {} : c.get("cacheForPopulate") || {};
     for (const proKeyValue of propKeyValues) {
       cacheKey = getPopulateKey(model.constructor.name, propName, proKeyValue);
       try {

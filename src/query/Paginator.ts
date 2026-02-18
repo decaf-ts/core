@@ -272,8 +272,8 @@ export abstract class Paginator<
         : serialization;
 
     this._currentPage = ser.current;
-    this._totalPages = ser.total;
-    this._recordCount = ser.count;
+    this._totalPages = ser.total || this._totalPages;
+    this._recordCount = ser.count || this._recordCount;
     this._bookmark = ser.bookmark;
     return ser.data;
   }

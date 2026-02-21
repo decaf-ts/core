@@ -1,99 +1,85 @@
 # Core Package — Detailed Description
 
-The Decaf Core package provides a cohesive set of primitives for building strongly-typed data-access layers in TypeScript. It centers around:
+The Decaf Core package provides a cohesive set of primitives for building strongly-typed data-access layers and managing background tasks in TypeScript. It centers around:
 
-- Models (from @decaf-ts/decorator-validation) enhanced with identity and persistence metadata
-- A Repository abstraction that encapsulates CRUD, querying, and observation
-- Adapters that bridge repositories to underlying storage (in-memory, HTTP, TypeORM, etc.)
-- A fluent Query DSL (Statement/Condition) with pagination
-- Lightweight dependency injection utilities to auto-resolve repositories
+- Models (from @decaf-ts/decorator-validation) enhanced with identity and persistence metadata.
+- A Repository abstraction that encapsulates CRUD, querying, and observation.
+- A powerful Task Engine for defining, scheduling, and executing background jobs with support for worker threads.
+- Adapters that bridge repositories to underlying storage (in-memory, HTTP, TypeORM, etc.).
+- A fluent Query DSL (Statement/Condition) with pagination.
+- Lightweight dependency injection utilities to auto-resolve repositories.
 
 Below is an overview of the main modules and their public APIs exposed by core.
 
-1) Repository module
-- Repository<M>
-  - Constructor: new Repository(adapter: Adapter, clazz: Constructor<M>, ...)
-  - CRUD: create, read, update, delete
-  - Bulk ops: createAll, readAll, updateAll, deleteAll
-  - Hooks: createPrefix/createSuffix, updateAllPrefix, readAllPrefix, deleteAllPrefix (internal orchestration helpers)
-  - Query: select(...selectors?), query(condition?, orderBy?, order?, limit?, skip?)
-  - Observation: observe(observer, filter?), unObserve(observer), updateObservers(...), refresh(...)
+## 1. Repository Module
+- **`Repository<M>`**
+  - Constructor: `new Repository(adapter: Adapter, clazz: Constructor<M>, ...)`
+  - CRUD: `create`, `read`, `update`, `delete`
+  - Bulk ops: `createAll`, `readAll`, `updateAll`, `deleteAll`
+  - Querying:
+    - `select(...selectors?)`: Start a fluent query chain.
+    - `query(condition?, orderBy?, order?, limit?, skip?)`: Execute a simple query.
+    - **New High-Level Queries:** A set of methods, often used with the `@prepared` decorator, for common query patterns:
+      - `find(value, order?)`: Searches default attributes of a model for partial matches (starts-with).
+      - `findBy(key, value)`: Finds records by a specific attribute-value pair.
+      - `findOneBy(key, value)`: Finds a single record or throws a `NotFoundError`.
+      - `listBy(key, order)`: Lists all records ordered by a specific key.
+      - `countOf(key?)`: Counts records, optionally for a specific attribute.
+      - `maxOf(key)`, `minOf(key)`, `avgOf(key)`, `sumOf(key)`: Perform aggregate calculations.
+      - `distinctOf(key)`: Retrieves distinct values for an attribute.
+      - `groupOf(key)`: Groups records by a given attribute.
+      - `page(value, direction?, ref?)`: Paginates through records matching a default partial-match query.
+      - `paginateBy(key, order, ref?)`: Paginates records ordered by a specific key.
+  - Observation: `observe(observer, filter?)`, `unObserve(observer)`, `updateObservers(...)`, `refresh(...)`
+  - **Statement Execution**:
+    - `statement(name, ...args)`: Executes a custom method on the repository decorated with `@prepared`.
   - Repository registry helpers:
-    - static for(config, ...args): Proxy factory for building repositories with specific adapter config
-    - static forModel(model, alias?, ...args): returns a Repository instance or repository constructor registered for the model
-    - static get(model, alias?): low-level retrieval of a registered repository constructor
-    - static register(model, repoCtor, alias?)
-    - static getMetadata/setMetadata/removeMetadata(model)
-    - static getSequenceOptions(model)
-    - static indexes(model): reads index definitions for model
-    - static relations(model)
-    - static table(model), static column(model, attribute)
-- Decorators (repository/decorators)
-  - repository(modelCtor, flavour?):
-    - As property decorator: injects the repository instance for the annotated model
-    - As class decorator: registers the annotated class as the repository for the model; integrates with Injectables
-- Injectables registry (repository/injectables)
-  - InjectablesRegistry extends InjectableRegistryImp
-  - get<T>(name | token | ctor, flavour?): resolves a registered injectable; if not registered, attempts to infer the model and construct or fetch the appropriate repository based on adapter flavour or metadata (falling back to current adapter)
-- Types/utilities (repository/types, repository/utils)
-  - IndexMetadata, OrderDirection, generateInjectableNameForRepository, and other helpers/constants
+    - `static for(config, ...args)`: Proxy factory for building repositories with specific adapter config.
+    - `static forModel(model, alias?, ...args)`: Returns a Repository instance for a model.
+    - `static register(model, repoCtor, alias?)`: Registers a repository for a model.
 
-2) Persistence module
-- Adapter<N = any, Q = any, R = any, Ctx = Context>
-  - Base bridge between repository and the back-end. Offers:
-    - initialize(...), flags(...), context(...)
-    - prepare(model, pk): model -> record mapping using model metadata
-    - revert(record, clazz, pk, id, transient?): record -> model mapping
-    - CRUD: create, createAll, read, readAll, update, updateAll, delete, deleteAll
-    - raw(rawInput): pass-through for back-end specific commands
-    - Observation: observe/unObserve, updateObservers, refresh
-    - Flavour/alias management: current(), get(flavour), setCurrent(flavour), alias(), models(flavour), flavourOf(model)
-    - Factory helpers: Statement(), Dispatch(), ObserverHandler(), Sequence(options)
-    - for(config, ...args): proxy-bound adapter for a given configuration
-- Dispatch: batching/dispatch helpers used by Adapter
-- Sequence: provides identity/sequence generation based on SequenceOptions (see interfaces)
-- ObserverHandler: internal observer list and filtering logic used by repositories/adapters
-- constants, errors, types: PersistenceKeys, EventIds, ObserverFilter, etc.
+- **Decorators (`repository/decorators`)**
+  - `@repository(modelCtor, flavour?)`: Injects a repository instance or registers a repository class.
+  - `@prepared()`: Marks a repository method as an executable "prepared statement", allowing it to be called via `repository.statement()`.
 
-3) Query module
-- Statement<M extends Model>
-  - Fluent DSL to build and execute queries via the configured Adapter
-  - Methods:
-    - select(...keys?), distinct(key), count(key), max(key), min(key)
-    - from(modelCtor), where(Condition), orderBy([key, OrderDirection]), groupBy(key)
-    - limit(n), offset(n), execute(), raw(input), paginate(size)
-- Condition<M extends Model>
-  - Composable condition tree with a builder API and logical combinators
-  - Methods:
-    - and(cond), or(cond), not(cond)
-    - attribute/attr(name): switch attribute under construction
-    - hasErrors(exceptions?): validation helper
-    - group(cond1, GroupOperator, cond2)
-    - builder(): ConditionBuilder
-  - ConditionBuilder methods: eq, dif, gt, lt, gte, lte, in, regexp, build
-- Paginator<M>
-  - Abstract pagination helper returned by Statement.paginate(size)
-  - Properties: current, total, count, size
-  - Methods: page(n?), next(), previous(); requires an Adapter-specific concrete implementation
+## 2. Task Engine Module
+A robust system for managing background jobs.
+- **`TaskEngine<A>`**: The core engine that polls for and executes tasks. Manages the task lifecycle, concurrency, and worker threads.
+- **`TaskService<A>`**: A high-level service providing a clean API for interacting with the `TaskEngine`. It's the recommended entry point for managing tasks.
+  - `push(task, track?)`: Submits a new task for execution.
+  - `schedule(task, track?).for(date)`: Schedules a task to run at a specific time.
+  - `track(id)`: Returns a `TaskTracker` to monitor an existing task.
+- **Models**:
+  - `TaskModel`: Represents a task, its status (`PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`), input, and configuration (e.g., `maxAttempts`, `backoff`). Can be `ATOMIC` or `COMPOSITE`.
+  - `TaskEventModel`: Logs status changes and progress for a task.
+- **Builders**:
+  - `TaskBuilder`: A fluent API for constructing `TaskModel` instances.
+  - `CompositeTaskBuilder`: A builder for creating multi-step (`COMPOSITE`) tasks.
+- **Handlers & Tracking**:
+  - `ITaskHandler`: The interface to implement for defining the logic of a task. Handlers are registered with the `TaskHandlerRegistry`.
+  - `TaskTracker`: An object returned when tracking a task, allowing you to await its completion and receive progress updates.
+- **Worker Threads**: The engine can be configured to run tasks in Node.js `worker_threads`, providing true parallelism and non-blocking execution for CPU-intensive jobs. Configuration is done via the `workerPool` and `workerAdapter` properties in the `TaskEngineConfig`.
 
-4) Interfaces module
-- Observable<T>, Observer<T>: basic observer pattern primitives
-- Executor, RawExecutor: contracts for query execution
-- Queriable: minimal interface for types that can return a Statement
-- Paginatable: marks types that can paginate
-- SequenceOptions and defaults: sequence/generator configuration presets
+## 3. Persistence Module
+- **`Adapter<N, Q, R, Ctx>`**: The bridge between a repository and the back-end storage.
+  - Handles CRUD operations, raw queries, and model/record transformation (`prepare`/`revert`).
+  - Manages different storage "flavours" (e.g., 'ram', 'fs', 'typeorm').
+- **`Sequence`**: Provides identity/sequence generation.
+- **`ObserverHandler`**: Manages observer notifications.
 
-5) Model & Identity modules
-- BaseModel and supporting types: base class all models extend from
-- identity/decorators and identity/utils: helpers to derive table names, etc.
-- model/decorators: e.g., @model and other persistence-related metadata (provided by @decaf-ts/decorator-validation and enriched here)
+## 4. Query Module
+- **`Statement<M>`**: A fluent DSL for building and executing queries.
+  - Methods: `select`, `from`, `where`, `orderBy`, `groupBy`, `limit`, `offset`, `execute`, `paginate`.
+  - Now includes enhanced logic to "squash" simple queries into efficient prepared statements.
+- **`Condition<M>`**: A composable condition tree for building `where` clauses.
+- **`Paginator<M>`**: An abstract pagination helper.
+  - Now includes `serialize()` and `deserialize()` methods to easily pass pagination state.
 
-6) RAM runtime (core/src/ram)
-- RamAdapter, RamRepository, RamStatement, RamPaginator (in-memory implementations used by tests and examples)
-- Useful for local testing and reference behavior of the core abstractions.
+## 5. Model & Identity Modules
+- **`BaseModel`**: The base class all models extend from.
+- Decorators like `@table`, `@pk`, `@column`, `@index`, and relation decorators (`@oneToOne`, `@oneToMany`, `@manyToOne`) are used to define persistence metadata.
+- Includes updated logic for handling complex relations, including `oneToManyOnCreateUpdate` and initial support for `manyToMany`.
 
-Design intent
-- Provide a consistent, typed data access layer decoupled from any particular storage or framework
-- Allow adapters to plug into multiple backends while preserving a uniform repository and query API
-- Make querying expressive but type-safe through fluent builders and model metadata
-- Enable DI and decorators for ergonomic repository wiring and testing
+## 6. RAM & Filesystem Runtimes
+- **`RamAdapter`**: An in-memory adapter, perfect for tests and quick prototyping.
+- **`FilesystemAdapter`**: A `RamAdapter`-compatible adapter that persists data to the local filesystem, enabling data to survive process restarts. Ideal for local development and testing.

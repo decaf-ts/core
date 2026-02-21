@@ -157,7 +157,9 @@ export class CompositeTaskBuilder extends TaskBuilder {
   }
 
   setSteps(value: TaskStepSpecModel[]): this {
-    this.steps = value;
+    this.steps = (value ?? []).map((step) =>
+      step instanceof TaskStepSpecModel ? step : new TaskStepSpecModel(step)
+    );
     return this;
   }
 
@@ -174,4 +176,5 @@ export class CompositeTaskBuilder extends TaskBuilder {
     );
     return this;
   }
+
 }

@@ -1,40 +1,52 @@
 import "reflect-metadata";
 import { generateInjectableNameForRepository } from "../../src/repository/utils";
-import { TestModel } from "./TestModel";
 import {
+  Decoration,
   DecorationKeys,
   DefaultFlavour,
   Metadata,
   uses,
 } from "@decaf-ts/decoration";
 import { Model } from "@decaf-ts/decorator-validation";
+import { FsTestModel } from "./fs/models/FsTestModel";
 
 describe("repository/utils.generateInjectableNameForRepository", () => {
+  beforeEach(() => {
+    uses(DefaultFlavour)(FsTestModel);
+  });
+
   it("throws InternalError when flavour cannot be resolved", () => {
-    expect(() => generateInjectableNameForRepository(TestModel as any)).toThrow(
-      /Could not retrieve flavour from model TestModel/
-    );
+    const originalResolver = Decoration["flavourResolver"];
+    Decoration["flavourResolver"] = () => DefaultFlavour;
+    try {
+      expect(() =>
+        generateInjectableNameForRepository(FsTestModel as any)
+      ).toThrow(/Could not retrieve flavour from model FsTestModel/);
+    } finally {
+      Decoration["flavourResolver"] = originalResolver;
+    }
   });
 
   it("uses provided flavour and constructor to generate name", () => {
-    const name = generateInjectableNameForRepository(TestModel as any, "ram");
-    // expected: decaf_{flavour}_adapter_for_{table}
+    const name = generateInjectableNameForRepository(
+      FsTestModel as any,
+      "ram"
+    );
     expect(name).toBe(
-      `decaf_ram_adapter_for_${Model.tableName(TestModel as any)}`
+      `decaf_ram_adapter_for_${Model.tableName(FsTestModel as any)}`
     );
   });
 
   it("resolves flavour from metadata on constructor", () => {
-    const meta1 = Metadata.get(TestModel);
+    uses("ram")(FsTestModel);
 
-    expect(meta1[DecorationKeys.FLAVOUR]).toEqual(DefaultFlavour);
-    uses("ram")(TestModel);
-
-    const meta2 = Metadata.get(TestModel);
-    expect(meta2[DecorationKeys.FLAVOUR]).toEqual("ram");
-    const name = generateInjectableNameForRepository(TestModel as any);
+    const meta = Metadata.get(FsTestModel);
+    expect(meta[DecorationKeys.FLAVOUR]).toEqual("ram");
+    const name = generateInjectableNameForRepository(
+      FsTestModel as any
+    );
     expect(name).toBe(
-      `decaf_ram_adapter_for_${Model.tableName(TestModel as any)}`
+      `decaf_ram_adapter_for_${Model.tableName(FsTestModel as any)}`
     );
   });
 

@@ -17,6 +17,7 @@ export default [
       "!tests/**/*",
       "tests/bundling/**/*",
       "tests/web/**/*",
+      "tests/integration/fixtures/**/*.cjs",
     ],
   },
   { languageOptions: { globals: globals.browser } },

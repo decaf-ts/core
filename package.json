@@ -19,6 +19,11 @@
       "import": "./lib/esm/ram/index.js",
       "types": "./lib/ram/index.d.ts"
     },
+    "./fs": {
+      "require": "./lib/fs/index.cjs",
+      "import": "./lib/esm/fs/index.js",
+      "types": "./lib/fs/index.d.ts"
+    },
     "./tasks": {
       "require": "./lib/tasks/index.cjs",
       "import": "./lib/esm/tasks/index.js",
@@ -36,7 +41,7 @@
     "reset": "rm -rf * && git checkout . && git pull && npm run do-install",
     "build": "npx build-scripts --dev",
     "build:prod": "npx build-scripts --prod",
-    "test": "jest --runInBand --coverage --detectOpenHandles",
+    "test": "npm run build && jest --runInBand --coverage --detectOpenHandles",
     "test:unit": "jest --testPathPattern=\"/tests/unit\" --passWithNoTests --detectOpenHandles",
     "test:integration": "jest --testPathPattern=\"/tests/(integration)\" --passWithNoTests --detectOpenHandles",
     "test:e2e": "jest --testPathPattern=\"/tests/(e2e)\" --passWithNoTests --detectOpenHandles",
@@ -95,7 +100,8 @@
   "homepage": "https://github.com/decaf-ts/core#readme",
   "devDependencies": {
     "@decaf-ts/logging": "latest",
-    "@decaf-ts/utils": "latest"
+    "@decaf-ts/utils": "latest",
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "@decaf-ts/db-decorators": "latest",

@@ -45,6 +45,47 @@ sequenceDiagram
 7.  **`createSuffix`**: The `Repository`'s `createSuffix` method is called. This is where you can add logic to be executed after the main `create` operation.
 8.  **Decorators (AFTER)**: Any decorators configured to run `AFTER` the `CREATE` operation are executed.
 
+### FilesystemAdapter Setup
+
+`FilesystemAdapter` (found under `core/src/fs`) extends `RamAdapter` but writes every dataset to disk so repositories survive restarts. You can swap it anywhere you would use `RamAdapter`.
+
+**Configuration highlights**
+
+- `rootDir`: Base directory where databases live. Each adapter alias becomes its own sub-folder.
+- `jsonSpacing`: Optional pretty-print spacing for the JSON payloads (handy while debugging).
+- `fs`: Custom `fs/promises` implementation — forward your own for tests or sandboxes.
+- `onHydrated(info)`: Callback executed after a table is read from disk; great for metrics or warm-up logs.
+
+**Directory layout**
+
+- Records -> `{rootDir}/{alias}/{table}/{encodedPk}.json` storing `{ id, record }`.
+- Indexes -> `{rootDir}/{alias}/{table}/indexes/{indexName}.json`, mirroring `@index` metadata so range/aggregate queries stay fast.
+
+```typescript
+import path from "node:path";
+import { FilesystemAdapter, Repository } from "@decaf-ts/core";
+import { User } from "./models/User";
+
+const adapter = new FilesystemAdapter(
+  {
+    rootDir: path.join(process.cwd(), ".decaf-data"),
+    jsonSpacing: 2,
+    onHydrated: ({ table, records }) => {
+      console.info(`Hydrated ${records} ${table} records from disk`);
+    },
+  },
+  "local-fs"
+);
+
+const repo = new Repository(adapter, User);
+await repo.create(new User({ id: "user-1", name: "Persistent" }));
+const reloaded = await repo.read("user-1"); // survives process restarts
+
+await adapter.shutdown(); // closes open file handles when the app exits
+```
+
+For tests, point `rootDir` at a temporary folder (see `tests/fs/__helpers__/tempFs.ts`) and clean it up after each suite.
+
 ## Core Decorators
 
 The library provides a set of powerful decorators for defining models and their behavior.
@@ -221,4 +262,90 @@ console.log('Task result:', result);
 
 // 5. Schedule a task
 taskEngine.schedule(task).for(new Date(Date.now() + 5000)); // 5 seconds from now
+```
+
+### Worker Threads
+
+The Task Engine can be configured to execute tasks in separate worker threads, enabling true parallelism.
+
+```typescript
+import { TaskEngine, TaskHandlerRegistry } from '@decaf-ts/core';
+import path from 'path';
+
+const taskEngine = new TaskEngine({
+  adapter,
+  registry,
+  workerPool: {
+    entry: path.resolve(__dirname, './worker-entry.ts'), // Path to your worker entry file
+    size: 4, // Number of worker threads
+  },
+  workerAdapter: {
+    adapterModule: '@decaf-ts/core/fs', // Module to load the adapter from
+    adapterClass: 'FilesystemAdapter', // Adapter class name
+    adapterArgs: [{ rootDir: './data' }, 'fs-worker'], // Arguments for the adapter constructor
+  }
+});
+
+await taskEngine.start();
+```
+
+## Advanced Repository Features
+
+The `Repository` class now includes several high-level methods for common query patterns, simplifying data access.
+
+### Finding Records
+
+```typescript
+// Find records by a specific attribute
+const users = await userRepo.findBy('email', 'test@example.com');
+
+// Find a single record (throws NotFoundError if not found)
+const user = await userRepo.findOneBy('username', 'jdoe');
+
+// List records ordered by a key
+const sortedUsers = await userRepo.listBy('createdAt', OrderDirection.DESC);
+```
+
+### Partial Match Search
+
+The `find` and `page` methods support partial matching (starts-with) on default query attributes.
+
+```typescript
+// Assuming 'name' and 'email' are default query attributes for User
+// This will find users where name OR email starts with "john"
+const users = await userRepo.find('john');
+
+// You can also specify the sort order
+const sortedUsers = await userRepo.find('john', OrderDirection.DESC);
+```
+
+### Aggregations
+
+Perform calculations directly on your data:
+
+```typescript
+const totalUsers = await userRepo.countOf();
+const activeUsersCount = await userRepo.countOf('isActive'); // Counts where isActive is truthy
+
+const maxAge = await userRepo.maxOf('age');
+const minAge = await userRepo.minOf('age');
+const avgAge = await userRepo.avgOf('age');
+const totalAge = await userRepo.sumOf('age');
+
+const distinctCities = await userRepo.distinctOf('city');
+```
+
+### Pagination
+
+Easily paginate through your data, including partial match searches:
+
+```typescript
+// Paginate based on a default query (e.g., all users)
+// This searches for users matching "search term" (partial match) and paginates the results
+const page1 = await userRepo.page('search term', OrderDirection.ASC, { limit: 10, offset: 1 });
+
+// Paginate ordered by a specific key without filtering
+const page2 = await userRepo.paginateBy('createdAt', OrderDirection.DESC, { limit: 20, offset: 2 });
+
+console.log(`Page ${page1.current} of ${page1.total}`);
 ```

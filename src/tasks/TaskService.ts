@@ -55,6 +55,11 @@ export class TaskService<
       await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
     ).for(this.initialize);
     if (!cfg.adapter) throw new InternalError(`No adapter provided`);
+    if (cfg.workerPool && !cfg.workerAdapter) {
+      throw new InternalError(
+        "Worker pool requires workerAdapter descriptor in TaskEngineConfig"
+      );
+    }
     log.info(`Initializing Task Engine...`);
     const client: TaskEngine<A> = new TaskEngine(cfg);
     log.verbose(`${client} initialized`);

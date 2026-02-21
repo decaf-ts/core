@@ -1,11 +1,13 @@
-import { LoggedEnvironment } from "@decaf-ts/logging";
+import { LoggedEnvironment, isBrowser } from "@decaf-ts/logging";
 
 type WorkerMode = "node" | "browser";
 
 export interface WorkThreadPersistenceConfig {
+  adapterModule: string;
+  adapterClass?: string;
+  adapterArgs?: any[];
   flavour?: string;
   alias?: string;
-  adapterConfig?: Record<string, unknown>;
 }
 
 export interface WorkThreadTaskEngineConfig {
@@ -21,20 +23,15 @@ export interface WorkThreadTaskEngineConfig {
 }
 
 export interface WorkThreadModulesConfig {
-  /** Node/browser modules that must be required inside the worker before bootstrapping services. */
-  required: string[];
-  /** Optional list of dynamic feature modules that can be conditionally loaded. */
-  optional?: string[];
+  imports: string[];
 }
 
 export interface WorkThreadEnvironmentShape {
-  workThread: {
-    id?: string;
-    mode: WorkerMode;
-    persistence: WorkThreadPersistenceConfig;
-    taskEngine: WorkThreadTaskEngineConfig;
-    modules: WorkThreadModulesConfig;
-  };
+  workerId: string;
+  mode: WorkerMode;
+  persistence: WorkThreadPersistenceConfig;
+  taskEngine: WorkThreadTaskEngineConfig;
+  modules: WorkThreadModulesConfig;
 }
 
 const defaultTaskEngineConfig: WorkThreadTaskEngineConfig = {
@@ -49,29 +46,22 @@ const defaultTaskEngineConfig: WorkThreadTaskEngineConfig = {
   gracefulShutdownMsTimeout: 10_000,
 };
 
-export type WorkThreadEnvironment = {
-  workerId: string;
-  mode?: string; // "browser" | "node" - is this really necessary?
-  persistence: {
-    flavour: string;
-    alias?: string;
-    adapterConfig: any; // adapter config
-  };
-  engine: any; // task engine config
-  modules: string[]; // list of adapter specific modules (everything up to core can be simply imported without issue
+const defaultModules: WorkThreadModulesConfig = {
+  imports: ["@decaf-ts/core", "@decaf-ts/logging"],
 };
 
-export const DefaultWorkerThreadEnvironment: WorkThreadEnvironment = {
+export const DefaultWorkThreadEnvironment: WorkThreadEnvironmentShape = {
   workerId: "worker",
+  mode: isBrowser() ? "browser" : "node",
   persistence: {
-    flavour: "",
-    alias: "",
-    adapterConfig: {}, // adapter config
+    adapterModule: "@decaf-ts/core/fs",
+    adapterClass: "FsAdapter",
+    adapterArgs: [],
   },
-  engine: defaultTaskEngineConfig, // task engine config
-  modules: [], // list of adapter speci
-} as WorkThreadEnvironment; // all other MUST ome from
+  taskEngine: defaultTaskEngineConfig,
+  modules: defaultModules,
+};
 
 export const WorkThreadEnvironment = LoggedEnvironment.accumulate(
-  DefaultWorkerThreadEnvironment
+  DefaultWorkThreadEnvironment
 );

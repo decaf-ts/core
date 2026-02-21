@@ -132,9 +132,10 @@ Below is an overview of the main modules and their public APIs exposed by core.
 - identity/decorators and identity/utils: helpers to derive table names, etc.
 - model/decorators: e.g., @model and other persistence-related metadata (provided by @decaf-ts/decorator-validation and enriched here)
 
-6) RAM runtime (core/src/ram)
+6) RAM & Filesystem runtimes (core/src/ram and core/src/fs)
 - RamAdapter, RamRepository, RamStatement, RamPaginator (in-memory implementations used by tests and examples)
-- Useful for local testing and reference behavior of the core abstractions.
+- FilesystemAdapter: drop-in adapter that mirrors Ram semantics while persisting every database/table/record/index onto disk (`{root}/{alias}/{table}/{record}.json` plus `{root}/{alias}/{table}/indexes/{index}.json`). Supports optional hydration callbacks and formatting controls so long-running processes can persist or inspect data between restarts.
+- Useful for local testing, offline storage, and reference behavior of the core abstractions.
 
 Design intent
 - Provide a consistent, typed data access layer decoupled from any particular storage or framework
@@ -189,6 +190,47 @@ sequenceDiagram
 6.  **`revert`**: The `Adapter`'s `revert` method is called to convert the database record back into a model instance.
 7.  **`createSuffix`**: The `Repository`'s `createSuffix` method is called. This is where you can add logic to be executed after the main `create` operation.
 8.  **Decorators (AFTER)**: Any decorators configured to run `AFTER` the `CREATE` operation are executed.
+
+### FilesystemAdapter Setup
+
+`FilesystemAdapter` (found under `core/src/fs`) extends `RamAdapter` but writes every dataset to disk so repositories survive restarts. You can swap it anywhere you would use `RamAdapter`.
+
+**Configuration highlights**
+
+- `rootDir`: Base directory where databases live. Each adapter alias becomes its own sub-folder.
+- `jsonSpacing`: Optional pretty-print spacing for the JSON payloads (handy while debugging).
+- `fs`: Custom `fs/promises` implementation — forward your own for tests or sandboxes.
+- `onHydrated(info)`: Callback executed after a table is read from disk; great for metrics or warm-up logs.
+
+**Directory layout**
+
+- Records -> `{rootDir}/{alias}/{table}/{encodedPk}.json` storing `{ id, record }`.
+- Indexes -> `{rootDir}/{alias}/{table}/indexes/{indexName}.json`, mirroring `@index` metadata so range/aggregate queries stay fast.
+
+```typescript
+import path from "node:path";
+import { FilesystemAdapter, Repository } from "@decaf-ts/core";
+import { User } from "./models/User";
+
+const adapter = new FilesystemAdapter(
+  {
+    rootDir: path.join(process.cwd(), ".decaf-data"),
+    jsonSpacing: 2,
+    onHydrated: ({ table, records }) => {
+      console.info(`Hydrated ${records} ${table} records from disk`);
+    },
+  },
+  "local-fs"
+);
+
+const repo = new Repository(adapter, User);
+await repo.create(new User({ id: "user-1", name: "Persistent" }));
+const reloaded = await repo.read("user-1"); // survives process restarts
+
+await adapter.shutdown(); // closes open file handles when the app exits
+```
+
+For tests, point `rootDir` at a temporary folder (see `tests/fs/__helpers__/tempFs.ts`) and clean it up after each suite.
 
 ## Core Decorators
 

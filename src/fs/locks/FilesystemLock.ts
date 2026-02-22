@@ -6,7 +6,7 @@ import { ensureDir } from "../helpers";
 const DEFAULT_WAIT_MS = 50;
 
 export class FilesystemLock extends Lock {
-  private handle?: import("node:fs").FileHandle;
+  private handle?: Awaited<ReturnType<typeof defaultFs.open>>;
 
   constructor(
     private readonly lockPath: string,
@@ -39,7 +39,7 @@ export class FilesystemLock extends Lock {
     if (!this.handle) return;
     try {
       await this.handle.close();
-    } catch (error) {
+    } catch {
       // ignore errors while closing
     }
     await this.fs.rm(this.lockPath, { force: true });

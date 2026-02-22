@@ -25,4 +25,12 @@ export type FilesystemConfig = RamConfig & {
    * Optional callback invoked after a table has been hydrated from disk.
    */
   onHydrated?: (info: FilesystemHydrationInfo) => void;
+  /**
+   * Directory used to store lockfiles when filesystem locking is enabled.
+   */
+  lockDir?: string;
+  /**
+   * Minimum debounce window (in milliseconds) used by watchers before notifying observers.
+   */
+  watchDebounceMs?: number;
 };

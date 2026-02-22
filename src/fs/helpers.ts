@@ -33,7 +33,10 @@ export function deserializeId(id: SerializedId): PrimaryKeyType {
   }
 }
 
-export async function ensureDir(fs: typeof FsPromises, dir: string): Promise<void> {
+export async function ensureDir(
+  fs: typeof FsPromises,
+  dir: string
+): Promise<void> {
   await fs.mkdir(dir, { recursive: true });
 }
 
@@ -45,7 +48,8 @@ export async function readJsonFile<T>(
     const raw = await fs.readFile(filePath, "utf8");
     return JSON.parse(raw) as T;
   } catch {
-  return undefined;
+    return undefined;
+  }
 }
 
 export async function fileExists(
@@ -58,7 +62,6 @@ export async function fileExists(
   } catch {
     return false;
   }
-}
 }
 
 export async function writeJsonAtomic(

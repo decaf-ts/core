@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Constructor } from "@decaf-ts/decoration";
 import { Model } from "@decaf-ts/decorator-validation";
-import { PrimaryKeyType } from "@decaf-ts/db-decorators";
-import { MultiLock } from "@decaf-ts/transactional-decorators";
+import { OperationKeys, PrimaryKeyType } from "@decaf-ts/db-decorators";
+import { Dispatch } from "../persistence/Dispatch";
 import { PersistenceKeys } from "../persistence/constants";
 import { ContextualArgs } from "../utils/ContextualLoggedClass";
 import { RamAdapter } from "../ram";
@@ -49,11 +49,13 @@ export class FilesystemAdapter extends RamAdapter {
   private readonly tableWatchers = new Map<string, FSWatcher>();
   private rootWatcher?: FSWatcher;
   private watching = false;
+  private readonly watchDebounceMs: number;
+  private readonly pendingObserverRefresh = new Map<
+    string,
+    { timer: NodeJS.Timeout; event: OperationKeys; id: PrimaryKeyType }
+  >();
 
-  constructor(
-    conf: FilesystemConfig = { lock: new MultiLock() } as FilesystemConfig,
-    alias: string = "fs"
-  ) {
+  constructor(conf: FilesystemConfig = {} as FilesystemConfig, alias: string = "fs") {
     const fsImpl = conf.fs ?? defaultFs;
     const aliasName = alias || "fs";
     const rootDir = conf.rootDir ?? path.join(tmpdir(), "decaf-fs-adapter");
@@ -79,7 +81,15 @@ export class FilesystemAdapter extends RamAdapter {
       (tableName) => this.indexesPath(tableName),
       this.jsonSpacing
     );
+    this.watchDebounceMs = conf.watchDebounceMs ?? 50;
     this.ready = this.initializeFromDisk();
+    this.ready.then(() =>
+      this.ensureWatching().catch((error) =>
+        this.log
+          .for(this.ensureWatching)
+          .error(`Filesystem watcher setup failed: ${error}`)
+      )
+    );
   }
 
   public getFs(): typeof defaultFs {
@@ -151,6 +161,7 @@ export class FilesystemAdapter extends RamAdapter {
       watcher.close();
     }
     this.tableWatchers.clear();
+    this.clearPendingObserverRefresh();
   }
 
   private async ensureReady() {
@@ -173,7 +184,7 @@ export class FilesystemAdapter extends RamAdapter {
 
   private async handleRootEvent(
     event: string,
-    filename?: string | Buffer
+    filename?: string | Buffer | null
   ): Promise<void> {
     if (event !== "rename") return;
     const tableName = this.normalizeFilename(filename);
@@ -186,11 +197,64 @@ export class FilesystemAdapter extends RamAdapter {
     }
   }
 
-  private normalizeFilename(filename?: string | Buffer): string | undefined {
+  private normalizeFilename(
+    filename?: string | Buffer | null
+  ): string | undefined {
     if (!filename) return undefined;
     return typeof filename === "string"
       ? filename
       : filename.toString("utf8");
+  }
+
+  private scheduleObserverRefresh(
+    tableName: string,
+    event: OperationKeys,
+    id: PrimaryKeyType
+  ): void {
+    if (!this.dispatch) return;
+    const pending = this.pendingObserverRefresh.get(tableName);
+    if (pending) {
+      clearTimeout(pending.timer);
+      pending.event = event;
+      pending.id = id;
+      pending.timer = setTimeout(
+        () => this.flushObserverRefresh(tableName),
+        this.watchDebounceMs
+      );
+      return;
+    }
+    const timer = setTimeout(
+      () => this.flushObserverRefresh(tableName),
+      this.watchDebounceMs
+    );
+    this.pendingObserverRefresh.set(tableName, { timer, event, id });
+  }
+
+  private flushObserverRefresh(tableName: string): void {
+    const pending = this.pendingObserverRefresh.get(tableName);
+    if (!pending) return;
+    this.pendingObserverRefresh.delete(tableName);
+    const { event, id } = pending;
+    const { ctxArgs } = this.logCtx([], this.flushObserverRefresh);
+    this.refresh(tableName, event, id, ...ctxArgs).catch((error: unknown) =>
+      this.log
+        .for(this.flushObserverRefresh)
+        .error(`Failed to refresh observers for ${tableName}: ${error}`)
+    );
+  }
+
+  private clearPendingObserverRefresh(tableName?: string): void {
+    if (tableName) {
+      const pending = this.pendingObserverRefresh.get(tableName);
+      if (!pending) return;
+      clearTimeout(pending.timer);
+      this.pendingObserverRefresh.delete(tableName);
+      return;
+    }
+    for (const pending of this.pendingObserverRefresh.values()) {
+      clearTimeout(pending.timer);
+    }
+    this.pendingObserverRefresh.clear();
   }
 
   private async watchTable(tableName: string): Promise<void> {
@@ -223,37 +287,57 @@ export class FilesystemAdapter extends RamAdapter {
   private async handleTableEvent(
     tableName: string,
     event: string,
-    filename?: string | Buffer
+    filename?: string | Buffer | null
   ): Promise<void> {
     const fileName = this.normalizeFilename(filename);
     if (!fileName || !fileName.endsWith(".json")) return;
     if (fileName === "indexes" || fileName.startsWith("indexes")) return;
     const targetPath = path.join(this.tablePath(tableName), fileName);
     if (!(await fileExists(this.fs, targetPath))) {
-      this.removeRecordFromMap(tableName, fileName);
+      const removedId = this.removeRecordFromMap(tableName, fileName);
+      if (removedId !== undefined) {
+        this.scheduleObserverRefresh(
+          tableName,
+          OperationKeys.DELETE,
+          removedId
+        );
+      }
       return;
     }
     const payload = await readJsonFile<StoredRecord>(this.fs, targetPath);
     if (!payload) return;
-    this.applyRecord(tableName, payload);
+    const id = deserializeId(payload.id);
+    const refreshEvent = this.applyRecord(tableName, payload);
+    this.scheduleObserverRefresh(tableName, refreshEvent, id);
   }
 
-  private removeRecordFromMap(tableName: string, fileName: string): void {
+  private removeRecordFromMap(
+    tableName: string,
+    fileName: string
+  ): PrimaryKeyType | undefined {
     const table = this.client.get(tableName);
     if (!table) return;
     const encoded = fileName.replace(/\.json$/, "");
     for (const key of table.keys()) {
-      if (encodeId(key as PrimaryKeyType) === encoded) {
-        table.delete(key);
-        break;
+      const candidate = key as PrimaryKeyType;
+      if (encodeId(candidate) === encoded) {
+        table.delete(candidate);
+        return candidate;
       }
     }
+    return undefined;
   }
 
-  private applyRecord(tableName: string, payload: StoredRecord): void {
-    const map = this.client.get(tableName) ?? new Map();
-    map.set(deserializeId(payload.id), payload.record);
+  private applyRecord(
+    tableName: string,
+    payload: StoredRecord
+  ): OperationKeys {
+    const map = this.client.get(tableName) ?? new Map<PrimaryKeyType, Record<string, any>>();
+    const id = deserializeId(payload.id);
+    const existed = map.has(id);
+    map.set(id, payload.record);
     this.client.set(tableName, map);
+    return existed ? OperationKeys.UPDATE : OperationKeys.CREATE;
   }
 
   private async hydrateTable(tableName: string): Promise<void> {

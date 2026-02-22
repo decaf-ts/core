@@ -97,6 +97,22 @@ describe("FilesystemAdapter", () => {
     uses(DefaultFlavour)(clazz);
   };
 
+  const waitForValue = async <T>(
+    getter: () => Promise<T>,
+    options: { timeout?: number; interval?: number } = {}
+  ): Promise<T> => {
+    const { timeout = 2000, interval = 50 } = options;
+    const start = Date.now();
+    while (true) {
+      try {
+        return await getter();
+      } catch {
+        if (Date.now() - start > timeout) throw new Error("Timed out waiting");
+        await new Promise((resolve) => setTimeout(resolve, interval));
+      }
+    }
+  };
+
   it("persists records between adapter instances", async () => {
     const alias = `fs-adapter-${Date.now()}`;
     try {
@@ -260,6 +276,95 @@ describe("FilesystemAdapter", () => {
         records: 1,
       });
     } finally {
+      await cleanupAlias(alias);
+    }
+  });
+
+  it("waits for locks when two adapters write simultaneously", async () => {
+    const alias = `fs-adapter-${Date.now()}-lock`;
+    const adapterA = createAdapter(alias);
+    delete (Adapter as any)._cache?.[adapterA.alias];
+    const adapterB = createAdapter(alias);
+    try {
+      const repoA = new Repository(adapterA, FsTestModel);
+      clearRepositoryCache(FsTestModel, alias);
+      const repoB = new Repository(adapterB, FsTestModel);
+
+      const targetId = "lock-user";
+      const originalWriteFile = fs.writeFile.bind(fs);
+      const spy = jest
+        .spyOn(fs, "writeFile")
+        .mockImplementation(async (filePath, ...args) => {
+          if (
+            typeof filePath === "string" &&
+            filePath.includes(encodeURIComponent(targetId))
+          ) {
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+          return originalWriteFile(filePath as any, ...args);
+        });
+
+      try {
+        const createA = repoA.create(
+          new FsTestModel({
+            id: targetId,
+            name: "Locked",
+            nif: "111111111",
+          })
+        );
+
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        const start = Date.now();
+        await repoB.create(
+          new FsTestModel({
+            id: `${targetId}-2`,
+            name: "Blocked",
+            nif: "222222222",
+          })
+        );
+        const waited = Date.now() - start;
+        expect(waited).toBeGreaterThanOrEqual(80);
+
+        await createA;
+      } finally {
+        spy.mockRestore();
+      }
+    } finally {
+      forgetAdapter(adapterA);
+      forgetAdapter(adapterB);
+      await releaseAdapter(adapterA);
+      await releaseAdapter(adapterB);
+      await cleanupAlias(alias);
+    }
+  });
+
+  it("mirrors changes across adapters using filesystem watchers", async () => {
+    const alias = `fs-adapter-${Date.now()}-mirror`;
+    const adapterA = createAdapter(alias);
+    const cache = (Adapter as any)._cache as Record<string, Adapter>;
+    delete cache[alias];
+    const adapterB = createAdapter(alias);
+    try {
+      const repoA = new Repository(adapterA, FsTestModel);
+      clearRepositoryCache(FsTestModel, alias);
+      const repoB = new Repository(adapterB, FsTestModel);
+
+      const created = await repoA.create(
+        new FsTestModel({
+          id: "watcher-1",
+          name: "Watched User",
+          nif: "777777777",
+        })
+      );
+
+      const synced = await waitForValue(async () => repoB.read(created.id));
+      expect(synced.name).toBe("Watched User");
+    } finally {
+      forgetAdapter(adapterA);
+      forgetAdapter(adapterB);
+      await releaseAdapter(adapterA);
+      await releaseAdapter(adapterB);
       await cleanupAlias(alias);
     }
   });

@@ -4,6 +4,7 @@ import { Constructor } from "@decaf-ts/decoration";
 import { Adapter, AdapterFlags } from "../persistence";
 import { Context } from "../persistence/Context";
 import { MultiLock } from "@decaf-ts/transactional-decorators";
+import { PrimaryKeyType } from "@decaf-ts/db-decorators";
 
 /**
  * @description In-memory storage structure for the RAM adapter
@@ -13,7 +14,7 @@ import { MultiLock } from "@decaf-ts/transactional-decorators";
  * @memberOf module:core
  * @category Ram
  */
-export type RamStorage = Map<string, Map<string | number, any>>;
+export type RamStorage = Map<string, Map<PrimaryKeyType, any>>;
 
 export type RawRamQuery<M extends Model = any> = {
   select: undefined | (keyof M)[];

@@ -202,4 +202,30 @@ export class FsIndexStore {
     const filePath = this.indexPath(tableName, payload.fileName);
     await writeJsonAtomic(this.fs, filePath, payload, this.spacing);
   }
+
+  async refresh(
+    tableName: string,
+    descriptors: IndexDescriptor[]
+  ): Promise<void> {
+    if (!descriptors.length) return;
+    await this.ensure(tableName, descriptors);
+    const tableCache = this.cache.get(tableName);
+    if (!tableCache) return;
+    await Promise.all(
+      descriptors.map(async (descriptor) => {
+        const filePath = this.indexPath(tableName, descriptor.fileName);
+        const payload = await readJsonFile<PersistedIndex>(this.fs, filePath);
+        if (!payload) {
+          tableCache.delete(descriptor.fileName);
+          return;
+        }
+        const refreshed: PersistedIndex = {
+          ...descriptor,
+          entries: payload.entries ?? {},
+          directions: payload.directions ?? descriptor.directions,
+        };
+        tableCache.set(descriptor.fileName, refreshed);
+      })
+    );
+  }
 }

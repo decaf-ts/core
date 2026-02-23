@@ -338,7 +338,10 @@ class RepositoryInjectionModel extends Model {
 }
 
 @task("service-injected-task")
-class ServiceInjectedTask extends TaskHandler<number | { value: number }, number> {
+class ServiceInjectedTask extends TaskHandler<
+  number | { value: number },
+  number
+> {
   @service("task-calculator-service")
   private calculator!: TaskCalculatorService;
 
@@ -586,7 +589,9 @@ describe("Task Engine", () => {
       backoff: createBackoff(),
     }).build();
 
-    const handler = registry.get("service-injected-task") as ServiceInjectedTask;
+    const handler = registry.get(
+      "service-injected-task"
+    ) as ServiceInjectedTask;
     expect(handler).toBeDefined();
     const injectedService = (handler as any).calculator;
     expect(injectedService).toBeDefined();
@@ -880,7 +885,7 @@ describe("Task Engine", () => {
     expect(deletedIds).toEqual(toClean.map((t) => t.id).sort());
 
     for (const cleaned of toClean) {
-      await expect(taskRepo.read(cleaned.id)).rejects.toThrowError();
+      await expect(taskRepo.read(cleaned.id)).rejects.toThrow();
     }
     const stillThere = await taskRepo.read(kept.id);
     expect(stillThere).toBeDefined();

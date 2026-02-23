@@ -102,13 +102,13 @@ describe("Service injection and setup", () => {
     const service1 = Service.get("something") as CLientService2;
     expect(service1).toBeDefined();
     expect(service1).toBeInstanceOf(CLientService2);
-    expect(client1InitMock).toBeCalledTimes(2);
+    expect(client1InitMock).toHaveBeenCalledTimes(2);
     expect(client1InitMock).toHaveBeenNthCalledWith(1, { arg: "client2" });
     expect(service1.client).toBeDefined();
   });
 
   it("references class services properly", async () => {
-    expect(client1InitMock).toBeCalledTimes(2);
+    expect(client1InitMock).toHaveBeenCalledTimes(2);
     expect(client1InitMock).toHaveBeenNthCalledWith(2, { arg: "client3" });
     const service2 = Service.get(Testmodel3 as any);
     expect(service2).toBeDefined();

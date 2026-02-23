@@ -62,7 +62,7 @@ describe("Ram Adapter Integration", () => {
     expect(deleted).toBeDefined();
     expect(deleted.equals(updated)).toEqual(true);
 
-    await expect(repo.read(created.id)).rejects.toThrowError(NotFoundError);
+    await expect(repo.read(created.id)).rejects.toThrow(NotFoundError);
   });
 
   it("bulk reads return metadata", async () => {});

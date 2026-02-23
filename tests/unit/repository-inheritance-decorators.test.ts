@@ -98,9 +98,9 @@ describe("Repository", () => {
 
     expect(deleted).toBeDefined();
     expect(deleted.productCode).toEqual(created.productCode); // same model
-    await expect(
-      repo.read(created.inventedName as string)
-    ).rejects.toThrowError(NotFoundError);
+    await expect(repo.read(created.inventedName as string)).rejects.toThrow(
+      NotFoundError
+    );
     expect(mock).toHaveBeenCalledWith(
       Product,
       OperationKeys.DELETE,

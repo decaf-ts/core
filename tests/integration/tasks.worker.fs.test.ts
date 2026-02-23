@@ -1,6 +1,5 @@
 import { tmpdir } from "node:os";
-import path from "node:path";
-import { Worker } from "node:worker_threads";
+import * as path from "node:path";
 
 describe("FsAdapter Worker Pool Integration", () => {
   let workerPoolDir: string;
@@ -12,11 +11,13 @@ describe("FsAdapter Worker Pool Integration", () => {
   afterAll(() => {
     try {
       if (workerPoolDir && path.isAbsolute(workerPoolDir)) {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const fs = require("fs") as typeof import("fs");
         if (fs.existsSync(workerPoolDir)) {
           fs.rmSync(workerPoolDir, { recursive: true, force: true });
         }
       }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e) {
       // ignore cleanup errors
     }
@@ -24,7 +25,9 @@ describe("FsAdapter Worker Pool Integration", () => {
 
   describe("Worker Pool Configuration", () => {
     it("should create worker pool directory structure", () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const fs = require("fs") as typeof import("fs");
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const pathModule = require("path") as typeof import("path");
 
       const adapterRoot = pathModule.join(workerPoolDir, "adapter");
@@ -67,7 +70,9 @@ describe("FsAdapter Worker Pool Integration", () => {
         },
       };
 
-      expect(workThreadConfig.persistence.adapterModule).toBe("@decaf-ts/core/fs");
+      expect(workThreadConfig.persistence.adapterModule).toBe(
+        "@decaf-ts/core/fs"
+      );
       expect(workThreadConfig.persistence.adapterClass).toBe("FsAdapter");
       expect(workThreadConfig.mode).toBe("node");
       expect(workThreadConfig.taskEngine.concurrency).toBe(1);
@@ -76,7 +81,9 @@ describe("FsAdapter Worker Pool Integration", () => {
 
   describe("FsAdapter File Operations", () => {
     it("should demonstrate atomic file writes for task persistence", async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const fs = require("fs") as typeof import("fs");
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const pathModule = require("path") as typeof import("path");
 
       const taskId = `task-${Date.now()}`;
@@ -102,11 +109,13 @@ describe("FsAdapter Worker Pool Integration", () => {
       expect(parsed.input).toBe(42);
 
       fs.unlinkSync(taskFile);
-      fs.rmdirSync(taskDir, { recursive: true });
+      fs.rmdirSync(taskDir);
     });
 
     it("should demonstrate directory structure for adapter persistence", async () => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const fs = require("fs") as typeof import("fs");
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       const pathModule = require("path") as typeof import("path");
 
       const adapterRoot = pathModule.join(workerPoolDir, "adapter");
@@ -122,13 +131,20 @@ describe("FsAdapter Worker Pool Integration", () => {
 
       const taskId = `dir-structure-${Date.now()}`;
       const taskFile = pathModule.join(tasksDir, `${taskId}.json`);
-      fs.writeFileSync(taskFile, JSON.stringify({ id: taskId, status: "running" }));
+      fs.writeFileSync(
+        taskFile,
+        JSON.stringify({ id: taskId, status: "running" })
+      );
 
       const files = fs.readdirSync(tasksDir);
       expect(files.length).toBe(1);
       expect(files[0]).toContain(taskId);
 
-      fs.rmdirSync(adapterRoot, { recursive: true });
+      try {
+        fs.rmdirSync(adapterRoot);
+      } catch (e: unknown) {
+        console.log(`Failed to delete temp folder`, e);
+      }
     });
   });
 
@@ -193,4 +209,4 @@ describe("FsAdapter Worker Pool Integration", () => {
       expect(completionMessage.output).toBe(42);
     });
   });
-}, 30000);
+});

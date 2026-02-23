@@ -70,7 +70,7 @@ describe("MethodQueryBuilder", () => {
     });
 
     it("should throw error if missing value", () => {
-      expect(() => MethodQueryBuilder.build("findByNameEquals")).toThrowError(
+      expect(() => MethodQueryBuilder.build("findByNameEquals")).toThrow(
         /Invalid value for field name/
       );
     });
@@ -152,7 +152,7 @@ describe("MethodQueryBuilder", () => {
     it("should throw if no OrderBy in method name", () => {
       expect(() =>
         MethodQueryBuilder.build("findByAge", 18, OrderDirection.ASC)
-      ).toThrowError(
+      ).toThrow(
         /Expected OrderBy clause, but no sortable field was found in method name/
       );
     });
@@ -221,7 +221,7 @@ describe("MethodQueryBuilder", () => {
     it("should throw if method does not start with findBy", () => {
       expect(() =>
         MethodQueryBuilder.build("searchByNameEquals", "John")
-      ).toThrowError(/Unsupported method/);
+      ).toThrow(/Unsupported method/);
     });
 
     it("should fallback to equals operator", () => {

@@ -42,12 +42,12 @@
     "build": "npx build-scripts --dev",
     "build:prod": "npx build-scripts --prod",
     "test": "npm run build && jest --runInBand --coverage --detectOpenHandles",
-    "test:unit": "jest --testPathPattern=\"/tests/unit\" --passWithNoTests --detectOpenHandles",
-    "test:integration": "jest --testPathPattern=\"/tests/(integration)\" --passWithNoTests --detectOpenHandles",
-    "test:e2e": "jest --testPathPattern=\"/tests/(e2e)\" --passWithNoTests --detectOpenHandles",
-    "test:all": "jest --testPathPattern=\"/tests\" --passWithNoTests",
+    "test:unit": "jest --testPathPatterns=\"/tests/unit\" --passWithNoTests --detectOpenHandles",
+    "test:integration": "jest --testPathPatterns=\"/tests/(integration)\" --passWithNoTests --detectOpenHandles",
+    "test:e2e": "jest --testPathPatterns=\"/tests/(e2e)\" --passWithNoTests --detectOpenHandles",
+    "test:all": "jest --testPathPatterns=\"/tests\" --passWithNoTests",
     "test:circular": "dpdm -T --no-warning --no-tree ./src/index.ts",
-    "coverage": "rimraf ./workdocs/reports/data/*.json && npm run test:all -- --coverage --config=./workdocs/reports/jest.coverage.config.ts",
+    "coverage": "rimraf ./workdocs/reports/data/*.json && npm run test:all -- --coverage --config=./workdocs/reports/jest.coverage.config.cjs",
     "lint": "eslint .",
     "lint-fix": "eslint --fix .",
     "prepare-pr": "npm run lint-fix && npm run build:prod && npm run coverage && npm run docs",
@@ -101,6 +101,7 @@
   "devDependencies": {
     "@decaf-ts/logging": "latest",
     "@decaf-ts/utils": "latest",
+    "@types/jest": "^30.0.0",
     "typescript": "^5.9.3"
   },
   "dependencies": {
@@ -109,5 +110,9 @@
     "@decaf-ts/decorator-validation": "latest",
     "@decaf-ts/injectable-decorators": "latest",
     "@decaf-ts/transactional-decorators": "latest"
+  },
+  "overrides": {
+    "minimatch": "^10.2.2",
+    "test-exclude": "7.0.1"
   }
 }

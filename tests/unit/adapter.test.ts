@@ -164,7 +164,7 @@ describe("Adapter", () => {
       expect(deleted).toBeDefined();
       expect(deleted.equals(updated)).toEqual(true);
 
-      await expect(repo.read(created.id)).rejects.toThrowError(NotFoundError);
+      await expect(repo.read(created.id)).rejects.toThrow(NotFoundError);
     });
   });
 });

@@ -95,7 +95,7 @@ describe("Repository", () => {
 
     expect(deleted).toBeDefined();
     expect(deleted.id).toEqual(created.id); // same model
-    await expect(repo.read(created.id as string)).rejects.toThrowError(
+    await expect(repo.read(created.id as string)).rejects.toThrow(
       NotFoundError
     );
     expect(mock).toHaveBeenCalledWith(

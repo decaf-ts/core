@@ -223,6 +223,7 @@ class CompositeFlakyStep extends TaskHandler<{ failCount?: number }, number> {
 class CompositeAlwaysFailStep extends TaskHandler<void, never> {
   static attempts: Record<string, number> = {};
 
+  // @ts-expect-error test
   async run(_: void, ctx: TaskContext) {
     const attempt = (CompositeAlwaysFailStep.attempts[ctx.taskId] ?? 0) + 1;
     CompositeAlwaysFailStep.attempts[ctx.taskId] = attempt;
@@ -237,6 +238,7 @@ class CompositeAlwaysFailStep extends TaskHandler<void, never> {
  */
 @task("composite-cancel-step")
 class CompositeCancelStep extends TaskHandler<{ reason?: string }, never> {
+  // @ts-expect-error test
   async run(input: { reason?: string } | undefined, ctx: TaskContext) {
     const payload = parseObjectInput<{ reason?: string }>(input) ?? input;
     const reason = payload?.reason ?? "Step requested cancellation";
@@ -279,6 +281,7 @@ class CompositeRetryStep extends TaskHandler<void, number> {
  */
 @task("composite-reschedule-step")
 class CompositeRescheduleStep extends TaskHandler<{ delayMs?: number }, never> {
+  // @ts-expect-error test
   async run(input: { delayMs?: number } | undefined, ctx: TaskContext) {
     const payload = parseObjectInput<{ delayMs?: number }>(input) ?? input;
     const delayMs = payload?.delayMs ?? 100;
@@ -1423,7 +1426,9 @@ describe("Composite Tasks Integration", () => {
         await cancelTracker.resolve();
       } catch (e: unknown) {
         expect(isTaskError(e)).toBe(true);
-        expect((e as TaskErrorFrom<Error>).nextAction).toBe(TaskStatus.CANCELED);
+        expect((e as TaskErrorFrom<Error>).nextAction).toBe(
+          TaskStatus.CANCELED
+        );
       }
 
       // Test TaskRescheduleError - use long delay to prevent infinite loop

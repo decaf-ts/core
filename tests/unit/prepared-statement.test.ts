@@ -1,10 +1,7 @@
 import { minlength, model, required } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { RamAdapter } from "../../src/ram/RamAdapter";
-import {
-  defaultQueryAttr,
-  SerializedPage,
-} from "../../src/query";
+import { defaultQueryAttr, SerializedPage } from "../../src/query";
 import {
   BaseModel,
   pk,
@@ -101,7 +98,7 @@ describe("prepared statements", () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const res1 = await repo.select().execute();
 
-    await expect(repo.statement("select")).rejects.toThrowError(QueryError);
+    await expect(repo.statement("select")).rejects.toThrow(QueryError);
   });
 
   it("prepares in the statement itself", async () => {
@@ -114,7 +111,7 @@ describe("prepared statements", () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const result = await prepared.execute();
 
-    await expect(repo.statement("select")).rejects.toThrowError(QueryError);
+    await expect(repo.statement("select")).rejects.toThrow(QueryError);
   });
 
   @uses("ram")
@@ -189,15 +186,10 @@ describe("prepared statements", () => {
         )
       ).toEqual(true);
 
-      const stmtPage = (await searchRepo.statement(
-        "page",
-        "a",
-        "desc",
-        {
-          offset: 1,
-          limit: 2,
-        }
-      )) as SerializedPage<DefaultQueryModel>;
+      const stmtPage = (await searchRepo.statement("page", "a", "desc", {
+        offset: 1,
+        limit: 2,
+      })) as SerializedPage<DefaultQueryModel>;
 
       expect(stmtPage.data.map((record) => record.attr1)).toEqual(
         pageResult.data.map((record) => record.attr1)

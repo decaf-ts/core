@@ -35,8 +35,8 @@ describe("Service injection and setup", () => {
     const service1 = Service.get("something") as CLientService2;
     expect(service1).toBeDefined();
     expect(service1).toBeInstanceOf(CLientService2);
-    expect(client1InitMock).toBeCalledTimes(1);
-    expect(client1InitMock).toBeCalledWith({ arg: "client2" });
+    expect(client1InitMock).toHaveBeenCalledTimes(1);
+    expect(client1InitMock).toHaveBeenCalledWith({ arg: "client2" });
     expect(service1.client).toBeDefined();
   });
 });

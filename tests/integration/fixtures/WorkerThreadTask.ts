@@ -1,4 +1,4 @@
-import { task, TaskHandler, TaskContext } from "@decaf-ts/core/tasks";
+import { task, TaskHandler, TaskContext } from "../../../src/tasks";
 
 type WorkerInput = {
   value?: number;

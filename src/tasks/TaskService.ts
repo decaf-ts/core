@@ -35,6 +35,14 @@ import type { ArrayMode } from "../services/ModelService";
 import { TaskEngineConfig } from "./types";
 import { TaskTracker } from "./TaskTracker";
 
+export type TaskServiceConfig<
+  A extends Adapter<any, any, any, any>,
+  T extends TaskEngine<A> = TaskEngine<A>,
+  C extends TaskEngineConfig<A> = TaskEngineConfig<A>,
+> = C & {
+  engine?: Constructor<T>;
+};
+
 export class TaskService<
   A extends Adapter<any, any, any, any>,
 > extends ClientBasedService<TaskEngine<A>, TaskEngineConfig<A>> {
@@ -47,21 +55,19 @@ export class TaskService<
 
   override async initialize(
     ...args: MaybeContextualArg<ContextOf<A>>
-  ): Promise<{ config: TaskEngineConfig<A>; client: TaskEngine<A> }> {
-    const cfg = args.shift() as TaskEngineConfig<A> | any;
+  ): Promise<{
+    config: TaskServiceConfig<A, any, any>;
+    client: TaskEngine<A>;
+  }> {
+    const cfg = args.shift() as TaskServiceConfig<A, any, any> | any;
     if (!cfg || cfg instanceof Context)
       throw new InternalError(`No/invalid config provided`);
     const { log } = (
       await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
     ).for(this.initialize);
     if (!cfg.adapter) throw new InternalError(`No adapter provided`);
-    if (cfg.workerPool && !cfg.workerAdapter) {
-      throw new InternalError(
-        "Worker pool requires workerAdapter descriptor in TaskEngineConfig"
-      );
-    }
     log.info(`Initializing Task Engine...`);
-    const client: TaskEngine<A> = new TaskEngine(cfg);
+    const client: TaskEngine<A> = new (cfg.engine || TaskEngine)(cfg);
     log.verbose(`${client} initialized`);
     return {
       client: client,

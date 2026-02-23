@@ -2,7 +2,8 @@ import { Worker } from "worker_threads";
 import {
   TaskContext,
   TaskModel,
-  TaskEngineConfig as TSC,
+  TaskEngineConfig as TEC,
+  TaskServiceConfig as TSC,
 } from "../tasks/index";
 
 export type TaskWorkerThread = {
@@ -42,8 +43,15 @@ export type WorkThreadPoolConfig = {
   modules?: WorkThreadModulesConfig;
 };
 
-export type TaskEngineConfig<A extends Adapter<any, any, any, any>> = TSC<A> & {
+export type TaskEngineConfig<A extends Adapter<any, any, any, any>> = TEC<A> & {
   workerAdapter?: WorkerAdapterDescriptor;
   workerPool?: WorkThreadPoolConfig;
   workerConcurrency?: number;
 };
+
+export type TaskServiceConfig<A extends Adapter<any, any, any, any>> =
+  TSC<A> & {
+    workerAdapter?: WorkerAdapterDescriptor;
+    workerPool?: WorkThreadPoolConfig;
+    workerConcurrency?: number;
+  };

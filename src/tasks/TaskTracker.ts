@@ -89,7 +89,7 @@ export class TaskTracker<O = any>
     }, TaskEventType.LOG);
   }
 
-  protected pipe(pipe: EventPipe, type: TaskEventType = TaskEventType.ALL) {
+  pipe(pipe: EventPipe, type: TaskEventType = TaskEventType.ALL) {
     this.pipes = this.pipes || ({} as Record<TaskEventType, Set<EventPipe>>);
     this.pipes[type] = this.pipes[type] || new Set<EventPipe>();
     this.pipes[type].add(pipe);

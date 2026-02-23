@@ -1,9 +1,7 @@
 import { LogLevel } from "@decaf-ts/logging";
-import { TaskStateChangeRequest } from "../TaskStateChangeError";
+import { TaskStateChangeRequest } from "../tasks/TaskStateChangeError";
 
-export type WorkerLogEntry =
-  | [LogLevel, string]
-  | [LogLevel, string, any];
+export type WorkerLogEntry = [LogLevel, string] | [LogLevel, string, any];
 
 export interface WorkerJobPayload {
   jobId: string;

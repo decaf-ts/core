@@ -8,7 +8,6 @@ import { TaskStepResultModel } from "./models/TaskStepResultModel";
 import { TaskLogEntryModel } from "./models/TaskLogEntryModel";
 import { TaskBackoffModel } from "./models/TaskBackoffModel";
 import { TaskStepSpecModel } from "./models/TaskStepSpecModel";
-import { Worker } from "worker_threads";
 import {
   DefaultTaskEngineConfig,
   TaskEventType,
@@ -34,63 +33,20 @@ import {
 import { DateTarget } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
 import { TaskLogger } from "./logging";
-import {
-  TaskEngineConfig,
-  TaskFlags,
-  TaskProgressPayload,
-  WorkThreadPoolConfig,
-} from "./types";
+import { TaskEngineConfig, TaskFlags, TaskProgressPayload } from "./types";
 import { TaskErrorModel } from "./models/TaskErrorModel";
 import { TaskTracker } from "./TaskTracker";
 import { Lock } from "@decaf-ts/transactional-decorators";
-import { PersistenceKeys, UUID } from "../persistence/index";
-
-type TaskWorkerThread = {
-  id: string;
-  worker: Worker;
-  ready: boolean;
-  activeJobs: number;
-  capacity: number;
-  readyPromise?: Promise<void>;
-  resolveReady?: () => void;
-  rejectReady?: (error: Error) => void;
-};
-
-type WorkerJobState = {
-  id: string;
-  classification: string;
-  input: any;
-  task: TaskModel;
-  ctx: TaskContext;
-  resolve: (value: any) => void;
-  reject: (error: any) => void;
-  worker?: TaskWorkerThread;
-};
-import {
-  WorkThreadEnvironmentShape,
-  DefaultWorkThreadEnvironment,
-  WorkThreadModulesConfig,
-} from "./workers/WorkThreadEnvironment";
-import {
-  MainToWorkerMessage,
-  WorkerJobPayload,
-  WorkerLogEntry,
-  WorkerToMainMessage,
-} from "./workers/messages";
+import { PersistenceKeys } from "../persistence/index";
 
 export class TaskEngine<
   A extends Adapter<any, any, any, any>,
+  C extends TaskEngineConfig<A> = TaskEngineConfig<A>,
 > extends AbsContextual<ContextOf<A>> {
   private _tasks?: Repo<TaskModel>;
   private _events?: Repo<TaskEventModel>;
-  private workerPoolConfig?: WorkThreadPoolConfig;
-  private workerThreads: TaskWorkerThread[] = [];
-  private workerJobQueue: WorkerJobState[] = [];
-  private workerJobs = new Map<string, WorkerJobState>();
-  private workerCounter = 0;
-  private workerThreadCapacity = 1;
 
-  private lock = new Lock();
+  protected lock = new Lock();
 
   protected override get Context(): Constructor<ContextOf<A>> {
     return TaskContext as unknown as Constructor<ContextOf<A>>;
@@ -111,8 +67,6 @@ export class TaskEngine<
   protected get tasks(): Repo<TaskModel> {
     if (this._tasks) return this._tasks;
     this._tasks = Repository.forModel(TaskModel, this.adapter.alias);
-    if (this.config.overrides)
-      this._tasks = this._tasks.override(this.config.overrides);
     return this._tasks;
   }
 
@@ -122,8 +76,6 @@ export class TaskEngine<
       TaskEventModel,
       this.config.adapter.alias
     );
-    if (this.config.overrides)
-      this._events = this._events.override(this.config.overrides);
     return this._events;
   }
 
@@ -140,88 +92,12 @@ export class TaskEngine<
     return ctx;
   }
 
-  constructor(private config: TaskEngineConfig<A>) {
+  constructor(protected config: C) {
     super();
-    if (config.workerPool && !config.workerAdapter) {
-      throw new InternalError(
-        "Worker pool requires workerAdapter descriptor in TaskEngineConfig"
-      );
-    }
     this.config = Object.assign({}, DefaultTaskEngineConfig, config, {
       bus: config.bus || new TaskEventBus(),
       registry: config.registry || new TaskHandlerRegistry(),
     });
-    this.workerThreadCapacity = Math.max(1, this.config.workerConcurrency ?? 1);
-    this.workerPoolConfig = this.normalizeWorkerPoolConfig(
-      this.config.workerPool
-    );
-  }
-
-  private normalizeWorkerPoolConfig(
-    pool?: WorkThreadPoolConfig
-  ): WorkThreadPoolConfig | undefined {
-    if (!pool) return undefined;
-    if (!pool.entry) {
-      throw new InternalError(
-        "Worker pool configuration requires an explicit entry file path"
-      );
-    }
-    if (pool.size != null && pool.size !== this.config.concurrency) {
-      throw new InternalError(
-        "TaskEngine concurrency must match workerPool.size when worker pool is enabled"
-      );
-    }
-    return Object.assign({}, pool, {
-      size: this.config.concurrency,
-    });
-  }
-
-  private hasWorkerPool(): boolean {
-    return !!this.workerPoolConfig && (this.workerPoolConfig.size ?? 0) > 0;
-  }
-
-  private getWorkerCount(): number {
-    if (!this.workerPoolConfig) return 0;
-    return this.workerPoolConfig.size ?? 0;
-  }
-
-  private getWorkerExecutionSlots(): number {
-    return this.getWorkerCount() * this.workerThreadCapacity;
-  }
-
-  private canDispatchToWorkers(): boolean {
-    return this.hasWorkerPool();
-  }
-
-  private getExecutionConcurrency(): number {
-    if (this.hasWorkerPool()) {
-      return Math.max(1, this.getWorkerExecutionSlots());
-    }
-    return this.config.concurrency;
-  }
-
-  private computeWorkerModules(): WorkThreadModulesConfig {
-    const adapterDescriptor =
-      this.config.workerAdapter ?? DefaultWorkThreadEnvironment.persistence;
-    if (!adapterDescriptor?.adapterModule) {
-      throw new InternalError(
-        "Worker adapter descriptor must include adapterModule"
-      );
-    }
-    const configuredImports =
-      this.workerPoolConfig?.modules?.imports ??
-      DefaultWorkThreadEnvironment.modules.imports;
-    const imports: string[] = [];
-    const append = (specifier?: string) => {
-      if (!specifier) return;
-      if (!imports.includes(specifier)) imports.push(specifier);
-    };
-    append(adapterDescriptor.adapterModule);
-    for (const specifier of configuredImports) {
-      if (specifier === adapterDescriptor.adapterModule) continue;
-      append(specifier);
-    }
-    return { imports };
   }
 
   async push<I, O>(
@@ -327,7 +203,7 @@ export class TaskEngine<
     return { task, tracker };
   }
 
-  private async ensureTaskError(
+  protected async ensureTaskError(
     task: TaskModel,
     ctx: Context
   ): Promise<TaskModel> {
@@ -384,13 +260,9 @@ export class TaskEngine<
   async start(...args: MaybeContextualArg<any>): Promise<void> {
     const { ctx } = (await this.logCtx(args, "run", true)).for(this.start);
     await this.lock.acquire();
-    if (this.running) {
-      this.lock.release();
-      return;
-    }
+    if (this.running) return;
     this.running = true;
     this.lock.release();
-    await this.spawnWorkers();
     void this.loop(ctx);
   }
 
@@ -413,7 +285,7 @@ export class TaskEngine<
       ctx.getOrUndefined?.("gracefulShutdownMsTimeout") ??
       this.config.gracefulShutdownMsTimeout;
 
-    await new Promise<void>((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
         log.error(`Graceful shutdown interrupted after ${timeout} ms...`);
         resolve();
@@ -443,275 +315,13 @@ export class TaskEngine<
           reject(err);
         });
     });
-    await this.shutdownWorkers();
-  }
-
-  // -------------------------
-  // Worker pool orchestration
-  // -------------------------
-
-  private async spawnWorkers(): Promise<void> {
-    if (!this.hasWorkerPool()) return;
-    const target = this.getWorkerCount();
-    const creations: Promise<void>[] = [];
-    while (this.workerThreads.length < target) {
-      const ready = this.createWorker();
-      if (ready) creations.push(ready);
-    }
-    if (creations.length) {
-      await Promise.all(creations);
-    }
-  }
-
-  private createWorker(): Promise<void> | undefined {
-    if (!this.workerPoolConfig) return undefined;
-    let resolveReady!: () => void;
-    let rejectReady!: (error: Error) => void;
-    const readyPromise = new Promise<void>((resolve, reject) => {
-      resolveReady = resolve;
-      rejectReady = reject;
-    });
-    const entry = this.workerPoolConfig.entry;
-    const workerId = `${this.config.workerId}-${this.workerCounter++}`;
-    const env: WorkThreadEnvironmentShape = {
-      workerId,
-      mode: this.workerPoolConfig.mode ?? "node",
-      persistence: Object.assign(
-        {},
-        this.config.workerAdapter ?? DefaultWorkThreadEnvironment.persistence,
-        {
-          alias: this.adapter.alias,
-          flavour: this.adapter.flavour,
-        }
-      ),
-      taskEngine: {
-        concurrency: this.workerThreadCapacity,
-        leaseMs: this.config.leaseMs,
-        pollMsBusy: this.config.pollMsBusy,
-        pollMsIdle: this.config.pollMsIdle,
-        logTailMax: this.config.logTailMax,
-        streamBufferSize: this.config.streamBufferSize,
-        maxLoggingBuffer: this.config.maxLoggingBuffer,
-        loggingBufferTruncation: this.config.loggingBufferTruncation,
-        gracefulShutdownMsTimeout: this.config.gracefulShutdownMsTimeout,
-      },
-      modules: this.computeWorkerModules(),
-    };
-    const worker = new Worker(entry, {
-      workerData: { environment: env },
-    });
-    const state: TaskWorkerThread = {
-      id: workerId,
-      worker,
-      ready: false,
-      activeJobs: 0,
-      capacity: this.workerThreadCapacity,
-      readyPromise,
-      resolveReady,
-      rejectReady,
-    };
-    this.workerThreads.push(state);
-    worker.on("message", (msg: WorkerToMainMessage) =>
-      this.handleWorkerMessage(state, msg)
-    );
-    worker.on("error", (err: Error) => this.handleWorkerError(state, err));
-    worker.on("exit", (code) => this.handleWorkerExit(state, code));
-    return readyPromise;
-  }
-
-  private async shutdownWorkers() {
-    for (const state of this.workerThreads.splice(0)) {
-      const message: MainToWorkerMessage = {
-        type: "control",
-        command: "shutdown",
-      };
-      try {
-        state.worker.postMessage(message);
-      } catch {
-        // ignore
-      }
-      await state.worker.terminate();
-    }
-    for (const job of this.workerJobQueue.splice(0)) {
-      job.reject(
-        new InternalError(
-          `Worker pool shutting down before job ${job.id} could start`
-        )
-      );
-    }
-    for (const job of this.workerJobs.values()) {
-      job.reject(
-        new InternalError(`Worker terminated before finishing job ${job.id}`)
-      );
-    }
-    this.workerJobs.clear();
-  }
-
-  private handleWorkerError(state: TaskWorkerThread, err: Error) {
-    this.log.error(`worker ${state.id} error: ${err.message}`, err);
-    if (state.rejectReady) {
-      state.rejectReady(err);
-      state.resolveReady = undefined;
-      state.rejectReady = undefined;
-    }
-  }
-
-  private handleWorkerExit(state: TaskWorkerThread, code: number | null) {
-    this.log.info(`worker ${state.id} exited with code ${code}`);
-    if (state.rejectReady) {
-      state.rejectReady(
-        new Error(`worker ${state.id} exited before reporting ready`)
-      );
-      state.resolveReady = undefined;
-      state.rejectReady = undefined;
-    }
-    const idx = this.workerThreads.indexOf(state);
-    if (idx >= 0) this.workerThreads.splice(idx, 1);
-    for (const [jobId, job] of this.workerJobs.entries()) {
-      if (job.worker === state) {
-        job.worker = undefined;
-        this.workerJobs.delete(jobId);
-        this.workerJobQueue.unshift(job);
-      }
-    }
-    if (this.running) {
-      void this.spawnWorkers().catch((err) =>
-        this.log.error(`failed to respawn worker`, err)
-      );
-      this.processWorkerQueue();
-    }
-  }
-
-  private handleWorkerMessage(
-    state: TaskWorkerThread,
-    msg: WorkerToMainMessage
-  ) {
-    if (msg.type === "ready") {
-      state.ready = true;
-      if (state.resolveReady) {
-        state.resolveReady();
-        state.resolveReady = undefined;
-        state.rejectReady = undefined;
-      }
-      this.log.info(`worker ${state.id} ready`);
-      this.processWorkerQueue();
-      return;
-    }
-    if (msg.type === "error") {
-      this.log.error(`worker ${state.id} reported error: ${msg.error}`);
-      return;
-    }
-    if (msg.type === "log") {
-      const job = this.workerJobs.get(msg.jobId);
-      if (!job) return;
-      void this.appendLog(job.ctx, job.task, msg.entries as WorkerLogEntry[])
-        .then(([updated, entries]) => {
-          job.task = updated;
-          return this.emitLog(job.ctx, job.task.id, entries);
-        })
-        .catch((err) => this.log.error(`Failed to append worker log`, err));
-      return;
-    }
-    if (msg.type === "progress") {
-      const job = this.workerJobs.get(msg.jobId);
-      if (!job) return;
-      void this.emitProgress(job.ctx, job.task.id, msg.payload);
-      return;
-    }
-    if (msg.type === "heartbeat") {
-      const job = this.workerJobs.get(msg.jobId);
-      if (!job) return;
-      job.task.leaseExpiry = new Date(Date.now() + this.config.leaseMs);
-      void this.tasks.update(job.task).catch(() => null);
-      return;
-    }
-    if (msg.type === "result") {
-      const job = this.workerJobs.get(msg.jobId);
-      if (!job) return;
-      this.workerJobs.delete(job.id);
-      state.activeJobs = Math.max(0, state.activeJobs - 1);
-      this.applyWorkerCache(job.ctx, msg.cache);
-      switch (msg.status) {
-        case "success":
-          job.resolve(msg.output);
-          break;
-        case "error": {
-          const err = new Error(msg.error.message);
-          if (msg.error.name) err.name = msg.error.name;
-          if (msg.error.stack) err.stack = msg.error.stack;
-          job.reject(err);
-          break;
-        }
-        case "state-change":
-          job.reject(new TaskStateChangeError(msg.request));
-          break;
-      }
-      this.processWorkerQueue();
-      return;
-    }
-  }
-
-  private applyWorkerCache(
-    ctx: TaskContext,
-    cache?: Record<string, any>
-  ): void {
-    if (!cache) return;
-    Object.entries(cache).forEach(([key, value]) => {
-      ctx.cacheResult(key, value);
-    });
-  }
-
-  private processWorkerQueue() {
-    if (!this.hasWorkerPool()) return;
-    const available = this.workerThreads
-      .filter((state) => state.ready && state.activeJobs < state.capacity)
-      .sort((a, b) => a.activeJobs - b.activeJobs);
-    for (const state of available) {
-      while (
-        state.activeJobs < state.capacity &&
-        this.workerJobQueue.length > 0
-      ) {
-        const job = this.workerJobQueue.shift();
-        if (!job) break;
-        this.assignWorker(state, job);
-      }
-      if (!this.workerJobQueue.length) break;
-    }
-  }
-
-  private assignWorker(state: TaskWorkerThread, job: WorkerJobState) {
-    if (!this.workerPoolConfig) return;
-    const payload: WorkerJobPayload = {
-      jobId: job.id,
-      taskId: job.task.id,
-      classification: job.classification,
-      input: job.input,
-      attempt: job.task.attempt ?? 0,
-      resultCache: job.ctx.resultCache ?? {},
-      streamBufferSize: this.config.streamBufferSize,
-      maxLoggingBuffer: this.config.maxLoggingBuffer,
-      loggingBufferTruncation: this.config.loggingBufferTruncation,
-    };
-    job.worker = state;
-    this.workerJobs.set(job.id, job);
-    state.activeJobs += 1;
-    const message: MainToWorkerMessage = {
-      type: "execute",
-      job: payload,
-    };
-    state.worker.postMessage(message);
-  }
-
-  private enqueueWorkerJob(job: WorkerJobState) {
-    this.workerJobQueue.push(job);
-    this.processWorkerQueue();
   }
 
   // -------------------------
   // Worker loop
   // -------------------------
 
-  private async loop(...args: ContextualArgs<any>): Promise<void> {
+  protected async loop(...args: ContextualArgs<any>): Promise<void> {
     const { ctx } = this.logCtx(args, this.loop);
     while (await this.isRunning()) {
       const claimed = await this.claimBatch(ctx);
@@ -722,7 +332,7 @@ export class TaskEngine<
     }
   }
 
-  private async claimBatch(ctx: Context<any>): Promise<TaskModel[]> {
+  protected async claimBatch(ctx: Context<any>): Promise<TaskModel[]> {
     const log = ctx.logger.for(this.claimBatch);
     const now = new Date();
 
@@ -751,11 +361,10 @@ export class TaskEngine<
       .or(condScheduled);
 
     // Fetch more than concurrency because some will fail to claim due to conflicts
-    const concurrency = this.getExecutionConcurrency();
     const candidates: TaskModel[] = await this.tasks
       .select()
       .where(runnable)
-      .limit(Math.max(concurrency * 4, 20))
+      .limit(Math.max(this.config.concurrency * 4, 20))
       .execute();
 
     log.verbose(`claimBatch candidates:${candidates.length}`);
@@ -764,13 +373,13 @@ export class TaskEngine<
     for (const c of candidates) {
       const claimed = await this.tryClaim(c, ctx);
       if (claimed) out.push(claimed);
-      if (out.length >= concurrency) break;
+      if (out.length >= this.config.concurrency) break;
     }
     log.verbose(`claimBatch claimed:${out.length}`);
     return out;
   }
 
-  private async tryClaim(
+  protected async tryClaim(
     task: TaskModel,
     ctx: Context
   ): Promise<TaskModel | null> {
@@ -810,60 +419,11 @@ export class TaskEngine<
   // Execution
   // -------------------------
 
-  private async runHandlerInline(
-    classification: string,
-    input: any,
-    ctx: TaskContext
-  ): Promise<any> {
-    const handler = this.registry.get(classification);
-    if (!handler)
-      throw new InternalError(
-        `No task handler registered for type: ${classification}`
-      );
-    return handler.run(input, ctx);
-  }
-
-  private async dispatchToWorker(
-    classification: string,
-    input: any,
-    task: TaskModel,
-    ctx: TaskContext
-  ): Promise<any> {
-    if (!this.canDispatchToWorkers()) {
-      return this.runHandlerInline(classification, input, ctx);
-    }
-    const uuid = await UUID.instance.generate();
-    return new Promise((resolve, reject) => {
-      const job: WorkerJobState = {
-        id: uuid,
-        classification,
-        input,
-        task,
-        ctx,
-        resolve,
-        reject,
-      };
-      this.enqueueWorkerJob(job);
-    });
-  }
-
-  private async invokeHandler(
-    classification: string,
-    input: any,
-    task: TaskModel,
-    ctx: TaskContext
-  ): Promise<any> {
-    if (!this.hasWorkerPool()) {
-      return this.runHandlerInline(classification, input, ctx);
-    }
-    return this.dispatchToWorker(classification, input, task, ctx);
-  }
-
-  private async executeClaimed(task: TaskModel): Promise<void> {
+  protected async executeClaimed(task: TaskModel): Promise<void> {
     const { ctx, log } = (await this.logCtx([], task.classification, true)).for(
       this.executeClaimed
     );
-    const taskCtx = TaskEngine.createTaskContext(ctx, {
+    const taskCtx: TaskContext = new TaskContext(ctx).accumulate({
       taskId: task.id,
       logger: new TaskLogger(
         log,
@@ -877,7 +437,7 @@ export class TaskEngine<
         await this.emitLog(taskCtx, task.id, logs);
       },
       flush: async () => {
-        await taskCtx.logger.flush(taskCtx.pipe);
+        return taskCtx.logger.flush(taskCtx.pipe);
       },
       progress: async (data: any) => {
         await this.emitProgress(taskCtx, task.id, data);
@@ -892,7 +452,7 @@ export class TaskEngine<
           // if we lose the claim, execution should still proceed; next update will fail and be retried by recovery
         }
       },
-    });
+    }) as TaskContext;
 
     await this.emitStatus(taskCtx, task, TaskStatus.RUNNING);
 
@@ -910,13 +470,15 @@ export class TaskEngine<
           task.currentStep = output.stepResults.length;
         }
       } else {
-        log.debug(`dispatching handler for ${task.id}`);
-        output = await this.invokeHandler(
-          task.classification,
-          task.input,
-          task,
-          taskCtx
+        const handler = this.registry.get(task.classification);
+        log.debug(
+          `handler type for ${task.id} is ${handler?.constructor?.name ?? "none"}`
         );
+        if (!handler)
+          throw new InternalError(
+            `No task handler registered for type: ${task.classification}`
+          );
+        output = await handler.run(task.input, taskCtx);
         log.verbose(`handler finished for ${task.id}`);
       }
 
@@ -1015,7 +577,7 @@ export class TaskEngine<
     }
   }
 
-  private async handleTaskStateChange(
+  protected async handleTaskStateChange(
     request: TaskStateChangeRequest,
     task: TaskModel,
     ctx: TaskContext
@@ -1091,7 +653,7 @@ export class TaskEngine<
     }
   }
 
-  private async runComposite(
+  protected async runComposite(
     task: TaskModel,
     context: TaskContext
   ): Promise<any> {
@@ -1122,6 +684,11 @@ export class TaskEngine<
 
     while (idx < steps.length) {
       const step = steps[idx];
+      const handler = this.registry.get(step.classification);
+      if (!handler)
+        throw new Error(
+          `No task handler registered for composite step: ${step.classification}`
+        );
 
       await context.pipe([
         LogLevel.info,
@@ -1129,12 +696,7 @@ export class TaskEngine<
       ]);
 
       try {
-        const out = await this.invokeHandler(
-          step.classification,
-          step.input,
-          task,
-          context
-        );
+        const out = await handler.run(step.input, context);
 
         const stepIndex = idx;
         const now = new Date();
@@ -1179,7 +741,9 @@ export class TaskEngine<
     return { stepResults: results };
   }
 
-  private normalizeBackoff(backoff: TaskBackoffModel | string | object | any) {
+  protected normalizeBackoff(
+    backoff: TaskBackoffModel | string | object | any
+  ) {
     if (backoff instanceof TaskBackoffModel) return backoff;
     let payload: any = backoff ?? {};
     if (typeof payload === "string") {
@@ -1192,7 +756,7 @@ export class TaskEngine<
     return new TaskBackoffModel(payload);
   }
 
-  private normalizeSteps(
+  protected normalizeSteps(
     steps: TaskStepSpecModel[] | string | undefined
   ): TaskStepSpecModel[] {
     if (!steps) return [];
@@ -1220,7 +784,7 @@ export class TaskEngine<
     });
   }
 
-  private normalizeStepResults(
+  protected normalizeStepResults(
     results: TaskStepResultModel[] | string | undefined
   ): TaskStepResultModel[] {
     if (!results) return [];
@@ -1252,7 +816,7 @@ export class TaskEngine<
   // Events + log tail persistence
   // -------------------------
 
-  private async appendLog(
+  protected async appendLog(
     ctx: TaskContext | Context,
     task: TaskModel,
     logEntries:
@@ -1283,7 +847,7 @@ export class TaskEngine<
     }
   }
 
-  private async emitStatus(
+  protected async emitStatus(
     ctx: TaskContext | Context,
     task: TaskModel,
     status: TaskStatus,
@@ -1317,7 +881,7 @@ export class TaskEngine<
     this.bus.emit(emitted, ctx);
   }
 
-  private async emitLog(
+  protected async emitLog(
     ctx: TaskContext | Context,
     taskId: string,
     entries: TaskLogEntryModel[]
@@ -1336,7 +900,7 @@ export class TaskEngine<
     this.bus.emit(evt, ctx);
   }
 
-  private async emitProgress(
+  protected async emitProgress(
     ctx: TaskContext | Context,
     taskId: string,
     data: any
@@ -1350,7 +914,7 @@ export class TaskEngine<
     this.bus.emit(evt, ctx);
   }
 
-  private async persistEvent(
+  protected async persistEvent(
     ctx: TaskContext | Context,
     taskId: string,
     type: TaskEventType,

@@ -7,8 +7,6 @@ import { TaskHandlerRegistry } from "./TaskHandlerRegistry";
 import { TaskEventModel } from "./models/TaskEventModel";
 import { TaskStatus } from "./constants";
 import { TaskErrorModel } from "./models/TaskErrorModel";
-import { WorkThreadPersistenceConfig } from "./workers/WorkThreadEnvironment";
-import { WorkThreadModulesConfig } from "./workers/WorkThreadEnvironment";
 
 export interface ITaskHandler<I = any, O = any> {
   type: string;
@@ -36,15 +34,6 @@ export interface TaskFlags<LOG extends TaskLogger<any> = TaskLogger<any>>
   resultCache?: Record<string, any>;
 }
 
-export type WorkerAdapterDescriptor = WorkThreadPersistenceConfig;
-
-export type WorkThreadPoolConfig = {
-  size?: number;
-  mode?: "node" | "browser";
-  entry: string;
-  modules?: WorkThreadModulesConfig;
-};
-
 export type TaskEngineConfig<A extends Adapter<any, any, any, any>> = {
   adapter: A;
   overrides?: Partial<FlagsOf<A>>;
@@ -60,9 +49,6 @@ export type TaskEngineConfig<A extends Adapter<any, any, any, any>> = {
   maxLoggingBuffer: number;
   loggingBufferTruncation: number;
   gracefulShutdownMsTimeout: number;
-  workerAdapter?: WorkerAdapterDescriptor;
-  workerPool?: WorkThreadPoolConfig;
-  workerConcurrency?: number;
 };
 
 export type TaskProgressPayload = {

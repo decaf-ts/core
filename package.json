@@ -28,6 +28,11 @@
       "require": "./lib/tasks/index.cjs",
       "import": "./lib/esm/tasks/index.js",
       "types": "./lib/tasks/index.d.ts"
+    },
+    "./workers": {
+      "require": "./lib/workers/index.cjs",
+      "import": "./lib/esm/workers/index.js",
+      "types": "./lib/workers/index.d.ts"
     }
   },
   "types": "lib/index.d.ts",

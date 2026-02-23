@@ -1,6 +1,5 @@
-import "../../overrides/index";
+import "../overrides";
 import { parentPort, workerData } from "worker_threads";
-import { Adapter } from "../../persistence/Adapter";
 import {
   WorkThreadEnvironmentShape,
   WorkThreadEnvironment,
@@ -12,14 +11,17 @@ import {
   WorkerJobPayload,
   WorkerLogEntry,
 } from "./messages";
-import { TaskHandlerRegistry } from "../TaskHandlerRegistry";
-import { TaskEngine } from "../TaskEngine";
-import { TaskContext } from "../TaskContext";
-import { TaskLogger } from "../logging";
+import { normalizeImport } from "../utils";
+import { Adapter } from "../persistence";
+import {
+  serializeError,
+  TaskEngine,
+  TaskHandlerRegistry,
+  TaskLogger,
+} from "../tasks";
 import { Logging } from "@decaf-ts/logging";
-import { TaskStateChangeError } from "../TaskStateChangeError";
-import { serializeError } from "../utils";
-import { normalizeImport } from "../../utils/utils";
+import { TaskStateChangeError } from "../tasks/TaskStateChangeError";
+import { TaskContext } from "../tasks/TaskContext";
 
 const initialPort = parentPort;
 if (!initialPort) {
@@ -36,7 +38,9 @@ const moduleLoadPromise = loadModules(environment.modules);
 async function loadModules(modules: WorkThreadModulesConfig) {
   const imports = modules?.imports ?? [];
   if (!imports.length) {
-    throw new Error("Worker modules configuration must include at least one import");
+    throw new Error(
+      "Worker modules configuration must include at least one import"
+    );
   }
   const loaded: any[] = [];
   for (const specifier of imports) {
@@ -78,9 +82,7 @@ async function resolveAdapter(): Promise<Adapter<any, any, any, any>> {
 }
 
 let adapterPromise: Promise<Adapter<any, any, any, any>> | undefined;
-const registryPromise = moduleLoadPromise.then(
-  () => new TaskHandlerRegistry()
-);
+const registryPromise = moduleLoadPromise.then(() => new TaskHandlerRegistry());
 
 function getAdapter(): Promise<Adapter<any, any, any, any>> {
   if (!adapterPromise) adapterPromise = resolveAdapter();

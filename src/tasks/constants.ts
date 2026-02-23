@@ -45,5 +45,4 @@ export const DefaultTaskEngineConfig: TaskEngineConfig<any> = {
   maxLoggingBuffer: 300,
   loggingBufferTruncation: 20,
   gracefulShutdownMsTimeout: 60 * 2 * 1000,
-  workerConcurrency: 1,
 } as TaskEngineConfig<any>;

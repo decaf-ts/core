@@ -8,7 +8,7 @@ import { TaskStepResultModel } from "./models/TaskStepResultModel";
 import { TaskLogEntryModel } from "./models/TaskLogEntryModel";
 import { TaskBackoffModel } from "./models/TaskBackoffModel";
 import { TaskStepSpecModel } from "./models/TaskStepSpecModel";
-import { Worker } from "node:worker_threads";
+import { Worker } from "worker_threads";
 import {
   DefaultTaskEngineConfig,
   TaskEventType,

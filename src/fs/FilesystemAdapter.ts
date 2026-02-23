@@ -1,32 +1,41 @@
-import { promises as defaultFs, watch as fsWatch, FSWatcher } from "node:fs";
+import { FSWatcher, promises as defaultFs, watch as fsWatch } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { Constructor } from "@decaf-ts/decoration";
+import { Constructor, Decoration, propMetadata } from "@decaf-ts/decoration";
 import { Model } from "@decaf-ts/decorator-validation";
-import { OperationKeys, PrimaryKeyType } from "@decaf-ts/db-decorators";
+import {
+  onCreate,
+  onCreateUpdate,
+  OperationKeys,
+  PrimaryKeyType,
+} from "@decaf-ts/db-decorators";
 import { Dispatch } from "../persistence/Dispatch";
 import { PersistenceKeys } from "../persistence/constants";
-import { ContextualArgs } from "../utils/ContextualLoggedClass";
-import { RamAdapter } from "../ram";
+import {
+  ContextualArgs,
+  MaybeContextualArg,
+} from "../utils/ContextualLoggedClass";
+import { createdByOnRamCreateUpdate, RamAdapter } from "../ram";
 import type { RamContext, RawRamQuery } from "../ram/types";
 import type { IndexMetadata } from "../repository/types";
 import {
-  JsonSpacing,
-  SerializedId,
   deserializeId,
   encodeId,
   ensureDir,
+  fileExists,
+  JsonSpacing,
   readDirSafe,
   readJsonFile,
   removeFile,
+  SerializedId,
   serializeId,
   writeJsonAtomic,
-  fileExists,
 } from "./helpers";
 import { FilesystemMultiLock } from "./locks/FilesystemMultiLock";
 import { FsDispatch } from "./FsDispatch";
 import { FsIndexStore, IndexDescriptor, toIndexFileName } from "./indexStore";
 import type { FilesystemConfig, FilesystemHydrationInfo } from "./types";
+import { Adapter } from "../persistence/Adapter";
 
 type StoredRecord = {
   id: SerializedId;
@@ -37,7 +46,7 @@ export class FilesystemAdapter extends RamAdapter {
   private readonly rootDir: string;
   private readonly dbPath: string;
   private readonly fs: typeof defaultFs;
-  private readonly ready: Promise<void>;
+  private ready: boolean = false;
   private readonly jsonSpacing?: JsonSpacing;
   private readonly onHydrated?: (info: FilesystemHydrationInfo) => void;
   private readonly indexStore: FsIndexStore;
@@ -55,15 +64,16 @@ export class FilesystemAdapter extends RamAdapter {
     { timer: NodeJS.Timeout; event: OperationKeys; id: PrimaryKeyType }
   >();
 
-  constructor(conf: FilesystemConfig = {} as FilesystemConfig, alias: string = "fs") {
+  constructor(
+    conf: FilesystemConfig = {} as FilesystemConfig,
+    alias: string = "fs"
+  ) {
     const fsImpl = conf.fs ?? defaultFs;
     const aliasName = alias || "fs";
     const rootDir = conf.rootDir ?? path.join(tmpdir(), "decaf-fs-adapter");
     const dbPath = path.join(rootDir, aliasName);
     const lockDir = conf.lockDir ?? path.join(dbPath, "locks");
-    const lock =
-      conf.lock ??
-      new FilesystemMultiLock(lockDir, fsImpl);
+    const lock = conf.lock ?? new FilesystemMultiLock(lockDir, fsImpl);
     const normalizedConfig: FilesystemConfig = Object.assign({}, conf, {
       fs: fsImpl,
       rootDir,
@@ -82,14 +92,20 @@ export class FilesystemAdapter extends RamAdapter {
       this.jsonSpacing
     );
     this.watchDebounceMs = conf.watchDebounceMs ?? 50;
-    this.ready = this.initializeFromDisk();
-    this.ready.then(() =>
-      this.ensureWatching().catch((error) =>
-        this.log
-          .for(this.ensureWatching)
-          .error(`Filesystem watcher setup failed: ${error}`)
-      )
-    );
+  }
+
+  override async initialize(...args: MaybeContextualArg<any>): Promise<void> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
+    ).for(this.initialize);
+    await super.initialize(...ctxArgs);
+    await this.initializeFromDisk();
+    try {
+      await this.ensureWatching();
+    } catch (e: unknown) {
+      log.error(`Filesystem watcher setup failed: ${e}`);
+    }
+    this.ready = true;
   }
 
   public getFs(): typeof defaultFs {
@@ -176,9 +192,9 @@ export class FilesystemAdapter extends RamAdapter {
       (event, filename) => void this.handleRootEvent(event, filename)
     );
     this.rootWatcher.on("error", (error) =>
-      this.log.for(this.startRootWatcher).error(
-        `Filesystem root watcher error: ${error}`
-      )
+      this.log
+        .for(this.startRootWatcher)
+        .error(`Filesystem root watcher error: ${error}`)
     );
   }
 
@@ -201,9 +217,7 @@ export class FilesystemAdapter extends RamAdapter {
     filename?: string | Buffer | null
   ): string | undefined {
     if (!filename) return undefined;
-    return typeof filename === "string"
-      ? filename
-      : filename.toString("utf8");
+    return typeof filename === "string" ? filename : filename.toString("utf8");
   }
 
   private scheduleObserverRefresh(
@@ -265,12 +279,13 @@ export class FilesystemAdapter extends RamAdapter {
     const watcher = fsWatch(
       tableDir,
       { persistent: false },
-      (event, filename) => void this.handleTableEvent(tableName, event, filename)
+      (event, filename) =>
+        void this.handleTableEvent(tableName, event, filename)
     );
     watcher.on("error", (error) =>
-      this.log.for(this.watchTable).error(
-        `Watcher error for ${tableName}: ${error}`
-      )
+      this.log
+        .for(this.watchTable)
+        .error(`Watcher error for ${tableName}: ${error}`)
     );
     this.tableWatchers.set(tableName, watcher);
   }
@@ -328,11 +343,10 @@ export class FilesystemAdapter extends RamAdapter {
     return undefined;
   }
 
-  private applyRecord(
-    tableName: string,
-    payload: StoredRecord
-  ): OperationKeys {
-    const map = this.client.get(tableName) ?? new Map<PrimaryKeyType, Record<string, any>>();
+  private applyRecord(tableName: string, payload: StoredRecord): OperationKeys {
+    const map =
+      this.client.get(tableName) ??
+      new Map<PrimaryKeyType, Record<string, any>>();
     const id = deserializeId(payload.id);
     const existed = map.has(id);
     map.set(id, payload.record);
@@ -607,4 +621,26 @@ export class FilesystemAdapter extends RamAdapter {
     await this.ensureReady();
     return super.raw<R, D>(rawInput, docsOnly, ...args);
   }
+
+  static override decoration() {
+    const createdByKey = PersistenceKeys.CREATED_BY;
+    const updatedByKey = PersistenceKeys.UPDATED_BY;
+    Decoration.flavouredAs("fs")
+      .for(createdByKey)
+      .define(
+        onCreate(createdByOnRamCreateUpdate),
+        propMetadata(createdByKey, {})
+      )
+      .apply();
+    Decoration.flavouredAs("fs")
+      .for(updatedByKey)
+      .define(
+        onCreateUpdate(createdByOnRamCreateUpdate),
+        propMetadata(updatedByKey, {})
+      )
+      .apply();
+  }
 }
+
+FilesystemAdapter.decoration();
+Adapter.setCurrent("fs");

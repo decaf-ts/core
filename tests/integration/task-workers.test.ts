@@ -1,3 +1,4 @@
+import { FilesystemAdapter } from "../../src/fs";
 import "../../src/index";
 import "../../src/overrides/index";
 import { promises as fs } from "node:fs";
@@ -6,33 +7,39 @@ import { MultiLock } from "@decaf-ts/transactional-decorators";
 import { Model } from "@decaf-ts/decorator-validation";
 import { TaskBuilder } from "../../src/tasks/builder";
 import { TaskService } from "../../src/tasks/TaskService";
-import { FilesystemAdapter } from "../../src/fs";
 import { TaskEngine } from "../../src/workers/TaskEngine";
 import { TaskServiceConfig } from "../../src/workers/types";
 import { encodeId } from "../../src/fs/helpers";
 import { TaskModel } from "../../src/tasks/models/TaskModel";
+import { Metadata, uses } from "@decaf-ts/decoration";
+uses("fs")(TaskModel);
 import { TaskStatus } from "../../src/tasks/constants";
 import { createTempFs, TempFsHandle } from "../unit/fs/tempFs";
 
 import "./fixtures/WorkerThreadTask";
+import { Adapter } from "../../src/index";
 
 const workerEntry = path.join(__dirname, "../../lib/workers/workerThread.cjs");
 
-describe.skip("Task workers with FilesystemAdapter", () => {
+jest.setTimeout(300000);
+
+describe("Task workers with FilesystemAdapter", () => {
   let tempHandle: TempFsHandle;
   let adapter: FilesystemAdapter;
   let service: TaskService<FilesystemAdapter>;
   let engine: TaskEngine<FilesystemAdapter>;
+  let config: TaskServiceConfig<any>;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     tempHandle = await createTempFs();
-    adapter = new FilesystemAdapter(
-      { rootDir: path.join(tempHandle.root, "main"), user: "test-user" },
-      "task-fs"
-    );
+    adapter = new FilesystemAdapter({
+      rootDir: path.join(tempHandle.root, "main"),
+      user: "test-user",
+    });
+    await adapter.initialize();
     service = new TaskService();
     const workerRoot = path.join(tempHandle.root, "worker");
-    const config: TaskServiceConfig<FilesystemAdapter> = {
+    config = {
       engine: TaskEngine,
       adapter,
       workerId: "task-worker",
@@ -55,21 +62,36 @@ describe.skip("Task workers with FilesystemAdapter", () => {
             lock: new MultiLock(),
           },
         ],
-        alias: "worker-fs",
+        alias: "fs",
+        modules: {
+          imports: [
+            `${path.join(__dirname, "fixtures", "WorkerThreadTask.cjs")}`,
+          ],
+        },
       },
       workerPool: {
         entry: workerEntry,
         size: 1,
       },
     };
-    await service.boot(config);
-    engine = service.client as unknown as TaskEngine<FilesystemAdapter>;
   });
 
-  afterEach(async () => {
+  afterAll(async () => {
     if (engine) await engine.stop();
-    await adapter.shutdown();
+    if (adapter) await adapter.shutdown();
     await tempHandle.cleanup();
+  });
+
+  it("verifies the adapter is up", async () => {
+    const cache = Adapter["_cache"];
+    const f = Metadata.flavourOf(TaskModel);
+    const ad = Adapter.get("fs");
+    expect(ad).toBeDefined();
+  });
+
+  it("boots the services", async () => {
+    await service.boot(config);
+    engine = service.client as unknown as TaskEngine<FilesystemAdapter>;
   });
 
   it("executes worker tasks while persisting through filesystem", async () => {

@@ -11,7 +11,7 @@ import { TaskEngine } from "../../src/workers/TaskEngine";
 import { TaskServiceConfig } from "../../src/workers/types";
 import { encodeId } from "../../src/fs/helpers";
 import { TaskModel } from "../../src/tasks/models/TaskModel";
-import { Metadata, uses } from "@decaf-ts/decoration";
+import { uses } from "@decaf-ts/decoration";
 uses("fs")(TaskModel);
 import { TaskStatus } from "../../src/tasks/constants";
 import { createTempFs, TempFsHandle } from "../unit/fs/tempFs";
@@ -83,8 +83,6 @@ describe("Task workers with FilesystemAdapter", () => {
   });
 
   it("verifies the adapter is up", async () => {
-    const cache = Adapter["_cache"];
-    const f = Metadata.flavourOf(TaskModel);
     const ad = Adapter.get("fs");
     expect(ad).toBeDefined();
   });
@@ -107,7 +105,7 @@ describe("Task workers with FilesystemAdapter", () => {
     const recordPath = path.join(
       tempHandle.root,
       "main",
-      "task-fs",
+      "fs",
       tableName,
       `${encodeId(task.id)}.json`
     );

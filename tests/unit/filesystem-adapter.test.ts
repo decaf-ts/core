@@ -40,11 +40,15 @@ describe("FilesystemAdapter", () => {
     await tempHandle.cleanup();
   });
 
-  const createAdapter = (alias: string, extra?: Partial<FilesystemConfig>) => {
+  const createAdapter = async (
+    alias: string,
+    extra?: Partial<FilesystemConfig>
+  ) => {
     const adapter = new FilesystemAdapter(
       { user: "tester", rootDir: tempHandle.root, ...(extra || {}) },
       alias
     );
+    await adapter.initialize();
     activeAdapters.push(adapter);
     usedAliases.add(alias);
     return adapter;
@@ -116,7 +120,7 @@ describe("FilesystemAdapter", () => {
   it("persists records between adapter instances", async () => {
     const alias = `fs-adapter-${Date.now()}`;
     try {
-      const adapter1 = createAdapter(alias);
+      const adapter1 = await createAdapter(alias);
       const repo1 = new Repository(adapter1, FsTestModel);
 
       const created = await repo1.create(
@@ -138,7 +142,7 @@ describe("FilesystemAdapter", () => {
       await releaseAdapter(adapter1);
       clearRepositoryCache(FsTestModel, alias);
 
-      const adapter2 = createAdapter(alias);
+      const adapter2 = await createAdapter(alias);
       const repo2 = new Repository(adapter2, FsTestModel);
       const read = await repo2.read(created.id);
       expect(read.name).toBe("Persisted User");
@@ -150,7 +154,7 @@ describe("FilesystemAdapter", () => {
   it("updates and deletes records across restarts", async () => {
     const alias = `fs-adapter-${Date.now()}-updates`;
     try {
-      const adapter = createAdapter(alias);
+      const adapter = await createAdapter(alias);
       const repo = new Repository(adapter, FsTestModel);
       const created = await repo.create(
         new FsTestModel({
@@ -171,7 +175,7 @@ describe("FilesystemAdapter", () => {
       await releaseAdapter(adapter);
       clearRepositoryCache(FsTestModel, alias);
 
-      const reloaded = createAdapter(alias);
+      const reloaded = await createAdapter(alias);
       const repoReloaded = new Repository(reloaded, FsTestModel);
       const updated = await repoReloaded.read(created.id);
       expect(updated.name).toBe("Updated Name");
@@ -186,7 +190,7 @@ describe("FilesystemAdapter", () => {
   it("writes and updates index files for indexed models", async () => {
     const alias = `fs-adapter-${Date.now()}-indexes`;
     try {
-      const adapter = createAdapter(alias);
+      const adapter = await createAdapter(alias);
       const repo = new Repository(adapter, IndexedFsModel);
       const created = await repo.create(
         new IndexedFsModel({
@@ -233,7 +237,7 @@ describe("FilesystemAdapter", () => {
   it("honors the jsonSpacing option", async () => {
     const alias = `fs-adapter-${Date.now()}-json`;
     try {
-      const adapter = createAdapter(alias, { jsonSpacing: 2 });
+      const adapter = await createAdapter(alias, { jsonSpacing: 2 });
       const repo = new Repository(adapter, FsTestModel);
       const created = await repo.create(
         new FsTestModel({
@@ -252,7 +256,7 @@ describe("FilesystemAdapter", () => {
   it("invokes the hydration callback when bootstrapping existing data", async () => {
     const alias = `fs-adapter-${Date.now()}-hydrate`;
     try {
-      const adapter = createAdapter(alias);
+      const adapter = await createAdapter(alias);
       const repo = new Repository(adapter, FsTestModel);
       await repo.create(
         new FsTestModel({
@@ -267,7 +271,7 @@ describe("FilesystemAdapter", () => {
       clearRepositoryCache(FsTestModel, alias);
 
       const onHydrated = jest.fn();
-      const rehydrated = createAdapter(alias, { onHydrated });
+      const rehydrated = await createAdapter(alias, { onHydrated });
       const rerepo = new Repository(rehydrated, FsTestModel);
       const fetched = await rerepo.read("hydrate-1");
       expect(fetched.name).toBe("Hydrated");
@@ -282,9 +286,9 @@ describe("FilesystemAdapter", () => {
 
   it("waits for locks when two adapters write simultaneously", async () => {
     const alias = `fs-adapter-${Date.now()}-lock`;
-    const adapterA = createAdapter(alias);
+    const adapterA = await createAdapter(alias);
     delete (Adapter as any)._cache?.[adapterA.alias];
-    const adapterB = createAdapter(alias);
+    const adapterB = await createAdapter(alias);
     try {
       const repoA = new Repository(adapterA, FsTestModel);
       clearRepositoryCache(FsTestModel, alias);
@@ -341,10 +345,10 @@ describe("FilesystemAdapter", () => {
 
   it("mirrors changes across adapters using filesystem watchers", async () => {
     const alias = `fs-adapter-${Date.now()}-mirror`;
-    const adapterA = createAdapter(alias);
+    const adapterA = await createAdapter(alias);
     const cache = (Adapter as any)._cache as Record<string, Adapter>;
     delete cache[alias];
-    const adapterB = createAdapter(alias);
+    const adapterB = await createAdapter(alias);
     try {
       const repoA = new Repository(adapterA, FsTestModel);
       clearRepositoryCache(FsTestModel, alias);

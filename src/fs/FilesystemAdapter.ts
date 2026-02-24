@@ -46,7 +46,6 @@ export class FilesystemAdapter extends RamAdapter {
   private readonly rootDir: string;
   private readonly dbPath: string;
   private readonly fs: typeof defaultFs;
-  private ready: boolean = false;
   private readonly jsonSpacing?: JsonSpacing;
   private readonly onHydrated?: (info: FilesystemHydrationInfo) => void;
   private readonly indexStore: FsIndexStore;
@@ -58,6 +57,7 @@ export class FilesystemAdapter extends RamAdapter {
   private readonly tableWatchers = new Map<string, FSWatcher>();
   private rootWatcher?: FSWatcher;
   private watching = false;
+  private ready = false;
   private readonly watchDebounceMs: number;
   private readonly pendingObserverRefresh = new Map<
     string,
@@ -95,16 +95,12 @@ export class FilesystemAdapter extends RamAdapter {
   }
 
   override async initialize(...args: MaybeContextualArg<any>): Promise<void> {
-    const { log, ctxArgs } = (
+    const { ctxArgs } = (
       await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
     ).for(this.initialize);
     await super.initialize(...ctxArgs);
     await this.initializeFromDisk();
-    try {
-      await this.ensureWatching();
-    } catch (e: unknown) {
-      log.error(`Filesystem watcher setup failed: ${e}`);
-    }
+    await this.ensureWatching();
     this.ready = true;
   }
 

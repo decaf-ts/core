@@ -142,6 +142,9 @@ export class TaskEngine<A extends Adapter<any, any, any, any>> extends TE<
       if (specifier === adapterDescriptor.adapterModule) continue;
       append(specifier);
     }
+    for (const specifier of adapterDescriptor.modules?.imports ?? []) {
+      append(specifier);
+    }
     return { imports };
   }
 

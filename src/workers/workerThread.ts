@@ -78,6 +78,9 @@ async function resolveAdapter(): Promise<Adapter<any, any, any, any>> {
   } else if ((instance as any).flavour) {
     Adapter.setCurrent((instance as any).flavour);
   }
+  if (typeof (instance as any).initialize === "function") {
+    await (instance as any).initialize();
+  }
   return instance;
 }
 

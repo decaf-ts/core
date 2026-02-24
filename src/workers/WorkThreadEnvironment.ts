@@ -8,6 +8,7 @@ export interface WorkThreadPersistenceConfig {
   adapterArgs?: any[];
   flavour?: string;
   alias?: string;
+  modules?: WorkThreadModulesConfig;
 }
 
 export interface WorkThreadTaskEngineConfig {

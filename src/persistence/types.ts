@@ -18,6 +18,7 @@ import { Context } from "./Context";
 import { Repository } from "../repository/Repository";
 import { PersistenceKeys } from "./constants";
 import { PreparedStatementKeys } from "../query/constants";
+import { ContextLock } from "./ContextLock";
 
 export type FlagsOfContext<C extends Context<any>> =
   C extends Context<infer F> ? F : never;
@@ -166,6 +167,7 @@ export type ContextFlags<LOG extends Logger> = CtxFlags<LOG> &
     | "childContexts"
   > & {
     pending?: Record<string, string[]>;
+    transactionLock?: ContextLock;
   };
 
 export type AdapterFlags<LOG extends Logger = Logger> = RepositoryFlags<LOG> &
@@ -183,6 +185,7 @@ export type AdapterFlags<LOG extends Logger = Logger> = RepositoryFlags<LOG> &
     observeFullResult: boolean;
     paginateByBookmark: boolean;
     dryRun: boolean;
+    lock?: ContextLock;
   };
 
 export type RawResult<R, D extends boolean> = D extends true

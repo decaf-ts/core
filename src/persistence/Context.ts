@@ -1,12 +1,5 @@
 import { Context as Ctx, InternalError } from "@decaf-ts/db-decorators";
 import { AdapterFlags, ContextFlags } from "./types";
-import { Lock } from "@decaf-ts/transactional-decorators";
-
-export class ContextLock extends Lock {
-  constructor() {
-    super();
-  }
-}
 
 export class Context<
   F extends ContextFlags<any> = AdapterFlags<any>,
@@ -44,12 +37,9 @@ export class Context<
         const results = (children as any[])
           .map((child: any) => child.getFromChildren(key, visited))
           .flat()
-          .filter(
-            (el: unknown) => el !== undefined && el !== null
-          ) as F[K][];
+          .filter((el: unknown) => el !== undefined && el !== null) as F[K][];
         if (!results.length) return undefined;
-        if (results.some((el) => typeof el !== "object"))
-          return results[0];
+        if (results.some((el) => typeof el !== "object")) return results[0];
         return results.reduce(
           (acc, el) => Object.assign(acc, el),
           {} as Record<any, any>

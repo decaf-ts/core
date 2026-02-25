@@ -56,6 +56,7 @@ import { Paginator } from "../query/Paginator";
 import { PreparedStatement } from "../query/types";
 import { promiseSequence } from "../utils/utils";
 import { UUID } from "./generators";
+import { AdapterTransaction } from "./ContextLock";
 
 const flavourResolver = Decoration["flavourResolver"].bind(Decoration);
 Decoration["flavourResolver"] = (obj: object) => {
@@ -277,6 +278,10 @@ export abstract class Adapter<
         `This should be overridden when necessary. Otherwise it will be replaced lazily`
       );
     return Adapter._baseRepository as Constructor<R>;
+  }
+
+  transactionLock(...args: any[]) {
+    return new AdapterTransaction(this, ...args);
   }
 
   @final()
@@ -732,8 +737,7 @@ export abstract class Adapter<
       throw new ValidationError("Ids and models must have the same length");
     const tableLabel = Model.tableName(clazz);
     log.debug(`Creating ${id.length} entries ${tableLabel} table`);
-    const breakOnSingleFailure =
-      ctx.get("breakOnSingleFailureInBulk") ?? true;
+    const breakOnSingleFailure = ctx.get("breakOnSingleFailureInBulk") ?? true;
     const continueOnError = !breakOnSingleFailure;
     const tasks = id.map(
       (i, count) => () =>
@@ -786,17 +790,16 @@ export abstract class Adapter<
     const { log, ctx } = this.logCtx(args, this.readAll);
     const tableName = Model.tableName(clazz);
     log.debug(`Reading ${id.length} entries ${tableName} table`);
-    const breakOnSingleFailure =
-      ctx.get("breakOnSingleFailureInBulk") ?? true;
+    const breakOnSingleFailure = ctx.get("breakOnSingleFailureInBulk") ?? true;
     const continueOnError = !breakOnSingleFailure;
     const tasks = id.map(
-        (i) => () =>
-          this.read(
-            clazz,
-            i,
-            ...args,
-            ctx.override({ noEmitSingle: true }) as CONTEXT
-          )
+      (i) => () =>
+        this.read(
+          clazz,
+          i,
+          ...args,
+          ctx.override({ noEmitSingle: true }) as CONTEXT
+        )
     );
     const rawResult = continueOnError
       ? await promiseSequence(tasks, true)
@@ -846,18 +849,17 @@ export abstract class Adapter<
       throw new InternalError("Ids and models must have the same length");
     const tableLabel = Model.tableName(clazz);
     log.debug(`Updating ${id.length} entries ${tableLabel} table`);
-    const breakOnSingleFailure =
-      ctx.get("breakOnSingleFailureInBulk") ?? true;
+    const breakOnSingleFailure = ctx.get("breakOnSingleFailureInBulk") ?? true;
     const continueOnError = !breakOnSingleFailure;
     const tasks = id.map(
-        (i, count) => () =>
-          this.update(
-            clazz,
-            i,
-            model[count],
-            ...args,
-            ctx.override({ noEmitSingle: true }) as CONTEXT
-          )
+      (i, count) => () =>
+        this.update(
+          clazz,
+          i,
+          model[count],
+          ...args,
+          ctx.override({ noEmitSingle: true }) as CONTEXT
+        )
     );
     const rawResult = continueOnError
       ? await promiseSequence(tasks, true)
@@ -899,17 +901,16 @@ export abstract class Adapter<
   ): Promise<Record<string, any>[]> {
     const { log, ctx } = this.logCtx(args, this.deleteAll);
     log.debug(`Deleting ${id.length} entries from ${tableName} table`);
-    const breakOnSingleFailure =
-      ctx.get("breakOnSingleFailureInBulk") ?? true;
+    const breakOnSingleFailure = ctx.get("breakOnSingleFailureInBulk") ?? true;
     const continueOnError = !breakOnSingleFailure;
     const tasks = id.map(
-        (i) => () =>
-          this.delete(
-            tableName,
-            i,
-            ...args,
-            ctx.override({ noEmitSingle: true }) as CONTEXT
-          )
+      (i) => () =>
+        this.delete(
+          tableName,
+          i,
+          ...args,
+          ctx.override({ noEmitSingle: true }) as CONTEXT
+        )
     );
     const rawResult = continueOnError
       ? await promiseSequence(tasks, true)

@@ -36,7 +36,14 @@ export class Context<
       if ((children as any[]).length) {
         const results = (children as any[])
           .map((child: any) => child.getFromChildren(key, visited))
-          .flat()
+          .reduce((acc: any[], el: any) => {
+            if (Array.isArray(el)) {
+              acc.push(...el);
+            } else if (el !== undefined && el !== null) {
+              acc.push(el);
+            }
+            return acc;
+          }, [])
           .filter((el: unknown) => el !== undefined && el !== null) as F[K][];
         if (!results.length) return undefined;
         if (results.some((el) => typeof el !== "object")) return results[0];

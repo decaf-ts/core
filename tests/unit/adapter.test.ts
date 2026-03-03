@@ -159,12 +159,31 @@ describe("Adapter", () => {
       ); // minus the expected changes
     });
 
-    it("deletes", async () => {
-      const deleted = await repo.delete(created.id);
-      expect(deleted).toBeDefined();
-      expect(deleted.equals(updated)).toEqual(true);
+  it("deletes", async () => {
+    const deleted = await repo.delete(created.id);
+    expect(deleted).toBeDefined();
+    expect(deleted.equals(updated)).toEqual(true);
 
-      await expect(repo.read(created.id)).rejects.toThrow(NotFoundError);
-    });
+    await expect(repo.read(created.id)).rejects.toThrow(NotFoundError);
   });
+
+  it(
+    "cleans proxied adapters during shutdown",
+    async () => {
+      const localAdapter = new RamAdapter(undefined, "ram-proxy-test");
+      const beforeKeys = Object.keys(localAdapter["proxies"] ?? {});
+      expect(beforeKeys.length).toBe(0);
+
+      localAdapter.for({ somethingInconsequential: "asdasd" });
+      const proxiedKeys = Object.keys(localAdapter["proxies"] ?? {});
+      expect(proxiedKeys.length).toBeGreaterThan(0);
+
+      await localAdapter.shutdown();
+
+      const cleanedKeys = Object.keys(localAdapter["proxies"] ?? {});
+      expect(cleanedKeys.length).toBe(0);
+    },
+    20000
+  );
+});
 });

@@ -88,6 +88,8 @@ Decoration["flavourResolver"] = (obj: object) => {
   }
 };
 
+const AdapterProxyCleanup = Symbol("AdapterProxyCleanup");
+
 function resolveBulkSequenceResult<T>(
   result: T[] | PromiseSettledResult<T>[],
   continueOnError: boolean,
@@ -303,28 +305,31 @@ export abstract class Adapter<
       args = [k, ...args];
       k = undefined;
     }
-    const { log, ctxArgs } = this.logCtx(args, this.shutdownProxies);
-    const skipProxyShutdown = Boolean(this.shutdownPromise);
+    const { log } = this.logCtx(args, this.shutdownProxies);
     if (!this.proxies) return;
     if (k && !(k in this.proxies))
       throw new InternalError(`No proxy found for ${k}`);
+    const cleanupProxy = async (proxy?: typeof this): Promise<void> => {
+      if (!proxy) return;
+      const cleanup = (proxy as any)[AdapterProxyCleanup];
+      if (typeof cleanup === "function") await cleanup();
+    };
     if (!k) {
       for (const key in this.proxies) {
         try {
-          if (!skipProxyShutdown)
-            await this.proxies[key].shutdown(...ctxArgs);
+          await cleanupProxy(this.proxies[key]);
         } catch (e: unknown) {
-          log.error(`Failed to shutdown proxied adapter ${key}`, e as Error);
+          log.error(`Failed to cleanup proxied adapter ${key}`, e as Error);
           continue;
         }
         delete this.proxies[key];
       }
     } else {
       try {
-        if (!skipProxyShutdown) await this.proxies[k].shutdown(...ctxArgs);
+        await cleanupProxy(this.proxies[k]);
         delete this.proxies[k];
       } catch (e: unknown) {
-        log.error(`Failed to shutdown proxied adapter ${k}`, e as Error);
+        log.error(`Failed to cleanup proxied adapter ${k}`, e as Error);
       }
     }
   }
@@ -1207,6 +1212,26 @@ export abstract class Adapter<
         }
         return Reflect.set(target, p, value, receiver);
       },
+    });
+    const cleanupProxyClient = async () => {
+      if (!client) return;
+      const methods = ["cancel", "close", "destroy", "disconnect"];
+      for (const method of methods) {
+        const fn = client[method];
+        if (typeof fn !== "function") continue;
+        try {
+          const result = fn.call(client);
+          if (result instanceof Promise) await result;
+        } catch {
+          // ignore cleanup errors
+        }
+      }
+      client = undefined;
+    };
+    Reflect.defineProperty(proxy, AdapterProxyCleanup, {
+      value: cleanupProxyClient,
+      configurable: true,
+      enumerable: false,
     });
     this.proxies[key] = proxy;
     return proxy as typeof this;

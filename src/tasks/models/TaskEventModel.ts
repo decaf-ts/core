@@ -7,39 +7,49 @@ import {
   option,
   required,
 } from "@decaf-ts/decorator-validation";
-import { table } from "../../model/decorators";
+import { column, table } from "../../model/decorators";
 import { prop } from "@decaf-ts/decoration";
 import { composed, readonly, transient } from "@decaf-ts/db-decorators";
 import { TaskEventType } from "../constants";
 import { uuid } from "../../persistence/decorators";
+import { index } from "../../model/index";
+import { OrderDirection } from "../../repository/index";
 
 @table("task_event")
 @model()
 export class TaskEventModel extends Model {
-  @composed(["taskId", "classification", "uuid"], ":")
   @pk()
+  @composed(["taskId", "classification", "uuid"], ":")
   id!: string;
 
+  @column()
   @readonly()
   @required()
   @transient()
   @uuid(false)
   uuid!: string;
 
+  @column()
   @readonly()
   @required()
+  @index([OrderDirection.ASC, OrderDirection.DSC])
   taskId!: string;
 
   @date()
+  @column()
   @required()
+  @index([OrderDirection.ASC, OrderDirection.DSC])
   ts: Date = new Date();
 
+  @column()
   @readonly()
   @required()
   @option(TaskEventType)
+  @index([OrderDirection.ASC, OrderDirection.DSC])
   classification!: TaskEventType;
 
   @prop()
+  @column()
   @readonly()
   payload?: any;
 

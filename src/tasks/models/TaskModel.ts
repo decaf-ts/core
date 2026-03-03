@@ -26,12 +26,14 @@ import {
 } from "../../model/decorators";
 import { TaskLogEntryModel } from "./TaskLogEntryModel";
 import { TaskIOSerializer } from "./TaskIOSerializer";
+import { uuid } from "../../persistence/index";
 
 @description("Holds the current step when applicable")
 @table("tasks")
 @model()
 export class TaskModel<INPUT = any, OUTPUT = any> extends Model {
-  @pk({ type: "uuid" })
+  @pk()
+  @uuid()
   @description("the task id")
   id!: string;
 

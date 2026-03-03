@@ -102,7 +102,24 @@ export class TaskLogger<LOG extends Logger> implements Logger {
   ): TaskLogger<LOG> {
     return new Proxy(this, {
       get(target: TaskLogger<LOG>, p: string | symbol): any {
-        if (p === "logger") return Reflect.get(target, p).for(config, ...args);
+        if (p === "logger") {
+          const log = Reflect.get(target, p);
+          try {
+            return log.for(config, ...args);
+          } catch (e: unknown) {
+            target.error(
+              `Failed to bind task logger. received: ${log && log.constructor ? log.constructor.name : log.name ? log.name : "unknown"}`,
+              e as any
+            );
+            try {
+              target.trace(JSON.stringify(log, undefined, 2));
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            } catch (e2: unknown) {
+              target.trace(`unserializable output: ${log.name || "unknown"}`);
+            }
+            throw e;
+          }
+        }
         return Reflect.get(target, p);
       },
     });

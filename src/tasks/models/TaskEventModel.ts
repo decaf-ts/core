@@ -9,7 +9,12 @@ import {
 } from "@decaf-ts/decorator-validation";
 import { column, table } from "../../model/decorators";
 import { prop } from "@decaf-ts/decoration";
-import { composed, readonly, transient } from "@decaf-ts/db-decorators";
+import {
+  composed,
+  readonly,
+  serialize,
+  transient,
+} from "@decaf-ts/db-decorators";
 import { TaskEventType } from "../constants";
 import { uuid } from "../../persistence/decorators";
 import { index } from "../../model/index";
@@ -50,6 +55,7 @@ export class TaskEventModel extends Model {
 
   @prop()
   @column()
+  @serialize()
   @readonly()
   payload?: any;
 

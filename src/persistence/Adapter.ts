@@ -240,7 +240,7 @@ export abstract class Adapter<
     Dispatch<Adapter<any, any, any, any>>
   >;
 
-  protected dispatch?: AdapterDispatch<typeof this>;
+  protected dispatch?: AdapterDispatch<Adapter<CONF, CONN, QUERY, CONTEXT>>;
 
   protected readonly observerHandler?: ObserverHandler;
 
@@ -349,7 +349,7 @@ export abstract class Adapter<
             this.shutdown
           );
         await this.shutdownProxies(...ctxArgs);
-        if (this.dispatch) await this.dispatch.close();
+        if (this.dispatch) await this.dispatch.close(...ctxArgs);
       })();
     } catch (e: unknown) {
       throw new InternalError(`Failed to create shutdown wrapper: ${e}`);

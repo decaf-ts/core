@@ -275,7 +275,8 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
    * @summary Performs any necessary cleanup when the dispatch is no longer needed
    * @return {Promise<void>} A promise that resolves when closing is complete
    */
-  async close(): Promise<void> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async close(...ctxArgs: ContextualArgs<ContextOf<A>>): Promise<void> {
     // to nothing in this instance but may be required for closing connections
   }
 

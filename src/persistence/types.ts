@@ -74,8 +74,7 @@ export type LoggerOf<
       : OBJ extends Repository<any, any>
         ? LoggerOfRepository<OBJ>
         : OBJ extends Adapter<any, any, any>
-          ? // @ts-expect-error stoopid eslint
-            LoggerOfAdapter<OBJ>
+          ? LoggerOfAdapter<OBJ>
           : Logger;
 
 export type ConfOf<A extends Adapter<any, any, any, any>> =
@@ -138,7 +137,7 @@ export type InferredAdapterConfig<A> =
 
 export interface AdapterDispatch<A extends Adapter<any, any, any, any>>
   extends PersistenceObservable<ContextOf<A>> {
-  close(): Promise<void>;
+  close(...args: ContextualArgs<ContextOf<A>>): Promise<void>;
 
   updateObservers<M extends Model>(
     table: Constructor<M> | string,

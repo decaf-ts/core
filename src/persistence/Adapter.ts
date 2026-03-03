@@ -304,13 +304,15 @@ export abstract class Adapter<
       k = undefined;
     }
     const { log, ctxArgs } = this.logCtx(args, this.shutdownProxies);
+    const skipProxyShutdown = Boolean(this.shutdownPromise);
     if (!this.proxies) return;
     if (k && !(k in this.proxies))
       throw new InternalError(`No proxy found for ${k}`);
     if (!k) {
       for (const key in this.proxies) {
         try {
-          await this.proxies[key].shutdown(...ctxArgs);
+          if (!skipProxyShutdown)
+            await this.proxies[key].shutdown(...ctxArgs);
         } catch (e: unknown) {
           log.error(`Failed to shutdown proxied adapter ${key}`, e as Error);
           continue;
@@ -319,7 +321,7 @@ export abstract class Adapter<
       }
     } else {
       try {
-        await this.proxies[k].shutdown(...ctxArgs);
+        if (!skipProxyShutdown) await this.proxies[k].shutdown(...ctxArgs);
         delete this.proxies[k];
       } catch (e: unknown) {
         log.error(`Failed to shutdown proxied adapter ${k}`, e as Error);

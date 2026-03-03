@@ -1,14 +1,20 @@
 import "reflect-metadata";
 import {
   RepositoryFlags,
-  Context,
   InternalError,
   BaseError,
   PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
-import { Adapter, Sequence, SequenceOptions, Statement } from "../../src/index";
+import {
+  Adapter,
+  Sequence,
+  SequenceOptions,
+  Statement,
+  Context,
+} from "../../src/index";
 import { Model } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
+import { Logging } from "@decaf-ts/logging";
 
 class DummyContext<F extends RepositoryFlags> extends Context<F> {}
 
@@ -126,9 +132,13 @@ describe("persistence/RemoteAdapter", () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const p2 = base.for({ url: "y" });
 
+    const ctx = new Context().accumulate({
+      logger: Logging.get(),
+    });
+
     // calling with a non-existent key should throw
     await expect(
-      base["shutdownProxies"].call(base, "missing")
+      base["shutdownProxies"].call(base, "missing", ctx)
     ).rejects.toBeInstanceOf(InternalError);
 
     // find actual proxy keys
@@ -136,11 +146,11 @@ describe("persistence/RemoteAdapter", () => {
     expect(keys.length).toBeGreaterThanOrEqual(2);
 
     // shutdown one
-    await (base as any).shutdownProxies(keys[0]);
+    await (base as any).shutdownProxies(keys[0], ctx);
     expect(Object.keys((base as any).proxies)).toContain(keys[1]);
 
     // shutdown all
-    await (base as any).shutdownProxies();
+    await (base as any).shutdownProxies(ctx);
     expect(Object.keys((base as any).proxies)).toHaveLength(0);
 
     // ensure shutdown() exists

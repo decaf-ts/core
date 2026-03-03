@@ -24,6 +24,7 @@ import type { Sequence } from "./Sequence";
 import { ErrorParser } from "../interfaces";
 import { Statement } from "../query/Statement";
 import { final, Impersonatable, Logger, Logging } from "@decaf-ts/logging";
+import { Lock } from "@decaf-ts/transactional-decorators";
 import type { Dispatch } from "./Dispatch";
 import {
   AdapterDispatch,
@@ -245,6 +246,14 @@ export abstract class Adapter<
 
   protected _client?: CONN;
 
+  protected shutdownPromise?: Promise<void>;
+
+  /**
+   * @summary Internal lock for shutdown mechanisms
+   * @private
+   */
+  protected internalLock: Lock = new Lock();
+
   /**
    * @description Gets the native persistence config
    * @summary Provides access to the underlying persistence driver config
@@ -284,27 +293,36 @@ export abstract class Adapter<
     return new AdapterTransaction(this, ...args);
   }
 
-  @final()
-  protected async shutdownProxies(k?: string) {
+  protected async shutdownProxies(...args: ContextualArgs<any>): Promise<void>;
+  protected async shutdownProxies(
+    k: string,
+    ...args: ContextualArgs<any>
+  ): Promise<void>;
+  protected async shutdownProxies(k?: string, ...args: ContextualArgs<any>) {
+    if (k && typeof k !== "string") {
+      args = [k, ...args];
+      k = undefined;
+    }
+    const { log, ctxArgs } = this.logCtx(args, this.shutdownProxies);
     if (!this.proxies) return;
     if (k && !(k in this.proxies))
       throw new InternalError(`No proxy found for ${k}`);
     if (!k) {
       for (const key in this.proxies) {
         try {
-          await this.proxies[key].shutdown();
+          await this.proxies[key].shutdown(...ctxArgs);
         } catch (e: unknown) {
-          this.log.error(`Failed to shutdown proxied adapter ${key}: ${e}`);
+          log.error(`Failed to shutdown proxied adapter ${key}`, e as Error);
           continue;
         }
         delete this.proxies[key];
       }
     } else {
       try {
-        await this.proxies[k].shutdown();
+        await this.proxies[k].shutdown(...ctxArgs);
         delete this.proxies[k];
       } catch (e: unknown) {
-        this.log.error(`Failed to shutdown proxied adapter ${k}: ${e}`);
+        log.error(`Failed to shutdown proxied adapter ${k}`, e as Error);
       }
     }
   }
@@ -316,17 +334,35 @@ export abstract class Adapter<
    * @return {Promise<void>} A promise that resolves when shutdown is complete
    */
   async shutdown(...args: MaybeContextualArg<CONTEXT>): Promise<void> {
-    const {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      log,
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      ctx,
-    } = // TODO pass context along. it should go everywhere
-      (await this.logCtx(args, PersistenceKeys.SHUTDOWN, true)).for(
-        this.shutdown
-      );
-    await this.shutdownProxies();
-    if (this.dispatch) await this.dispatch.close();
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PersistenceKeys.SHUTDOWN, true)
+    ).for(this.shutdown);
+    await this.internalLock.acquire(PersistenceKeys.SHUTDOWN);
+    try {
+      if (this.shutdownPromise) return this.shutdownPromise;
+      this.shutdownPromise = (async () => {
+        const {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          log,
+        } = // TODO pass context along. it should go everywhere
+          (await this.logCtx(args, PersistenceKeys.SHUTDOWN, true)).for(
+            this.shutdown
+          );
+        await this.shutdownProxies(...ctxArgs);
+        if (this.dispatch) await this.dispatch.close();
+      })();
+    } catch (e: unknown) {
+      throw new InternalError(`Failed to create shutdown wrapper: ${e}`);
+    } finally {
+      this.internalLock.release(PersistenceKeys.SHUTDOWN);
+    }
+    try {
+      await this.shutdownPromise;
+    } catch (e: unknown) {
+      log.error(`Error during proxy shutdown`, e as Error);
+    } finally {
+      this.shutdownPromise = undefined;
+    }
   }
 
   /**

@@ -371,7 +371,7 @@ export class TaskService<
         ARGS,
         METHOD extends string ? true : false
       > {
-    const ctx = this.repo["adapter"]["logCtx"](
+    const ctx = this.repo["_adapter"]["logCtx"](
       [this.repo.class as any, ...args] as any,
       operation,
       allowCreate as any,

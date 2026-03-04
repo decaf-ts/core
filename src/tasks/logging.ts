@@ -12,6 +12,7 @@ import { EventPipe, LogPipe, LogPipeOptions } from "./types";
 import { TaskEventModel } from "./models/TaskEventModel";
 import { TaskEventType, TaskStatus } from "./constants";
 import { InternalError } from "@decaf-ts/db-decorators";
+import { TaskLogEntryModel } from "./models/index";
 
 export class TaskLogger<LOG extends Logger> implements Logger {
   protected history: [LogLevel, string, any][] = [];
@@ -163,9 +164,13 @@ export function getLogPipe<LOG extends Logger>(
 
     switch (evt.classification) {
       case TaskEventType.LOG: {
-        const logs: [LogLevel, string, any][] = evt.payload;
+        let logs: ([LogLevel, string, any] | TaskLogEntryModel)[] = evt.payload;
+        // fallback. did this ever work?
+        logs = logs.map((l: any) =>
+          Array.isArray(l) ? l : [l.level, l.ts + " - " + l.message, l.meta]
+        ) as [LogLevel, string, any][];
         // eslint-disable-next-line prefer-const
-        for (let [level, msg, payload] of logs) {
+        for (let [level, msg, payload] of logs as [LogLevel, string, any][]) {
           if (!opts.style) {
             msg = style(msg) as any;
             msg = (msg as unknown as StyledString).clear().toString();

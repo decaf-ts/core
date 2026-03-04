@@ -84,8 +84,14 @@ export class TaskTracker<O = any>
   logs(pipe: LogPipe) {
     this.pipe(async (evt: TaskEventModel) => {
       if (evt.classification !== TaskEventType.LOG) return;
-      const logs: [LogLevel, string, any][] = evt.payload;
-      await pipe(logs);
+      const raw = evt.payload ?? [];
+      const normalized = (raw as any[])
+        .map((entry) =>
+          Array.isArray(entry)
+            ? entry
+            : [entry.level, `${entry.ts} - ${entry.msg}`, entry.meta]
+        ) as [LogLevel, string, any][];
+      await pipe(normalized);
     }, TaskEventType.LOG);
   }
 

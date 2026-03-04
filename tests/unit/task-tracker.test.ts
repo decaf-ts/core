@@ -6,6 +6,7 @@ import { TaskEventModel } from "../../src/tasks/models/TaskEventModel";
 import { TaskEventType, TaskStatus } from "../../src/tasks/constants";
 import { TaskErrorModel } from "../../src/tasks/models/TaskErrorModel";
 import { Context } from "../../src/persistence/Context";
+import { LogLevel } from "@decaf-ts/logging";
 
 const createTask = () =>
   new TaskBuilder({
@@ -187,5 +188,41 @@ describe("TaskTracker hooks", () => {
     await expect(waitPromise).rejects.toMatchObject({
       message: expect.stringContaining("finally failed"),
     });
+  });
+
+  it("normalizes persisted log payloads before handing them to log pipes", async () => {
+    const bus = new TaskEventBus();
+    const task = createTask();
+    const tracker = new TaskTracker(bus, task);
+    const objectEntry = {
+      level: LogLevel.warn,
+      ts: new Date("2026-01-01T00:00:00.000Z"),
+      msg: "persisted object log",
+      meta: { kind: "object" },
+    };
+    const tupleEntry: [LogLevel, string, any] = [
+      LogLevel.info,
+      "already a tuple",
+      { kind: "tuple" },
+    ];
+    const logConsumer = jest.fn();
+    tracker.logs(async (logs) => logConsumer(logs));
+    const logEvt = new TaskEventModel({
+      taskId: task.id,
+      classification: TaskEventType.LOG,
+      payload: [objectEntry, tupleEntry],
+    });
+    await tracker.refresh(logEvt, new Context());
+    expect(logConsumer).toHaveBeenCalledTimes(1);
+    const normalizedLogs = logConsumer.mock.calls[0][0] as [
+      LogLevel,
+      string,
+      any
+    ][];
+    expect(normalizedLogs[0][0]).toBe(LogLevel.warn);
+    expect(normalizedLogs[0][1]).toContain("persisted object log");
+    expect(normalizedLogs[0][1]).toContain(" - ");
+    expect(normalizedLogs[0][2]).toEqual(objectEntry.meta);
+    expect(normalizedLogs[1]).toBe(tupleEntry);
   });
 });

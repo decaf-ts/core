@@ -183,6 +183,8 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     ).for(this.updateAll);
     return this.repo.updateAll(models, ...ctxArgs);
   }
+
+  select = this.repo.select;
   //
   // async query(
   //   condition: Condition<M>,

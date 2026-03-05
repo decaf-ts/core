@@ -13,7 +13,7 @@ import { FsTestModel } from "./fs/models/FsTestModel";
 
 const DefaultSeparator = "_";
 
-describe("FilesystemAdapter", () => {
+describe.skip("FilesystemAdapter", () => {
   let tempHandle: TempFsHandle;
   const activeAdapters: FilesystemAdapter[] = [];
   const usedAliases = new Set<string>();

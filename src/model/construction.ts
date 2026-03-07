@@ -1494,9 +1494,12 @@ export function repositoryFromTypeMetadata<M extends Model>(
 ): Repo<M> {
   if (!model) throw new Error("No model was provided to get repository");
   let allowedTypes;
+
+  let constr = model instanceof Model ? model.constructor : (model as any);
+
   if (Array.isArray(model[propertyKey]) || model[propertyKey] instanceof Set) {
     const customTypes = Metadata.get(
-      model instanceof Model ? model.constructor : (model as any),
+      constr,
       Metadata.key(
         ValidationKeys.REFLECT,
         propertyKey as string,
@@ -1512,15 +1515,19 @@ export function repositoryFromTypeMetadata<M extends Model>(
     allowedTypes = (
       Array.isArray(customTypes) ? [...customTypes] : [customTypes]
     ).map((t) => (typeof t === "function" && !(t as any).name ? t() : t));
-  } else
+  } else if (Model.relations(constr).includes(propertyKey as string)) {
+    // oneToOne
+    allowedTypes = Metadata.allowedTypes(constr, propertyKey as string);
+  } else {
     allowedTypes = Metadata.getPropDesignTypes(
       model instanceof Model ? model.constructor : (model as any),
       propertyKey as string
     )?.designTypes;
+  }
 
-  const constructor = allowedTypes?.find(
+  constr = allowedTypes?.find(
     (t) => !commomTypes.includes(`${t.name}`.toLowerCase())
   );
 
-  return Repository.forModel(constructor, alias) as any;
+  return Repository.forModel(constr, alias) as any;
 }

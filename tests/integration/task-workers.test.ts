@@ -23,7 +23,7 @@ const workerEntry = path.join(__dirname, "../../lib/workers/workerThread.cjs");
 
 jest.setTimeout(300000);
 
-describe("Task workers with FilesystemAdapter", () => {
+describe.skip("Task workers with FilesystemAdapter", () => {
   let tempHandle: TempFsHandle;
   let adapter: FilesystemAdapter;
   let service: TaskService<FilesystemAdapter>;

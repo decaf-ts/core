@@ -403,7 +403,6 @@ export async function oneToOneOnDelete<M extends Model, R extends Repo<M>>(
   model: M
 ): Promise<void> {
   const propertyValue: any = model[key];
-  if (!propertyValue) return;
   if (data.cascade.update !== Cascade.CASCADE) return;
   const innerRepo: Repo<M> = repositoryFromTypeMetadata(
     model,
@@ -709,7 +708,7 @@ export async function oneToManyOnDelete<M extends Model, R extends Repo<M>>(
 ): Promise<void> {
   if (data.cascade.delete !== Cascade.CASCADE) return;
   const values = model[key] as any;
-  if (!values || !values.length) return;
+  if (!values) return;
   const arrayType = typeof values[0];
   const areAllSameType = values.every((item: any) => typeof item === arrayType);
   if (!areAllSameType)
@@ -1396,8 +1395,7 @@ export async function cascadeDelete<M extends Model, R extends Repo<M>>(
 ): Promise<void> {
   if (data.cascade.update !== Cascade.CASCADE) return;
   const nested: any = model[key];
-  const isArr = Array.isArray(nested);
-  if (typeof nested === "undefined" || (isArr && nested.length === 0)) return;
+  if (typeof nested === "undefined") return;
   if (!oldModel)
     throw new InternalError(
       "No way to compare old model. do you have updateValidation and mergeModels enabled?"

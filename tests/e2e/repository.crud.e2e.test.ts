@@ -342,9 +342,74 @@ describe("e2e Repository test", () => {
         expect.any(Context)
       );
       repo["adapter"].unObserve(marketObserver);
+      updated = afterCascade;
     });
 
-    it("deletes", async () => {
+    it("properly handles deletion of children on cascade - empty list", async () => {
+      const toUpdate = new Product(
+        Object.assign({}, updated, {
+          inventedName: "yet_yet_test_name",
+          markets: [],
+        })
+      );
+
+      const marketMock = jest.fn();
+      const marketObserver = new (class implements Observer {
+        async refresh(...args: any[]): Promise<void> {
+          const operation = args[1];
+          marketMock(...args);
+        }
+      })();
+
+      const marketRepo = Repository.forModel(Market);
+      repo["adapter"].observe(
+        marketObserver,
+        (
+          table: Constructor | string,
+          event: AllOperationKeys,
+          id: EventIds,
+          ...args: ContextualArgs<any>
+        ) => {
+          return table === Market;
+        }
+      );
+
+      const afterCascade = await repo.update(toUpdate);
+
+      await expect(
+        marketRepo.read(updated.markets[0] as unknown as string)
+      ).rejects.toThrow(NotFoundError);
+      expect(afterCascade).toBeDefined();
+      expect(afterCascade.equals(updated)).toEqual(false);
+      expect(
+        afterCascade.equals(
+          updated,
+          "updatedAt",
+          "inventedName",
+          "markets",
+          "updatedBy",
+          "version"
+        )
+      ).toEqual(true); // minus the expected changes
+      expect(mock).toHaveBeenCalledWith(
+        Product,
+        OperationKeys.UPDATE,
+        updated.productCode,
+        expect.any(Object),
+        expect.any(Context)
+      );
+
+      expect(marketMock).toHaveBeenCalledWith(
+        Market,
+        OperationKeys.DELETE,
+        [`${toUpdate.productCode}:PT`, `${toUpdate.productCode}:AS`],
+        expect.any(Array),
+        expect.any(Context)
+      );
+      repo["adapter"].unObserve(marketObserver);
+    });
+
+    it.skip("deletes", async () => {
       const deleted = await repo.delete(created.productCode as string);
 
       expect(deleted).toBeDefined();

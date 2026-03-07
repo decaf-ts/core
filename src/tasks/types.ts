@@ -49,6 +49,7 @@ export type TaskEngineConfig<A extends Adapter<any, any, any, any>> = {
   maxLoggingBuffer: number;
   loggingBufferTruncation: number;
   gracefulShutdownMsTimeout: number;
+  autoShutdown?: TaskEngineAutoShutdownConfig;
 };
 
 export type TaskProgressPayload = {
@@ -60,3 +61,9 @@ export type TaskProgressPayload = {
   nextRunAt?: Date;
   scheduledTo?: Date;
 };
+
+export interface TaskEngineAutoShutdownConfig {
+  enabled?: boolean;
+  backoffStepMs?: number;
+  maxIdleDelayMs?: number;
+}

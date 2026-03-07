@@ -217,6 +217,7 @@ export class TaskEngine<A extends Adapter<any, any, any, any>> extends TE<
         maxLoggingBuffer: this.config.maxLoggingBuffer,
         loggingBufferTruncation: this.config.loggingBufferTruncation,
         gracefulShutdownMsTimeout: this.config.gracefulShutdownMsTimeout,
+        autoShutdown: this.config.autoShutdown,
       },
       modules: this.computeWorkerModules(),
     };

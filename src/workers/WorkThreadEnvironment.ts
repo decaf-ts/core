@@ -1,4 +1,5 @@
 import { LoggedEnvironment, isBrowser } from "@decaf-ts/logging";
+import { TaskEngineAutoShutdownConfig } from "../tasks/types";
 
 type WorkerMode = "node" | "browser";
 
@@ -21,6 +22,7 @@ export interface WorkThreadTaskEngineConfig {
   maxLoggingBuffer: number;
   loggingBufferTruncation: number;
   gracefulShutdownMsTimeout: number;
+  autoShutdown?: TaskEngineAutoShutdownConfig;
 }
 
 export interface WorkThreadModulesConfig {
@@ -45,6 +47,11 @@ const defaultTaskEngineConfig: WorkThreadTaskEngineConfig = {
   maxLoggingBuffer: 1_024,
   loggingBufferTruncation: 8,
   gracefulShutdownMsTimeout: 10_000,
+  autoShutdown: {
+    enabled: false,
+    backoffStepMs: 1_000,
+    maxIdleDelayMs: 60_000,
+  },
 };
 
 const defaultModules: WorkThreadModulesConfig = {

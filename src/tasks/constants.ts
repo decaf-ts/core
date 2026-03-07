@@ -45,4 +45,9 @@ export const DefaultTaskEngineConfig: TaskEngineConfig<any> = {
   maxLoggingBuffer: 300,
   loggingBufferTruncation: 20,
   gracefulShutdownMsTimeout: 60 * 2 * 1000,
+  autoShutdown: {
+    enabled: false,
+    backoffStepMs: 1000,
+    maxIdleDelayMs: 60 * 1000,
+  },
 } as TaskEngineConfig<any>;

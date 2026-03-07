@@ -33,7 +33,12 @@ import {
 import { DateTarget } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
 import { TaskLogger } from "./logging";
-import { TaskEngineConfig, TaskFlags, TaskProgressPayload } from "./types";
+import {
+  TaskEngineConfig,
+  TaskEngineAutoShutdownConfig,
+  TaskFlags,
+  TaskProgressPayload,
+} from "./types";
 import { TaskErrorModel } from "./models/TaskErrorModel";
 import { TaskTracker } from "./TaskTracker";
 import { Lock } from "@decaf-ts/transactional-decorators";
@@ -80,6 +85,7 @@ export class TaskEngine<
   }
 
   protected running = false;
+  private idleDelayMs: number;
 
   static createTaskContext(
     base?: Context<any>,
@@ -94,10 +100,17 @@ export class TaskEngine<
 
   constructor(protected config: C) {
     super();
+    const autoShutdown = Object.assign(
+      {},
+      DefaultTaskEngineConfig.autoShutdown,
+      config.autoShutdown
+    );
     this.config = Object.assign({}, DefaultTaskEngineConfig, config, {
+      autoShutdown,
       bus: config.bus || new TaskEventBus(),
       registry: config.registry || new TaskHandlerRegistry(),
     });
+    this.idleDelayMs = this.config.pollMsIdle;
   }
 
   async push<I, O>(
@@ -263,6 +276,7 @@ export class TaskEngine<
     if (this.running) return;
     this.running = true;
     this.lock.release();
+    this.idleDelayMs = this.config.pollMsIdle;
     void this.loop(ctx);
   }
 
@@ -323,12 +337,45 @@ export class TaskEngine<
 
   protected async loop(...args: ContextualArgs<any>): Promise<void> {
     const { ctx } = this.logCtx(args, this.loop);
+    const autoShutdownConfig: TaskEngineAutoShutdownConfig =
+      this.config.autoShutdown ?? {
+        enabled: false,
+        backoffStepMs: 0,
+        maxIdleDelayMs: this.config.pollMsIdle,
+      };
+    const maxIdleDelay = Math.max(
+      autoShutdownConfig.maxIdleDelayMs ?? this.config.pollMsIdle,
+      this.config.pollMsIdle
+    );
+    const backoffStepMs = autoShutdownConfig.backoffStepMs ?? 0;
+
     while (await this.isRunning()) {
       const claimed = await this.claimBatch(ctx);
       await Promise.allSettled(claimed.map((t) => this.executeClaimed(t)));
-      await sleep(
-        claimed.length ? this.config.pollMsBusy : this.config.pollMsIdle
-      );
+
+      const idle = claimed.length === 0;
+      if (idle) {
+        if (autoShutdownConfig.enabled) {
+          this.idleDelayMs = Math.min(
+            this.idleDelayMs + backoffStepMs,
+            maxIdleDelay
+          );
+          if (this.idleDelayMs >= maxIdleDelay) {
+            ctx.logger.info(
+              `auto-shutdown triggered after ${this.idleDelayMs}ms idle polling`
+            );
+            await this.stop(ctx);
+            return;
+          }
+        } else {
+          this.idleDelayMs = this.config.pollMsIdle;
+        }
+      } else {
+        this.idleDelayMs = this.config.pollMsIdle;
+      }
+
+      const waitMs = idle ? this.idleDelayMs : this.config.pollMsBusy;
+      await sleep(Math.max(waitMs, 0));
     }
   }
 

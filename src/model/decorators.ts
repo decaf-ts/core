@@ -8,7 +8,6 @@ import {
   generated,
   OperationKeys,
   timestamp,
-  afterUpdate,
 } from "@decaf-ts/db-decorators";
 import {
   apply as newApply,
@@ -344,7 +343,7 @@ export function oneToOne<M extends Model>(
       onCreate(oneToOneOnCreate, meta, { priority: 70 }),
       onUpdate(oneToOneOnUpdate, meta, { priority: 70 }),
       onDelete(oneToOneOnDelete, meta, { priority: 70 }),
-      afterUpdate(cascadeDelete, meta, { priority: 70 }),
+      onUpdate(cascadeDelete, meta, { priority: 80 }),
       afterAny(pop, meta, { priority: 70 }),
     ];
     return apply(...decs);
@@ -417,7 +416,7 @@ export function oneToMany<M extends Model>(
       onCreate(oneToManyOnCreateUpdate, metadata, { priority: 70 }),
       onUpdate(oneToManyOnUpdate, metadata, { priority: 70 }),
       onDelete(oneToManyOnDelete, metadata, { priority: 70 }),
-      afterUpdate(cascadeDelete, metadata, { priority: 70 }),
+      onUpdate(cascadeDelete, metadata, { priority: 80 }),
       afterAny(pop, metadata, { priority: 70 }),
     ];
     return apply(...decs);

@@ -1423,7 +1423,6 @@ export async function cascadeDelete<M extends Model, R extends Repo<M>>(
   );
   const repo = repositoryFromTypeMetadata(model, key as keyof M);
   if (!repo) throw new InternalError("Could not find repo");
-  console.log("herehere");
   try {
     const deleted = await repo
       .override(this._overrides)

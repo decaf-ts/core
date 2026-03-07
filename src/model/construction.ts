@@ -1529,5 +1529,12 @@ export function repositoryFromTypeMetadata<M extends Model>(
     (t) => !commomTypes.includes(`${t.name}`.toLowerCase())
   );
 
-  return Repository.forModel(constr, alias) as any;
+  const repo = Repository.forModel(constr, alias) as any;
+
+  if (constr !== repo.class)
+    throw new InternalError(
+      `Invalid repository class for ${propertyKey as string}`
+    );
+
+  return repo;
 }

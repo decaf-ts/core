@@ -10,6 +10,7 @@ export enum TableNames {
   LeafletFile = "leaflet_file",
   Product = "product",
   Market = "market",
+  ProductImage = "product_image",
   ProductStrength = "product_strength",
 }
 

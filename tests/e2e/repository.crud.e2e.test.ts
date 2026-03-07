@@ -18,6 +18,7 @@ import { Logging, LogLevel, style } from "@decaf-ts/logging";
 import { ProductStrength } from "./models/ProductStrength";
 import { Market } from "./models/Market";
 import { RamRepository } from "../../src/ram/index";
+import { ProductImage } from "./models/ProductImage";
 
 Logging.setConfig({ level: LogLevel.debug });
 
@@ -171,6 +172,10 @@ describe("e2e Repository test", () => {
       const toUpdate = new Product(
         Object.assign({}, created, {
           inventedName: "new_test_name",
+          imageData: {
+            productCode: created.productCode,
+            content: "contetn",
+          },
         })
       );
 
@@ -178,13 +183,20 @@ describe("e2e Repository test", () => {
 
       expect(updated).toBeDefined();
       expect(updated.equals(created)).toEqual(false);
+      expect(updated.imageData).toBeDefined();
+
+      const imageRepo = Repository.forModel(ProductImage);
+      const img = await imageRepo.read(updated.imageData as unknown as string);
+      expect(img).toBeDefined();
+      expect(img.content).toEqual("contetn");
       expect(
         updated.equals(
           created,
           "updatedAt",
           "inventedName",
           "updatedBy",
-          "version"
+          "version",
+          "imageData"
         )
       ).toEqual(true); // minus the expected changes
       expect(mock).toHaveBeenCalledWith(
@@ -194,6 +206,48 @@ describe("e2e Repository test", () => {
         expect.any(Object),
         expect.any(Context)
       );
+    });
+
+    it("properly handles deletion of children on cascade - productImage", async () => {
+      const toUpdate = new Product(
+        Object.assign({}, updated, {
+          inventedName: "yet_test_name",
+          imageData: undefined,
+        })
+      );
+
+      const strengthMock = jest.fn();
+      const strengthObserver = new (class implements Observer {
+        async refresh(...args: any[]): Promise<void> {
+          const operation = args[1];
+          strengthMock(...args);
+        }
+      })();
+
+      const imageRepo = Repository.forModel(ProductImage);
+      repo["adapter"].observe(
+        strengthObserver,
+        (
+          table: Constructor | string,
+          event: AllOperationKeys,
+          id: EventIds,
+          ...args: ContextualArgs<any>
+        ) => {
+          return table === ProductStrength;
+        }
+      );
+
+      const afterCascade = await repo
+        .override({ mergeForUpdate: false })
+        .update(toUpdate);
+
+      await expect(
+        imageRepo.read(updated.imageData as unknown as string)
+      ).rejects.toThrow(NotFoundError);
+
+      repo["adapter"].unObserve(strengthObserver);
+
+      updated = afterCascade;
     });
 
     it("properly handles deletion of children on cascade - strengths", async () => {
@@ -409,7 +463,7 @@ describe("e2e Repository test", () => {
       repo["adapter"].unObserve(marketObserver);
     });
 
-    it.skip("deletes", async () => {
+    it("deletes", async () => {
       const deleted = await repo.delete(created.productCode as string);
 
       expect(deleted).toBeDefined();
@@ -439,6 +493,186 @@ describe("e2e Repository test", () => {
       await expect(marketRepo.read(deleted.markets[1] as any)).rejects.toThrow(
         NotFoundError
       );
+
+      const imageRepo = Repository.forModel(ProductImage);
+      await expect(
+        imageRepo.read(deleted.imageData as unknown as string)
+      ).rejects.toThrow(NotFoundError);
+    });
+  });
+
+  describe("Cascade delete hardening", () => {
+    it("removes one-to-one child when deleting a product", async () => {
+      const id = generateGtin();
+      const model = new Product({
+        productCode: id,
+        inventedName: "cascade-delete-single",
+        nameMedicinalProduct: "cascade-mp",
+        imageData: {
+          productCode: id,
+          content: "cascade-single",
+        },
+        strengths: [
+          {
+            productCode: id,
+            strength: "50mg",
+            substance: "test",
+          },
+        ],
+        markets: [
+          {
+            productCode: id,
+            marketId: "CX",
+            nationalCode: "CX",
+            mahName: "Cascade CX",
+          },
+        ],
+      });
+
+      await repo.create(model);
+      const imageRepo = Repository.forModel(ProductImage);
+      await expect(imageRepo.read(id)).resolves.toBeDefined();
+
+      await repo.delete(id);
+      await expect(imageRepo.read(id)).rejects.toThrow(NotFoundError);
+    });
+
+    it("removes one-to-one children when using deleteAll", async () => {
+      const ids = [generateGtin(), generateGtin()];
+      const models = ids.map((productCode, index) => {
+        return new Product({
+          productCode,
+          inventedName: `cascade-delete-bulk-${index}`,
+          nameMedicinalProduct: "cascade-mp",
+          imageData: {
+            productCode,
+            content: `bulk-${index}`,
+          },
+          strengths: [
+            {
+              productCode,
+              strength: "75mg",
+              substance: `bulk-${index}`,
+            },
+          ],
+          markets: [
+            {
+              productCode,
+              marketId: "CX",
+              nationalCode: "CX",
+              mahName: `Cascade CX ${index}`,
+            },
+          ],
+        });
+      });
+
+      await repo.createAll(models);
+      await repo.deleteAll(ids as any[]);
+
+      const imageRepo = Repository.forModel(ProductImage);
+      for (const id of ids) {
+        await expect(imageRepo.read(id)).rejects.toThrow(NotFoundError);
+      }
+    });
+
+    it("removes one-to-many children when deleting a product", async () => {
+      const id = generateGtin();
+      const model = new Product({
+        productCode: id,
+        inventedName: "cascade-delete-strength-market",
+        nameMedicinalProduct: "cascade-mp",
+        strengths: [
+          {
+            productCode: id,
+            strength: "150mg",
+            substance: "test-a",
+          },
+          {
+            productCode: id,
+            strength: "250mg",
+            substance: "test-b",
+          },
+        ],
+        markets: [
+          {
+            productCode: id,
+            marketId: "EU",
+            nationalCode: "EU",
+            mahName: "Cascade EU",
+          },
+          {
+            productCode: id,
+            marketId: "CA",
+            nationalCode: "CA",
+            mahName: "Cascade CA",
+          },
+        ],
+      });
+
+      const created = await repo.create(model);
+      const strengthIds = created.strengths.map((strength) => strength.id);
+      const marketIds = created.markets.map((market) => market as string);
+
+      await repo.delete(id);
+
+      const strengthRepo = Repository.forModel(ProductStrength);
+      for (const strengthId of strengthIds) {
+        await expect(strengthRepo.read(strengthId)).rejects.toThrow(NotFoundError);
+      }
+
+      const marketRepo = Repository.forModel(Market);
+      for (const marketId of marketIds) {
+        await expect(marketRepo.read(marketId as string)).rejects.toThrow(
+          NotFoundError
+        );
+      }
+    });
+
+    it("removes one-to-many children when deleteAll is used", async () => {
+      const ids = [generateGtin(), generateGtin()];
+      const models = ids.map((productCode, index) => {
+        return new Product({
+          productCode,
+          inventedName: `cascade-delete-range-${index}`,
+          nameMedicinalProduct: "cascade-mp",
+          strengths: [
+            {
+              productCode,
+              strength: "125mg",
+              substance: `bulk-${index}`,
+            },
+          ],
+          markets: [
+            {
+              productCode,
+              marketId: "US",
+              nationalCode: "US",
+              mahName: `Cascade US ${index}`,
+            },
+          ],
+        });
+      });
+
+      const created = await repo.createAll(models);
+      const deleted = await repo.deleteAll(
+        created.map((product) => product.productCode as string)
+      );
+
+      const strengthRepo = Repository.forModel(ProductStrength);
+      const marketRepo = Repository.forModel(Market);
+
+      for (const product of deleted) {
+        for (const strength of product.strengths) {
+          await expect(strengthRepo.read(strength.id)).rejects.toThrow(
+            NotFoundError
+          );
+        }
+        for (const marketId of product.markets) {
+          await expect(marketRepo.read(marketId as string)).rejects.toThrow(
+            NotFoundError
+          );
+        }
+      }
     });
   });
 

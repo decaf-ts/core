@@ -5,6 +5,7 @@ import {
   column,
   index,
   oneToMany,
+  oneToOne,
   OrderDirection,
   pk,
   table,
@@ -18,6 +19,7 @@ import { gtin } from "./gtin";
 
 import { E2eConfig } from "../e2e.config";
 import { audit } from "./decorators";
+import { ProductImage } from "./ProductImage";
 
 @uses(E2eConfig.flavour)
 // @BlockOperations([OperationKeys.DELETE])
@@ -26,7 +28,7 @@ import { audit } from "./decorators";
 export class Product extends BaseIdentifiedModel {
   @gtin()
   @audit()
-  @pk({ type: String, generated: false })
+  @pk()
   productCode!: string;
 
   @column()
@@ -45,6 +47,16 @@ export class Product extends BaseIdentifiedModel {
   @column()
   @index([OrderDirection.ASC, OrderDirection.DSC])
   productRecall: boolean = false;
+
+  @oneToOne(
+    () => ProductImage,
+    {
+      update: Cascade.CASCADE,
+      delete: Cascade.CASCADE,
+    },
+    false
+  )
+  imageData?: string | ProductImage;
   //
   // @column()
   // flagEnableAdverseEventReporting?: boolean;

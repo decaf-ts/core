@@ -379,7 +379,7 @@ export async function oneToOneOnUpdate<M extends Model, R extends Repo<M>>(
  *
  *   Caller->>oneToOneOnDelete: this, context, data, key, model
  *   oneToOneOnDelete->>oneToOneOnDelete: check if propertyValue exists
- *   oneToOneOnDelete->>oneToOneOnDelete: check if cascade.update is CASCADE
+ *   oneToOneOnDelete->>oneToOneOnDelete: check if cascade.delete is CASCADE
  *
  *   oneToOneOnDelete->>repositoryFromTypeMetadata: model, key
  *   repositoryFromTypeMetadata-->>oneToOneOnDelete: innerRepo
@@ -403,7 +403,8 @@ export async function oneToOneOnDelete<M extends Model, R extends Repo<M>>(
   model: M
 ): Promise<void> {
   const propertyValue: any = model[key];
-  if (data.cascade.update !== Cascade.CASCADE) return;
+  if (typeof propertyValue === "undefined" || propertyValue === null) return;
+  if (data.cascade.delete !== Cascade.CASCADE) return;
   const innerRepo: Repo<M> = repositoryFromTypeMetadata(
     model,
     key,
@@ -1394,8 +1395,6 @@ export async function cascadeDelete<M extends Model, R extends Repo<M>>(
   oldModel: M
 ): Promise<void> {
   if (data.cascade.update !== Cascade.CASCADE) return;
-  const nested: any = model[key];
-  if (typeof nested === "undefined") return;
   if (!oldModel)
     throw new InternalError(
       "No way to compare old model. do you have updateValidation and mergeModels enabled?"

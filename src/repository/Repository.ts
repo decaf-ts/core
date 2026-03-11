@@ -1657,12 +1657,13 @@ export class Repository<
       repo = undefined;
     }
 
-    if (repo instanceof Repository) return repo as R;
-
+    const repoConstructor =
+      typeof repo === "function" ? (repo as Constructor<R>) : undefined;
     const flavour: string | undefined =
       alias ||
       Metadata.flavourOf(model) ||
-      (repo && Metadata.get(repo, PersistenceKeys.ADAPTER)) ||
+      (repoConstructor &&
+        Metadata.get(repoConstructor, PersistenceKeys.ADAPTER)) ||
       Adapter.currentFlavour;
     const adapter: Adapter<any, any, any, any> | undefined = flavour
       ? Adapter.get(flavour)
@@ -1673,8 +1674,16 @@ export class Repository<
         `No registered persistence adapter found flavour ${flavour}`
       );
 
-    repo = repo || (adapter.repository() as Constructor<R>);
-    return new repo(adapter, model, ...args) as R;
+    if (repo instanceof Repository) return repo as R;
+
+    const registryName = [Model.tableName(model), adapter.alias].join(
+      DefaultSeparator
+    );
+    const repoCtor: Constructor<R> =
+      repoConstructor || (adapter.repository() as Constructor<R>);
+
+    delete this._cache[registryName];
+    return new repoCtor(adapter, model, ...args) as R;
   }
 
   /**

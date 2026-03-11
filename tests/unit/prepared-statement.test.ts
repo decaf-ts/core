@@ -1,9 +1,10 @@
-import { minlength, model, required } from "@decaf-ts/decorator-validation";
+import { minlength, model, required, Model } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { defaultQueryAttr, SerializedPage } from "../../src/query";
 import {
   BaseModel,
+  Paginator,
   pk,
   Repository,
   OrderDirection,
@@ -143,9 +144,11 @@ describe("prepared statements", () => {
       >(DefaultQueryModel);
       const models = [
         new DefaultQueryModel({ attr1: "apple", attr2: "zebra" }),
-        new DefaultQueryModel({ attr1: "apricot", attr2: "alpha" }),
-        new DefaultQueryModel({ attr1: "banana", attr2: "alpha" }),
+        new DefaultQueryModel({ attr1: "apricot", attr2: "amber" }),
+        new DefaultQueryModel({ attr1: "banana", attr2: "aurora" }),
         new DefaultQueryModel({ attr1: "delta", attr2: "aardvark" }),
+        new DefaultQueryModel({ attr1: "omega", attr2: "alpha" }),
+        new DefaultQueryModel({ attr1: "sigma", attr2: "altitude" }),
       ];
       await searchRepo.createAll(models);
     });
@@ -196,6 +199,39 @@ describe("prepared statements", () => {
       );
     });
 
+    it("includes matches from secondary default query attributes and keeps ordering consistent", async () => {
+      const ascMatches = await searchRepo.find("al", OrderDirection.ASC);
+      const descMatches = await searchRepo.find("al", OrderDirection.DSC);
+
+      expect(
+        ascMatches.every((record) => record.attr2?.startsWith("al"))
+      ).toEqual(true);
+      expect(
+        descMatches.every((record) => record.attr2?.startsWith("al"))
+      ).toEqual(true);
+
+      expect(ascMatches.map((record) => record.attr1)).toEqual([
+        "omega",
+        "sigma",
+      ]);
+      expect(descMatches.map((record) => record.attr1)).toEqual([
+        "sigma",
+        "omega",
+      ]);
+
+      const ascPage = await searchRepo.page("al", OrderDirection.ASC, {
+        offset: 1,
+        limit: 1,
+      });
+      expect(ascPage.data.map((record) => record.attr1)).toEqual(["omega"]);
+
+      const descPage = await searchRepo.page("al", OrderDirection.DSC, {
+        offset: 1,
+        limit: 1,
+      });
+      expect(descPage.data.map((record) => record.attr1)).toEqual(["sigma"]);
+    });
+
     it("prepares default find when raw statements are disabled", async () => {
       const preparedRepo = searchRepo.override({
         allowRawStatements: false,
@@ -236,5 +272,226 @@ describe("prepared statements", () => {
         )
       ).toEqual(true);
     });
+  });
+});
+
+@uses("ram")
+@model()
+class NumericQueryModel extends BaseModel {
+  @pk({ type: Number })
+  id?: number = undefined;
+
+  @required()
+  @defaultQueryAttr()
+  searchName?: string = undefined;
+
+  @required()
+  @defaultQueryAttr()
+  searchCode?: string = undefined;
+
+  constructor(arg?: ModelArg<NumericQueryModel>) {
+    super(arg);
+  }
+}
+
+describe("default query statements with numeric strings", () => {
+  const queryValue = "1";
+  const expectedAscNames = [
+    "10Start",
+    "1Alpha",
+    "1Beta",
+    "1Zeta",
+    "a1-Gamma",
+    "foo10",
+  ];
+  const expectedDescNames = [...expectedAscNames].reverse();
+
+  let numericRepo: RamRepository<NumericQueryModel>;
+  let numericRepoDirect: RamRepository<NumericQueryModel>;
+
+  beforeAll(async () => {
+    numericRepo = Repository.forModel<
+      NumericQueryModel,
+      RamRepository<NumericQueryModel>
+    >(NumericQueryModel);
+    const models = [
+      new NumericQueryModel({ searchName: "10Start", searchCode: "10-Start" }),
+      new NumericQueryModel({ searchName: "1Alpha", searchCode: "1-Alpha" }),
+      new NumericQueryModel({ searchName: "1Beta", searchCode: "1-Beta" }),
+      new NumericQueryModel({ searchName: "1Zeta", searchCode: "1-Zeta" }),
+      new NumericQueryModel({ searchName: "a1-Gamma", searchCode: "1-Gamma" }),
+      new NumericQueryModel({ searchName: "foo10", searchCode: "10-Foo" }),
+      new NumericQueryModel({ searchName: "alpha10", searchCode: "alpha-10" }),
+      new NumericQueryModel({ searchName: "2Delta", searchCode: "2-Delta" }),
+    ];
+    await numericRepo.createAll(models);
+    numericRepoDirect = numericRepo.override({
+      forcePrepareComplexQueries: false,
+      forcePrepareSimpleQueries: false,
+    } as any);
+  });
+
+  it("finds numeric-prefixed strings via decorated attributes and maintains consistent ordering", async () => {
+    const directRepo = numericRepoDirect;
+    const ascMatches = await directRepo.find(queryValue, OrderDirection.ASC);
+    const descMatches = await directRepo.find(queryValue, OrderDirection.DSC);
+
+    expect(ascMatches.map((record) => record.searchName)).toEqual(
+      expectedAscNames
+    );
+    expect(descMatches.map((record) => record.searchName)).toEqual(
+      expectedDescNames
+    );
+    expect(
+      ascMatches.every(
+        (record) =>
+          record.searchName?.startsWith(queryValue) ||
+          record.searchCode?.startsWith(queryValue)
+      )
+    ).toEqual(true);
+    expect(
+      descMatches.every(
+        (record) =>
+          record.searchName?.startsWith(queryValue) ||
+          record.searchCode?.startsWith(queryValue)
+      )
+    ).toEqual(true);
+    expect(
+      ascMatches.some((match) => match.searchName === "a1-Gamma")
+    ).toEqual(true);
+    expect(
+      ascMatches.some((match) => match.searchName === "foo10")
+    ).toEqual(true);
+    expect(
+      ascMatches.some((match) => match.searchName === "alpha10")
+    ).toEqual(false);
+  });
+
+  it("pages numeric-prefixed data using sequential next/previous navigation", async () => {
+    const pageLimit = 2;
+    const expectedAscPages = [
+      ["10Start", "1Alpha"],
+      ["1Beta", "1Zeta"],
+      ["a1-Gamma", "foo10"],
+    ];
+
+    const attrs = Model.defaultQueryAttributes(
+      NumericQueryModel
+    ) as (keyof NumericQueryModel)[];
+    const condition = (numericRepoDirect as any).buildDefaultStartsWithCondition(
+      queryValue,
+      attrs
+    );
+
+    const repoPage1 = await numericRepoDirect.page(
+      queryValue,
+      OrderDirection.ASC,
+      {
+        offset: 1,
+        limit: pageLimit,
+      }
+    );
+    const repoPage2 = await numericRepoDirect.page(
+      queryValue,
+      OrderDirection.ASC,
+      {
+        offset: 2,
+        limit: pageLimit,
+      }
+    );
+    const repoPage3 = await numericRepoDirect.page(
+      queryValue,
+      OrderDirection.ASC,
+      {
+        offset: 3,
+        limit: pageLimit,
+      }
+    );
+
+    const repoAscNames = [
+      repoPage1.data.map((record) => record.searchName),
+      repoPage2.data.map((record) => record.searchName),
+      repoPage3.data.map((record) => record.searchName),
+    ];
+
+    expect(repoAscNames).toEqual(expectedAscPages);
+
+    const sequentialPaginator: Paginator<NumericQueryModel> = await numericRepoDirect
+      .override({
+        forcePrepareComplexQueries: false,
+        forcePrepareSimpleQueries: false,
+      } as any)
+      .select()
+      .where(condition)
+      .orderBy([attrs[0], OrderDirection.ASC])
+      .paginate(pageLimit);
+
+    const paginatorPage1 = await sequentialPaginator.page();
+    expect(paginatorPage1.map((record) => record.searchName)).toEqual(
+      expectedAscPages[0]
+    );
+    expect(sequentialPaginator.current).toEqual(1);
+
+    const paginatorPage2 = await sequentialPaginator.next();
+    expect(paginatorPage2.map((record) => record.searchName)).toEqual(
+      expectedAscPages[1]
+    );
+    expect(sequentialPaginator.current).toEqual(2);
+
+    const paginatorPage3 = await sequentialPaginator.next();
+    expect(paginatorPage3.map((record) => record.searchName)).toEqual(
+      expectedAscPages[2]
+    );
+    expect(sequentialPaginator.current).toEqual(3);
+
+    const backToPage2 = await sequentialPaginator.previous();
+    expect(backToPage2.map((record) => record.searchName)).toEqual(
+      expectedAscPages[1]
+    );
+    expect(sequentialPaginator.current).toEqual(2);
+
+    const backToPage1 = await sequentialPaginator.previous();
+    expect(backToPage1.map((record) => record.searchName)).toEqual(
+      expectedAscPages[0]
+    );
+    expect(sequentialPaginator.current).toEqual(1);
+
+    expect(repoPage1.data).toEqual(paginatorPage1);
+    expect(repoPage2.data).toEqual(paginatorPage2);
+    expect(repoPage3.data).toEqual(paginatorPage3);
+  });
+
+  it("pages numeric defaults in both directions with consistent metadata", async () => {
+    const pageLimit = 2;
+    const ascPage = await numericRepo.page(queryValue, OrderDirection.ASC, {
+      offset: 1,
+      limit: pageLimit,
+    });
+
+    expect(ascPage.current).toEqual(1);
+    expect(ascPage.count).toEqual(expectedAscNames.length);
+    expect(ascPage.total).toEqual(Math.ceil(expectedAscNames.length / pageLimit));
+    expect(ascPage.data.map((record) => record.searchName)).toEqual(
+      expectedAscNames.slice(0, pageLimit)
+    );
+
+    const ascPageTwo = await numericRepo.page(queryValue, OrderDirection.ASC, {
+      offset: 2,
+      limit: pageLimit,
+    });
+    expect(ascPageTwo.data.map((record) => record.searchName)).toEqual(
+      expectedAscNames.slice(pageLimit, pageLimit * 2)
+    );
+
+    const descPage = await numericRepo.page(queryValue, OrderDirection.DSC, {
+      offset: 1,
+      limit: pageLimit,
+    });
+    expect(descPage.current).toEqual(1);
+    expect(descPage.count).toEqual(expectedAscNames.length);
+    expect(descPage.total).toEqual(Math.ceil(expectedAscNames.length / pageLimit));
+    expect(descPage.data.map((record) => record.searchName)).toEqual(
+      expectedDescNames.slice(0, pageLimit)
+    );
   });
 });

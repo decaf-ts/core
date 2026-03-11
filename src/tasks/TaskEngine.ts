@@ -72,6 +72,8 @@ export class TaskEngine<
   protected get tasks(): Repo<TaskModel> {
     if (this._tasks) return this._tasks;
     this._tasks = Repository.forModel(TaskModel, this.adapter.alias);
+    if (this.config.overrides)
+      this._tasks = this._tasks.override(this.config.overrides);
     return this._tasks;
   }
 
@@ -81,6 +83,8 @@ export class TaskEngine<
       TaskEventModel,
       this.config.adapter.alias
     );
+    if (this.config.overrides)
+      this._events = this._events.override(this.config.overrides);
     return this._events;
   }
 
@@ -337,12 +341,12 @@ export class TaskEngine<
 
   protected async loop(...args: ContextualArgs<any>): Promise<void> {
     const { ctx } = this.logCtx(args, this.loop);
-    const autoShutdownConfig: TaskEngineAutoShutdownConfig =
-      this.config.autoShutdown ?? {
-        enabled: false,
-        backoffStepMs: 0,
-        maxIdleDelayMs: this.config.pollMsIdle,
-      };
+    const autoShutdownConfig: TaskEngineAutoShutdownConfig = this.config
+      .autoShutdown ?? {
+      enabled: false,
+      backoffStepMs: 0,
+      maxIdleDelayMs: this.config.pollMsIdle,
+    };
     const maxIdleDelay = Math.max(
       autoShutdownConfig.maxIdleDelayMs ?? this.config.pollMsIdle,
       this.config.pollMsIdle

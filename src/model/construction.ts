@@ -1367,7 +1367,11 @@ export async function populate<M extends Model, R extends Repo<M>>(
         if (!val) throw new Error("Not found in cache");
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: any) {
-        const repo = repositoryFromTypeMetadata(model, propName as keyof M);
+        const repo = repositoryFromTypeMetadata(
+          model,
+          propName as keyof M,
+          (self as any).adapter.alias
+        );
         if (!repo) throw new InternalError("Could not find repo");
         val = await repo
           .override((self as any)._overrides)
@@ -1421,7 +1425,11 @@ export async function cascadeDelete<M extends Model, R extends Repo<M>>(
   const toDelete = (oldToCompare as any[]).filter(
     (v) => !(newToCompare as any[]).includes(v)
   );
-  const repo = repositoryFromTypeMetadata(model, key as keyof M);
+  const repo = repositoryFromTypeMetadata(
+    model,
+    key as keyof M,
+    this.adapter.alias
+  );
   if (!repo) throw new InternalError("Could not find repo");
   try {
     const deleted = await repo

@@ -234,7 +234,7 @@ export abstract class Adapter<
     Impersonatable<any, [Partial<CONF>, ...any[]]>,
     ErrorParser
 {
-  private static _currentFlavour: string;
+  private static _currentFlavour?: string;
   private static _cache: Record<string, Adapter<any, any, any, any>> = {};
   private static _baseRepository: Constructor<Repository<any, any>>;
   private static _baseSequence: Constructor<Sequence>;
@@ -387,6 +387,9 @@ export abstract class Adapter<
         `${this.alias} persistence adapter ${this._alias ? `(${this.flavour}) ` : ""} already registered`
       );
     Adapter._cache[this.alias] = this;
+    if (this.alias !== this.flavour) {
+      Adapter._cache[this.flavour] = this;
+    }
     this.log.info(
       `Created ${this.alias} persistence adapter ${this._alias ? `(${this.flavour}) ` : ""} persistence adapter`
     );
@@ -1115,6 +1118,28 @@ export abstract class Adapter<
    */
   static get current(): Adapter<any, any, any, any> | undefined {
     return Adapter.get(this.currentFlavour);
+  }
+
+  /**
+   * @description Unregisters an adapter by alias
+   * @summary Removes the adapter instance associated with the given alias from the cache
+   * @param {string} alias - The alias that was used to register the adapter
+   */
+  static unregister(alias?: string) {
+    if (!alias) return;
+    const adapter = Adapter._cache[alias] as
+      | Adapter<any, any, any, any>
+      | undefined;
+    if (!adapter) return;
+    delete Adapter._cache[alias];
+    if (Adapter._currentFlavour === alias) Adapter._currentFlavour = undefined;
+    if (
+      adapter.flavour &&
+      Adapter._cache[adapter.flavour] &&
+      Adapter._cache[adapter.flavour] === adapter
+    ) {
+      delete Adapter._cache[adapter.flavour];
+    }
   }
 
   /**

@@ -53,24 +53,6 @@ export class TaskService<
     super();
   }
 
-  override async boot(
-    ...args: MaybeContextualArg<ContextOf<A>>
-  ): Promise<void> {
-    const cfgCandidate = args[args.length - 1] as
-      | TaskServiceConfig<A, any, any>
-      | Context
-      | undefined;
-    let cfg: TaskServiceConfig<A, any, any> | undefined;
-    if (cfgCandidate instanceof Context) {
-      cfg = args[args.length - 2] as TaskServiceConfig<A, any, any> | undefined;
-    } else {
-      cfg = cfgCandidate as TaskServiceConfig<A, any, any> | undefined;
-    }
-    if (!cfg || cfg instanceof Context)
-      throw new InternalError(`No/invalid config provided`);
-    await super.boot(...args);
-  }
-
   override async initialize(
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<{

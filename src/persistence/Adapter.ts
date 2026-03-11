@@ -90,7 +90,7 @@ Decoration["flavourResolver"] = (obj: object) => {
 
 const AdapterProxyCleanup = Symbol("AdapterProxyCleanup");
 
-function resolveBulkSequenceResult<T>(
+export function resolveBulkSequenceResult<T>(
   result: T[] | PromiseSettledResult<T>[],
   continueOnError: boolean,
   log: Logger,

@@ -1150,7 +1150,8 @@ export class Repository<
     },
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<SerializedPage<M>> {
-    const requestedPage = ref.offset || 1;
+    ref.offset = ref.offset || 1;
+    ref.limit = ref.limit || 10;
     const { offset, bookmark, limit } = ref;
     if (!offset && !bookmark)
       throw new QueryError(`PaginateBy needs a page or a bookmark`);
@@ -1188,7 +1189,7 @@ export class Repository<
     } else {
       throw new QueryError(`PaginateBy needs a page or a bookmark`);
     }
-    const paged = await paginator.page(requestedPage, bookmark, ...ctxArgs);
+    const paged = await paginator.page(offset, bookmark, ...ctxArgs);
     const serialization = paginator.serialize(paged) as SerializedPage<M>;
     // if (bookmark) serialization.current = requestedPage;
     return serialization;

@@ -61,5 +61,12 @@ export class TaskEventModel extends Model {
 
   constructor(arg?: ModelArg<TaskEventModel>) {
     super(arg);
+    if (typeof this.payload === "string") {
+      try {
+        this.payload = JSON.parse(this.payload);
+      } catch {
+        // keep original string if parsing fails
+      }
+    }
   }
 }

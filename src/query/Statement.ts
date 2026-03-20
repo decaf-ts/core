@@ -1,4 +1,8 @@
 import { Model } from "@decaf-ts/decorator-validation";
+import {
+  enforceDBDecorators,
+  OperationKeys,
+} from "@decaf-ts/db-decorators";
 import type { Executor, RawExecutor } from "../interfaces";
 import type {
   FromSelector,
@@ -395,26 +399,18 @@ export abstract class Statement<
         return results;
       }
       if (!this.selectSelector) {
-        const pkAttr = Model.pk(this.fromSelector);
-        const processor = function recordProcessor(
-          this: Statement<M, A, R, Q>,
-          r: any
-        ) {
-          const id = r[pkAttr];
-          return this.adapter.revert(
-            r,
-            this.fromSelector as Constructor<any>,
-            id,
-            undefined,
-            ctx
-          ) as any;
-        }.bind(this as any);
+        const processor = (r: any) => this.processRecord(r, ctx);
 
         if (this.groupBySelectors?.length) {
-          return this.revertGroupedResults(results, processor) as R;
+          const grouped = this.revertGroupedResults(results, processor) as R;
+          return (await this.applyAfterHandlersToResult(grouped, ctx)) as R;
         }
-        if (Array.isArray(results)) return results.map(processor) as R;
-        return processor(results) as R;
+        if (Array.isArray(results)) {
+          const mapped = results.map(processor) as unknown as R;
+          return (await this.applyAfterHandlersToResult(mapped, ctx)) as R;
+        }
+        const single = processor(results) as unknown as R;
+        return (await this.applyAfterHandlersToResult(single, ctx)) as R;
       }
       return results;
     } catch (e: unknown) {
@@ -465,24 +461,64 @@ export abstract class Statement<
     if (!this.selectSelector) {
       return results as unknown as R;
     }
+
+    const processor = (r: any) => this.processRecord(r, ctx);
+
+    if (Array.isArray(results)) {
+      const mapped = results.map(processor) as unknown as R;
+      return (await this.applyAfterHandlersToResult(mapped, ctx)) as R;
+    }
+    const single = processor(results) as unknown as R;
+    return (await this.applyAfterHandlersToResult(single, ctx)) as R;
+  }
+
+  protected processRecord(record: any, ctx: ContextOf<A>): M {
     const pkAttr = Model.pk(this.fromSelector);
+    const id = record[pkAttr];
+    return this.adapter.revert(
+      record,
+      this.fromSelector as Constructor<any>,
+      id,
+      undefined,
+      ctx
+    ) as M;
+  }
 
-    const processor = function recordProcessor(
-      this: Statement<M, A, R, Q>,
-      r: any
-    ) {
-      const id = r[pkAttr];
-      return this.adapter.revert(
-        r,
-        this.fromSelector as Constructor<any>,
-        id,
-        undefined,
-        ctx
-      ) as any;
-    }.bind(this as any);
+  protected async applyAfterHandlersToResult(
+    value: any,
+    ctx: ContextOf<A>
+  ): Promise<any> {
+    if (value instanceof Model) {
+      await enforceDBDecorators(
+        this.getRepository(),
+        ctx,
+        value,
+        OperationKeys.READ,
+        OperationKeys.AFTER
+      );
+      return value;
+    }
+    if (Array.isArray(value)) {
+      await Promise.all(
+        value.map((entry) => this.applyAfterHandlersToResult(entry, ctx))
+      );
+      return value;
+    }
+    if (value && typeof value === "object") {
+      await Promise.all(
+        Object.entries(value).map(([key, entry]) =>
+          this.applyAfterHandlersToResult(entry, ctx).then((processed) => {
+            value[key] = processed;
+          })
+        )
+      );
+      return value;
+    }
+    return value;
+  }
 
-    if (Array.isArray(results)) return results.map(processor) as R;
-    return processor(results) as R;
+  protected getRepository(): Repository<M, A> {
+    return Repository.forModel(this.fromSelector, this.adapter.alias);
   }
 
   protected prepareCondition(condition: Condition<any>, ctx: ContextOf<A>) {

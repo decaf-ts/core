@@ -488,6 +488,8 @@ export abstract class Statement<
     value: any,
     ctx: ContextOf<A>
   ): Promise<any> {
+    if (!ctx.getOrUndefined("afterQueryHandlers"))
+      return value;
     if (value instanceof Model) {
       await enforceDBDecorators(
         this.getRepository(),

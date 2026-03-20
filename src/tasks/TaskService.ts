@@ -68,10 +68,17 @@ export class TaskService<
     if (!cfg || cfg instanceof Context)
       throw new InternalError(`No/invalid config provided`);
     if (!cfg.adapter) throw new InternalError(`No adapter provided`);
-    const client: TaskEngine<A> = new (cfg.engine || TaskEngine)(cfg);
+    const overrides = Object.assign({}, cfg.overrides || {}, {
+      afterQueryHandlers: true,
+    });
+    const clientConfig = Object.assign({}, cfg, {
+      overrides,
+    });
+    const EngineCtor = cfg.engine || TaskEngine;
+    const client: TaskEngine<A> = new EngineCtor(clientConfig);
     return {
-      client: client,
-      config: cfg,
+      client,
+      config: clientConfig,
     };
   }
 

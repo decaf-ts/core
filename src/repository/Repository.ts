@@ -155,6 +155,7 @@ export class Repository<
     ignoreDevSafeGuards: false,
     mergeForUpdate: true,
     applyUpdateValidation: true,
+    afterQueryHandlers: false,
   } as any;
 
   private logger!: Logger;

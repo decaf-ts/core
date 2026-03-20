@@ -24,7 +24,6 @@ import {
 } from "@decaf-ts/db-decorators";
 import { OrderDirection } from "../repository/constants";
 import { type Repo } from "../repository/Repository";
-import { repository } from "../repository/decorators";
 import { TaskModel } from "./models/TaskModel";
 import { create, del, read, update } from "../utils/decorators";
 import { PreparedStatementKeys } from "../query/constants";
@@ -34,6 +33,7 @@ import type { Observer } from "../interfaces/Observer";
 import type { ArrayMode } from "../services/ModelService";
 import { TaskEngineConfig } from "./types";
 import { TaskTracker } from "./TaskTracker";
+import { TaskEventModel } from "./models/index";
 
 export type TaskServiceConfig<
   A extends Adapter<any, any, any, any>,
@@ -46,8 +46,13 @@ export type TaskServiceConfig<
 export class TaskService<
   A extends Adapter<any, any, any, any>,
 > extends ClientBasedService<TaskEngine<A>, TaskEngineConfig<A>> {
-  @repository(TaskModel)
-  protected repo!: Repo<TaskModel>;
+  protected get tasks(): Repo<TaskModel> {
+    return this.client["tasks"];
+  }
+
+  protected get events(): Repo<TaskEventModel> {
+    return this.client["events"];
+  }
 
   constructor() {
     super();
@@ -62,13 +67,8 @@ export class TaskService<
     const cfg = args.shift() as TaskServiceConfig<A, any, any> | any;
     if (!cfg || cfg instanceof Context)
       throw new InternalError(`No/invalid config provided`);
-    const { log } = (
-      await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
-    ).for(this.initialize);
     if (!cfg.adapter) throw new InternalError(`No adapter provided`);
-    log.info(`Initializing Task Engine...`);
     const client: TaskEngine<A> = new (cfg.engine || TaskEngine)(cfg);
-    log.verbose(`${client} initialized`);
     return {
       client: client,
       config: cfg,
@@ -130,7 +130,7 @@ export class TaskService<
     const { ctxArgs } = (
       await this.logCtx(args, OperationKeys.CREATE, true)
     ).for(this.create);
-    const created = await this.repo.create(model, ...ctxArgs);
+    const created = await this.tasks.create(model, ...ctxArgs);
     if (!(await this.client.isRunning())) {
       void this.client.start();
     }
@@ -145,7 +145,7 @@ export class TaskService<
     const { ctxArgs } = (
       await this.logCtx(args, BulkCrudOperationKeys.CREATE_ALL, true)
     ).for(this.createAll);
-    const created = await this.repo.createAll(models, ...ctxArgs);
+    const created = await this.tasks.createAll(models, ...ctxArgs);
     if (!(await this.client.isRunning())) void this.client.start();
     return created;
   }
@@ -158,7 +158,7 @@ export class TaskService<
     const { ctxArgs } = (
       await this.logCtx(args, OperationKeys.DELETE, true)
     ).for(this.delete);
-    return this.repo.delete(key, ...ctxArgs);
+    return this.tasks.delete(key, ...ctxArgs);
   }
 
   @del()
@@ -169,7 +169,7 @@ export class TaskService<
     const { ctxArgs } = (
       await this.logCtx(args, BulkCrudOperationKeys.DELETE_ALL, true)
     ).for(this.deleteAll);
-    return this.repo.deleteAll(keys, ...ctxArgs);
+    return this.tasks.deleteAll(keys, ...ctxArgs);
   }
 
   @read()
@@ -180,7 +180,7 @@ export class TaskService<
     const { ctxArgs } = (await this.logCtx(args, OperationKeys.READ, true)).for(
       this.read
     );
-    return this.repo.read(key, ...ctxArgs);
+    return this.tasks.read(key, ...ctxArgs);
   }
 
   @read()
@@ -191,7 +191,7 @@ export class TaskService<
     const { ctxArgs } = (
       await this.logCtx(args, BulkCrudOperationKeys.READ_ALL, true)
     ).for(this.readAll);
-    return this.repo.readAll(keys, ...ctxArgs);
+    return this.tasks.readAll(keys, ...ctxArgs);
   }
 
   @read()
@@ -202,11 +202,11 @@ export class TaskService<
     const { ctxArgs } = (
       await this.logCtx(args, PersistenceKeys.QUERY, true)
     ).for(this.query);
-    const method = (this.repo as any)?.[methodName];
+    const method = (this.tasks as any)?.[methodName];
     if (typeof method !== "function")
       throw new InternalError(`Method "${methodName}" is not implemented`);
 
-    return method.apply(this.repo, ctxArgs);
+    return method.apply(this.tasks, ctxArgs);
   }
 
   @update()
@@ -238,7 +238,7 @@ export class TaskService<
   //   ...args: MaybeContextualArg<ContextOf<R>>
   // ): Promise<M[]> {
   //   const { ctxArgs } = await this.logCtx(args, this.query, true);
-  //   return this.repo.query(condition, orderBy, order, limit, skip, ...ctxArgs);
+  //   return this.tasks.query(condition, orderBy, order, limit, skip, ...ctxArgs);
   // }
 
   async listBy(
@@ -249,7 +249,7 @@ export class TaskService<
     const { ctxArgs } = (
       await this.logCtx(args, PreparedStatementKeys.LIST_BY, true)
     ).for(this.listBy);
-    return this.repo.listBy(key, order, ...ctxArgs);
+    return this.tasks.listBy(key, order, ...ctxArgs);
   }
 
   async paginateBy(
@@ -261,7 +261,7 @@ export class TaskService<
     const { ctxArgs } = (
       await this.logCtx(args, PreparedStatementKeys.PAGE_BY, true)
     ).for(this.paginateBy);
-    return this.repo.paginateBy(key, order, ref, ...ctxArgs);
+    return this.tasks.paginateBy(key, order, ref, ...ctxArgs);
   }
 
   async findOneBy(
@@ -272,7 +272,7 @@ export class TaskService<
     const { ctxArgs } = (
       await this.logCtx(args, PreparedStatementKeys.FIND_ONE_BY, true)
     ).for(this.findOneBy);
-    return this.repo.findOneBy(key, value, ...ctxArgs);
+    return this.tasks.findOneBy(key, value, ...ctxArgs);
   }
 
   async findBy(
@@ -283,14 +283,14 @@ export class TaskService<
     const { ctxArgs } = (
       await this.logCtx(args, PreparedStatementKeys.FIND_BY, true)
     ).for(this.findBy);
-    return this.repo.findBy(key, value, ...ctxArgs);
+    return this.tasks.findBy(key, value, ...ctxArgs);
   }
 
   async statement(name: string, ...args: MaybeContextualArg<ContextOf<A>>) {
     const { ctxArgs } = (
       await this.logCtx(args, PersistenceKeys.STATEMENT, true)
     ).for(this.statement);
-    return this.repo.statement(name, ...ctxArgs);
+    return this.tasks.statement(name, ...ctxArgs);
   }
 
   override refresh(
@@ -299,14 +299,14 @@ export class TaskService<
     id: EventIds,
     ...args: ContextualArgs<ContextOf<A>>
   ): Promise<void> {
-    return this.repo.refresh(table, event, id, ...args);
+    return this.tasks.refresh(table, event, id, ...args);
   }
   override observe(observer: Observer, filter?: ObserverFilter): () => void {
-    return this.repo.observe(observer, filter);
+    return this.tasks.observe(observer, filter);
   }
 
   override unObserve(observer: Observer): void {
-    return this.repo.unObserve(observer);
+    return this.tasks.unObserve(observer);
   }
 
   override updateObservers(
@@ -315,7 +315,7 @@ export class TaskService<
     ids: EventIds,
     ...args: ContextualArgs<ContextOf<A>>
   ) {
-    return this.repo.updateObservers(model, operation, ids, ...args);
+    return this.tasks.updateObservers(model, operation, ids, ...args);
   }
 
   protected override logCtx<
@@ -371,11 +371,11 @@ export class TaskService<
         ARGS,
         METHOD extends string ? true : false
       > {
-    const ctx = this.repo["_adapter"]["logCtx"](
-      [this.repo.class as any, ...args] as any,
+    const ctx = this.tasks["_adapter"]["logCtx"](
+      [this.tasks.class as any, ...args] as any,
       operation,
       allowCreate as any,
-      this.repo["_overrides"] || {}
+      this.tasks["_overrides"] || {}
     );
     function squashArgs(ctx: ContextualizedArgs<ContextOf<any>>) {
       ctx.ctxArgs.shift(); // removes added model to args

@@ -424,13 +424,15 @@ export abstract class ClientBasedService<
 
   @final()
   async boot(...args: MaybeContextualArg<C>) {
-    const { log, ctxArgs } = (
-      await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
-    ).for(this.boot);
-    log.verbose(`Initializing ${this.toString()}...`);
-    const { config, client } = await this.initialize(...ctxArgs);
+    const { config, client } = await this.initialize(
+      ...(args as [...any[], C])
+    );
     this._config = config;
     this._client = client;
+    const { log } = (
+      await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
+    ).for(this.boot);
+    log.verbose(`${this.toString()} initialized...`);
   }
 
   abstract initialize(...args: ContextualArgs<C>): Promise<{

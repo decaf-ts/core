@@ -504,11 +504,11 @@ export abstract class Adapter<
         : undefined
       : model;
     const correlationPrefix = targetModel
-      ? `${Model.tableName(targetModel)} - `
+      ? `${Model.tableName(targetModel)}`
       : "";
     flags.correlationId =
       flags.correlationId ||
-      `${correlationPrefix}${operation}-${UUID.instance.generate()}`;
+      `${correlationPrefix}|${operation}|${UUID.instance.generate()}`;
     const log = (flags.logger || Logging.for(this as any)) as Logger;
     return Object.assign({}, DefaultAdapterFlags, flags, {
       affectedTables: model

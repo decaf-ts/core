@@ -13,17 +13,20 @@ import {
   type ContextOf,
   type EventIds,
   type ObserverFilter,
+  AdapterFlags,
 } from "../persistence/types";
 import { PersistenceKeys } from "../persistence/constants";
 import { UnsupportedError } from "../persistence/errors";
 import {
   BulkCrudOperationKeys,
+  DefaultSeparator,
   InternalError,
   OperationKeys,
   type PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
 import { OrderDirection } from "../repository/constants";
-import { type Repo } from "../repository/Repository";
+import { Repository, type Repo } from "../repository/Repository";
+import { Model } from "@decaf-ts/decorator-validation";
 import { TaskModel } from "./models/TaskModel";
 import { create, del, read, update } from "../utils/decorators";
 import { PreparedStatementKeys } from "../query/constants";
@@ -68,6 +71,7 @@ export class TaskService<
     if (!cfg || cfg instanceof Context)
       throw new InternalError(`No/invalid config provided`);
     if (!cfg.adapter) throw new InternalError(`No adapter provided`);
+    const alias = cfg.adapter.alias;
     const overrides = Object.assign({}, cfg.overrides || {}, {
       afterQueryHandlers: true,
     });
@@ -76,6 +80,7 @@ export class TaskService<
     });
     const EngineCtor = cfg.engine || TaskEngine;
     const client: TaskEngine<A> = new EngineCtor(clientConfig);
+    reRegisterTaskServiceRepositories(alias);
     return {
       client,
       config: clientConfig,
@@ -401,5 +406,31 @@ export class TaskService<
     log.info(`attempting to gracefully shutdown task runner`);
     await this.client.stop(ctx);
     log.verbose(`gracefully shutdown task runner`);
+  }
+}
+
+function reRegisterTaskServiceRepositories(alias?: string) {
+  reRegisterRepository(TaskModel, alias);
+  reRegisterRepository(TaskEventModel, alias);
+}
+
+function reRegisterRepository<M extends Model>(
+  model: Constructor<M>,
+  alias?: string
+) {
+  const overrides: Partial<AdapterFlags> = { afterQueryHandlers: true };
+  const cache = (Repository as any)._cache;
+  try {
+    const repo = Repository.forModel(model, alias);
+    if (cache) {
+      const name = Model.tableName(model);
+      if (alias) {
+        delete cache[[name, alias].join(DefaultSeparator)];
+      }
+      delete cache[name];
+    }
+    Repository.register(model, repo.override(overrides), alias);
+  } catch {
+    // ignore if repository not available yet
   }
 }

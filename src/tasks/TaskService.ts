@@ -48,6 +48,10 @@ export type TaskServiceConfig<
 export class TaskService<
   A extends Adapter<any, any, any, any>,
 > extends ClientBasedService<TaskEngine<A>, TaskEngineConfig<A>> {
+  protected get adapter(): A {
+    return this.client["adapter"];
+  }
+
   protected get tasks(): Repo<TaskModel> {
     return this.client["tasks"];
   }

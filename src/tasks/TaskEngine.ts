@@ -50,6 +50,7 @@ export class TaskEngine<
 > extends AbsContextual<ContextOf<A>> {
   private _tasks?: Repo<TaskModel>;
   private _events?: Repo<TaskEventModel>;
+  private _adapter?: A;
 
   protected lock = new Lock();
 
@@ -57,8 +58,13 @@ export class TaskEngine<
     return TaskContext as unknown as Constructor<ContextOf<A>>;
   }
 
-  protected get adapter() {
-    return this.config.adapter;
+  protected get adapter(): A {
+    if (!this._adapter) {
+      this._adapter = this.config.adapter;
+      if (this.config.overrides)
+        this._adapter = this.adapter.for(this.config.overrides);
+    }
+    return this._adapter;
   }
 
   protected get registry(): TaskHandlerRegistry {

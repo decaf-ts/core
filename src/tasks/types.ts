@@ -2,6 +2,7 @@ import { TaskContext } from "./TaskContext";
 import { TaskLogger } from "./logging";
 import { LogLevel } from "@decaf-ts/logging";
 import { Adapter, ContextFlags, FlagsOf } from "../persistence/index";
+import { ConfOf } from "../persistence/types";
 import { TaskEventBus } from "./TaskEventBus";
 import { TaskHandlerRegistry } from "./TaskHandlerRegistry";
 import { TaskEventModel } from "./models/TaskEventModel";
@@ -36,7 +37,7 @@ export interface TaskFlags<LOG extends TaskLogger<any> = TaskLogger<any>>
 
 export type TaskEngineConfig<A extends Adapter<any, any, any, any>> = {
   adapter: A;
-  overrides?: Partial<FlagsOf<A>>;
+  overrides?: Partial<ConfOf<A> & FlagsOf<A>>;
   bus?: TaskEventBus;
   registry?: TaskHandlerRegistry;
   workerId: string;

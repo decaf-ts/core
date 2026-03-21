@@ -71,9 +71,11 @@ export class TaskEngine<
 
   protected get tasks(): Repo<TaskModel> {
     if (this._tasks) return this._tasks;
-    this._tasks = Repository.forModel(TaskModel, this.adapter.alias);
+    this._tasks = Repository.forModel(TaskModel, this.adapter.alias).override({
+      afterQueryHandlers: true,
+    });
     if (this.config.overrides)
-      this._tasks = this._tasks.override(this.config.overrides);
+      this._tasks = this._tasks.for(this.config.overrides);
     return this._tasks;
   }
 
@@ -82,9 +84,9 @@ export class TaskEngine<
     this._events = Repository.forModel(
       TaskEventModel,
       this.config.adapter.alias
-    );
+    ).override({ afterQueryHandlers: true });
     if (this.config.overrides)
-      this._events = this._events.override(this.config.overrides);
+      this._events = this._events.for(this.config.overrides);
     return this._events;
   }
 

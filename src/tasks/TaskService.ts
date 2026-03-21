@@ -13,7 +13,6 @@ import {
   type ContextOf,
   type EventIds,
   type ObserverFilter,
-  AdapterFlags,
 } from "../persistence/types";
 import { PersistenceKeys } from "../persistence/constants";
 import { UnsupportedError } from "../persistence/errors";
@@ -71,19 +70,12 @@ export class TaskService<
     if (!cfg || cfg instanceof Context)
       throw new InternalError(`No/invalid config provided`);
     if (!cfg.adapter) throw new InternalError(`No adapter provided`);
-    const alias = cfg.adapter.alias;
-    const overrides = Object.assign({}, cfg.overrides || {}, {
-      afterQueryHandlers: true,
-    });
-    const clientConfig = Object.assign({}, cfg, {
-      overrides,
-    });
     const EngineCtor = cfg.engine || TaskEngine;
-    const client: TaskEngine<A> = new EngineCtor(clientConfig);
-    reRegisterTaskServiceRepositories(alias);
+    const client: TaskEngine<A> = new EngineCtor(cfg);
+    reRegisterTaskServiceRepositories(cfg.adapter.alias, client);
     return {
       client,
-      config: clientConfig,
+      config: cfg,
     };
   }
 
@@ -409,19 +401,21 @@ export class TaskService<
   }
 }
 
-function reRegisterTaskServiceRepositories(alias?: string) {
-  reRegisterRepository(TaskModel, alias);
-  reRegisterRepository(TaskEventModel, alias);
+function reRegisterTaskServiceRepositories(
+  alias: string,
+  engine: TaskEngine<any>
+) {
+  reRegisterRepository(TaskModel, engine["tasks"]);
+  reRegisterRepository(TaskEventModel, engine["events"]);
 }
 
 function reRegisterRepository<M extends Model>(
   model: Constructor<M>,
+  repo: Repo<M>,
   alias?: string
 ) {
-  const overrides: Partial<AdapterFlags> = { afterQueryHandlers: true };
   const cache = (Repository as any)._cache;
   try {
-    const repo = Repository.forModel(model, alias);
     if (cache) {
       const name = Model.tableName(model);
       if (alias) {
@@ -429,7 +423,7 @@ function reRegisterRepository<M extends Model>(
       }
       delete cache[name];
     }
-    Repository.register(model, repo.override(overrides), alias);
+    Repository.register(model, repo, alias);
   } catch {
     // ignore if repository not available yet
   }

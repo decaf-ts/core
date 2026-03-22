@@ -1,5 +1,5 @@
 import { TaskModel } from "./models/TaskModel";
-import { Repo, Repository } from "../repository/Repository";
+import { Repo } from "../repository/Repository";
 import { TaskEventModel } from "./models/TaskEventModel";
 import { TaskHandlerRegistry } from "./TaskHandlerRegistry";
 import { TaskEventBus } from "./TaskEventBus";
@@ -77,22 +77,25 @@ export class TaskEngine<
 
   protected get tasks(): Repo<TaskModel> {
     if (this._tasks) return this._tasks;
-    this._tasks = Repository.forModel(TaskModel, this.adapter.alias).override({
+    this._tasks = new (this.adapter.repository())(
+      this.adapter,
+      TaskModel,
+      true
+    ).override({
       afterQueryHandlers: true,
     });
-    if (this.config.overrides)
-      this._tasks = this._tasks.for(this.config.overrides);
     return this._tasks;
   }
 
   protected get events(): Repo<TaskEventModel> {
     if (this._events) return this._events;
-    this._events = Repository.forModel(
+    this._events = new (this.adapter.repository())(
+      this.adapter,
       TaskEventModel,
-      this.config.adapter.alias
-    ).override({ afterQueryHandlers: true });
-    if (this.config.overrides)
-      this._events = this._events.for(this.config.overrides);
+      true
+    ).override({
+      afterQueryHandlers: true,
+    });
     return this._events;
   }
 

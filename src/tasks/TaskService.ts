@@ -18,14 +18,12 @@ import { PersistenceKeys } from "../persistence/constants";
 import { UnsupportedError } from "../persistence/errors";
 import {
   BulkCrudOperationKeys,
-  DefaultSeparator,
   InternalError,
   OperationKeys,
   type PrimaryKeyType,
 } from "@decaf-ts/db-decorators";
 import { OrderDirection } from "../repository/constants";
-import { Repository, type Repo } from "../repository/Repository";
-import { Model } from "@decaf-ts/decorator-validation";
+import { type Repo } from "../repository/Repository";
 import { TaskModel } from "./models/TaskModel";
 import { create, del, read, update } from "../utils/decorators";
 import { PreparedStatementKeys } from "../query/constants";
@@ -77,7 +75,7 @@ export class TaskService<
     if (!cfg.adapter) throw new InternalError(`No adapter provided`);
     const EngineCtor = cfg.engine || TaskEngine;
     const client: TaskEngine<A> = new EngineCtor(cfg);
-    reRegisterTaskServiceRepositories(cfg.adapter.alias, client);
+    // reRegisterTaskServiceRepositories(cfg.adapter.alias, client);
     return {
       client,
       config: cfg,
@@ -418,33 +416,5 @@ export class TaskService<
     log.info(`attempting to gracefully shutdown task runner`);
     await this.client.stop(ctx);
     log.verbose(`gracefully shutdown task runner`);
-  }
-}
-
-function reRegisterTaskServiceRepositories(
-  alias: string,
-  engine: TaskEngine<any>
-) {
-  reRegisterRepository(TaskModel, engine["tasks"]);
-  reRegisterRepository(TaskEventModel, engine["events"]);
-}
-
-function reRegisterRepository<M extends Model>(
-  model: Constructor<M>,
-  repo: Repo<M>,
-  alias?: string
-) {
-  const cache = (Repository as any)._cache;
-  try {
-    if (cache) {
-      const name = Model.tableName(model);
-      if (alias) {
-        delete cache[[name, alias].join(DefaultSeparator)];
-      }
-      delete cache[name];
-    }
-    Repository.register(model, repo, alias);
-  } catch {
-    // ignore if repository not available yet
   }
 }

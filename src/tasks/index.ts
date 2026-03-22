@@ -12,6 +12,7 @@ export * from "./logging";
 export * from "./TaskContext";
 export * from "./TaskEngine";
 export * from "./TaskEventBus";
+export * from "./TaskEventService";
 export * from "./TaskHandler";
 export * from "./TaskHandlerRegistry";
 export * from "./TaskService";

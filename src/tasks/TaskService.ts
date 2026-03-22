@@ -36,6 +36,7 @@ import type { ArrayMode } from "../services/ModelService";
 import { TaskEngineConfig } from "./types";
 import { TaskTracker } from "./TaskTracker";
 import { TaskEventModel } from "./models/index";
+import { SelectSelector, WhereOption } from "../query/index";
 
 export type TaskServiceConfig<
   A extends Adapter<any, any, any, any>,
@@ -128,6 +129,21 @@ export class TaskService<
       await this.logCtx(args, OperationKeys.CREATE, true)
     ).for(this.push);
     return this.client.track(id, ...ctxArgs);
+  }
+
+  select<
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    S extends readonly SelectSelector<TaskModel>[],
+  >(): WhereOption<TaskModel, TaskModel[]>;
+  select<S extends readonly SelectSelector<TaskModel>[]>(
+    selector: readonly [...S]
+  ): WhereOption<TaskModel, Pick<TaskModel, S[number]>[]>;
+  select<S extends readonly SelectSelector<TaskModel>[]>(
+    selector?: readonly [...S]
+  ):
+    | WhereOption<TaskModel, TaskModel[]>
+    | WhereOption<TaskModel, Pick<TaskModel, S[number]>[]> {
+    return this.tasks.select(selector as readonly [...S]);
   }
 
   @create()

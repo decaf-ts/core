@@ -1,6 +1,11 @@
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { Model } from "@decaf-ts/decorator-validation";
-import { DBKeys, InternalError, OperationKeys } from "@decaf-ts/db-decorators";
+import {
+  DBKeys,
+  InternalError,
+  ModelOperations,
+  OperationKeys,
+} from "@decaf-ts/db-decorators";
 import { Adapter } from "../persistence/Adapter";
 
 import { PersistenceKeys } from "../persistence/constants";
@@ -267,3 +272,37 @@ import { type Migration } from "../migrations/types";
     Constructor<R>
   >;
 };
+
+/**
+ * @description Merges two model instances into a new instance.
+ * @summary Creates a new model instance by combining properties from an old model and a new model.
+ * Properties from the new model override properties from the old model if they are defined.
+ * @template {M} - Type extending Model
+ * @param {M} oldModel - The original model instance
+ * @param {M} model - The new model instance with updated properties
+ * @return {M} A new model instance with merged properties
+ */
+(Model as any).merge = function merge<M extends Model>(
+  oldModel: M,
+  newModel: M,
+  constructor?: Constructor<M>
+): M {
+  constructor = constructor || (oldModel.constructor as Constructor<M>);
+
+  const extract = (model: M) =>
+    Object.entries(model).reduce((accum: Record<string, any>, [key, val]) => {
+      let hasOneToOneRelation = false;
+      try {
+        const relations = Model.relations(constructor, key as keyof M);
+        if (relations.key === "relation.one-to-one") hasOneToOneRelation = true;
+      } catch (e: unknown) {
+        hasOneToOneRelation = false;
+      }
+      if (typeof val !== "undefined" || hasOneToOneRelation) accum[key] = val;
+      return accum;
+    }, {});
+
+  return new constructor(
+    Object.assign({}, extract(oldModel), extract(newModel))
+  );
+}.bind(Model);

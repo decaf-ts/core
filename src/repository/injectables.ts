@@ -136,7 +136,9 @@ export class InjectablesRegistry extends InjectableRegistryImp {
       // Resolve flavour from metadata if not provided
       const metaKey = PersistenceKeys.ADAPTER;
       const resolvedFlavour =
-        flavour || (Metadata.get(modelCtor, metaKey) as string | undefined);
+        flavour ||
+        (Metadata.get(modelCtor, metaKey) as string | undefined) ||
+        Metadata.flavourOf(modelCtor);
 
       try {
         // Determine an alias to use: prefer a directly registered adapter; otherwise, if the current adapter

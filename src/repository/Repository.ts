@@ -155,6 +155,7 @@ export class Repository<
     ignoreDevSafeGuards: false,
     mergeForUpdate: true,
     applyUpdateValidation: true,
+    afterQueryHandlers: false,
   } as any;
 
   private logger!: Logger;
@@ -210,12 +211,18 @@ export class Repository<
   get filters() {
     return getFilters(this);
   }
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  constructor(adapter?: A, clazz?: Constructor<M>, ...args: any[]) {
+
+  constructor(
+    adapter?: A,
+    clazz?: Constructor<M>,
+    force: boolean = false,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    ...args: any[]
+  ) {
     super(clazz);
     if (adapter) this._adapter = adapter;
     if (clazz) {
-      Repository.register(clazz, this, this.adapter.alias);
+      Repository.register(clazz, this, this.adapter.alias, force);
       if (adapter) {
         const flavour = Metadata.get(clazz, DecorationKeys.FLAVOUR);
         if (flavour === DefaultFlavour) {
@@ -1150,7 +1157,8 @@ export class Repository<
     },
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<SerializedPage<M>> {
-    const requestedPage = ref.offset || 1;
+    ref.offset = ref.offset || 1;
+    ref.limit = ref.limit || 10;
     const { offset, bookmark, limit } = ref;
     if (!offset && !bookmark)
       throw new QueryError(`PaginateBy needs a page or a bookmark`);
@@ -1188,7 +1196,7 @@ export class Repository<
     } else {
       throw new QueryError(`PaginateBy needs a page or a bookmark`);
     }
-    const paged = await paginator.page(requestedPage, bookmark, ...ctxArgs);
+    const paged = await paginator.page(offset, bookmark, ...ctxArgs);
     const serialization = paginator.serialize(paged) as SerializedPage<M>;
     // if (bookmark) serialization.current = requestedPage;
     return serialization;
@@ -1727,14 +1735,15 @@ export class Repository<
   static register<M extends Model>(
     model: Constructor<M>,
     repo: Constructor<Repo<M>> | Repo<M>,
-    alias?: string
+    alias?: string,
+    force: boolean = false
   ) {
     let name = Model.tableName(model);
     if (alias) {
       name = [name, alias].join(DefaultSeparator);
     }
     if (name in this._cache) {
-      if (this._cache[name] instanceof Repository)
+      if (this._cache[name] instanceof Repository && !force)
         throw new InternalError(`${name} already has a registered instance`);
     }
     this._cache[name] = repo as any;

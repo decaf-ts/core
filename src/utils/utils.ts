@@ -1,5 +1,10 @@
-import { CrudOperations, InternalError } from "@decaf-ts/db-decorators";
-import { OperationKeys } from "@decaf-ts/db-decorators";
+import {
+  BlockOperationDescriptor,
+  BlockOperationKind,
+  CrudOperations,
+  InternalError,
+  OperationKeys,
+} from "@decaf-ts/db-decorators";
 import type { ModelConstructor } from "@decaf-ts/decorator-validation";
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { MigrationRuleError } from "../persistence/errors";
@@ -46,23 +51,59 @@ export async function promiseSequence<T>(
   return settled;
 }
 
+const crudOperations: CrudOperations[] = [
+  OperationKeys.CREATE,
+  OperationKeys.READ,
+  OperationKeys.UPDATE,
+  OperationKeys.DELETE,
+];
+
+function isCrudOperation(value: string): value is CrudOperations {
+  return crudOperations.includes(value as CrudOperations);
+}
+
 export function isOperationBlocked(
   ModelConstructor: ModelConstructor<any>,
   op: CrudOperations
-): boolean {
-  const { handler, args }: { handler: any; args: CrudOperations[] } =
-    (Metadata.get(
-      ModelConstructor as any,
-      OperationKeys.REFLECT + OperationKeys.BLOCK
-    ) || {}) as {
-      handler: (
-        operations: CrudOperations[],
-        operation: CrudOperations
-      ) => boolean;
-      args: any[];
-    };
+): boolean;
 
-  return !handler ? false : (handler(...args, op) ?? false);
+export function isOperationBlocked(
+  ModelConstructor: ModelConstructor<any>,
+  kind: BlockOperationKind,
+  value: string
+): boolean;
+
+export function isOperationBlocked(
+  ModelConstructor: ModelConstructor<any>,
+  kindOrOperation: CrudOperations | BlockOperationKind,
+  value?: string
+): boolean {
+  const metadata = (Metadata.get(
+    ModelConstructor as any,
+    OperationKeys.REFLECT + OperationKeys.BLOCK
+  ) || {}) as {
+    handler?: (
+      targets: any[], // keep flexible for handler wrappers
+      kind: BlockOperationKind,
+      value: string
+    ) => boolean;
+    args: any[];
+  };
+
+  if (!metadata?.handler) return false;
+
+  const kind =
+    value === undefined && isCrudOperation(kindOrOperation)
+      ? ("crud" as BlockOperationKind)
+      : (kindOrOperation as BlockOperationKind);
+
+  const targetValue =
+    value === undefined && isCrudOperation(kindOrOperation)
+      ? (kindOrOperation as string)
+      : (value as string);
+
+  const storedTargets = (metadata.args?.[0] || []) as BlockOperationDescriptor[];
+  return metadata.handler(storedTargets, kind, targetValue) ?? false;
 }
 
 /**

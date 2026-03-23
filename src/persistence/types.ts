@@ -172,6 +172,7 @@ export type ContextFlags<LOG extends Logger> = CtxFlags<LOG> &
 export type AdapterFlags<LOG extends Logger = Logger> = RepositoryFlags<LOG> &
   ContextFlags<LOG> & {
     allowGenerationOverride: boolean;
+    afterQueryHandlers: boolean;
     enforceUpdateValidation: boolean;
     allowRawStatements: boolean;
     forcePrepareSimpleQueries: boolean;

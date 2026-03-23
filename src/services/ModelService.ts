@@ -29,6 +29,7 @@ import { type DirectionLimitOffset } from "../query/types";
 import { type Observer } from "../interfaces";
 import { PersistenceKeys } from "../persistence/constants";
 import { PreparedStatementKeys } from "../query/constants";
+import { SelectSelector, WhereOption } from "../query/index";
 
 export type ArrayMode = "one" | "many";
 
@@ -184,7 +185,19 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     return this.repo.updateAll(models, ...ctxArgs);
   }
 
-  select = this.repo.select;
+  select<
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    S extends readonly SelectSelector<M>[],
+  >(): WhereOption<M, M[]>;
+  select<S extends readonly SelectSelector<M>[]>(
+    selector: readonly [...S]
+  ): WhereOption<M, Pick<M, S[number]>[]>;
+  select<S extends readonly SelectSelector<M>[]>(
+    selector?: readonly [...S]
+  ): WhereOption<M, M[]> | WhereOption<M, Pick<M, S[number]>[]> {
+    return this.repo.select(selector as readonly [...S]);
+  }
+
   //
   // async query(
   //   condition: Condition<M>,

@@ -120,6 +120,7 @@ export const DefaultAdapterFlags: AdapterFlags = Object.assign(
     observeFullResult: true,
     paginateByBookmark: false,
     dryRun: false,
+    afterQueryHandlers: false,
   }
 ) as AdapterFlags;
 

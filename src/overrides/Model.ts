@@ -62,7 +62,8 @@ declare module "@decaf-ts/decorator-validation" {
     function updatedBy<M extends Model>(m: Constructor<M> | M): keyof M;
 
     function defaultQueryAttributes<M extends Model>(
-      m: Constructor<M> | M
+      m: Constructor<M> | M,
+      useDefault?: boolean
     ): string[];
 
     /**

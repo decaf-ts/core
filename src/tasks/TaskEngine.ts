@@ -1,5 +1,5 @@
 import { TaskModel } from "./models/TaskModel";
-import { Repo, Repository } from "../repository/Repository";
+import { Repo } from "../repository/Repository";
 import { TaskEventModel } from "./models/TaskEventModel";
 import { TaskHandlerRegistry } from "./TaskHandlerRegistry";
 import { TaskEventBus } from "./TaskEventBus";
@@ -50,6 +50,7 @@ export class TaskEngine<
 > extends AbsContextual<ContextOf<A>> {
   private _tasks?: Repo<TaskModel>;
   private _events?: Repo<TaskEventModel>;
+  private _adapter?: A;
 
   protected lock = new Lock();
 
@@ -57,8 +58,13 @@ export class TaskEngine<
     return TaskContext as unknown as Constructor<ContextOf<A>>;
   }
 
-  protected get adapter() {
-    return this.config.adapter;
+  protected get adapter(): A {
+    if (!this._adapter) {
+      this._adapter = this.config.adapter;
+      if (this.config.overrides)
+        this._adapter = this.adapter.for(this.config.overrides);
+    }
+    return this._adapter;
   }
 
   protected get registry(): TaskHandlerRegistry {
@@ -71,20 +77,25 @@ export class TaskEngine<
 
   protected get tasks(): Repo<TaskModel> {
     if (this._tasks) return this._tasks;
-    this._tasks = Repository.forModel(TaskModel, this.adapter.alias);
-    if (this.config.overrides)
-      this._tasks = this._tasks.override(this.config.overrides);
+    this._tasks = new (this.adapter.repository())(
+      this.adapter,
+      TaskModel,
+      true
+    ).override({
+      afterQueryHandlers: true,
+    });
     return this._tasks;
   }
 
   protected get events(): Repo<TaskEventModel> {
     if (this._events) return this._events;
-    this._events = Repository.forModel(
+    this._events = new (this.adapter.repository())(
+      this.adapter,
       TaskEventModel,
-      this.config.adapter.alias
-    );
-    if (this.config.overrides)
-      this._events = this._events.override(this.config.overrides);
+      true
+    ).override({
+      afterQueryHandlers: true,
+    });
     return this._events;
   }
 

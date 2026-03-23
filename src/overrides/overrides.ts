@@ -1,11 +1,6 @@
 import { Constructor, Metadata } from "@decaf-ts/decoration";
 import { Model } from "@decaf-ts/decorator-validation";
-import {
-  DBKeys,
-  InternalError,
-  ModelOperations,
-  OperationKeys,
-} from "@decaf-ts/db-decorators";
+import { DBKeys, InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Adapter } from "../persistence/Adapter";
 
 import { PersistenceKeys } from "../persistence/constants";
@@ -295,6 +290,7 @@ import { type Migration } from "../migrations/types";
       try {
         const relations = Model.relations(constructor, key as keyof M);
         if (relations.key === "relation.one-to-one") hasOneToOneRelation = true;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
       } catch (e: unknown) {
         hasOneToOneRelation = false;
       }

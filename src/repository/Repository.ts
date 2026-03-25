@@ -1527,21 +1527,24 @@ export class Repository<
       });
     const log = this.log.for(this.observe);
     const tableName = this.class.name; // Model.tableName(this.class);
-    this.adapter.observe(
-      this,
-      (
-        table: Constructor | string,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        event: string,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        id: EventIds,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        ...args: [...any[], ContextOf<any>]
-      ) => {
-        if (typeof table === "string") return table === tableName;
-        return Metadata.constr(table) === Metadata.constr(this.class);
-      }
-    );
+
+    if (!this.observerHandler?.count()) {
+      this.adapter.observe(
+        this,
+        (
+          table: Constructor | string,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          event: string,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          id: EventIds,
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          ...args: [...any[], ContextOf<any>]
+        ) => {
+          if (typeof table === "string") return table === tableName;
+          return Metadata.constr(table) === Metadata.constr(this.class);
+        }
+      );
+    }
     log.verbose(
       `now observing ${this.adapter} filtering on table === ${tableName}`
     );

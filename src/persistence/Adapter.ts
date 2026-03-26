@@ -1024,6 +1024,17 @@ export abstract class Adapter<
         "ObserverHandler not initialized. Did you register any observables?"
       );
     this.observerHandler.unObserve(observer);
+    if (this.observerHandler.count() <= 0) {
+      this.log
+        .for(this.unObserve)
+        .debug(
+          "No active observers for adpter. Closing dispatcher and unobserving."
+        );
+      this.dispatch?.unObserve(this);
+      this.dispatch?.close([] as any);
+      this.dispatch = undefined;
+    }
+
     this.log
       .for(this.unObserve)
       .debug(`Observer ${observer.toString()} removed`);

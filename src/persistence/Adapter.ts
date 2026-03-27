@@ -1030,9 +1030,10 @@ export abstract class Adapter<
         .debug(
           "No active observers for adpter. Closing dispatcher and unobserving."
         );
-      this.dispatch?.unObserve(this);
-      this.dispatch?.close([] as any);
-      this.dispatch = undefined;
+
+      // this.dispatch?.unObserve(this);
+      // this.dispatch?.close([] as any);
+      // this.dispatch = undefined;
     }
 
     this.log

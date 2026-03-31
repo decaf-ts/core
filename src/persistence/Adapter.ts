@@ -1018,10 +1018,7 @@ export abstract class Adapter<
    * @return {void}
    */
   @final()
-  unObserve(
-    observer: Observer,
-    ...args: MaybeContextualArg<Context<any>>
-  ): void {
+  unObserve(observer: Observer): void {
     if (!this.observerHandler)
       throw new InternalError(
         "ObserverHandler not initialized. Did you register any observables?"

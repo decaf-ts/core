@@ -49,6 +49,14 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
   implements AdapterDispatch<A>
 {
   /**
+   * Indicates whether the dispatcher has already been initialized.
+   *
+   * @description Tracks the initialization state to prevent duplicate setup
+   * @summary Whether the dispatcher is initialized and ready to observe adapter operations
+   */
+  protected initialized: boolean = false;
+
+  /**
    * @description The adapter being observed
    * @summary Reference to the database adapter whose operations are being monitored
    */
@@ -185,10 +193,22 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
         .verbose(`No adapter observed for dispatch; skipping initialization`);
       return;
     }
+
+    if (this.initialized) {
+      this.log
+        .for(this.initialize)
+        .debug(
+          "Dispatcher already initialized; skipping initialization to prevent duplicate setup"
+        );
+      return;
+    }
+
     const { log } = (
       await this.logCtx(args, PersistenceKeys.INITIALIZATION, true)
     ).for(this.initialize);
     log.verbose(`Initializing ${this.adapter}'s event Dispatch`);
+    this.initialized = true;
+
     const adapter = this.adapter as Adapter<any, any, any, any>;
     (
       [
@@ -289,6 +309,9 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
   observe(observer: A): () => void {
     if (!(observer instanceof Adapter))
       throw new UnsupportedError("Only Adapters can be observed by dispatch");
+
+    if (this.adapter) return () => this.unObserve(this.adapter as Observer);
+
     this.adapter = observer;
     this.models = Adapter.models(this.adapter.alias);
     this.initialize().then(() =>
@@ -332,14 +355,16 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
       throw new InternalError(`Model must be provided for observer update`);
     const table =
       model && typeof model === "string" ? model : Model.tableName(model);
-    const { log, ctxArgs, ctx } = this.logCtx(args, this.updateObservers);
+
     if (!this.adapter) {
-      log.verbose(
+      const log = this.log.for(this.updateObservers);
+      log.debug(
         `No adapter observed for dispatch; skipping observer update for ${table}:${event}`
       );
       return;
     }
 
+    const { log, ctxArgs, ctx } = this.logCtx(args, this.updateObservers);
     try {
       log.debug(
         `dispatching observer refresh for ${event}:${table}: ${id}${ctx.get("observeFullResult") ? " - including result" : ""}`

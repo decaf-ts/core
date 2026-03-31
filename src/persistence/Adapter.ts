@@ -1005,9 +1005,9 @@ export abstract class Adapter<
     if (!this.dispatch) {
       log.verbose(`Creating dispatch for ${this.alias}`);
       this.dispatch = this.Dispatch();
-      this.dispatch.observe(this);
     }
 
+    this.dispatch.observe(this);
     return () => this.unObserve(observer);
   }
 
@@ -1018,7 +1018,10 @@ export abstract class Adapter<
    * @return {void}
    */
   @final()
-  unObserve(observer: Observer): void {
+  unObserve(
+    observer: Observer,
+    ...args: MaybeContextualArg<Context<any>>
+  ): void {
     if (!this.observerHandler)
       throw new InternalError(
         "ObserverHandler not initialized. Did you register any observables?"
@@ -1031,8 +1034,10 @@ export abstract class Adapter<
           "No active observers for adpter. Closing dispatcher and unobserving."
         );
 
-      // this.dispatch?.unObserve(this);
-      // this.dispatch?.close([] as any);
+      this.dispatch?.unObserve(this);
+      this.dispatch?.close([] as any);
+      // Once initialized, the Dispatch instance must be preserved,
+      // because it enhances the adapter’s original methods and links itself to them
       // this.dispatch = undefined;
     }
 

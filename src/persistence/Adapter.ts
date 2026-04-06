@@ -1031,8 +1031,8 @@ export abstract class Adapter<
           "No active observers for adpter. Closing dispatcher and unobserving."
         );
 
-      this.dispatch?.unObserve(this);
-      this.dispatch?.close([] as any);
+      this.dispatch?.close([] as any); // close first
+      this.dispatch?.unObserve(this); // unobserve later
       // Once initialized, the Dispatch instance must be preserved,
       // because it enhances the adapter’s original methods and links itself to them
       // this.dispatch = undefined;

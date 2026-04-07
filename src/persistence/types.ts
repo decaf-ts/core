@@ -178,6 +178,7 @@ export type AdapterFlags<LOG extends Logger = Logger> = RepositoryFlags<LOG> &
     forcePrepareSimpleQueries: boolean;
     forcePrepareComplexQueries: boolean;
     cacheForPopulate: Record<string, any>;
+    preferFromCache: boolean;
     noEmit: boolean;
     noEmitSingle: boolean;
     noEmitBulk: boolean;

@@ -510,6 +510,11 @@ export abstract class Adapter<
       flags.correlationId ||
       `${correlationPrefix}|${operation}|${UUID.instance.generate()}`;
     const log = (flags.logger || Logging.for(this as any)) as Logger;
+    const cacheForPopulate = Object.assign(
+      {},
+      DefaultAdapterFlags.cacheForPopulate,
+      flags.cacheForPopulate
+    );
     return Object.assign({}, DefaultAdapterFlags, flags, {
       affectedTables: model
         ? [
@@ -523,6 +528,7 @@ export abstract class Adapter<
             ]),
           ]
         : flags.affectedTables,
+      cacheForPopulate,
       args: args,
       writeOperation: TransactionOperationKeys.includes(operation),
       timestamp: new Date(),

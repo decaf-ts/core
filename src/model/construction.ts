@@ -1224,10 +1224,12 @@ export async function manyToManyOnDelete<M extends Model, R extends Repo<M>>(
  */
 export function getPopulateKey(
   tableName: string,
-  fieldName: string,
+  fieldName: string | undefined,
   id: string | number
 ) {
-  return [PersistenceKeys.POPULATE, tableName, fieldName, id].join(".");
+  if (fieldName)
+    return [PersistenceKeys.POPULATE, tableName, fieldName, id].join(".");
+  return [PersistenceKeys.POPULATE, tableName, id].join(".");
 }
 export function getTagForDeleteKey(
   tableName: string,
@@ -1267,7 +1269,9 @@ export async function cacheModelForPopulate<
     pkValue
   );
   const cache = context.get("cacheForPopulate") || {};
-  (cache[cacheKey] as Record<string, any>) = cacheValue;
+  const preferFromCache = context.getOrUndefined("preferFromCache") || false;
+  (cache[cacheKey] as Record<string, any>) =
+    preferFromCache && cache[cacheKey] ? cache[cacheKey] : cacheValue;
   return context.accumulate({ cacheForPopulate: cache } as any);
 }
 

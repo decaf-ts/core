@@ -1268,8 +1268,22 @@ export async function cacheModelForPopulate<
     propertyKey as string,
     pkValue
   );
+  const log = context.logger.for(cacheModelForPopulate);
   const cache = context.get("cacheForPopulate") || {};
-  const preferFromCache = context.getOrUndefined("preferFromCache") || false;
+  let preferFromCache = context.getOrUndefined("preferFromCache");
+  if (!preferFromCache) {
+    try {
+      log.silly(`retrieving from children`);
+      preferFromCache = context.getFromChildren("preferFromCache") || false;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e: unknown) {
+      preferFromCache = false;
+    }
+  }
+
+  if (preferFromCache) {
+    log.debug(`preferring previous cache: ${!!cache[cacheKey]}`);
+  }
   (cache[cacheKey] as Record<string, any>) =
     preferFromCache && cache[cacheKey] ? cache[cacheKey] : cacheValue;
   return context.accumulate({ cacheForPopulate: cache } as any);

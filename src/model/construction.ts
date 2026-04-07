@@ -1270,11 +1270,17 @@ export async function cacheModelForPopulate<
   );
   const log = context.logger.for(cacheModelForPopulate);
   const cache = context.get("cacheForPopulate") || {};
+  let cached: any = cache[cacheKey];
   let preferFromCache = context.getOrUndefined("preferFromCache");
   if (!preferFromCache) {
     try {
       log.silly(`retrieving from children`);
       preferFromCache = context.getFromChildren("preferFromCache") || false;
+      if (preferFromCache) {
+        cached = ((context.getFromChildren("cacheForPopulate") || {}) as any)[
+          cacheKey
+        ];
+      }
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
     } catch (e: unknown) {
       preferFromCache = false;
@@ -1285,7 +1291,7 @@ export async function cacheModelForPopulate<
     log.debug(`preferring previous cache: ${!!cache[cacheKey]}`);
   }
   (cache[cacheKey] as Record<string, any>) =
-    preferFromCache && cache[cacheKey] ? cache[cacheKey] : cacheValue;
+    preferFromCache && cached ? cached : cacheValue;
   return context.accumulate({ cacheForPopulate: cache } as any);
 }
 

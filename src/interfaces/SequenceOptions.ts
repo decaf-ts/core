@@ -44,9 +44,9 @@ export interface SequenceOptions<TYPE = SequenceOptionsType> {
   startWith: number;
 
   /**
-   * @description The increment value for each step in the sequence
-   * @summary The amount by which the sequence increases with each call
-   */
+  * @description The increment value for each step in the sequence
+  * @summary The amount by which the sequence increases with each call
+  */
   incrementBy: number;
 
   /**

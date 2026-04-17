@@ -1,3 +1,4 @@
+import "../overrides";
 import { Model, required } from "@decaf-ts/decorator-validation";
 import {
   DefaultSequenceOptions,
@@ -12,6 +13,7 @@ import {
   readonly,
 } from "@decaf-ts/db-decorators";
 import type { Sequence } from "../persistence/Sequence";
+import { PersistenceKeys } from "../persistence/constants";
 import { OrderDirection } from "../repository/constants";
 import {
   apply,
@@ -24,6 +26,81 @@ import { Repository } from "../repository/Repository";
 import { ContextOf } from "../persistence/types";
 import { index } from "../model/indexing";
 const defaultPkPriority = 60; // Default priority for primary key to run latter than other properties
+
+type SequenceNameFn = (model: any, ...args: string[]) => string;
+
+function isSequenceNameFn(fn: unknown): fn is SequenceNameFn {
+  return typeof fn === "function";
+}
+
+function resolveSequenceName(model: any, suffix: string) {
+  if (isSequenceNameFn(Model.sequenceName)) {
+    return Model.sequenceName(model, suffix);
+  }
+  const tableName = isSequenceNameFn(Model.tableName)
+    ? Model.tableName(model)
+    : (model?.name ?? "");
+  const anchor = suffix || "pk";
+  return [tableName, anchor].filter(Boolean).join("_");
+}
+
+function normalizePropertyKey(attr: string | symbol): string {
+  if (typeof attr === "string") return attr;
+  if (typeof attr === "symbol") return attr.description || attr.toString();
+  return String(attr);
+}
+
+function ensureSequenceOptions(
+  obj: any,
+  attr: any,
+  options: SequenceOptions
+): void {
+  if (!options.type) {
+    const metaType = Metadata.type(obj.constructor, attr);
+    if (
+      ![Number.name, String.name, BigInt.name].includes(
+        metaType?.name || metaType
+      )
+    )
+      throw new Error("Incorrrect option type");
+    options.type = metaType;
+  }
+  switch (options.type) {
+    case String.name || String.name.toLowerCase():
+      console.warn(`Deprecated "${options.type}" type in options`);
+    // eslint-disable-next-line no-fallthrough
+    case String:
+      options.generated =
+        typeof options.generated === "undefined" ? false : options.generated;
+      options.type = String;
+      break;
+    case Number.name || String.name.toLowerCase():
+      console.warn(`Deprecated "${options.type}" type in options`);
+    // eslint-disable-next-line no-fallthrough
+    case Number:
+      options.generated =
+        typeof options.generated === "undefined" ? true : options.generated;
+      options.type = Number;
+      break;
+    case BigInt.name || BigInt.name.toLowerCase():
+      console.warn(`Deprecated "${options.type}" type in options`);
+    // eslint-disable-next-line no-fallthrough
+    case BigInt:
+      options.type = BigInt;
+      options.generated =
+        typeof options.generated === "undefined" ? true : options.generated;
+      break;
+    case "uuid":
+    case "serial":
+      options.generated = true;
+      break;
+    default:
+      throw new Error("Unsupported type");
+  }
+  if (typeof options.generated === "undefined") {
+    options.generated = true;
+  }
+}
 
 /**
  * @description Callback function for primary key creation
@@ -84,7 +161,7 @@ export async function pkOnCreate<
     Reflect.set(target, propertyKey, value);
   };
 
-  if (!data.name) data.name = Model.sequenceName(model, "pk");
+  if (!data.name) data.name = Model.sequenceName(model, key as string);
   let sequence: Sequence;
   try {
     sequence = await this.adapter.Sequence(data, this._overrides);
@@ -101,58 +178,35 @@ export async function pkOnCreate<
 export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
   return function pkDec(obj: any, attr: any) {
     prop()(obj, attr);
-    if (!options.type) {
-      const metaType = Metadata.type(obj.constructor, attr);
-      if (
-        ![Number.name, String.name, BigInt.name].includes(
-          metaType?.name || metaType
-        )
-      )
-        throw new Error("Incorrrect option type");
-      options.type = metaType;
+    ensureSequenceOptions(obj, attr, options);
+    if (!options.name) {
+      options.name = resolveSequenceName(obj.constructor, "pk");
     }
-    switch (options.type) {
-      case String.name || String.name.toLowerCase():
-        console.warn(`Deprecated "${options.type}" type in options`);
-      // eslint-disable-next-line no-fallthrough
-      case String:
-        options.generated =
-          typeof options.generated === "undefined" ? false : options.generated;
-        options.type = String;
-        break;
-      case Number.name || String.name.toLowerCase():
-        console.warn(`Deprecated "${options.type}" type in options`);
-      // eslint-disable-next-line no-fallthrough
-      case Number:
-        options.generated =
-          typeof options.generated === "undefined" ? true : options.generated;
-        options.type = Number;
-        break;
-      case BigInt.name || BigInt.name.toLowerCase():
-        console.warn(`Deprecated "${options.type}" type in options`);
-      // eslint-disable-next-line no-fallthrough
-      case BigInt:
-        options.type = BigInt;
-        options.generated =
-          typeof options.generated === "undefined" ? true : options.generated;
-        break;
-      case "uuid":
-      case "serial":
-        options.generated = true;
-        break;
-      default:
-        throw new Error("Unsupported type");
-    }
-    if (typeof options.generated === "undefined") {
-      options.generated = true;
-    }
-
     const decs = [
-      prop(),
+      propMetadata(Metadata.key(DBKeys.ID, attr), options),
+      propMetadata(Metadata.key(PersistenceKeys.SEQUENCE, attr), options),
       index([OrderDirection.ASC, OrderDirection.DSC]),
       required(),
       readonly(),
-      propMetadata(Metadata.key(DBKeys.ID, attr), options),
+      onCreate(pkOnCreate, options, groupsort),
+    ];
+    if (options.generated) decs.push(generated());
+    return apply(...decs)(obj, attr);
+  };
+}
+
+export function sequenceDec(options: SequenceOptions, groupsort?: GroupSort) {
+  return function sequenceDec(obj: any, attr: any) {
+    prop()(obj, attr);
+    ensureSequenceOptions(obj, attr, options);
+    if (!options.name) {
+      const suffix = normalizePropertyKey(attr);
+      options.name = resolveSequenceName(obj.constructor, suffix);
+    }
+    const decs = [
+      required(),
+      readonly(),
+      propMetadata(Metadata.key(PersistenceKeys.SEQUENCE, attr), options),
       onCreate(pkOnCreate, options, groupsort),
     ];
     if (options.generated) decs.push(generated());
@@ -190,6 +244,20 @@ export function pk(
   return Decoration.for(DBKeys.ID)
     .define({
       decorator: pkDec,
+      args: [opts, { priority: defaultPkPriority }],
+    })
+    .apply();
+}
+
+export function sequence(
+  opts?: Partial<Omit<SequenceOptions, "cycle" | "startWith" | "incrementBy">>
+) {
+  const DefaultSequenceOptionsMin = Object.assign({}, DefaultSequenceOptions);
+  delete DefaultSequenceOptionsMin.generated;
+  opts = Object.assign({}, DefaultSequenceOptionsMin, opts) as SequenceOptions;
+  return Decoration.for(PersistenceKeys.SEQUENCE)
+    .define({
+      decorator: sequenceDec,
       args: [opts, { priority: defaultPkPriority }],
     })
     .apply();

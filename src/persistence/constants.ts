@@ -18,6 +18,9 @@ export enum PersistenceKeys {
   /** @description Key for index metadata */
   INDEX = "index",
 
+  /** @description Key for sequence metadata */
+  SEQUENCE = "sequence",
+
   /** @description Key for unique constraint metadata */
   UNIQUE = "unique",
 

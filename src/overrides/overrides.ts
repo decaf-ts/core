@@ -4,7 +4,6 @@ import { DBKeys, InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Adapter } from "../persistence/Adapter";
 
 import { PersistenceKeys } from "../persistence/constants";
-import { UnsupportedError } from "../persistence/errors";
 import { type ExtendedRelationsMetadata } from "../model";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { IndexMetadata } from "../repository/types";
@@ -221,13 +220,18 @@ import { type Migration } from "../migrations/types";
   model: Constructor<M> | M,
   property?: keyof M
 ): SequenceOptions {
-  if (property) throw new UnsupportedError("not currently supported");
-  const metadata: SequenceOptions = Model.pkProps(
-    model instanceof Model ? (model.constructor as any) : model
+  const target =
+    typeof model !== "function" ? (model.constructor as any) : model;
+  if (!property)
+    property = Model.pk(model)
+
+  const metadata = Metadata.get(
+    target,
+    Metadata.key(PersistenceKeys.SEQUENCE, property as string)
   );
   if (!metadata)
     throw new InternalError(
-      "No sequence options defined for model. did you use the @pk decorator?"
+      `No sequence options defined for property ${String(property)}. did you use @sequence()?`
     );
   return metadata as SequenceOptions;
 };

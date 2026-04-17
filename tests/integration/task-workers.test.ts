@@ -35,6 +35,7 @@ describe("Task workers with FilesystemAdapter", () => {
     adapter = new FilesystemAdapter({
       rootDir: path.join(tempHandle.root, "main"),
       user: "test-user",
+      watch: false,
     });
     await adapter.initialize();
     service = new TaskService();
@@ -60,6 +61,7 @@ describe("Task workers with FilesystemAdapter", () => {
           {
             rootDir: workerRoot,
             lock: new MultiLock(),
+            watch: false,
           },
         ],
         alias: "fs",

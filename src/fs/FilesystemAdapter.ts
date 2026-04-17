@@ -59,6 +59,7 @@ export class FilesystemAdapter extends RamAdapter {
   private watching = false;
   private ready = false;
   private readonly watchDebounceMs: number;
+  private readonly watchEnabled: boolean;
   private readonly pendingObserverRefresh = new Map<
     string,
     { timer: NodeJS.Timeout; event: OperationKeys; id: PrimaryKeyType }
@@ -92,6 +93,7 @@ export class FilesystemAdapter extends RamAdapter {
       this.jsonSpacing
     );
     this.watchDebounceMs = conf.watchDebounceMs ?? 50;
+    this.watchEnabled = conf.watch !== false;
   }
 
   override async initialize(...args: MaybeContextualArg<any>): Promise<void> {
@@ -153,7 +155,7 @@ export class FilesystemAdapter extends RamAdapter {
   }
 
   public async ensureWatching(): Promise<void> {
-    if (this.watching) return;
+    if (!this.watchEnabled || this.watching) return;
     await this.ensureReady();
     this.watching = true;
     this.startRootWatcher();

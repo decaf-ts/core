@@ -33,4 +33,10 @@ export type FilesystemConfig = RamConfig & {
    * Minimum debounce window (in milliseconds) used by watchers before notifying observers.
    */
   watchDebounceMs?: number;
+  /**
+   * Enables filesystem watchers that replay persisted changes into observers.
+   * Disable in constrained environments (e.g. low inotify limits).
+   * @default true
+   */
+  watch?: boolean;
 };

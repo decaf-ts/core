@@ -132,6 +132,11 @@ export class TaskEngine<A extends Adapter<any, any, any, any>> extends TE<
     const configuredImports =
       this.workerPoolConfig?.modules?.imports ??
       DefaultWorkThreadEnvironment.modules.imports;
+    if (!Array.isArray(configuredImports)) {
+      throw new InternalError(
+        "Worker pool modules.imports must be a string[]"
+      );
+    }
     const imports: string[] = [];
     const append = (specifier?: string) => {
       if (!specifier) return;
@@ -139,6 +144,11 @@ export class TaskEngine<A extends Adapter<any, any, any, any>> extends TE<
     };
     append(adapterDescriptor.adapterModule);
     for (const specifier of configuredImports) {
+      if (typeof specifier !== "string") {
+        throw new InternalError(
+          "Worker pool modules.imports must contain only strings"
+        );
+      }
       if (specifier === adapterDescriptor.adapterModule) continue;
       append(specifier);
     }

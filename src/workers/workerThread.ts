@@ -2,7 +2,7 @@ import "../overrides";
 import { parentPort, workerData } from "worker_threads";
 import {
   WorkThreadEnvironmentShape,
-  WorkThreadEnvironment,
+  DefaultWorkThreadEnvironment,
   WorkThreadModulesConfig,
 } from "./WorkThreadEnvironment";
 import {
@@ -29,21 +29,44 @@ if (!initialPort) {
 }
 const port = initialPort;
 
-const environment = WorkThreadEnvironment.accumulate(
-  workerData.environment as WorkThreadEnvironmentShape
+const rawEnvironment = workerData.environment as WorkThreadEnvironmentShape;
+const environment: WorkThreadEnvironmentShape = Object.assign(
+  {},
+  DefaultWorkThreadEnvironment,
+  rawEnvironment,
+  {
+    persistence: Object.assign(
+      {},
+      DefaultWorkThreadEnvironment.persistence,
+      rawEnvironment?.persistence ?? {}
+    ),
+    taskEngine: Object.assign(
+      {},
+      DefaultWorkThreadEnvironment.taskEngine,
+      rawEnvironment?.taskEngine ?? {}
+    ),
+    modules: Object.assign(
+      {},
+      DefaultWorkThreadEnvironment.modules,
+      rawEnvironment?.modules ?? {}
+    ),
+  }
 );
 const persistence = environment.persistence;
 const moduleLoadPromise = loadModules(environment.modules);
 
 async function loadModules(modules: WorkThreadModulesConfig) {
-  const imports = modules?.imports ?? [];
-  if (!imports.length) {
+  const imports = modules?.imports;
+  if (!Array.isArray(imports) || !imports.length) {
     throw new Error(
       "Worker modules configuration must include at least one import"
     );
   }
   const loaded: any[] = [];
   for (const specifier of imports) {
+    if (typeof specifier !== "string") {
+      throw new Error("Worker modules imports must contain only strings");
+    }
     const normalized = await normalizeImport(import(specifier));
     loaded.push(normalized);
   }

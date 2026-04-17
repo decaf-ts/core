@@ -6,7 +6,12 @@ import { TaskHandlerRegistry } from "../../src/tasks/TaskHandlerRegistry";
 import { TaskEngineConfig } from "../../src/tasks/types";
 import { TaskBuilder, CompositeTaskBuilder } from "../../src/tasks/builder";
 import { TaskBackoffModel } from "../../src/tasks/models/TaskBackoffModel";
-import { BackoffStrategy, JitterStrategy, TaskEventType, TaskStatus } from "../../src/tasks/constants";
+import {
+  BackoffStrategy,
+  JitterStrategy,
+  TaskEventType,
+  TaskStatus,
+} from "../../src/tasks/constants";
 import { task } from "../../src/tasks/decorators";
 import { TaskHandler } from "../../src/tasks/TaskHandler";
 import { TaskContext } from "../../src/tasks/TaskContext";
@@ -39,6 +44,7 @@ class Step2 extends TaskHandler<void, number> {
 }
 
 @task("pipe-task")
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 class PipeTask extends TaskHandler<void, number> {
   async run(_input: void, ctx: TaskContext): Promise<number> {
     await ctx.pipe(LogLevel.info, "a", { x: 1 });
@@ -51,7 +57,11 @@ class PipeTask extends TaskHandler<void, number> {
   }
 }
 
-function createConfig(adapter: RamAdapter, bus: TaskEventBus, registry: TaskHandlerRegistry): TaskEngineConfig<RamAdapter> {
+function createConfig(
+  adapter: RamAdapter,
+  bus: TaskEventBus,
+  registry: TaskHandlerRegistry
+): TaskEngineConfig<RamAdapter> {
   return {
     adapter,
     bus,
@@ -120,26 +130,40 @@ describe("TaskEngine composite logging + retry semantics", () => {
       expect(Step2.cacheByAttempt[1]).toBe(11);
 
       expect((finished.logTail ?? []).length).toBeGreaterThan(0);
-      expect((finished.logTail ?? []).every((e) => typeof e.step === "number")).toBe(true);
+      expect(
+        (finished.logTail ?? []).every((e) => typeof e.step === "number")
+      ).toBe(true);
       const steps = new Set((finished.logTail ?? []).map((e) => e.step));
-    expect(steps.has(0)).toBe(true);
-    expect(steps.has(1)).toBe(true);
+      expect(steps.has(0)).toBe(true);
+      expect(steps.has(1)).toBe(true);
 
-    const eventsRepo = new (adapter.repository())(adapter, TaskEventModel, true).override({
-      afterQueryHandlers: true,
-    });
-    const logEvents = await eventsRepo
-      .select()
-      .where(
-        Condition.attribute<TaskEventModel>("taskId")
-          .eq(task.id)
-          .and(Condition.attribute<TaskEventModel>("classification").eq(TaskEventType.LOG))
-      )
-      .execute();
-    expect(logEvents.length).toBeGreaterThan(0);
-    const persistedLogEntries = logEvents.flatMap((e) => (e.payload ?? []) as any[]);
-    expect(persistedLogEntries.length).toBeGreaterThan(0);
-    expect(persistedLogEntries.some((e) => typeof e.step === "number")).toBe(true);
+      const eventsRepo = new (adapter.repository())(
+        adapter,
+        TaskEventModel,
+        true
+      ).override({
+        afterQueryHandlers: true,
+      });
+      const logEvents = await eventsRepo
+        .select()
+        .where(
+          Condition.attribute<TaskEventModel>("taskId")
+            .eq(task.id)
+            .and(
+              Condition.attribute<TaskEventModel>("classification").eq(
+                TaskEventType.LOG
+              )
+            )
+        )
+        .execute();
+      expect(logEvents.length).toBeGreaterThan(0);
+      const persistedLogEntries = logEvents.flatMap(
+        (e) => (e.payload ?? []) as any[]
+      );
+      expect(persistedLogEntries.length).toBeGreaterThan(0);
+      expect(persistedLogEntries.some((e) => typeof e.step === "number")).toBe(
+        true
+      );
     } finally {
       await engine.stop();
       Adapter.unregister(alias);
@@ -177,9 +201,15 @@ describe("TaskEngine composite logging + retry semantics", () => {
       const finished = (await engine.track(task.id)).task;
       const msgs = (finished.logTail ?? []).map((e) => e.msg);
       expect(msgs).toEqual(expect.arrayContaining(["a", "b", "c", "d"]));
-      expect((finished.logTail ?? []).every((e) => e.step === undefined)).toBe(true);
+      expect((finished.logTail ?? []).every((e) => e.step === undefined)).toBe(
+        true
+      );
 
-      const eventsRepo = new (adapter.repository())(adapter, TaskEventModel, true).override({
+      const eventsRepo = new (adapter.repository())(
+        adapter,
+        TaskEventModel,
+        true
+      ).override({
         afterQueryHandlers: true,
       });
       const logEvents = await eventsRepo
@@ -187,11 +217,17 @@ describe("TaskEngine composite logging + retry semantics", () => {
         .where(
           Condition.attribute<TaskEventModel>("taskId")
             .eq(task.id)
-            .and(Condition.attribute<TaskEventModel>("classification").eq(TaskEventType.LOG))
+            .and(
+              Condition.attribute<TaskEventModel>("classification").eq(
+                TaskEventType.LOG
+              )
+            )
         )
         .execute();
       expect(logEvents.length).toBeGreaterThan(0);
-      const persistedLogEntries = logEvents.flatMap((e) => (e.payload ?? []) as any[]);
+      const persistedLogEntries = logEvents.flatMap(
+        (e) => (e.payload ?? []) as any[]
+      );
       expect(persistedLogEntries.length).toBeGreaterThan(0);
       expect(persistedLogEntries.every((e) => e.step === undefined)).toBe(true);
     } finally {

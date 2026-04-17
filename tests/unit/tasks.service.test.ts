@@ -12,6 +12,7 @@ import { TaskEngineConfig } from "../../src/tasks/types";
 @task("service-task")
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 class ServiceTask extends TaskHandler<number | { value: number }, number> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async run(input: number | { value: number }, ctx: TaskContext) {
     let value: number | undefined;
     if (typeof input === "number") value = input;

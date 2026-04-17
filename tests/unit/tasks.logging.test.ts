@@ -19,14 +19,14 @@ class TestLogger implements Logger {
     return this;
   }
   for(
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     _config:
       | Partial<LoggingConfig>
       | string
       | { new (...args: any[]): any }
       | ((...args: any[]) => any)
       | object,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     ..._args: any[]
   ): this {
     this.forCalls.push([_config, ..._args]);

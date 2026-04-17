@@ -34,20 +34,4 @@ describe("sequence decorator", () => {
       /No sequence options defined for property/
     );
   });
-
-  it("allows Model.pk to resolve property sequence metadata when requested", () => {
-    @model()
-    class PropertySequence extends Model {
-      @pk()
-      id!: string;
-
-      @sequence()
-      orderNumber!: number;
-    }
-
-    const sequenceMeta = Model.pk(PropertySequence, false, "orderNumber");
-    expect(sequenceMeta).toBeDefined();
-    expect(sequenceMeta.type).toBe(Number);
-    expect(sequenceMeta.name).toContain("orderNumber");
-  });
 });

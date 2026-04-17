@@ -133,9 +133,7 @@ export class TaskEngine<A extends Adapter<any, any, any, any>> extends TE<
       this.workerPoolConfig?.modules?.imports ??
       DefaultWorkThreadEnvironment.modules.imports;
     if (!Array.isArray(configuredImports)) {
-      throw new InternalError(
-        "Worker pool modules.imports must be a string[]"
-      );
+      throw new InternalError("Worker pool modules.imports must be a string[]");
     }
     const imports: string[] = [];
     const append = (specifier?: string) => {
@@ -498,6 +496,7 @@ export class TaskEngine<A extends Adapter<any, any, any, any>> extends TE<
     const { ctx, log } = (await this.logCtx([], task.classification, true)).for(
       this.executeClaimed
     );
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     const engine = this;
     const taskCtx = TaskEngine.createTaskContext(ctx, {
       taskId: task.id,
@@ -508,10 +507,7 @@ export class TaskEngine<A extends Adapter<any, any, any, any>> extends TE<
       ),
       attempt: task.attempt,
       resultCache: {},
-      pipe: async function (
-        this: TaskContext,
-        ...args: any[]
-      ): Promise<void> {
+      pipe: async function (this: TaskContext, ...args: any[]): Promise<void> {
         const normalized = engine.normalizePipeArgs(args);
         if (!normalized.length) return;
         const [updated, logs] = await engine.appendLog(this, task, normalized);

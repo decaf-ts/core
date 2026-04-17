@@ -10,11 +10,17 @@ import { TaskBackoffModel } from "../../src/tasks/models/TaskBackoffModel";
 import { task } from "../../src/tasks/decorators";
 import { TaskHandler } from "../../src/tasks/TaskHandler";
 import { TaskContext } from "../../src/tasks/TaskContext";
-import { BackoffStrategy, JitterStrategy, TaskEventType, TaskStatus } from "../../src/tasks/constants";
+import {
+  BackoffStrategy,
+  JitterStrategy,
+  TaskEventType,
+  TaskStatus,
+} from "../../src/tasks/constants";
 import { TaskEventModel } from "../../src/tasks/models/TaskEventModel";
 import { Condition } from "../../src/query/Condition";
 
 @task("ctxlog-atomic")
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 class CtxLogAtomic extends TaskHandler<void, number> {
   async run(_input: void, ctx: TaskContext): Promise<number> {
     ctx.logger.info("hello-atomic", { meta: true });
@@ -23,6 +29,7 @@ class CtxLogAtomic extends TaskHandler<void, number> {
 }
 
 @task("ctxlog-step-1")
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 class CtxLogStep1 extends TaskHandler<void, number> {
   async run(_input: void, ctx: TaskContext): Promise<number> {
     ctx.logger.info("hello-step-1");
@@ -31,6 +38,7 @@ class CtxLogStep1 extends TaskHandler<void, number> {
 }
 
 @task("ctxlog-step-2")
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 class CtxLogStep2 extends TaskHandler<void, number> {
   async run(_input: void, ctx: TaskContext): Promise<number> {
     ctx.logger.warn("hello-step-2");
@@ -38,7 +46,11 @@ class CtxLogStep2 extends TaskHandler<void, number> {
   }
 }
 
-function configFor(adapter: RamAdapter, bus: TaskEventBus, registry: TaskHandlerRegistry): TaskEngineConfig<RamAdapter> {
+function configFor(
+  adapter: RamAdapter,
+  bus: TaskEventBus,
+  registry: TaskHandlerRegistry
+): TaskEngineConfig<RamAdapter> {
   return {
     adapter,
     bus,
@@ -89,7 +101,9 @@ describe("TaskContext.logger logging", () => {
       expect(finished.status).toBe(TaskStatus.SUCCEEDED);
       expect(finished.logTail?.length).toBeGreaterThan(0);
 
-      const entry = (finished.logTail ?? []).find((e) => e.msg === "hello-atomic");
+      const entry = (finished.logTail ?? []).find(
+        (e) => e.msg === "hello-atomic"
+      );
       expect(entry).toBeDefined();
       expect(entry?.msg).toBe("hello-atomic");
       expect(entry?.level).toBeDefined();
@@ -102,7 +116,11 @@ describe("TaskContext.logger logging", () => {
       expect(entry?.meta).toEqual({ meta: true });
       expect(entry?.step).toBeUndefined();
 
-      const eventsRepo = new (adapter.repository())(adapter, TaskEventModel, true).override({
+      const eventsRepo = new (adapter.repository())(
+        adapter,
+        TaskEventModel,
+        true
+      ).override({
         afterQueryHandlers: true,
       });
       const logEvents = await eventsRepo
@@ -110,12 +128,26 @@ describe("TaskContext.logger logging", () => {
         .where(
           Condition.attribute<TaskEventModel>("taskId")
             .eq(task.id)
-            .and(Condition.attribute<TaskEventModel>("classification").eq(TaskEventType.LOG))
+            .and(
+              Condition.attribute<TaskEventModel>("classification").eq(
+                TaskEventType.LOG
+              )
+            )
         )
         .execute();
-      const persistedLogEntries = logEvents.flatMap((e) => (e.payload ?? []) as any[]);
-      expect(persistedLogEntries.some((e) => e.msg === "hello-atomic")).toBe(true);
-      expect(persistedLogEntries.some((e) => typeof e.msg === "string" && /INFO|WARN|ERROR|\d{4}-\d{2}-\d{2}/.test(e.msg))).toBe(false);
+      const persistedLogEntries = logEvents.flatMap(
+        (e) => (e.payload ?? []) as any[]
+      );
+      expect(persistedLogEntries.some((e) => e.msg === "hello-atomic")).toBe(
+        true
+      );
+      expect(
+        persistedLogEntries.some(
+          (e) =>
+            typeof e.msg === "string" &&
+            /INFO|WARN|ERROR|\d{4}-\d{2}-\d{2}/.test(e.msg)
+        )
+      ).toBe(false);
     } finally {
       await engine.stop();
       Adapter.unregister(alias);
@@ -158,8 +190,12 @@ describe("TaskContext.logger logging", () => {
       const finished = (await engine.track(task.id)).task;
       expect(finished.status).toBe(TaskStatus.SUCCEEDED);
 
-      const step1 = (finished.logTail ?? []).find((e) => e.msg === "hello-step-1");
-      const step2 = (finished.logTail ?? []).find((e) => e.msg === "hello-step-2");
+      const step1 = (finished.logTail ?? []).find(
+        (e) => e.msg === "hello-step-1"
+      );
+      const step2 = (finished.logTail ?? []).find(
+        (e) => e.msg === "hello-step-2"
+      );
       expect(step1).toBeDefined();
       expect(step2).toBeDefined();
       expect(step1?.step).toBe(0);

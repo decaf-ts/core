@@ -485,7 +485,9 @@ export class TaskEngine<
     const { ctx, log } = (await this.logCtx([], task.classification, true)).for(
       this.executeClaimed
     );
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
     const engine = this;
+    let logPipeQueue: Promise<void> = Promise.resolve();
     const taskCtx: TaskContext = new TaskContext(ctx).accumulate({
       taskId: task.id,
       logger: new TaskLogger(
@@ -494,12 +496,22 @@ export class TaskEngine<
         this.config.maxLoggingBuffer
       ),
       attempt: task.attempt,
-      resultCache: {},
+      resultCache: { "task.attempt": task.attempt },
       pipe: async function (this: TaskContext, ...args: any[]): Promise<void> {
         const normalized = engine.normalizePipeArgs(args);
         if (!normalized.length) return;
-        const [, logs] = await engine.appendLog(this, task, normalized);
-        await engine.emitLog(this, task.id, logs);
+        logPipeQueue = logPipeQueue.then(async () => {
+          const [updated, logs] = await engine.appendLog(
+            this,
+            task,
+            normalized
+          );
+          // Keep the original task object reference updated so composite execution doesn't
+          // overwrite logTail with stale state.
+          Object.assign(task, updated);
+          await engine.emitLog(this, task.id, logs);
+        });
+        await logPipeQueue;
       },
       flush: async () => {
         return taskCtx.logger.flush(taskCtx.pipe);
@@ -526,7 +538,8 @@ export class TaskEngine<
       if (task.atomicity === TaskType.COMPOSITE) {
         output = await this.runComposite(task, taskCtx);
         try {
-          task = await this.tasks.read(task.id, taskCtx);
+          const latest = await this.tasks.read(task.id, taskCtx);
+          Object.assign(task, latest);
         } catch {
           // keep best-effort task state
         }
@@ -544,6 +557,9 @@ export class TaskEngine<
             `No task handler registered for type: ${task.classification}`
           );
         output = await handler.run(task.input, taskCtx);
+        // TaskHandlers shouldn't need to explicitly call ctx.flush().
+        // Flush buffered logs before we persist final task state.
+        await taskCtx.flush();
         log.verbose(`handler finished for ${task.id}`);
       }
 
@@ -553,15 +569,24 @@ export class TaskEngine<
       task.leaseOwner = undefined;
       task.leaseExpiry = undefined;
 
-      task = await this.tasks.update(task, taskCtx);
+      const persisted = await this.tasks.update(task, taskCtx);
+      Object.assign(task, persisted);
       taskCtx.logger.info(`task ${task.id} success state ${task.status}`);
       log.info(
         `task ${task.id} success state ${task.status} attempt ${task.attempt}`
       );
       await this.emitStatus(taskCtx, task, TaskStatus.SUCCEEDED, output);
     } catch (err: any) {
+      // Ensure buffered handler logs are persisted before we emit any engine-generated logs/events.
+      // This preserves chronological ordering when TaskHandlers don't call ctx.flush().
       try {
-        task = await this.tasks.read(task.id, taskCtx);
+        await taskCtx.flush();
+      } catch {
+        // best-effort
+      }
+      try {
+        const latest = await this.tasks.read(task.id, taskCtx);
+        Object.assign(task, latest);
       } catch {
         // keep best-effort task state for retries/failures
       }
@@ -597,7 +622,8 @@ export class TaskEngine<
         task.error = serialized;
         task.leaseOwner = undefined;
         task.leaseExpiry = undefined;
-        task = await this.tasks.update(task, taskCtx);
+        const persisted = await this.tasks.update(task, taskCtx);
+        Object.assign(task, persisted);
         log.warn(
           `task ${task.id} waiting retry state ${task.status} attempt ${task.attempt}`
         );
@@ -620,7 +646,8 @@ export class TaskEngine<
         task.leaseOwner = undefined;
         task.leaseExpiry = undefined;
 
-        task = await this.tasks.update(task, taskCtx);
+        const persisted = await this.tasks.update(task, taskCtx);
+        Object.assign(task, persisted);
         log.error(
           `task ${task.id} failed state ${task.status} attempt ${task.attempt}`
         );
@@ -782,7 +809,8 @@ export class TaskEngine<
         task.stepResults = results;
         task.currentStep = idx;
 
-        task = await this.tasks.update(task);
+        const persisted = await this.tasks.update(task);
+        Object.assign(task, persisted);
         await this.emitProgress(context, task.id, {
           currentStep: idx,
           totalSteps: steps.length,
@@ -801,7 +829,8 @@ export class TaskEngine<
         task.error = serializeError(err);
 
         // persist failure context before throwing (retry logic happens outside)
-        task = await this.tasks.update(task);
+        const persisted = await this.tasks.update(task);
+        Object.assign(task, persisted);
         throw err;
       }
     }

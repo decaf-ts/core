@@ -5,6 +5,7 @@ import { TaskEventType, TaskStatus } from "../../src/tasks/constants";
 
 class TestLogger implements Logger {
   root: string[] = [];
+  forCalls: any[][] = [];
   info = jest.fn();
   warn = jest.fn();
   error = jest.fn();
@@ -28,6 +29,7 @@ class TestLogger implements Logger {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     ..._args: any[]
   ): this {
+    this.forCalls.push([_config, ..._args]);
     return this;
   }
 }
@@ -100,8 +102,17 @@ describe("tasks logging", () => {
     });
 
     await pipe(logEvent);
+    expect(base.forCalls.length).toBeGreaterThan(0);
+    const [firstForConfig, secondForConfig] = base.forCalls[0];
+    expect(firstForConfig).toBe("task-1");
+    expect(secondForConfig).toEqual(
+      expect.not.objectContaining({ timestamp: false, logLevel: false })
+    );
     expect(base.info).toHaveBeenCalledTimes(1);
     expect(base.info.mock.calls[0][0]).toEqual(expect.stringContaining("hello"));
+    expect(base.info.mock.calls[0][0]).toEqual(
+      expect.not.stringContaining("2020-01-01")
+    );
     expect(base.info.mock.calls[0][1]).toEqual({ ok: true });
   });
 });

@@ -18,7 +18,6 @@ export class WorkerThreadTask extends TaskHandler<WorkerInput, number> {
       accumulator += i;
     }
     ctx.logger.info(`worker handled payload ${base}`);
-    await ctx.flush();
     return base + accumulator;
   }
 }

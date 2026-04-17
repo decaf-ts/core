@@ -154,9 +154,6 @@ class SimpleTask extends TaskHandler<number | { value: number }, number> {
     ctx.logger.info(`doubling ${input}`);
     await sleep(20);
     ctx.logger.info(`simple task done`);
-    console.log("SimpleTask flush start");
-    await ctx.flush();
-    console.log("SimpleTask flush done");
     console.log("SimpleTask run end", value, ctx.taskId);
     return input * 2;
   }
@@ -179,7 +176,6 @@ class ProgressiveTask extends TaskHandler<number | { value: number }, number> {
       ProgressiveTask.leaseSnapshots.push(snapshot.leaseExpiry);
     }
     await ctx.progress({ percent: 100 });
-    await ctx.flush();
     return input + 1;
   }
 }
@@ -195,11 +191,9 @@ class FlakyTask extends TaskHandler<number, number> {
     await ctx.progress({ attempt });
     if (attempt === 1) {
       ctx.logger.warn(`intentional fail #${attempt}`);
-      await ctx.flush();
       throw new Error("transient failure");
     }
     ctx.logger.verbose(`success at attempt #${attempt}`);
-    await ctx.flush();
     console.log("FlakyTask run end", ctx.taskId, attempt);
     return attempt;
   }
@@ -212,8 +206,6 @@ class StepOneTask extends TaskHandler<number | { value: number }, number> {
     if (typeof value !== "number")
       throw new Error("invalid step-one-task input");
     const result = value + 5;
-    ctx.cacheResult("step-one-task", result);
-    await ctx.flush();
     return result;
   }
 }
@@ -226,8 +218,6 @@ class StepTwoTask extends TaskHandler<void, number> {
     if (typeof previous !== "number")
       throw new Error("previous step result missing");
     const result = previous * 2;
-    ctx.cacheResult("step-two-task", result);
-    await ctx.flush();
     return result;
   }
 }
@@ -240,7 +230,6 @@ class StepThreeTask extends TaskHandler<void, number> {
     const second = cache["step-two-task"];
     if (typeof first !== "number" || typeof second !== "number")
       throw new Error("previous results unavailable");
-    await ctx.flush();
     return first + second;
   }
 }
@@ -256,7 +245,6 @@ class FlakyStepTask extends TaskHandler<{ offset?: number }, number> {
     await ctx.progress({ attempt });
     if (attempt === 1) {
       ctx.logger.warn(`flaky composite step failing on attempt ${attempt}`);
-      await ctx.flush();
       throw new Error("flaky step failure");
     }
     const cache = ctx.resultCache ?? {};
@@ -265,8 +253,6 @@ class FlakyStepTask extends TaskHandler<{ offset?: number }, number> {
       throw new Error("previous step result missing");
     const delta = payload?.offset ?? 0;
     const result = previous + delta;
-    ctx.cacheResult("flaky-step-task", result);
-    await ctx.flush();
     return result;
   }
 }
@@ -279,7 +265,6 @@ class CombineStepTask extends TaskHandler<void, number> {
     const flaky = cache["flaky-step-task"];
     if (typeof first !== "number" || typeof flaky !== "number")
       throw new Error("required step results missing");
-    await ctx.flush();
     return first + flaky;
   }
 }
@@ -300,9 +285,6 @@ class MultipleEntitiesTask extends TaskHandler<
     ctx.logger.info(`doubling ${input}`);
     await sleep(20);
     ctx.logger.info(`simple task done`);
-    console.log("SimpleTask flush start");
-    await ctx.flush();
-    console.log("SimpleTask flush done");
     console.log("SimpleTask run end", value, ctx.taskId);
     return input * 2;
   }
@@ -350,7 +332,6 @@ class ServiceInjectedTask extends TaskHandler<
     if (typeof value !== "number")
       throw new Error("invalid service-injected-task input");
     const result = this.calculator.multiply(value);
-    await ctx.flush();
     return result;
   }
 }
@@ -363,8 +344,6 @@ class RepositoryWriteStep extends TaskHandler<{ value: number }, number> {
   async run(input: { value: number }, ctx: TaskContext) {
     const entity = new RepositoryInjectionModel({ value: input.value });
     const created = await this.repo.create(entity);
-    ctx.cacheResult("repo-write-step", created.id);
-    await ctx.flush();
     return created.id as number;
   }
 }
@@ -380,7 +359,6 @@ class RepositoryReadStep extends TaskHandler<void, number> {
     if (typeof createdId !== "number")
       throw new Error("repo-write-step result missing");
     const entity = await this.repo.read(createdId);
-    await ctx.flush();
     return entity.value;
   }
 }

@@ -145,8 +145,6 @@ class CompositeAddStep extends TaskHandler<number | { value: number }, number> {
     if (typeof value !== "number")
       throw new Error("invalid composite-add-step input");
     const result = value + 10;
-    ctx.cacheResult("composite-add-step", result);
-    await ctx.flush();
     return result;
   }
 }
@@ -162,8 +160,6 @@ class CompositeMultiplyStep extends TaskHandler<void, number> {
     if (typeof previous !== "number")
       throw new Error("composite-multiply-step: previous step result missing");
     const result = previous * 2;
-    ctx.cacheResult("composite-multiply-step", result);
-    await ctx.flush();
     return result;
   }
 }
@@ -179,7 +175,6 @@ class CompositeFinalStep extends TaskHandler<void, number> {
     const multiply = cache["composite-multiply-step"];
     if (typeof add !== "number" || typeof multiply !== "number")
       throw new Error("composite-final-step: previous results unavailable");
-    await ctx.flush();
     return add + multiply;
   }
 }
@@ -201,7 +196,6 @@ class CompositeFlakyStep extends TaskHandler<{ failCount?: number }, number> {
 
     if (attempt <= failCount) {
       ctx.logger.warn(`flaky step failing on attempt ${attempt}`);
-      await ctx.flush();
       throw new Error(`flaky step failure attempt ${attempt}`);
     }
 
@@ -210,8 +204,6 @@ class CompositeFlakyStep extends TaskHandler<{ failCount?: number }, number> {
     if (typeof previous !== "number")
       throw new Error("composite-flaky-step: previous step result missing");
     const result = previous + 100;
-    ctx.cacheResult("composite-flaky-step", result);
-    await ctx.flush();
     return result;
   }
 }
@@ -228,7 +220,6 @@ class CompositeAlwaysFailStep extends TaskHandler<void, never> {
     const attempt = (CompositeAlwaysFailStep.attempts[ctx.taskId] ?? 0) + 1;
     CompositeAlwaysFailStep.attempts[ctx.taskId] = attempt;
     ctx.logger.error(`always-fail step attempt ${attempt}`);
-    await ctx.flush();
     throw new ValidationError(`permanent failure attempt ${attempt}`);
   }
 }
@@ -243,7 +234,6 @@ class CompositeCancelStep extends TaskHandler<{ reason?: string }, never> {
     const payload = parseObjectInput<{ reason?: string }>(input) ?? input;
     const reason = payload?.reason ?? "Step requested cancellation";
     ctx.logger.warn(`Canceling task: ${reason}`);
-    await ctx.flush();
     ctx.cancel(reason);
   }
 }
@@ -261,7 +251,6 @@ class CompositeRetryStep extends TaskHandler<void, number> {
 
     if (attempt === 1) {
       ctx.logger.warn(`Requesting retry on attempt ${attempt}`);
-      await ctx.flush();
       ctx.retry("Step requested retry");
     }
 
@@ -270,8 +259,6 @@ class CompositeRetryStep extends TaskHandler<void, number> {
     if (typeof previous !== "number")
       throw new Error("composite-retry-step: previous step result missing");
     const result = previous + 50;
-    ctx.cacheResult("composite-retry-step", result);
-    await ctx.flush();
     return result;
   }
 }
@@ -287,7 +274,6 @@ class CompositeRescheduleStep extends TaskHandler<{ delayMs?: number }, never> {
     const delayMs = payload?.delayMs ?? 100;
     const scheduledTo = new Date(Date.now() + delayMs);
     ctx.logger.info(`Rescheduling task to ${scheduledTo.toISOString()}`);
-    await ctx.flush();
     ctx.reschedule(scheduledTo, "Step requested reschedule");
   }
 }
@@ -298,7 +284,6 @@ class CompositeRescheduleStep extends TaskHandler<{ delayMs?: number }, never> {
 @task("composite-noop-step")
 class CompositeNoopStep extends TaskHandler<void, string> {
   async run(_: void, ctx: TaskContext) {
-    await ctx.flush();
     return "noop";
   }
 }
@@ -323,8 +308,6 @@ class CompositeStrictInputStep extends TaskHandler<
     const result = payload.optional
       ? `${payload.required}:${payload.optional}`
       : payload.required;
-    ctx.cacheResult("composite-strict-input-step", result);
-    await ctx.flush();
     return result;
   }
 }
@@ -340,7 +323,6 @@ class CompositeAggregateStep extends TaskHandler<void, number> {
     const flaky = cache["composite-flaky-step"];
     if (typeof add !== "number" || typeof flaky !== "number")
       throw new Error("composite-aggregate-step: required results missing");
-    await ctx.flush();
     return add + flaky;
   }
 }
@@ -354,9 +336,94 @@ class CompositeSlowStep extends TaskHandler<{ delayMs?: number }, number> {
     const payload = parseObjectInput<{ delayMs?: number }>(input) ?? input;
     const delayMs = payload?.delayMs ?? 50;
     await sleep(delayMs);
-    ctx.cacheResult("composite-slow-step", delayMs);
-    await ctx.flush();
     return delayMs;
+  }
+}
+
+// ============================================================================
+// Randomized + retry composite steps (for cache + math invariants)
+// ============================================================================
+
+const randomInt = (min: number, max: number) =>
+  Math.floor(Math.random() * (max - min + 1)) + min;
+
+@task("composite-rand-step-1")
+class CompositeRandStep1 extends TaskHandler<void, number> {
+  static calls: Record<string, number> = {};
+
+  async run(_: void, ctx: TaskContext) {
+    CompositeRandStep1.calls[ctx.taskId] =
+      (CompositeRandStep1.calls[ctx.taskId] ?? 0) + 1;
+    const result = randomInt(1, 100);
+    return result;
+  }
+}
+
+@task("composite-rand-step-2")
+class CompositeRandStep2 extends TaskHandler<void, [number, number]> {
+  static calls: Record<string, number> = {};
+
+  async run(_: void, ctx: TaskContext) {
+    CompositeRandStep2.calls[ctx.taskId] =
+      (CompositeRandStep2.calls[ctx.taskId] ?? 0) + 1;
+    const cache = ctx.resultCache ?? {};
+    const step1 = cache["composite-rand-step-1"];
+    if (typeof step1 !== "number")
+      throw new Error("composite-rand-step-2: previous step result missing");
+    const next = randomInt(1000, 100000);
+    const result: [number, number] = [step1, next];
+    return result;
+  }
+}
+
+@task("composite-rand-step-3")
+class CompositeRandStep3 extends TaskHandler<void, number> {
+  static calls: Record<string, number> = {};
+  static desiredFails: Record<string, number> = {};
+
+  async run(_: void, ctx: TaskContext) {
+    CompositeRandStep3.calls[ctx.taskId] =
+      (CompositeRandStep3.calls[ctx.taskId] ?? 0) + 1;
+    const desiredFails =
+      CompositeRandStep3.desiredFails[ctx.taskId] ??
+      (CompositeRandStep3.desiredFails[ctx.taskId] = randomInt(1, 5));
+    const attempt = CompositeRandStep3.calls[ctx.taskId];
+
+    if (attempt <= desiredFails) {
+      throw new Error(
+        `composite-rand-step-3: intentional failure ${attempt}/${desiredFails}`
+      );
+    }
+
+    const cache = ctx.resultCache ?? {};
+    const step1 = cache["composite-rand-step-1"];
+    const step2 = cache["composite-rand-step-2"] as unknown;
+    if (typeof step1 !== "number")
+      throw new Error("composite-rand-step-3: step 1 result missing");
+    if (!Array.isArray(step2) || typeof step2[1] !== "number")
+      throw new Error("composite-rand-step-3: step 2 result missing");
+
+    const result = step1 * step2[1];
+    return result;
+  }
+}
+
+@task("composite-rand-step-4")
+class CompositeRandStep4 extends TaskHandler<void, number> {
+  static calls: Record<string, number> = {};
+
+  async run(_: void, ctx: TaskContext) {
+    CompositeRandStep4.calls[ctx.taskId] =
+      (CompositeRandStep4.calls[ctx.taskId] ?? 0) + 1;
+    const cache = ctx.resultCache ?? {};
+    const step1 = cache["composite-rand-step-1"];
+    const step3 = cache["composite-rand-step-3"];
+    const fails = cache["task.attempt"];
+    if (typeof step1 !== "number" || typeof step3 !== "number" || typeof fails !== "number") {
+      throw new Error("composite-rand-step-4: required cached values missing");
+    }
+    const result = fails * step1 * step3;
+    return result;
   }
 }
 
@@ -404,6 +471,11 @@ describe("Composite Tasks Integration", () => {
     CompositeFlakyStep.attempts = {};
     CompositeAlwaysFailStep.attempts = {};
     CompositeRetryStep.attempts = {};
+    CompositeRandStep1.calls = {};
+    CompositeRandStep2.calls = {};
+    CompositeRandStep3.calls = {};
+    CompositeRandStep3.desiredFails = {};
+    CompositeRandStep4.calls = {};
   });
 
   afterEach(async () => {
@@ -601,6 +673,62 @@ describe("Composite Tasks Integration", () => {
       expect(result.stepResults[0].output).toBe(30);
       expect(result.stepResults[1].output).toBe(130); // 30 + 100
       expect(CompositeFlakyStep.attempts[task.id]).toBe(3);
+    });
+
+    it("executes a 4-step composite with cached random outputs and flaky step math", async () => {
+      const composite = new CompositeTaskBuilder({
+        classification: "rand-4-steps-test",
+        atomicity: TaskType.COMPOSITE,
+        attempt: 0,
+        maxAttempts: 10,
+        ...createDates(),
+        backoff: createBackoff({ baseMs: 1, maxMs: 1 }),
+      })
+        .addStep("composite-rand-step-1")
+        .addStep("composite-rand-step-2")
+        .addStep("composite-rand-step-3")
+        .addStep("composite-rand-step-4")
+        .build();
+
+      const { task, tracker } = await engine.push(composite, true);
+      const result = await tracker.resolve();
+
+      expect(result.stepResults.length).toBe(4);
+
+      const step1 = result.stepResults[0].output;
+      const step2 = result.stepResults[1].output as any;
+      const step3 = result.stepResults[2].output;
+      const step4 = result.stepResults[3].output;
+
+      expect(typeof step1).toBe("number");
+      expect(step1).toBeGreaterThanOrEqual(1);
+      expect(step1).toBeLessThanOrEqual(100);
+
+      expect(Array.isArray(step2)).toBe(true);
+      expect(step2.length).toBe(2);
+      expect(step2[0]).toBe(step1);
+      expect(typeof step2[1]).toBe("number");
+      expect(step2[1]).toBeGreaterThanOrEqual(1000);
+      expect(step2[1]).toBeLessThanOrEqual(100000);
+
+      expect(typeof step3).toBe("number");
+      expect(step3).toBe(step1 * step2[1]);
+
+      const persisted = await taskRepo.read(task.id);
+      // CompositeRandStep3 intentionally fails N times (1..5); task attempt is 0-based.
+      const fails = persisted.attempt;
+      expect(fails).toBeGreaterThanOrEqual(1);
+      expect(fails).toBeLessThanOrEqual(5);
+
+      expect(typeof step4).toBe("number");
+      expect(step4).toBe(fails * step1 * step3);
+
+      // Ensure earlier steps didn't rerun across retries
+      expect(CompositeRandStep1.calls[task.id]).toBe(1);
+      expect(CompositeRandStep2.calls[task.id]).toBe(1);
+      expect(CompositeRandStep3.calls[task.id]).toBe(fails + 1);
+      expect(CompositeRandStep4.calls[task.id]).toBe(1);
+      expect(CompositeRandStep3.desiredFails[task.id]).toBe(fails);
     });
 
     it("fails permanently when max attempts exhausted", async () => {

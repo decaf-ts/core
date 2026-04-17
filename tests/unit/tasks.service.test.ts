@@ -33,7 +33,6 @@ class ServiceTask extends TaskHandler<number | { value: number }, number> {
       value = input.value;
     if (typeof value !== "number")
       throw new Error("invalid service-task input");
-    await ctx.flush();
     return value + 1;
   }
 }

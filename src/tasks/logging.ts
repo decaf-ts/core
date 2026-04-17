@@ -158,19 +158,17 @@ export function getLogPipe<LOG extends Logger>(
   return async function logPipe(evt: TaskEventModel) {
     log = log.for(evt.taskId, {
       style: false,
-      timestamp: false,
-      logLevel: false,
     });
 
     switch (evt.classification) {
       case TaskEventType.LOG: {
-        let logs: ([LogLevel, string, any] | TaskLogEntryModel)[] = evt.payload;
-        // fallback. did this ever work?
-        logs = logs.map((l: any) =>
-          Array.isArray(l) ? l : [l.level, `${l.ts} - ${l.msg}`, l.meta]
+        const logs: ([LogLevel, string, any] | TaskLogEntryModel)[] =
+          evt.payload;
+        const normalized = logs.map((l: any) =>
+          Array.isArray(l) ? l : [l.level, l.msg, l.meta]
         ) as [LogLevel, string, any][];
         // eslint-disable-next-line prefer-const
-        for (let [level, msg, payload] of logs as [LogLevel, string, any][]) {
+        for (let [level, msg, payload] of normalized) {
           if (!opts.style) {
             msg = style(msg) as any;
             msg = (msg as unknown as StyledString).clear().toString();

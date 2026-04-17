@@ -514,7 +514,8 @@ export class TaskEngine<A extends Adapter<any, any, any, any>> extends TE<
       ): Promise<void> {
         const normalized = engine.normalizePipeArgs(args);
         if (!normalized.length) return;
-        const [, logs] = await engine.appendLog(this, task, normalized);
+        const [updated, logs] = await engine.appendLog(this, task, normalized);
+        Object.assign(task, updated);
         await engine.emitLog(this, task.id, logs);
       },
       flush: async () => {

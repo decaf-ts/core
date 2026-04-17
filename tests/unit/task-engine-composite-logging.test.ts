@@ -47,7 +47,6 @@ class PipeTask extends TaskHandler<void, number> {
       [LogLevel.info, "c", { z: 3 }],
       [LogLevel.error, "d", { w: 4 }],
     ]);
-    await ctx.flush();
     return 123;
   }
 }

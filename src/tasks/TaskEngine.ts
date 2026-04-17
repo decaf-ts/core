@@ -485,6 +485,7 @@ export class TaskEngine<
     const { ctx, log } = (await this.logCtx([], task.classification, true)).for(
       this.executeClaimed
     );
+    const engine = this;
     const taskCtx: TaskContext = new TaskContext(ctx).accumulate({
       taskId: task.id,
       logger: new TaskLogger(
@@ -494,9 +495,11 @@ export class TaskEngine<
       ),
       attempt: task.attempt,
       resultCache: {},
-      pipe: async (data: [LogLevel, string, any][]) => {
-        const [, logs] = await this.appendLog(taskCtx, task, data);
-        await this.emitLog(taskCtx, task.id, logs);
+      pipe: async function (this: TaskContext, ...args: any[]): Promise<void> {
+        const normalized = engine.normalizePipeArgs(args);
+        if (!normalized.length) return;
+        const [, logs] = await engine.appendLog(this, task, normalized);
+        await engine.emitLog(this, task.id, logs);
       },
       flush: async () => {
         return taskCtx.logger.flush(taskCtx.pipe);
@@ -745,6 +748,7 @@ export class TaskEngine<
     }
 
     while (idx < steps.length) {
+      context.setStep(idx);
       const step = steps[idx];
       const handler = this.registry.get(step.classification);
       if (!handler)
@@ -759,6 +763,8 @@ export class TaskEngine<
 
       try {
         const out = await handler.run(step.input, context);
+        // Ensure step-tagged logs are flushed before advancing the step pointer.
+        await context.flush();
 
         const stepIndex = idx;
         const now = new Date();
@@ -887,12 +893,19 @@ export class TaskEngine<
       | ([LogLevel, string] | [LogLevel, string, any])[]
   ): Promise<[TaskModel, TaskLogEntryModel[]]> {
     const isMulti = Array.isArray(logEntries) && Array.isArray(logEntries[0]);
+    const step =
+      task.atomicity === TaskType.COMPOSITE
+        ? ctx instanceof TaskContext
+          ? (ctx.step ?? task.currentStep)
+          : task.currentStep
+        : undefined;
     const entries = (isMulti ? logEntries : [logEntries]).map(
       ([level, msg, meta]) => {
         return new TaskLogEntryModel({
           level,
           msg,
           meta,
+          step,
         });
       }
     );
@@ -957,9 +970,31 @@ export class TaskEngine<
         level: e.level,
         msg: e.msg,
         meta: e.meta,
+        step: e.step,
       }))
     );
     this.bus.emit(evt, ctx);
+  }
+
+  protected normalizePipeArgs(
+    args: any[]
+  ): ([LogLevel, string] | [LogLevel, string, any])[] {
+    if (!args.length) return [];
+
+    if (args.length === 1) {
+      const value = args[0];
+      if (!Array.isArray(value)) return [];
+      if (value.length === 0) return [];
+      // Either [level,msg,meta?] or [[level,msg,meta?], ...]
+      if (Array.isArray(value[0])) {
+        return (value as any[]).filter(Array.isArray) as any;
+      }
+      return [value as any];
+    }
+
+    const [level, msg, meta] = args;
+    if (typeof level !== "string" || typeof msg !== "string") return [];
+    return [[level as LogLevel, msg, meta] as any];
   }
 
   protected async emitProgress(

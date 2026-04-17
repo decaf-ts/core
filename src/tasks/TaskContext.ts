@@ -15,8 +15,18 @@ export class TaskContext extends Context<TaskFlags> {
   override get logger(): TaskLogger<any> {
     return super.logger;
   }
-  get pipe(): any {
-    return this.get("pipe");
+
+  get step(): number | undefined {
+    return this.getOrUndefined("step" as any) as any;
+  }
+
+  setStep(step?: number): void {
+    this.cache.put("step" as any, step as any);
+  }
+
+  get pipe(): TaskFlags["pipe"] {
+    const fn = this.get("pipe") as any;
+    return fn.bind(this);
   }
 
   flush() {

@@ -76,4 +76,32 @@ describe("tasks logging", () => {
     await pipe(progressEvent);
     expect(base.info).toHaveBeenCalledWith("### STEP 2/4");
   });
+
+  it("pipes log events to loggers", async () => {
+    const base = new TestLogger();
+    const pipe = getLogPipe(base, {
+      logProgress: false,
+      logStatus: false,
+      style: false,
+    });
+
+    const logEvent = new TaskEventModel({
+      taskId: "task-1",
+      classification: TaskEventType.LOG,
+      payload: [
+        {
+          ts: new Date("2020-01-01T00:00:00.000Z"),
+          level: LogLevel.info,
+          msg: "hello",
+          meta: { ok: true },
+          step: 1,
+        },
+      ],
+    });
+
+    await pipe(logEvent);
+    expect(base.info).toHaveBeenCalledTimes(1);
+    expect(base.info.mock.calls[0][0]).toEqual(expect.stringContaining("hello"));
+    expect(base.info.mock.calls[0][1]).toEqual({ ok: true });
+  });
 });

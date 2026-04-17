@@ -167,7 +167,7 @@ export function getLogPipe<LOG extends Logger>(
         let logs: ([LogLevel, string, any] | TaskLogEntryModel)[] = evt.payload;
         // fallback. did this ever work?
         logs = logs.map((l: any) =>
-          Array.isArray(l) ? l : [l.level, l.ts + " - " + l.message, l.meta]
+          Array.isArray(l) ? l : [l.level, `${l.ts} - ${l.msg}`, l.meta]
         ) as [LogLevel, string, any][];
         // eslint-disable-next-line prefer-const
         for (let [level, msg, payload] of logs as [LogLevel, string, any][]) {

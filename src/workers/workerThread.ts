@@ -135,18 +135,37 @@ async function runJob(job: WorkerJobPayload) {
     job.maxLoggingBuffer
   );
 
-  const pipe = async (entries: WorkerLogEntry[]) => {
+  const postLogs = async (entries: WorkerLogEntry[]) => {
     if (!entries.length) return;
     post(toLogMessage(job.jobId, entries));
   };
+
+  const normalizePipeArgs = (args: any[]): WorkerLogEntry[] => {
+    if (!args.length) return [];
+    if (args.length === 1) {
+      const value = args[0];
+      if (!Array.isArray(value) || value.length === 0) return [];
+      if (Array.isArray(value[0])) {
+        return (value as any[]).filter(Array.isArray) as WorkerLogEntry[];
+      }
+      return [value as WorkerLogEntry];
+    }
+    const [level, msg, meta] = args;
+    if (typeof level !== "string" || typeof msg !== "string") return [];
+    return [[level, msg, meta] as WorkerLogEntry];
+  };
+
   const ctx = TaskEngine.createTaskContext(undefined, {
     logger: taskLogger,
     taskId: job.taskId,
     attempt: job.attempt,
-    pipe: async (entries: WorkerLogEntry[]) => pipe(entries),
+    pipe: async (...args: any[]) => {
+      const normalized = normalizePipeArgs(args);
+      await postLogs(normalized);
+    },
     flush: async () => {
       const logs = await taskLogger.flush();
-      await pipe(logs as WorkerLogEntry[]);
+      await postLogs(logs as WorkerLogEntry[]);
     },
     progress: async (payload: any) => {
       post({

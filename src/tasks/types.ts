@@ -22,7 +22,11 @@ export type LogPipeOptions = {
 
 export type EventPipe = (evt: TaskEventModel, ...args: any[]) => Promise<void>;
 
-export type LogPipe = (logs: [LogLevel, string, any][]) => Promise<void>;
+export interface LogPipe {
+  (logs: [LogLevel, string, any][]): Promise<void>;
+  (entry: [LogLevel, string] | [LogLevel, string, any]): Promise<void>;
+  (level: LogLevel, msg: string, meta?: any): Promise<void>;
+}
 
 export interface TaskFlags<LOG extends TaskLogger<any> = TaskLogger<any>>
   extends ContextFlags<LOG> {

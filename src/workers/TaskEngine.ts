@@ -488,6 +488,7 @@ export class TaskEngine<A extends Adapter<any, any, any, any>> extends TE<
     const { ctx, log } = (await this.logCtx([], task.classification, true)).for(
       this.executeClaimed
     );
+    const engine = this;
     const taskCtx = TaskEngine.createTaskContext(ctx, {
       taskId: task.id,
       logger: new TaskLogger(
@@ -497,9 +498,14 @@ export class TaskEngine<A extends Adapter<any, any, any, any>> extends TE<
       ),
       attempt: task.attempt,
       resultCache: {},
-      pipe: async (data: [LogLevel, string, any][]) => {
-        const [, logs] = await this.appendLog(taskCtx, task, data);
-        await this.emitLog(taskCtx, task.id, logs);
+      pipe: async function (
+        this: TaskContext,
+        ...args: any[]
+      ): Promise<void> {
+        const normalized = engine.normalizePipeArgs(args);
+        if (!normalized.length) return;
+        const [, logs] = await engine.appendLog(this, task, normalized);
+        await engine.emitLog(this, task.id, logs);
       },
       flush: async () => {
         await taskCtx.logger.flush(taskCtx.pipe);

@@ -6,6 +6,7 @@ import {
   type ModelArg,
   Model,
   date,
+  min,
 } from "@decaf-ts/decorator-validation";
 import { prop } from "@decaf-ts/decoration";
 
@@ -18,6 +19,9 @@ export class TaskLogEntryModel extends Model {
   @required()
   @option(LogLevel)
   level!: LogLevel;
+
+  @min(0)
+  step?: number;
 
   @required()
   @prop()

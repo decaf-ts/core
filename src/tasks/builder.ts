@@ -163,12 +163,28 @@ export class CompositeTaskBuilder extends TaskBuilder {
     return this;
   }
 
-  addStep(classification: string, input?: any): this {
+  /**
+   * Backwards compatible:
+   * - addStep(classification, input?)
+   * - addStep(classification, name, input?)
+   *
+   * Note: `name` is only treated as such when provided as the 2nd argument AND
+   * a 3rd argument is present. This avoids breaking existing calls where input
+   * is a string.
+   */
+  addStep(classification: string, input?: any): this;
+  addStep(classification: string, name: string, input?: any): this;
+  addStep(classification: string, nameOrInput?: any, inputMaybe?: any): this {
     this.steps = this.steps || [];
     const now = new Date();
+    const hasThirdArg = arguments.length >= 3;
+    const name =
+      hasThirdArg && typeof nameOrInput === "string" ? nameOrInput : undefined;
+    const input = hasThirdArg ? inputMaybe : nameOrInput;
     this.steps.push(
       new TaskStepSpecModel({
         classification,
+        name,
         input,
         createdAt: now,
         updatedAt: now,
@@ -176,5 +192,4 @@ export class CompositeTaskBuilder extends TaskBuilder {
     );
     return this;
   }
-
 }

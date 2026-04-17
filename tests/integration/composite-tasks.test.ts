@@ -180,6 +180,99 @@ class CompositeFinalStep extends TaskHandler<void, number> {
 }
 
 /**
+ * Step used to validate composite step-result caching when multiple steps share the
+ * same classification. This step behaves differently per step index.
+ */
+@task("dup-step")
+class DuplicateClassificationStep extends TaskHandler<{ base?: number } | void, number> {
+  static runsByStep: Record<number, number> = {};
+
+  async run(input: { base?: number } | void, ctx: TaskContext) {
+    const step = ctx.step ?? -1;
+    DuplicateClassificationStep.runsByStep[step] =
+      (DuplicateClassificationStep.runsByStep[step] ?? 0) + 1;
+
+    // step 0: seed value from input (default 41)
+    if (step === 0) {
+      const payload = parseObjectInput<{ base?: number }>(input) ?? (input as any);
+      return payload?.base ?? 41;
+    }
+
+    // step 1: depends on step-0 via the stable per-step cache key
+    if (step === 1) {
+      const cache = ctx.resultCache ?? {};
+      const prev0 = cache[`${ctx.taskId}:step:0`];
+      if (typeof prev0 !== "number") {
+        throw new Error("dup-step(1): missing cached output for step 0");
+      }
+      return prev0 + 1;
+    }
+
+    throw new Error(`dup-step: unexpected step index ${step}`);
+  }
+}
+
+@task("dup-retry-gate")
+class DuplicateRetryGateStep extends TaskHandler<void, number> {
+  static runs: Record<string, number> = {};
+  static seenCacheByRun: Record<string, Array<{ step0?: any; step1?: any }>> = {};
+
+  async run(_: void, ctx: TaskContext) {
+    const run = (DuplicateRetryGateStep.runs[ctx.taskId] ?? 0) + 1;
+    DuplicateRetryGateStep.runs[ctx.taskId] = run;
+
+    const cache = ctx.resultCache ?? {};
+    const step0 = cache[`${ctx.taskId}:step:0`];
+    const step1 = cache[`${ctx.taskId}:step:1`];
+    DuplicateRetryGateStep.seenCacheByRun[ctx.taskId] =
+      DuplicateRetryGateStep.seenCacheByRun[ctx.taskId] ?? [];
+    DuplicateRetryGateStep.seenCacheByRun[ctx.taskId].push({ step0, step1 });
+
+    if (typeof step0 !== "number" || typeof step1 !== "number") {
+      throw new Error("dup-retry-gate: missing cached outputs for prior steps");
+    }
+
+    if (run === 1) {
+      ctx.retry("intentional retry to validate cache rehydration");
+    }
+
+    return step0 + step1 + 1;
+  }
+}
+
+@task("dup-reschedule-gate")
+class DuplicateRescheduleGateStep extends TaskHandler<{ delayMs?: number } | void, number> {
+  static runs: Record<string, number> = {};
+  static seenCacheByRun: Record<string, Array<{ step0?: any; step1?: any }>> = {};
+
+  async run(input: { delayMs?: number } | void, ctx: TaskContext) {
+    const run = (DuplicateRescheduleGateStep.runs[ctx.taskId] ?? 0) + 1;
+    DuplicateRescheduleGateStep.runs[ctx.taskId] = run;
+
+    const cache = ctx.resultCache ?? {};
+    const step0 = cache[`${ctx.taskId}:step:0`];
+    const step1 = cache[`${ctx.taskId}:step:1`];
+    DuplicateRescheduleGateStep.seenCacheByRun[ctx.taskId] =
+      DuplicateRescheduleGateStep.seenCacheByRun[ctx.taskId] ?? [];
+    DuplicateRescheduleGateStep.seenCacheByRun[ctx.taskId].push({ step0, step1 });
+
+    if (typeof step0 !== "number" || typeof step1 !== "number") {
+      throw new Error(
+        "dup-reschedule-gate: missing cached outputs for prior steps"
+      );
+    }
+
+    if (run === 1) {
+      const payload = parseObjectInput<{ delayMs?: number }>(input) ?? (input as any);
+      const delayMs = payload?.delayMs ?? 25;
+      ctx.reschedule(new Date(Date.now() + delayMs), "intentional reschedule");
+    }
+
+    return step0 + step1 + 2;
+  }
+}
+
+/**
  * Flaky step that fails on first attempt but succeeds on retry
  */
 @task("composite-flaky-step")
@@ -673,6 +766,94 @@ describe("Composite Tasks Integration", () => {
       expect(result.stepResults[0].output).toBe(30);
       expect(result.stepResults[1].output).toBe(130); // 30 + 100
       expect(CompositeFlakyStep.attempts[task.id]).toBe(3);
+    });
+
+    it("rehydrates per-step cached results across retry/reschedule even when two steps share the same classification", async () => {
+      DuplicateClassificationStep.runsByStep = {};
+      DuplicateRetryGateStep.runs = {};
+      DuplicateRetryGateStep.seenCacheByRun = {};
+      DuplicateRescheduleGateStep.runs = {};
+      DuplicateRescheduleGateStep.seenCacheByRun = {};
+
+      // ------------------------------------------------------------------
+      // Retry scenario
+      // ------------------------------------------------------------------
+      const retryComposite = new CompositeTaskBuilder({
+        classification: "dup-classification-retry-test",
+        atomicity: TaskType.COMPOSITE,
+        attempt: 0,
+        maxAttempts: 2,
+        ...createDates(),
+        backoff: createBackoff({ baseMs: 1, maxMs: 1 }),
+      })
+        .addStep("dup-step", { base: 41 }) // step 0
+        .addStep("dup-step") // step 1 (same classification)
+        .addStep("dup-retry-gate") // step 2 (fails via ctx.retry once)
+        .build();
+
+      const { task: retryTask, tracker: retryTracker } = await engine.push(
+        retryComposite,
+        true
+      );
+
+      await waitForTaskStatus(retryTask.id, TaskStatus.WAITING_RETRY);
+      const retryResult = await retryTracker.wait();
+
+      expect(retryResult.stepResults.length).toBe(3);
+      expect(retryResult.stepResults[0].output).toBe(41);
+      expect(retryResult.stepResults[1].output).toBe(42);
+      expect(retryResult.stepResults[2].output).toBe(41 + 42 + 1);
+
+      // Ensure first two steps did not rerun across retry even though their classification collides.
+      expect(DuplicateClassificationStep.runsByStep[0]).toBe(1);
+      expect(DuplicateClassificationStep.runsByStep[1]).toBe(1);
+      expect(DuplicateRetryGateStep.runs[retryTask.id]).toBe(2);
+
+      // The gate step should have seen cached results on both runs; the second run relies on rehydration.
+      const retrySeen = DuplicateRetryGateStep.seenCacheByRun[retryTask.id];
+      expect(retrySeen?.length).toBe(2);
+      expect(retrySeen?.[0]).toEqual({ step0: 41, step1: 42 });
+      expect(retrySeen?.[1]).toEqual({ step0: 41, step1: 42 });
+
+      // ------------------------------------------------------------------
+      // Reschedule scenario
+      // ------------------------------------------------------------------
+      const rescheduleComposite = new CompositeTaskBuilder({
+        classification: "dup-classification-reschedule-test",
+        atomicity: TaskType.COMPOSITE,
+        attempt: 0,
+        maxAttempts: 1,
+        ...createDates(),
+        backoff: createBackoff({ baseMs: 1, maxMs: 1 }),
+      })
+        .addStep("dup-step", { base: 10 }) // step 0
+        .addStep("dup-step") // step 1 (same classification)
+        .addStep("dup-reschedule-gate", { delayMs: 25 }) // step 2 (SCHEDULED once)
+        .build();
+
+      const {
+        task: scheduledTask,
+        tracker: scheduledTracker,
+      } = await engine.push(rescheduleComposite, true);
+
+      // Ensure task enters SCHEDULED at least once.
+      await waitForTaskStatus(scheduledTask.id, TaskStatus.SCHEDULED);
+
+      const scheduledResult = await scheduledTracker.wait();
+
+      expect(scheduledResult.stepResults.length).toBe(3);
+      expect(scheduledResult.stepResults[0].output).toBe(10);
+      expect(scheduledResult.stepResults[1].output).toBe(11);
+      expect(scheduledResult.stepResults[2].output).toBe(10 + 11 + 2);
+
+      // Ensure first two steps did not rerun across scheduling.
+      expect(DuplicateClassificationStep.runsByStep[0]).toBe(2); // once per scenario
+      expect(DuplicateClassificationStep.runsByStep[1]).toBe(2); // once per scenario
+
+      const scheduledSeen = DuplicateRescheduleGateStep.seenCacheByRun[scheduledTask.id];
+      expect(scheduledSeen?.length).toBe(2);
+      expect(scheduledSeen?.[0]).toEqual({ step0: 10, step1: 11 });
+      expect(scheduledSeen?.[1]).toEqual({ step0: 10, step1: 11 });
     });
 
     it("executes a 4-step composite with cached random outputs and flaky step math", async () => {

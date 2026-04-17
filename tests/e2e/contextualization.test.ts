@@ -12,11 +12,11 @@ import {
   Repository,
   table,
   createdBy,
+  version,
 } from "../../src";
 import {
   BulkCrudOperationKeys,
   OperationKeys,
-  version,
 } from "@decaf-ts/db-decorators";
 import {
   maxlength,

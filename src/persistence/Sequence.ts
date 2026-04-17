@@ -289,6 +289,75 @@ export class Sequence<
     return range;
   }
 
+  /**
+   * @description Ensures the sequence exists and is at least a given value
+   * @summary Upserts the sequence record to the provided value when missing, and optionally only when the
+   * provided value is greater than the persisted one. This is used by decorators that want to "seed" a
+   * sequence based on an existing model value (for example when overriding/bootstrapping sequences).
+   */
+  async ensureAtLeast(
+    value: string | number | bigint,
+    ...argz: MaybeContextualArg<any>
+  ): Promise<string | number | bigint> {
+    const { ctx } = (await this.logCtx(argz, OperationKeys.UPDATE, true)).for(
+      this.ensureAtLeast
+    );
+    const { name } = this.options;
+    if (!name) throw new InternalError("Sequence name is required");
+
+    const desired = this.parse(value);
+
+    const greaterThan = (
+      a: string | number | bigint,
+      b: string | number | bigint
+    ): boolean => {
+      if (typeof a === "bigint" || typeof b === "bigint") {
+        return BigInt(a as any) > BigInt(b as any);
+      }
+      if (typeof a === "number" || typeof b === "number") {
+        return Number(a) > Number(b);
+      }
+      return String(a) > String(b);
+    };
+
+    return Sequence.lock.execute(async () => {
+      const readExisting = async (): Promise<SequenceModel | undefined> => {
+        try {
+          return await this.repo.read(name, ctx);
+        } catch (e: any) {
+          if (e instanceof NotFoundError) return undefined;
+          throw e;
+        }
+      };
+
+      while (true) {
+        try {
+          const existing = await readExisting();
+          if (!existing) {
+            // Always create the sequence when missing, even if desired <= startWith.
+            await this.repo.create(
+              new SequenceModel({ id: name, current: desired }),
+              ctx
+            );
+            return desired;
+          }
+
+          const current = this.parse(existing.current as any);
+          if (!greaterThan(desired, current)) return current;
+
+          await this.repo.update(
+            new SequenceModel({ id: name, current: desired }),
+            ctx
+          );
+          return desired;
+        } catch (e: unknown) {
+          if (e instanceof ConflictError) continue;
+          throw e;
+        }
+      }
+    }, name);
+  }
+
   protected parse(value: string | number | bigint): string | number | bigint {
     return Sequence.parseValue(this.options.type, value);
   }

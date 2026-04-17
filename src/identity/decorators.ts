@@ -10,6 +10,7 @@ import {
   GroupSort,
   InternalError,
   onCreate,
+  onUpdate,
   readonly,
 } from "@decaf-ts/db-decorators";
 import type { Sequence } from "../persistence/Sequence";
@@ -28,6 +29,11 @@ import { index } from "../model/indexing";
 const defaultPkPriority = 60; // Default priority for primary key to run latter than other properties
 
 type SequenceNameFn = (model: any, ...args: string[]) => string;
+
+export type SequenceDecoratorParams = {
+  /** when true, handler also runs on update (generates the next value) */
+  update?: boolean;
+};
 
 function isSequenceNameFn(fn: unknown): fn is SequenceNameFn {
   return typeof fn === "function";
@@ -161,7 +167,7 @@ export async function pkOnCreate<
     Reflect.set(target, propertyKey, value);
   };
 
-  if (!data.name) data.name = Model.sequenceName(model, key as string);
+  if (!data.name) data.name = Model.sequenceName(model, "pk");
   let sequence: Sequence;
   try {
     sequence = await this.adapter.Sequence(data, this._overrides);
@@ -173,6 +179,55 @@ export async function pkOnCreate<
 
   const next = await sequence.next(context);
   setPrimaryKeyValue(model, key as string, next);
+}
+
+export async function sequenceOnCreateUpdate<
+  M extends Model,
+  R extends Repository<M, any>,
+  V extends SequenceOptions & SequenceDecoratorParams,
+>(
+  this: R,
+  context: ContextOf<R>,
+  data: V,
+  key: keyof M,
+  model: M,
+
+  oldModel?: M
+): Promise<void> {
+  if (!data.type || !data.generated) return;
+  if (!data.name) data.name = Model.sequenceName(model, String(key));
+
+  let sequence: Sequence;
+  try {
+    sequence = await this.adapter.Sequence(data as any, this._overrides);
+  } catch (e: any) {
+    throw new InternalError(
+      `Failed to instantiate Sequence ${data.name}: ${e}`
+    );
+  }
+
+  const isUpdate = typeof oldModel !== "undefined" && oldModel !== null;
+
+  const hasValue = typeof model[key] !== "undefined" && model[key] !== null;
+  const allowGenerationOverride =
+    !!context.get("allowGenerationOverride") && hasValue;
+
+  // Always ensure the backing sequence exists. If a user-provided value exists
+  // and no sequence exists, use that value as the starting point.
+  if (hasValue) {
+    await (sequence as any).ensureAtLeast(model[key] as any, context);
+  }
+
+  // On update, only run if explicitly enabled; but if we did run, we still already
+  // ensured the sequence exists/seeded above.
+  if (isUpdate && !data.update) return;
+
+  // When generation override is enabled, keep the model's value but still ensure
+  // the backing sequence exists/has been seeded.
+  if (allowGenerationOverride) return;
+
+  const next = await sequence.next(context);
+  Reflect.set(model, key as string, next as any);
 }
 
 export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
@@ -195,7 +250,11 @@ export function pkDec(options: SequenceOptions, groupsort?: GroupSort) {
   };
 }
 
-export function sequenceDec(options: SequenceOptions, groupsort?: GroupSort) {
+export function sequenceDec(
+  options: SequenceOptions,
+  params: SequenceDecoratorParams = {},
+  groupsort?: GroupSort
+) {
   return function sequenceDec(obj: any, attr: any) {
     prop()(obj, attr);
     ensureSequenceOptions(obj, attr, options);
@@ -205,10 +264,22 @@ export function sequenceDec(options: SequenceOptions, groupsort?: GroupSort) {
     }
     const decs = [
       required(),
-      readonly(),
       propMetadata(Metadata.key(PersistenceKeys.SEQUENCE, attr), options),
-      onCreate(pkOnCreate, options, groupsort),
+      onCreate(
+        sequenceOnCreateUpdate as any,
+        { ...options, ...params } as any,
+        groupsort
+      ),
     ];
+    if (params.update) {
+      decs.push(
+        onUpdate(
+          sequenceOnCreateUpdate as any,
+          { ...options, ...params } as any,
+          groupsort
+        )
+      );
+    }
     if (options.generated) decs.push(generated());
     return apply(...decs)(obj, attr);
   };
@@ -250,15 +321,22 @@ export function pk(
 }
 
 export function sequence(
-  opts?: Partial<Omit<SequenceOptions, "cycle" | "startWith" | "incrementBy">>
+  opts?: Partial<Omit<SequenceOptions, "cycle" | "startWith" | "incrementBy">>,
+  updateOrParams?: SequenceDecoratorParams | boolean
 ) {
   const DefaultSequenceOptionsMin = Object.assign({}, DefaultSequenceOptions);
   delete DefaultSequenceOptionsMin.generated;
   opts = Object.assign({}, DefaultSequenceOptionsMin, opts) as SequenceOptions;
+
+  const params: SequenceDecoratorParams =
+    typeof updateOrParams === "boolean"
+      ? { update: updateOrParams }
+      : updateOrParams || {};
+
   return Decoration.for(PersistenceKeys.SEQUENCE)
     .define({
       decorator: sequenceDec,
-      args: [opts, { priority: defaultPkPriority }],
+      args: [opts, params, { priority: defaultPkPriority }],
     })
     .apply();
 }

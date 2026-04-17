@@ -1,13 +1,16 @@
 import {
   afterAny,
   ConflictError,
+  InternalError,
   onCreate,
   onCreateUpdate,
   onDelete,
   onUpdate,
   generated,
+  version as dbVersion,
   OperationKeys,
   timestamp,
+  ValidationError,
 } from "@decaf-ts/db-decorators";
 import {
   apply as newApply,
@@ -48,6 +51,7 @@ import {
 } from "./construction";
 import { AuthorizationError } from "../utils/errors";
 import { ContextOf } from "../persistence/types";
+import { SequenceOptions } from "../interfaces/SequenceOptions";
 
 /**
  * @description Specifies the database table name for a model
@@ -269,6 +273,125 @@ export function createdAt() {
 
 export function updatedAt() {
   return timestamp();
+}
+
+async function persistentVersionOnCreate<M extends Model, R extends Repo<M>>(
+  this: R,
+  context: ContextOf<R>,
+
+  data: object,
+  key: keyof M,
+  model: M
+): Promise<void> {
+  const id = Model.pk(model, true) as any;
+  if (typeof id === "undefined" || id === null) {
+    throw new InternalError(
+      `Cannot generate persistent version without an id for ${model.constructor.name}`
+    );
+  }
+
+  const options: SequenceOptions = {
+    name: Model.sequenceName(model, String(id), String(key)),
+    type: Number,
+    generated: true,
+    startWith: 0,
+    incrementBy: 1,
+    cycle: false,
+  };
+
+  const sequence = await (this as any).adapter.Sequence(
+    options,
+    (this as any)._overrides
+  );
+
+  const hasValue =
+    typeof (model as any)[key] !== "undefined" && (model as any)[key] !== null;
+  const allowGenerationOverride =
+    !!context.get("allowGenerationOverride") && hasValue;
+
+  // Always ensure the sequence exists; if a value exists and no sequence exists,
+  // seed it from the current model value.
+  if (hasValue) {
+    await (sequence as any).ensureAtLeast((model as any)[key], context);
+    if (allowGenerationOverride) return;
+  }
+
+  const next = await sequence.next(context);
+  (model as any)[key] = next as any;
+}
+
+async function persistentVersionOnUpdate<M extends Model, R extends Repo<M>>(
+  this: R,
+  context: ContextOf<R>,
+
+  data: object,
+  key: keyof M,
+  model: M,
+  oldModel: M
+): Promise<void> {
+  if (
+    context.get("applyUpdateValidation") &&
+    oldModel &&
+    model[key] !== oldModel[key]
+  ) {
+    throw new ValidationError(
+      `Version mismatch: ${model[key]} !== ${oldModel[key]}`
+    );
+  }
+
+  const id = Model.pk(model, true) as any;
+  if (typeof id === "undefined" || id === null) {
+    throw new InternalError(
+      `Cannot generate persistent version without an id for ${model.constructor.name}`
+    );
+  }
+
+  const options: SequenceOptions = {
+    name: Model.sequenceName(model, String(id), String(key)),
+    type: Number,
+    generated: true,
+    startWith: 0,
+    incrementBy: 1,
+    cycle: false,
+  };
+
+  const sequence = await (this as any).adapter.Sequence(
+    options,
+    (this as any)._overrides
+  );
+
+  const hasValue =
+    typeof (model as any)[key] !== "undefined" && (model as any)[key] !== null;
+  const allowGenerationOverride =
+    !!context.get("allowGenerationOverride") && hasValue;
+
+  if (hasValue) {
+    await (sequence as any).ensureAtLeast((model as any)[key], context);
+    if (allowGenerationOverride) return;
+  }
+
+  const next = await sequence.next(context);
+  (model as any)[key] = next as any;
+}
+
+export function persistentVersion() {
+  const key = PersistenceKeys.PERSISTENT_VERSION;
+  return function version(target: any, propertyKey?: any) {
+    return Decoration.for(key)
+      .define(
+        propMetadata(Metadata.key(key, propertyKey), true),
+        generated(key),
+        type(Number),
+        onCreate(persistentVersionOnCreate as any, {}, { priority: 70 }),
+        onUpdate(persistentVersionOnUpdate as any, {}, { priority: 70 })
+      )
+      .apply()(target, propertyKey);
+  };
+}
+
+export function version(persistent: boolean = false) {
+  if (!persistent) return dbVersion();
+  return persistentVersion();
 }
 
 export function getPkTypes(model: Constructor | (() => Constructor)) {

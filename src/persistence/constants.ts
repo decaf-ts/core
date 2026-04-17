@@ -97,6 +97,8 @@ export enum PersistenceKeys {
 
   THROTTLE = "throttle",
 
+  PERSISTENT_VERSION = "persistent-version",
+
   DEFAULT_QUERY_ATTR = "default-query-attr",
 }
 

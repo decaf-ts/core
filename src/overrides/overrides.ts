@@ -222,16 +222,21 @@ import { type Migration } from "../migrations/types";
 ): SequenceOptions {
   const target =
     typeof model !== "function" ? (model.constructor as any) : model;
-  if (!property)
-    property = Model.pk(model)
 
-  const metadata = Metadata.get(
-    target,
-    Metadata.key(PersistenceKeys.SEQUENCE, property as string)
-  );
+  let key: string = PersistenceKeys.SEQUENCE;
+
+  const pk = Model.pk(target);
+
+  if (!property || String(property) === String(pk)) {
+    property = pk as any;
+    key = DBKeys.ID;
+  }
+  key = Metadata.key(key, property as string);
+
+  const metadata = Metadata.get(target, key);
   if (!metadata)
     throw new InternalError(
-      `No sequence options defined for property ${String(property)}. did you use @sequence()?`
+      `No sequence options defined for property ${String(property)}. did you use @sequence() or @pk()?`
     );
   return metadata as SequenceOptions;
 };

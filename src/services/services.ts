@@ -52,6 +52,18 @@ export abstract class Service<
     });
   }
 
+  override(conf: any, ...args: any[]): this {
+    return new Proxy(this, {
+      get(original, prop, receiver) {
+        const orig = Reflect.get(original, prop, receiver);
+        if (typeof orig !== "object") return orig;
+        if (orig instanceof Service) return orig.override(conf, ...args);
+        if (orig instanceof Repository) return orig.override(conf);
+        return orig;
+      },
+    });
+  }
+
   /**
    * @description Registers an observer for this repository.
    * @summary Adds an observer that will be notified of changes to models in this repository.

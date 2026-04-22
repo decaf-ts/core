@@ -11,6 +11,20 @@ import type { Constructor } from "@decaf-ts/decoration";
 import { PersistenceKeys } from "../persistence/index";
 import { PreparedStatementKeys } from "../query/index";
 
+function isContextLike(value: unknown): value is Context<any> {
+  if (!value || typeof value !== "object") return false;
+  const v = value as any;
+  // Avoid `instanceof` here because multiple linked builds of `@decaf-ts/core`
+  // can lead to duplicate Context constructors and failing realm checks.
+  return (
+    typeof v.get === "function" &&
+    typeof v.accumulate === "function" &&
+    typeof v.override === "function" &&
+    typeof v.toOverrides === "function" &&
+    v.cache !== undefined
+  );
+}
+
 export type ContextualArgs<
   C extends Context<any>,
   ARGS extends any[] = any[],
@@ -200,7 +214,7 @@ export abstract class ContextualLoggedClass<
     };
 
     let ctx: any = args.pop();
-    const hasContext = ctx instanceof Context;
+    const hasContext = ctx instanceof Context || isContextLike(ctx);
     if (ctx && !hasContext) {
       args.push(ctx);
       ctx = undefined;

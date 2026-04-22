@@ -581,9 +581,25 @@ export abstract class Adapter<
       ctx = undefined;
     }
 
-    overrides = ctx
-      ? Object.assign({}, ctx.toOverrides(), overrides)
-      : overrides;
+    // Repository/adapter overrides are authoritative (backwards compatible),
+    // but allow `allowGenerationOverride=true` from an incoming context to survive.
+    //
+    // Reason: `allowGenerationOverride` is a user-driven flag that must not be
+    // reset by repository defaults when the user explicitly asks to keep a
+    // provided value on create/update while still maintaining a backing sequence.
+    const ctxAllowGenerationOverride = (() => {
+      if (!ctx) return false;
+      try {
+        return !!ctx.get("allowGenerationOverride" as any);
+      } catch {
+        return false;
+      }
+    })();
+
+    overrides = ctx ? Object.assign({}, ctx.toOverrides(), overrides) : overrides;
+    if (ctxAllowGenerationOverride) {
+      (overrides as any).allowGenerationOverride = true;
+    }
     const flags = await this.flags(
       typeof operation === "string" ? operation : operation.name,
       model,

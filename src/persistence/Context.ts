@@ -1,11 +1,53 @@
-import { Context as Ctx, InternalError } from "@decaf-ts/db-decorators";
+import {
+  Context as Ctx,
+  type ContextFactory,
+  type FlagsOfContext,
+  InternalError,
+  OperationKeys,
+} from "@decaf-ts/db-decorators";
+import type { Constructor } from "@decaf-ts/decoration";
+import { Logging } from "@decaf-ts/logging";
+import type { Model } from "@decaf-ts/decorator-validation";
 import { AdapterFlags, ContextFlags } from "./types";
 
 export class Context<
   F extends ContextFlags<any> = AdapterFlags<any>,
 > extends Ctx<F> {
   constructor(ctx?: Context<any>) {
-    super(ctx as Ctx<any>);
+    super(ctx as any);
+  }
+
+  // Ensure `Context.from(...)` returns a core Context instance (not the base db-decorators one).
+  static override factory: ContextFactory<any> = (arg: any) => {
+    const ctx = new Context<any>();
+    return ctx.accumulate(
+      Object.assign({}, arg, {
+        timestamp: new Date(),
+        logger: arg.logger || Logging.get(),
+      })
+    ) as any;
+  };
+
+  static override async from<M extends Model, C extends Ctx<any>>(
+    operation:
+      | OperationKeys.CREATE
+      | OperationKeys.READ
+      | OperationKeys.UPDATE
+      | OperationKeys.DELETE
+      | string,
+    overrides: Partial<FlagsOfContext<C>>,
+    model: Constructor<M>,
+    ...args: any[]
+  ): Promise<C> {
+    return (this as any).factory(
+      Object.assign({}, overrides || {}, {
+        operation,
+        model,
+        affectedTables: model,
+        args,
+        logger: (overrides as any)?.logger || Logging.get(),
+      })
+    ) as C;
   }
 
   pushPending(key: string, id: string) {

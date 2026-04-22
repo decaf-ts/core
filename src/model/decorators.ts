@@ -283,6 +283,13 @@ async function persistentVersionOnCreate<M extends Model, R extends Repo<M>>(
   key: keyof M,
   model: M
 ): Promise<void> {
+  // Sequences are meta-records that can be updated during other lifecycle hooks
+  // (for example while computing persistent versions). Persisting a persistent
+  // version for the sequence records themselves causes name recursion like:
+  // `owner_<id>_version -> ??sequence_owner_<id>_version_version -> ...`.
+  // Sequence versions do not need to be persistent.
+  if (Model.tableName(model) === "??sequence") return;
+
   const id = Model.pk(model, true) as any;
   if (typeof id === "undefined" || id === null) {
     throw new InternalError(
@@ -329,6 +336,9 @@ async function persistentVersionOnUpdate<M extends Model, R extends Repo<M>>(
   model: M,
   oldModel: M
 ): Promise<void> {
+  // See persistentVersionOnCreate comment above.
+  if (Model.tableName(model) === "??sequence") return;
+
   if (
     context.get("applyUpdateValidation") &&
     oldModel &&
@@ -379,6 +389,8 @@ export function persistentVersion() {
   return function version(target: any, propertyKey?: any) {
     return Decoration.for(key)
       .define(
+        // Ensure class-level decorators (for example Fabric shared/private data) can "see" this attribute.
+        prop(),
         propMetadata(Metadata.key(key, propertyKey), true),
         generated(key),
         type(Number),

@@ -216,6 +216,34 @@ import { type Migration } from "../migrations/types";
   return [Model.tableName(model), ...args].join("_");
 };
 
+(Model as any).versionOf = function versionOf<M extends Model>(
+  model: M
+): number {
+  const meta = Metadata.get(model.constructor as any) as any;
+
+  // Prefer persistent version if present (for `@version(true)` / `@persistentVersion()`).
+  const persistentMeta = meta?.[PersistenceKeys.PERSISTENT_VERSION];
+  const persistentProp =
+    persistentMeta && typeof persistentMeta === "object"
+      ? (Object.keys(persistentMeta)[0] as keyof M | undefined)
+      : undefined;
+
+  const versionMeta = meta?.[DBKeys.VERSION];
+  const versionProp =
+    versionMeta && typeof versionMeta === "object"
+      ? (Object.keys(versionMeta)[0] as keyof M | undefined)
+      : undefined;
+
+  const prop = (persistentProp ?? versionProp) as keyof M | undefined;
+  if (!prop)
+    throw new InternalError(`No version found for ${model.constructor.name}`);
+
+  const version = (model as any)[prop];
+  if (typeof version !== "number" || version < 1)
+    throw new InternalError(`Invalid version number: ${version}`);
+  return version;
+}.bind(Model);
+
 (Model as any).sequenceFor = function sequenceFor<M extends Model<boolean>>(
   model: Constructor<M> | M,
   property?: keyof M

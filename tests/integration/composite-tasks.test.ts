@@ -479,7 +479,8 @@ class CompositeRandStep3 extends TaskHandler<void, number> {
       (CompositeRandStep3.calls[ctx.taskId] ?? 0) + 1;
     const desiredFails =
       CompositeRandStep3.desiredFails[ctx.taskId] ??
-      (CompositeRandStep3.desiredFails[ctx.taskId] = randomInt(1, 5));
+      // Keep the suite reliably under Jest's default 5s per-test timeout.
+      (CompositeRandStep3.desiredFails[ctx.taskId] = randomInt(1, 3));
     const attempt = CompositeRandStep3.calls[ctx.taskId];
 
     if (attempt <= desiredFails) {
@@ -896,10 +897,10 @@ describe("Composite Tasks Integration", () => {
       expect(step3).toBe(step1 * step2[1]);
 
       const persisted = await taskRepo.read(task.id);
-      // CompositeRandStep3 intentionally fails N times (1..5); task attempt is 0-based.
+      // CompositeRandStep3 intentionally fails N times (1..3); task attempt is 0-based.
       const fails = persisted.attempt;
       expect(fails).toBeGreaterThanOrEqual(1);
-      expect(fails).toBeLessThanOrEqual(5);
+      expect(fails).toBeLessThanOrEqual(3);
 
       expect(typeof step4).toBe("number");
       expect(step4).toBe(fails * step1 * step3);

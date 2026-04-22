@@ -50,12 +50,6 @@ function resolveSequenceName(model: any, suffix: string) {
   return [tableName, anchor].filter(Boolean).join("_");
 }
 
-function normalizePropertyKey(attr: string | symbol): string {
-  if (typeof attr === "string") return attr;
-  if (typeof attr === "symbol") return attr.description || attr.toString();
-  return String(attr);
-}
-
 function ensureSequenceOptions(
   obj: any,
   attr: any,
@@ -195,7 +189,15 @@ export async function sequenceOnCreateUpdate<
   oldModel?: M
 ): Promise<void> {
   if (!data.type || !data.generated) return;
-  if (!data.name) data.name = Model.sequenceName(model, String(key));
+  if (!data.name) {
+    const id = Model.pk(model, true) as any;
+    if (typeof id === "undefined" || id === null) {
+      throw new InternalError(
+        `Cannot generate sequence without an id for ${model.constructor.name}`
+      );
+    }
+    data.name = Model.sequenceName(model, String(id), String(key));
+  }
 
   let sequence: Sequence;
   try {
@@ -258,10 +260,6 @@ export function sequenceDec(
   return function sequenceDec(obj: any, attr: any) {
     prop()(obj, attr);
     ensureSequenceOptions(obj, attr, options);
-    if (!options.name) {
-      const suffix = normalizePropertyKey(attr);
-      options.name = resolveSequenceName(obj.constructor, suffix);
-    }
     const decs = [
       required(),
       propMetadata(Metadata.key(PersistenceKeys.SEQUENCE, attr), options),
@@ -336,7 +334,8 @@ export function sequence(
   return Decoration.for(PersistenceKeys.SEQUENCE)
     .define({
       decorator: sequenceDec,
-      args: [opts, params, { priority: defaultPkPriority }],
+      // Run after pk generation so the model id exists for per-instance sequences.
+      args: [opts, params, { priority: defaultPkPriority + 10 }],
     })
     .apply();
 }

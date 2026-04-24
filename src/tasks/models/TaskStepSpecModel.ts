@@ -6,6 +6,7 @@ import {
   required,
 } from "@decaf-ts/decorator-validation";
 import { description, prop } from "@decaf-ts/decoration";
+import { list } from "@decaf-ts/decorator-validation";
 
 @model()
 export class TaskStepSpecModel extends Model {
@@ -20,6 +21,19 @@ export class TaskStepSpecModel extends Model {
   @description("optional task step input")
   @prop()
   input?: any;
+
+  @description(
+    "Optional lock key. Tasks/steps sharing the same key cannot run concurrently"
+  )
+  @prop()
+  lock?: string;
+
+  @description(
+    "Task-step dependencies. Supports '<taskId>' or '<taskId>:<step index|step reference>'"
+  )
+  @prop()
+  @list(() => String)
+  dependsOn?: string[];
 
   constructor(arg?: ModelArg<TaskStepSpecModel>) {
     super(arg);

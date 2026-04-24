@@ -689,7 +689,7 @@ describe("Task Engine", () => {
     })
       .addStep("step-one-task", { value: 5 })
       .addStep("flaky-step-task", { offset: 3 })
-      .addStep("combine-step-task")
+      .addStep("combine-step-task").build()
       .build();
     expect(composite.steps?.length).toBe(3);
 
@@ -748,7 +748,7 @@ describe("Task Engine", () => {
       backoff: createBackoff(),
     })
       .addStep("repo-write-step", { value: 11 })
-      .addStep("repo-read-step")
+      .addStep("repo-read-step").build()
       .build();
 
     const writer = registry.get("repo-write-step") as RepositoryWriteStep;

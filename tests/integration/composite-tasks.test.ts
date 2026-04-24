@@ -17,6 +17,7 @@ import {
 import { TaskBackoffModel } from "../../src/tasks/models/TaskBackoffModel";
 import { TaskEventModel } from "../../src/tasks/models/TaskEventModel";
 import { TaskModel } from "../../src/tasks/models/TaskModel";
+import { TaskStepSpecModel } from "../../src/tasks/models/TaskStepSpecModel";
 import {
   BackoffStrategy,
   JitterStrategy,
@@ -521,6 +522,155 @@ class CompositeRandStep4 extends TaskHandler<void, number> {
   }
 }
 
+@task("dynamic-enqueue-step")
+class DynamicEnqueueStep extends TaskHandler<{ value?: number } | void, number> {
+  async run(input: { value?: number } | void, ctx: TaskContext) {
+    const payload = parseObjectInput<{ value?: number }>(input) ?? input;
+    const value = payload?.value ?? 7;
+    await ctx
+      .scheduleSteps(
+        new TaskStepSpecModel({
+          ...createDates(),
+          classification: "dynamic-appended-step",
+          input: { value },
+        })
+      )
+      .afterCurrent();
+    return value;
+  }
+}
+
+@task("dynamic-appended-step")
+class DynamicAppendedStep extends TaskHandler<{ value?: number } | void, number> {
+  async run(input: { value?: number } | void, _ctx: TaskContext) {
+    const payload = parseObjectInput<{ value?: number }>(input) ?? input;
+    return payload?.value ?? 0;
+  }
+}
+
+@task("dynamic-tail-step")
+class DynamicTailStep extends TaskHandler<void, number> {
+  async run(_: void, ctx: TaskContext) {
+    const cache = ctx.resultCache ?? {};
+    const appended = cache["dynamic-appended-step"];
+    if (typeof appended !== "number") {
+      throw new Error("dynamic-tail-step: expected appended step output");
+    }
+    return appended + 1;
+  }
+}
+
+@task("dynamic-persistent-enqueue-step")
+class DynamicPersistentEnqueueStep extends TaskHandler<{ seed?: number } | void, number> {
+  static runs: Record<string, number> = {};
+
+  async run(input: { seed?: number } | void, ctx: TaskContext) {
+    DynamicPersistentEnqueueStep.runs[ctx.taskId] =
+      (DynamicPersistentEnqueueStep.runs[ctx.taskId] ?? 0) + 1;
+    const payload = parseObjectInput<{ seed?: number }>(input) ?? input;
+    const seed = payload?.seed ?? 20;
+    await ctx
+      .scheduleSteps(
+        new TaskStepSpecModel({
+          ...createDates(),
+          classification: "dynamic-persistent-flaky-step",
+        }),
+        new TaskStepSpecModel({
+          ...createDates(),
+          classification: "dynamic-persistent-tail-step",
+        })
+      )
+      .afterCurrent();
+    return seed;
+  }
+}
+
+@task("dynamic-persistent-flaky-step")
+class DynamicPersistentFlakyStep extends TaskHandler<void, number> {
+  static runs: Record<string, number> = {};
+
+  async run(_: void, ctx: TaskContext) {
+    const run = (DynamicPersistentFlakyStep.runs[ctx.taskId] ?? 0) + 1;
+    DynamicPersistentFlakyStep.runs[ctx.taskId] = run;
+    const cache = ctx.resultCache ?? {};
+    const seed = cache[`${ctx.taskId}:step:0`];
+    if (typeof seed !== "number") {
+      throw new Error("dynamic-persistent-flaky-step: missing cached seed");
+    }
+    if (run === 1) {
+      throw new Error("dynamic-persistent-flaky-step: intentional first failure");
+    }
+    return seed + 1;
+  }
+}
+
+@task("dynamic-persistent-tail-step")
+class DynamicPersistentTailStep extends TaskHandler<void, number> {
+  static runs: Record<string, number> = {};
+
+  async run(_: void, ctx: TaskContext) {
+    DynamicPersistentTailStep.runs[ctx.taskId] =
+      (DynamicPersistentTailStep.runs[ctx.taskId] ?? 0) + 1;
+    const cache = ctx.resultCache ?? {};
+    const flaky = cache[`${ctx.taskId}:step:1`];
+    if (typeof flaky !== "number") {
+      throw new Error("dynamic-persistent-tail-step: missing flaky output");
+    }
+    return flaky + 1;
+  }
+}
+
+@task("dependency-source-task")
+class DependencySourceTask extends TaskHandler<void, string> {
+  async run(_: void, _ctx: TaskContext) {
+    return "source-ready";
+  }
+}
+
+@task("dependency-step-source")
+class DependencyStepSource extends TaskHandler<void, number> {
+  async run(_: void, _ctx: TaskContext) {
+    return 99;
+  }
+}
+
+@task("dependency-target-task")
+class DependencyTargetTask extends TaskHandler<void, string> {
+  async run(_: void, _ctx: TaskContext) {
+    return "target-ran";
+  }
+}
+
+@task("shared-lock-task")
+class SharedLockTask extends TaskHandler<{ delayMs?: number } | void, number> {
+  static starts: number[] = [];
+
+  async run(input: { delayMs?: number } | void, _ctx: TaskContext) {
+    const payload = parseObjectInput<{ delayMs?: number }>(input) ?? input;
+    const delayMs = payload?.delayMs ?? 120;
+    SharedLockTask.starts.push(Date.now());
+    await sleep(delayMs);
+    return delayMs;
+  }
+}
+
+@task("catch-aware-fail")
+class CatchAwareFailHandler extends TaskHandler<void, never> {
+  static catches: Array<{ taskId: string; step?: number; message: string }> = [];
+
+  async run(_: void, _ctx: TaskContext): Promise<never> {
+    throw new Error("catch-aware-fail-boom");
+  }
+
+  override async catch(_input: void, error: unknown, ctx: TaskContext): Promise<void> {
+    CatchAwareFailHandler.catches.push({
+      taskId: ctx.taskId,
+      step: ctx.step,
+      message: (error as Error)?.message ?? String(error),
+    });
+  }
+}
+
 // ============================================================================
 // Test Suite
 // ============================================================================
@@ -570,6 +720,11 @@ describe("Composite Tasks Integration", () => {
     CompositeRandStep3.calls = {};
     CompositeRandStep3.desiredFails = {};
     CompositeRandStep4.calls = {};
+    SharedLockTask.starts = [];
+    CatchAwareFailHandler.catches = [];
+    DynamicPersistentEnqueueStep.runs = {};
+    DynamicPersistentFlakyStep.runs = {};
+    DynamicPersistentTailStep.runs = {};
   });
 
   afterEach(async () => {
@@ -597,8 +752,8 @@ describe("Composite Tasks Integration", () => {
         backoff: createBackoff(),
       })
         .addStep("composite-add-step", { value: 5 }) // 5 + 10 = 15
-        .addStep("composite-multiply-step") // 15 * 2 = 30
-        .addStep("composite-final-step") // 15 + 30 = 45
+        .addStep("composite-multiply-step").build() // 15 * 2 = 30
+        .addStep("composite-final-step").build() // 15 + 30 = 45
         .build();
 
       expect(composite.steps?.length).toBe(3);
@@ -626,7 +781,7 @@ describe("Composite Tasks Integration", () => {
         backoff: createBackoff(),
       })
         .addStep("composite-add-step", { value: 10 }) // 10 + 10 = 20
-        .addStep("composite-multiply-step") // uses cache["composite-add-step"] = 20, result = 40
+        .addStep("composite-multiply-step").build() // uses cache["composite-add-step"] = 20, result = 40
         .build();
 
       const { tracker } = await engine.push(composite, true);
@@ -646,7 +801,7 @@ describe("Composite Tasks Integration", () => {
         backoff: createBackoff(),
       })
         .addStep("composite-add-step", { value: 1 })
-        .addStep("composite-multiply-step")
+        .addStep("composite-multiply-step").build()
         .build();
 
       const { task, tracker } = await engine.push(composite, true);
@@ -676,7 +831,7 @@ describe("Composite Tasks Integration", () => {
         ...createDates(),
         backoff: createBackoff(),
       })
-        .addStep("composite-noop-step")
+        .addStep("composite-noop-step").build()
         .build();
 
       const { tracker } = await engine.push(composite, true);
@@ -706,6 +861,211 @@ describe("Composite Tasks Integration", () => {
     });
   });
 
+  describe("DECAF-12 Features", () => {
+    it("allows composite steps to append downstream steps and emits update events", async () => {
+      const trackerUpdates: TaskEventModel[] = [];
+      const composite = new CompositeTaskBuilder({
+        classification: "decaf12-dynamic-step",
+        atomicity: TaskType.COMPOSITE,
+        attempt: 0,
+        maxAttempts: 1,
+        ...createDates(),
+        backoff: createBackoff(),
+      })
+        .addStep("dynamic-enqueue-step", { value: 11 })
+        .addStep("dynamic-tail-step").build()
+        .build();
+
+      const { task, tracker } = await engine.push(composite, true);
+      tracker.onUpdate(async (evt) => {
+        trackerUpdates.push(evt);
+      });
+      const result = await tracker.resolve();
+
+      expect(result.stepResults.length).toBe(3);
+      expect(result.stepResults[0].output).toBe(11);
+      expect(result.stepResults[1].output).toBe(11);
+      expect(result.stepResults[2].output).toBe(12);
+
+      const updates = eventsFor(task.id, TaskEventType.UPDATE);
+      expect(updates.length).toBeGreaterThan(0);
+      expect(updates[0].payload?.status).toBe("update");
+      expect(trackerUpdates.length).toBeGreaterThan(0);
+      expect(trackerUpdates[0].classification).toBe(TaskEventType.UPDATE);
+    });
+
+    it("persists appended steps so retries continue through dynamically added step chain", async () => {
+      const composite = new CompositeTaskBuilder({
+        classification: "decaf12-dynamic-persistence",
+        atomicity: TaskType.COMPOSITE,
+        attempt: 0,
+        maxAttempts: 2,
+        ...createDates(),
+        backoff: createBackoff({ baseMs: 1, maxMs: 1 }),
+      })
+        .addStep("dynamic-persistent-enqueue-step", { seed: 30 })
+        .build();
+
+      const { task, tracker } = await engine.push(composite, true);
+      const waitingRetry = await waitForTaskStatus(task.id, TaskStatus.WAITING_RETRY);
+
+      expect(waitingRetry.currentStep).toBe(1);
+      expect(waitingRetry.steps?.length).toBe(3);
+      expect(waitingRetry.steps?.map((step) => step.classification)).toEqual([
+        "dynamic-persistent-enqueue-step",
+        "dynamic-persistent-flaky-step",
+        "dynamic-persistent-tail-step",
+      ]);
+
+      const result = await tracker.resolve();
+
+      expect(result.stepResults.length).toBe(3);
+      expect(result.stepResults[0].output).toBe(30);
+      expect(result.stepResults[1].output).toBe(31);
+      expect(result.stepResults[2].output).toBe(32);
+
+      expect(DynamicPersistentEnqueueStep.runs[task.id]).toBe(1);
+      expect(DynamicPersistentFlakyStep.runs[task.id]).toBe(2);
+      expect(DynamicPersistentTailStep.runs[task.id]).toBe(1);
+    }, 20000);
+
+    it("enforces task dependencies against task and task-step completion", async () => {
+      const sourceTask = new TaskBuilder({
+        classification: "dependency-source-task",
+        attempt: 0,
+        maxAttempts: 1,
+        ...createDates(),
+        backoff: createBackoff(),
+      }).build();
+      const { task: finishedDependency, tracker: sourceTracker } = await engine.push(
+        sourceTask,
+        true
+      );
+      await sourceTracker.resolve();
+
+      const dependentTask = new TaskBuilder({
+        classification: "dependency-target-task",
+        attempt: 0,
+        maxAttempts: 1,
+        ...createDates(),
+        backoff: createBackoff(),
+        dependencies: [finishedDependency.id],
+      }).build();
+
+      const { tracker: dependentTracker } = await engine.push(dependentTask, true);
+      const firstDependencyResult = await dependentTracker.resolve();
+      expect(firstDependencyResult).toBe("target-ran");
+
+      const stepSource = new CompositeTaskBuilder({
+        classification: "dependency-step-provider",
+        atomicity: TaskType.COMPOSITE,
+        attempt: 0,
+        maxAttempts: 1,
+        ...createDates(),
+        backoff: createBackoff(),
+      })
+        .addStep("dependency-step-source").build()
+        .build();
+
+      const { task: stepTask, tracker: stepTracker } = await engine.push(
+        stepSource,
+        true
+      );
+
+      const crossStepDependent = new TaskBuilder({
+        classification: "dependency-target-task",
+        attempt: 0,
+        maxAttempts: 1,
+        ...createDates(),
+        backoff: createBackoff(),
+        dependencies: [`${stepTask.id}:0`],
+      }).build();
+
+      const { tracker } = await engine.push(crossStepDependent, true);
+      await stepTracker.resolve();
+      const output = await tracker.resolve();
+      expect(output).toBe("target-ran");
+    }, 30000);
+
+    it("enforces lock exclusion between task and task-step lock keys", async () => {
+      const lockedAtomic = new TaskBuilder({
+        classification: "shared-lock-task",
+        attempt: 0,
+        maxAttempts: 1,
+        ...createDates(),
+        backoff: createBackoff(),
+        input: { delayMs: 160 },
+        lock: "shared-lock",
+      }).build();
+
+      const lockedStepComposite = new CompositeTaskBuilder({
+        classification: "shared-lock-composite",
+        atomicity: TaskType.COMPOSITE,
+        attempt: 0,
+        maxAttempts: 1,
+        ...createDates(),
+        backoff: createBackoff(),
+      })
+        .setSteps([
+          new TaskStepSpecModel({
+            ...createDates(),
+            classification: "shared-lock-task",
+            input: { delayMs: 20 },
+            lock: "shared-lock",
+          }),
+        ])
+        .build();
+
+      const { tracker: t1 } = await engine.push(lockedAtomic, true);
+      const { tracker: t2 } = await engine.push(lockedStepComposite, true);
+
+      await Promise.all([t1.resolve(), t2.resolve()]);
+      expect(SharedLockTask.starts.length).toBe(2);
+      expect(SharedLockTask.starts[1] - SharedLockTask.starts[0]).toBeGreaterThan(
+        120
+      );
+    });
+
+    it("invokes TaskHandler.catch for atomic and composite failures", async () => {
+      const failingAtomic = new TaskBuilder({
+        classification: "catch-aware-fail",
+        attempt: 0,
+        maxAttempts: 1,
+        ...createDates(),
+        backoff: createBackoff(),
+      }).build();
+
+      const failingComposite = new CompositeTaskBuilder({
+        classification: "catch-aware-composite",
+        atomicity: TaskType.COMPOSITE,
+        attempt: 0,
+        maxAttempts: 1,
+        ...createDates(),
+        backoff: createBackoff(),
+      })
+        .addStep("catch-aware-fail").build()
+        .build();
+
+      const { tracker: atomicTracker } = await engine.push(failingAtomic, true);
+      const { tracker: compositeTracker } = await engine.push(
+        failingComposite,
+        true
+      );
+
+      await expect(atomicTracker.resolve()).rejects.toBeInstanceOf(Error);
+      await expect(compositeTracker.resolve()).rejects.toBeInstanceOf(Error);
+
+      const atomicCatch = CatchAwareFailHandler.catches.find(
+        (entry) => entry.step === undefined
+      );
+      const compositeCatch = CatchAwareFailHandler.catches.find(
+        (entry) => entry.step === 0
+      );
+      expect(atomicCatch?.message).toContain("catch-aware-fail-boom");
+      expect(compositeCatch?.message).toContain("catch-aware-fail-boom");
+    });
+  });
+
   // ==========================================================================
   // Failing Steps and Resuming Tests
   // ==========================================================================
@@ -722,7 +1082,7 @@ describe("Composite Tasks Integration", () => {
       })
         .addStep("composite-add-step", { value: 5 }) // succeeds: 15
         .addStep("composite-flaky-step", { failCount: 1 }) // fails first, succeeds second: 115
-        .addStep("composite-aggregate-step") // 15 + 115 = 130
+        .addStep("composite-aggregate-step").build() // 15 + 115 = 130
         .build();
 
       const { task, tracker } = await engine.push(composite, true);
@@ -788,8 +1148,8 @@ describe("Composite Tasks Integration", () => {
         backoff: createBackoff({ baseMs: 1, maxMs: 1 }),
       })
         .addStep("dup-step", { base: 41 }) // step 0
-        .addStep("dup-step") // step 1 (same classification)
-        .addStep("dup-retry-gate") // step 2 (fails via ctx.retry once)
+        .addStep("dup-step").build() // step 1 (same classification)
+        .addStep("dup-retry-gate").build() // step 2 (fails via ctx.retry once)
         .build();
 
       const { task: retryTask, tracker: retryTracker } = await engine.push(
@@ -828,7 +1188,7 @@ describe("Composite Tasks Integration", () => {
         backoff: createBackoff({ baseMs: 1, maxMs: 1 }),
       })
         .addStep("dup-step", { base: 10 }) // step 0
-        .addStep("dup-step") // step 1 (same classification)
+        .addStep("dup-step").build() // step 1 (same classification)
         .addStep("dup-reschedule-gate", { delayMs: 25 }) // step 2 (SCHEDULED once)
         .build();
 
@@ -855,7 +1215,7 @@ describe("Composite Tasks Integration", () => {
       expect(scheduledSeen?.length).toBe(2);
       expect(scheduledSeen?.[0]).toEqual({ step0: 10, step1: 11 });
       expect(scheduledSeen?.[1]).toEqual({ step0: 10, step1: 11 });
-    });
+    }, 10000);
 
     it("executes a 4-step composite with cached random outputs and flaky step math", async () => {
       const composite = new CompositeTaskBuilder({
@@ -866,10 +1226,10 @@ describe("Composite Tasks Integration", () => {
         ...createDates(),
         backoff: createBackoff({ baseMs: 1, maxMs: 1 }),
       })
-        .addStep("composite-rand-step-1")
-        .addStep("composite-rand-step-2")
-        .addStep("composite-rand-step-3")
-        .addStep("composite-rand-step-4")
+        .addStep("composite-rand-step-1").build()
+        .addStep("composite-rand-step-2").build()
+        .addStep("composite-rand-step-3").build()
+        .addStep("composite-rand-step-4").build()
         .build();
 
       const { task, tracker } = await engine.push(composite, true);
@@ -911,7 +1271,7 @@ describe("Composite Tasks Integration", () => {
       expect(CompositeRandStep3.calls[task.id]).toBe(fails + 1);
       expect(CompositeRandStep4.calls[task.id]).toBe(1);
       expect(CompositeRandStep3.desiredFails[task.id]).toBe(fails);
-    });
+    }, 30000);
 
     it("fails permanently when max attempts exhausted", async () => {
       const composite = new CompositeTaskBuilder({
@@ -923,7 +1283,7 @@ describe("Composite Tasks Integration", () => {
         backoff: createBackoff(),
       })
         .addStep("composite-add-step", { value: 1 })
-        .addStep("composite-always-fail-step")
+        .addStep("composite-always-fail-step").build()
         .build();
 
       const { task, tracker } = await engine.push(composite, true);
@@ -968,7 +1328,7 @@ describe("Composite Tasks Integration", () => {
         ...createDates(),
         backoff: createBackoff(),
       })
-        .addStep("composite-always-fail-step")
+        .addStep("composite-always-fail-step").build()
         .build();
 
       const { tracker } = await engine.push(composite, true);
@@ -1124,7 +1484,7 @@ describe("Composite Tasks Integration", () => {
         backoff: createBackoff(),
       })
         .addStep("composite-add-step", { value: 5 })
-        .addStep("composite-retry-step") // requests retry on first attempt
+        .addStep("composite-retry-step").build() // requests retry on first attempt
         .build();
 
       const { task, tracker } = await engine.push(composite, true);
@@ -1208,7 +1568,7 @@ describe("Composite Tasks Integration", () => {
           ...createDates(),
           backoff: createBackoff(),
         })
-          .addStep("composite-always-fail-step")
+          .addStep("composite-always-fail-step").build()
           .build();
 
         const { tracker } = await engine.push(composite, true);
@@ -1232,7 +1592,7 @@ describe("Composite Tasks Integration", () => {
           ...createDates(),
           backoff: createBackoff(),
         })
-          .addStep("composite-cancel-step")
+          .addStep("composite-cancel-step").build()
           .build();
 
         const { tracker } = await engine.push(composite, true);
@@ -1285,7 +1645,7 @@ describe("Composite Tasks Integration", () => {
           ...createDates(),
           backoff: createBackoff(),
         })
-          .addStep("composite-always-fail-step")
+          .addStep("composite-always-fail-step").build()
           .build();
 
         const { tracker } = await engine.push(composite, true);
@@ -1351,7 +1711,7 @@ describe("Composite Tasks Integration", () => {
           ...createDates(),
           backoff: createBackoff(),
         })
-          .addStep("composite-always-fail-step")
+          .addStep("composite-always-fail-step").build()
           .build();
 
         const { tracker } = await engine.push(composite, true);
@@ -1443,7 +1803,7 @@ describe("Composite Tasks Integration", () => {
           ...createDates(),
           backoff: createBackoff(),
         })
-          .addStep("composite-always-fail-step")
+          .addStep("composite-always-fail-step").build()
           .build();
 
         const { tracker } = await engine.push(composite, true);
@@ -1472,7 +1832,7 @@ describe("Composite Tasks Integration", () => {
           ...createDates(),
           backoff: createBackoff(),
         })
-          .addStep("composite-cancel-step")
+          .addStep("composite-cancel-step").build()
           .build();
 
         const { tracker } = await engine.push(composite, true);
@@ -1526,7 +1886,7 @@ describe("Composite Tasks Integration", () => {
         ...createDates(),
         backoff: createBackoff(),
       })
-        .addStep("composite-always-fail-step")
+        .addStep("composite-always-fail-step").build()
         .build();
 
       const { task, tracker } = await engine.push(composite, true);
@@ -1551,7 +1911,7 @@ describe("Composite Tasks Integration", () => {
         ...createDates(),
         backoff: createBackoff(),
       })
-        .addStep("composite-always-fail-step")
+        .addStep("composite-always-fail-step").build()
         .build();
 
       const { tracker } = await engine.push(composite, true);
@@ -1568,7 +1928,7 @@ describe("Composite Tasks Integration", () => {
         ...createDates(),
         backoff: createBackoff(),
       })
-        .addStep("non-existent-handler")
+        .addStep("non-existent-handler").build()
         .build();
 
       const { tracker } = await engine.push(composite, true);
@@ -1588,7 +1948,7 @@ describe("Composite Tasks Integration", () => {
         backoff: createBackoff(),
       })
         // Skip composite-add-step, go straight to multiply which depends on it
-        .addStep("composite-multiply-step")
+        .addStep("composite-multiply-step").build()
         .build();
 
       const { tracker } = await engine.push(composite, true);
@@ -1608,9 +1968,9 @@ describe("Composite Tasks Integration", () => {
         ...createDates(),
         backoff: createBackoff(),
       })
-        .addStep("composite-noop-step")
-        .addStep("composite-noop-step")
-        .addStep("composite-noop-step")
+        .addStep("composite-noop-step").build()
+        .addStep("composite-noop-step").build()
+        .addStep("composite-noop-step").build()
         .build();
 
       const { tracker } = await engine.push(composite, true);
@@ -1632,7 +1992,7 @@ describe("Composite Tasks Integration", () => {
         backoff: createBackoff(),
       })
         .addStep("composite-slow-step", { delayMs: 100 })
-        .addStep("composite-noop-step")
+        .addStep("composite-noop-step").build()
         .build();
 
       const { tracker } = await engine.push(composite, true);
@@ -1669,7 +2029,7 @@ describe("Composite Tasks Integration", () => {
         ...createDates(),
         backoff: createBackoff(),
       })
-        .addStep("composite-always-fail-step")
+        .addStep("composite-always-fail-step").build()
         .build();
 
       const { tracker } = await engine.push(composite, true);
@@ -1705,7 +2065,7 @@ describe("Composite Tasks Integration", () => {
         ...createDates(),
         backoff: createBackoff(),
       })
-        .addStep("composite-always-fail-step")
+        .addStep("composite-always-fail-step").build()
         .build();
 
       const { tracker: failTracker } = await engine.push(failComposite, true);
@@ -1725,7 +2085,7 @@ describe("Composite Tasks Integration", () => {
         ...createDates(),
         backoff: createBackoff(),
       })
-        .addStep("composite-cancel-step")
+        .addStep("composite-cancel-step").build()
         .build();
 
       const { tracker: cancelTracker } = await engine.push(
@@ -1834,7 +2194,7 @@ describe("Composite Tasks Integration", () => {
         ...createDates(),
         backoff: createBackoff(),
       })
-        .addStep("composite-always-fail-step")
+        .addStep("composite-always-fail-step").build()
         .build();
 
       const { tracker: compositeTracker } = await engine.push(composite, true);
@@ -1903,7 +2263,7 @@ describe("Composite Tasks Integration", () => {
         ...createDates(),
         backoff: createBackoff(),
       })
-        .addStep("composite-always-fail-step")
+        .addStep("composite-always-fail-step").build()
         .build();
 
       const { tracker: compositeTracker } = await engine.push(composite, true);

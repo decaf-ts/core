@@ -22,6 +22,7 @@ export enum JitterStrategy {
 
 export enum TaskEventType {
   STATUS = "status",
+  UPDATE = "update",
   LOG = "log",
   PROGRESS = "progress",
   ALL = "all",

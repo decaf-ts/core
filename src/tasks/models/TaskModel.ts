@@ -60,12 +60,22 @@ export class TaskModel<INPUT = any, OUTPUT = any> extends Model {
   @description("optional task name for ambiguity")
   name?: string;
 
+  @column()
+  @prop()
+  @description(
+    "Optional lock key. Tasks/steps sharing the same key cannot run concurrently"
+  )
+  lock?: string;
+
   // execution
   @column()
   @required()
   @type(String)
   @option(TaskStatus)
   @index([OrderDirection.ASC, OrderDirection.DSC])
+  @index([OrderDirection.ASC, OrderDirection.DSC], ["nextRunAt"])
+  @index([OrderDirection.ASC, OrderDirection.DSC], ["leaseExpiry"])
+  @index([OrderDirection.ASC, OrderDirection.DSC], ["scheduledTo"])
   @description("Holds the task current status")
   status: TaskStatus = TaskStatus.PENDING;
 
@@ -116,6 +126,13 @@ export class TaskModel<INPUT = any, OUTPUT = any> extends Model {
   @column()
   @description("Task scheduled timestamp")
   scheduledTo?: Date;
+
+  @column()
+  @serialize()
+  @description(
+    "Task dependencies. Supports '<taskId>' or '<taskId>:<step index|step reference>'"
+  )
+  dependencies?: string[];
 
   // worker lease / claim
   @prop()

@@ -135,6 +135,17 @@ export class TaskTracker<O = any>
     return this.registerStatusHandler(TaskStatus.CANCELED, handler);
   }
 
+  onUpdate(handler: EventPipe) {
+    const wrapped: EventPipe = async (evt, ctx) => {
+      if (evt.classification !== TaskEventType.UPDATE) return;
+      await handler(evt, ctx);
+    };
+    this.pipe(wrapped, TaskEventType.UPDATE);
+    return () => {
+      this.pipes?.[TaskEventType.UPDATE]?.delete(wrapped);
+    };
+  }
+
   private awaitStatusTerminal(statuses: TaskStatus[]): Promise<O> {
     return new Promise<O>((resolve, reject) => {
       const removers: Array<() => void> = [];
@@ -204,6 +215,7 @@ export class TaskTracker<O = any>
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected async track(evt: TaskEventModel, ctx: Context) {
+    if (evt.classification !== TaskEventType.STATUS) return;
     if (!evt.payload) return;
     const status = evt.payload.status;
     this.task.status = status;

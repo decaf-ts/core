@@ -79,6 +79,11 @@ export class TaskBuilder extends Model {
   protected backoff: TaskBackoffModel = new TaskBackoffModel();
   @prop()
   protected input?: any;
+  @prop()
+  protected lock?: string;
+  @prop()
+  @list(() => String)
+  protected dependencies?: string[];
   @min(1)
   @required()
   protected maxAttempts: number = 1;
@@ -122,6 +127,20 @@ export class TaskBuilder extends Model {
     return this;
   }
 
+  setLock(value?: string): this {
+    this.lock = value;
+    return this;
+  }
+
+  setDependencies(value?: string[]): this {
+    this.dependencies = value;
+    return this;
+  }
+
+  setDependsOn(value?: string[]): this {
+    return this.setDependencies(value);
+  }
+
   setMaxAttempts(value: number): this {
     this.maxAttempts = value;
     return this;
@@ -136,6 +155,61 @@ export class TaskBuilder extends Model {
     const errs = this.hasErrors();
     if (errs) throw new ValidationError(errs);
     return new TaskModel(this);
+  }
+}
+
+export class TaskStepSpecBuilder {
+  constructor(
+    protected parent: CompositeTaskBuilder,
+    protected step: TaskStepSpecModel
+  ) {}
+
+  setClassification(value: string): this {
+    this.step.classification = value;
+    return this;
+  }
+
+  setName(value?: string): this {
+    this.step.name = value;
+    return this;
+  }
+
+  setInput(value: any): this {
+    this.step.input = value;
+    return this;
+  }
+
+  setLock(value?: string): this {
+    this.step.lock = value;
+    return this;
+  }
+
+  setDependsOn(value?: string[]): this {
+    this.step.dependsOn = value;
+    return this;
+  }
+
+  addStep(classification: string): TaskStepSpecBuilder;
+  addStep(classification: string, input: any): CompositeTaskBuilder;
+  addStep(
+    classification: string,
+    name: string,
+    input?: any
+  ): CompositeTaskBuilder;
+  addStep(
+    classification: string,
+    nameOrInput?: any,
+    inputMaybe?: any
+  ): CompositeTaskBuilder | TaskStepSpecBuilder {
+    return this.parent.addStep(classification, nameOrInput, inputMaybe);
+  }
+
+  setSteps(value: TaskStepSpecModel[]): CompositeTaskBuilder {
+    return this.parent.setSteps(value);
+  }
+
+  build(): CompositeTaskBuilder {
+    return this.parent;
   }
 }
 
@@ -168,28 +242,37 @@ export class CompositeTaskBuilder extends TaskBuilder {
    * - addStep(classification, input?)
    * - addStep(classification, name, input?)
    *
-   * Note: `name` is only treated as such when provided as the 2nd argument AND
-   * a 3rd argument is present. This avoids breaking existing calls where input
-   * is a string.
+   * When called with only `classification`, returns a TaskStepSpecBuilder so
+   * callers can configure the step and then `.build()` back to this builder.
    */
-  addStep(classification: string, input?: any): this;
+  addStep(classification: string): TaskStepSpecBuilder;
+  addStep(classification: string, input: any): this;
   addStep(classification: string, name: string, input?: any): this;
-  addStep(classification: string, nameOrInput?: any, inputMaybe?: any): this {
+  addStep(
+    classification: string,
+    nameOrInput?: any,
+    inputMaybe?: any
+  ): this | TaskStepSpecBuilder {
     this.steps = this.steps || [];
     const now = new Date();
+    const hasOnlyClassification = arguments.length === 1;
     const hasThirdArg = arguments.length >= 3;
     const name =
       hasThirdArg && typeof nameOrInput === "string" ? nameOrInput : undefined;
-    const input = hasThirdArg ? inputMaybe : nameOrInput;
-    this.steps.push(
-      new TaskStepSpecModel({
-        classification,
-        name,
-        input,
-        createdAt: now,
-        updatedAt: now,
-      })
-    );
+    const input = hasThirdArg
+      ? inputMaybe
+      : hasOnlyClassification
+        ? undefined
+        : nameOrInput;
+    const step = new TaskStepSpecModel({
+      classification,
+      name,
+      input,
+      createdAt: now,
+      updatedAt: now,
+    });
+    this.steps.push(step);
+    if (hasOnlyClassification) return new TaskStepSpecBuilder(this, step);
     return this;
   }
 }

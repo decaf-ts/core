@@ -6,6 +6,8 @@ import { TaskErrorModel } from "./models/TaskErrorModel";
 import { TaskStatus } from "./constants";
 import { serializeError } from "./utils";
 import { TaskStateChangeError, TaskStateChangeRequest } from "./TaskStateChangeError";
+import { TaskStepSpecModel } from "./models/TaskStepSpecModel";
+import { InternalError } from "@decaf-ts/db-decorators";
 
 export class TaskContext extends Context<TaskFlags> {
   get taskId(): string {
@@ -100,6 +102,23 @@ export class TaskContext extends Context<TaskFlags> {
 
   get resultCache() {
     return this.get("resultCache");
+  }
+
+  scheduleSteps(...steps: (TaskStepSpecModel | Partial<TaskStepSpecModel>)[]) {
+    const normalized = (steps ?? []).map((step) =>
+      step instanceof TaskStepSpecModel ? step : new TaskStepSpecModel(step)
+    );
+    return {
+      afterCurrent: async (): Promise<void> => {
+        const scheduler = this.getOrUndefined("scheduleCompositeSteps");
+        if (!scheduler) {
+          throw new InternalError(
+            "scheduleSteps().afterCurrent() is only available while running a composite task step"
+          );
+        }
+        await scheduler(normalized);
+      },
+    };
   }
 
   constructor(ctx?: Context<any>) {

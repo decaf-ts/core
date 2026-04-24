@@ -50,5 +50,12 @@ export abstract class TaskHandler<I, O>
     return output;
   }
 
+  async catch(input: I, error: unknown, ctx: TaskContext): Promise<void> {
+    void input;
+    void error;
+    void ctx;
+    // Default no-op hook for custom error handling in handlers.
+  }
+
   abstract run(input: I, ctx: TaskContext): Promise<O>;
 }

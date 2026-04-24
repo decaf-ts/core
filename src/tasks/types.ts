@@ -8,11 +8,17 @@ import { TaskHandlerRegistry } from "./TaskHandlerRegistry";
 import { TaskEventModel } from "./models/TaskEventModel";
 import { TaskStatus } from "./constants";
 import { TaskErrorModel } from "./models/TaskErrorModel";
+import { TaskStepSpecModel } from "./models/TaskStepSpecModel";
 
 export interface ITaskHandler<I = any, O = any> {
   type: string;
   run(input: I, ctx: TaskContext): Promise<O>;
+  catch?(input: I, error: unknown, ctx: TaskContext): Promise<void>;
 }
+
+export type TaskDependencySpec = {
+  dependencies?: string[];
+};
 
 export type LogPipeOptions = {
   style: boolean;
@@ -36,6 +42,7 @@ export interface TaskFlags<LOG extends TaskLogger<any> = TaskLogger<any>>
   flush: () => Promise<void>;
   progress: (data: any) => Promise<void>;
   heartbeat: () => Promise<void>;
+  scheduleCompositeSteps?: (steps: TaskStepSpecModel[]) => Promise<void>;
   resultCache?: Record<string, any>;
 }
 
@@ -58,7 +65,7 @@ export type TaskEngineConfig<A extends Adapter<any, any, any, any>> = {
 };
 
 export type TaskProgressPayload = {
-  status: TaskStatus;
+  status: TaskStatus | "update";
   currentStep?: number;
   totalSteps?: number;
   output?: any;

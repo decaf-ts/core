@@ -44,6 +44,11 @@ import { TaskTracker } from "./TaskTracker";
 import { Lock } from "@decaf-ts/transactional-decorators";
 import { PersistenceKeys } from "../persistence/index";
 
+type ParsedTaskDependency = {
+  taskId: string;
+  stepRef?: string;
+};
+
 export class TaskEngine<
   A extends Adapter<any, any, any, any>,
   C extends TaskEngineConfig<A> = TaskEngineConfig<A>,
@@ -455,6 +460,9 @@ export class TaskEngine<
       // fallback to candidate payload
     }
 
+    const runnable = await this.isRunnable(source, ctx);
+    if (!runnable) return null;
+
     const claimed = new TaskModel({
       ...source,
       status: TaskStatus.RUNNING,
@@ -475,6 +483,156 @@ export class TaskEngine<
     } catch {
       return null;
     }
+  }
+
+  protected isTaskFinished(status?: TaskStatus): boolean {
+    return [
+      TaskStatus.SUCCEEDED,
+      TaskStatus.FAILED,
+      TaskStatus.CANCELED,
+    ].includes(status as TaskStatus);
+  }
+
+  protected parseTaskDependency(
+    value: string
+  ): ParsedTaskDependency | undefined {
+    const raw = value?.trim();
+    if (!raw) return undefined;
+    const sep = raw.lastIndexOf(":");
+    if (sep <= 0 || sep >= raw.length - 1) return { taskId: raw };
+    const taskId = raw.slice(0, sep).trim();
+    const stepRef = raw.slice(sep + 1).trim();
+    if (!taskId || !stepRef) return { taskId: raw };
+    return { taskId, stepRef };
+  }
+
+  protected normalizeDependencies(
+    deps: string[] | string | undefined
+  ): ParsedTaskDependency[] {
+    if (!deps) return [];
+    let payload: any = deps;
+    if (typeof payload === "string") {
+      try {
+        payload = JSON.parse(payload);
+      } catch {
+        payload = [payload];
+      }
+    }
+    if (payload instanceof Set) payload = Array.from(payload);
+    if (!Array.isArray(payload)) return [];
+    return payload
+      .filter((value) => typeof value === "string")
+      .map((value) => this.parseTaskDependency(value))
+      .filter(Boolean) as ParsedTaskDependency[];
+  }
+
+  protected resolveDependencyStepIndex(
+    task: TaskModel,
+    stepRef: string
+  ): number | undefined {
+    const trimmed = stepRef.trim();
+    if (!trimmed) return undefined;
+    const numeric = Number(trimmed);
+    if (Number.isInteger(numeric) && numeric >= 0) return numeric;
+    const steps = this.normalizeSteps(task.steps);
+    const index = steps.findIndex(
+      (step) => step.name === trimmed || step.classification === trimmed
+    );
+    return index >= 0 ? index : undefined;
+  }
+
+  protected async areDependenciesSatisfied(
+    dependencies: ParsedTaskDependency[],
+    ctx: Context
+  ): Promise<boolean> {
+    if (!dependencies.length) return true;
+    const taskIds = Array.from(new Set(dependencies.map((dep) => dep.taskId)));
+    const dependencyTasks = new Map<string, TaskModel>();
+    try {
+      const loaded = await this.tasks.readAll(taskIds, ctx);
+      for (const task of loaded) {
+        if (task?.id) dependencyTasks.set(task.id, task);
+      }
+    } catch {
+      return false;
+    }
+
+    for (const dep of dependencies) {
+      try {
+        const depTask = dependencyTasks.get(dep.taskId);
+        if (!depTask) return false;
+        if (!dep.stepRef) {
+          if (!this.isTaskFinished(depTask.status)) return false;
+          continue;
+        }
+        const depStep = this.resolveDependencyStepIndex(depTask, dep.stepRef);
+        if (depStep == null) return false;
+        const stepResults = this.normalizeStepResults(depTask.stepResults);
+        const stepResult = stepResults[depStep];
+        if (!stepResult || !this.isTaskFinished(stepResult.status))
+          return false;
+      } catch {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  protected getStepLock(
+    task: TaskModel,
+    stepIndex: number | undefined
+  ): string | undefined {
+    if (task.atomicity !== TaskType.COMPOSITE) return undefined;
+    const steps = this.normalizeSteps(task.steps);
+    if (!steps.length) return undefined;
+    const index = stepIndex == null ? 0 : stepIndex;
+    const step = steps[index];
+    return step?.lock;
+  }
+
+  protected async hasLockConflict(
+    task: TaskModel,
+    stepIndex: number | undefined,
+    ctx: Context
+  ): Promise<boolean> {
+    const candidateLocks = [
+      task.lock,
+      this.getStepLock(task, stepIndex),
+    ].filter((value): value is string => !!value && typeof value === "string");
+    if (!candidateLocks.length) return false;
+
+    const runningTasks = await this.tasks
+      .select()
+      .where(Condition.attribute<TaskModel>("status").eq(TaskStatus.RUNNING))
+      .execute(ctx);
+    for (const running of runningTasks) {
+      if (running.id === task.id) continue;
+      const runningLocks = [
+        running.lock,
+        this.getStepLock(running, running.currentStep),
+      ].filter(
+        (value): value is string => !!value && typeof value === "string"
+      );
+      if (runningLocks.some((lock) => candidateLocks.includes(lock))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  protected async isRunnable(task: TaskModel, ctx: Context): Promise<boolean> {
+    const dependencies = this.normalizeDependencies(task.dependencies);
+    const dependenciesSatisfied = await this.areDependenciesSatisfied(
+      dependencies,
+      ctx
+    );
+    if (!dependenciesSatisfied) return false;
+
+    const stepIndex =
+      task.atomicity === TaskType.COMPOSITE
+        ? (task.currentStep ?? 0)
+        : undefined;
+    return !(await this.hasLockConflict(task, stepIndex, ctx));
   }
 
   // -------------------------
@@ -532,6 +690,16 @@ export class TaskEngine<
     }) as TaskContext;
 
     await this.emitStatus(taskCtx, task, TaskStatus.RUNNING);
+    let activeHandler:
+      | {
+          catch?: (
+            input: any,
+            error: unknown,
+            ctx: TaskContext
+          ) => Promise<void>;
+        }
+      | undefined;
+    let activeInput: any;
 
     try {
       let output: any;
@@ -549,6 +717,8 @@ export class TaskEngine<
         }
       } else {
         const handler = this.registry.get(task.classification);
+        activeHandler = handler;
+        activeInput = task.input;
         log.debug(
           `handler type for ${task.id} is ${handler?.constructor?.name ?? "none"}`
         );
@@ -593,6 +763,11 @@ export class TaskEngine<
       if (err instanceof TaskStateChangeError) {
         await this.handleTaskStateChange(err.request, task, taskCtx);
         return;
+      }
+      try {
+        await activeHandler?.catch?.(activeInput, err, taskCtx);
+      } catch (catchErr: unknown) {
+        log.error("task handler catch() hook failed", catchErr as Error);
       }
       log.error("task execution error", err);
       if (task.atomicity === TaskType.COMPOSITE) {
@@ -752,7 +927,7 @@ export class TaskEngine<
     const { ctx } = (
       await this.logCtx([context], task.classification, true)
     ).for(this.runComposite);
-    const steps = this.normalizeSteps(task.steps);
+    let steps = this.normalizeSteps(task.steps);
     let idx = task.currentStep ?? 0;
     const results = this.normalizeStepResults(task.stepResults);
 
@@ -783,6 +958,65 @@ export class TaskEngine<
           `No task handler registered for composite step: ${step.classification}`
         );
 
+      const dependencies = this.normalizeDependencies(step.dependsOn);
+      const dependenciesSatisfied = await this.areDependenciesSatisfied(
+        dependencies,
+        context
+      );
+      if (!dependenciesSatisfied) {
+        context.reschedule(
+          new Date(Date.now() + this.config.pollMsIdle),
+          `Waiting dependencies for step ${idx} (${step.classification})`
+        );
+      }
+
+      const lockConflict = await this.hasLockConflict(task, idx, context);
+      if (lockConflict) {
+        context.reschedule(
+          new Date(Date.now() + this.config.pollMsIdle),
+          `Waiting lock for step ${idx} (${step.classification})`
+        );
+      }
+
+      task.currentStep = idx;
+      const persistedCurrent = await this.tasks.update(task);
+      Object.assign(task, persistedCurrent);
+      await context.progress({
+        currentStep: idx,
+        totalSteps: steps.length,
+      });
+
+      const stepIndex = idx;
+      context.cache.put(
+        "scheduleCompositeSteps",
+        async (newSteps: TaskStepSpecModel[]) => {
+          const normalizedNewSteps = this.normalizeSteps(newSteps);
+          if (!normalizedNewSteps.length) return;
+          const currentSteps = this.normalizeSteps(task.steps);
+          const insertionIndex = Math.min(stepIndex + 1, currentSteps.length);
+          currentSteps.splice(insertionIndex, 0, ...normalizedNewSteps);
+          task.steps = currentSteps;
+          const persisted = await this.tasks.update(task, context);
+          Object.assign(task, persisted);
+          steps = this.normalizeSteps(task.steps);
+          const updateEvent = await this.persistEvent(
+            context,
+            task.id,
+            TaskEventType.UPDATE,
+            {
+              status: "update",
+              currentStep: stepIndex,
+              totalSteps: steps.length,
+              output: {
+                added: normalizedNewSteps.length,
+                insertionIndex,
+              },
+            }
+          );
+          this.bus.emit(updateEvent, context);
+        }
+      );
+
       await context.pipe([
         LogLevel.info,
         `Composite step ${idx + 1}/${steps.length}: ${step.classification}`,
@@ -793,7 +1027,6 @@ export class TaskEngine<
         // Ensure step-tagged logs are flushed before advancing the step pointer.
         await context.flush();
 
-        const stepIndex = idx;
         const now = new Date();
         results[stepIndex] = new TaskStepResultModel({
           status: TaskStatus.SUCCEEDED,
@@ -817,6 +1050,13 @@ export class TaskEngine<
           output: out,
         });
       } catch (err: any) {
+        try {
+          await handler.catch?.(step.input, err, context);
+        } catch (catchErr) {
+          ctx.logger.warn("composite step catch() hook failed", {
+            error: catchErr,
+          });
+        }
         const now = new Date();
         results[idx] = new TaskStepResultModel({
           status: TaskStatus.FAILED,

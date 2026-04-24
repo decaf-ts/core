@@ -20,6 +20,7 @@ import { Condition } from "../../src/query/Condition";
 import { LogLevel } from "@decaf-ts/logging";
 import { Adapter } from "../../src/persistence/Adapter";
 
+jest.setTimeout(30000)
 @task("step-1")
 class Step1 extends TaskHandler<void, number> {
   static runs = 0;

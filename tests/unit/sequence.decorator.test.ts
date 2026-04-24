@@ -1,4 +1,4 @@
-import "@decaf-ts/core";
+
 import { Model, model } from "@decaf-ts/decorator-validation";
 import { pk, sequence } from "../../src/identity/decorators";
 

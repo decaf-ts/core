@@ -48,6 +48,19 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
   extends ContextualLoggedClass<ContextOf<A>>
   implements AdapterDispatch<A>
 {
+  private isSameObservedAdapter(observer: Observer): boolean {
+    if (!this.adapter) return false;
+    if (this.adapter === observer) return true;
+
+    const current = this.adapter as unknown as Adapter<any, any, any, any>;
+    const candidate = observer as unknown as Adapter<any, any, any, any>;
+    if (!(candidate instanceof Adapter)) return false;
+
+    return (
+      current.alias === candidate.alias && current.flavour === candidate.flavour
+    );
+  }
+
   /**
    * Indicates whether the dispatcher has already been initialized.
    *
@@ -310,7 +323,13 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
     if (!(observer instanceof Adapter))
       throw new UnsupportedError("Only Adapters can be observed by dispatch");
 
-    if (this.adapter) return () => this.unObserve(this.adapter as Observer);
+    if (this.adapter) {
+      if (this.isSameObservedAdapter(observer))
+        return () => this.unObserve(observer);
+      throw new UnsupportedError(
+        "Dispatch is already observing another adapter"
+      );
+    }
 
     this.adapter = observer;
     this.models = Adapter.models(this.adapter.alias);
@@ -330,7 +349,7 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
    * @return {void}
    */
   unObserve(observer: Observer): void {
-    if (this.adapter !== observer)
+    if (!this.isSameObservedAdapter(observer))
       throw new UnsupportedError(
         "Only the adapter that was used to observe can be unobserved"
       );

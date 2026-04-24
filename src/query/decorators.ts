@@ -12,6 +12,7 @@ import { PersistenceKeys } from "../persistence/constants";
 import type { Repo } from "../repository";
 import { Operator } from "./constants";
 import type { DirectionLimitOffset } from "./types";
+import { Repository } from "@decaf-ts/db-decorators";
 
 export function defaultQueryAttr() {
   return function defaultQueryAttr(obj: object, prop?: any) {
@@ -50,7 +51,7 @@ export function query(options: QueryOptions = {}) {
           (descriptor as TypedPropertyDescriptor<any>).value = new Proxy(
             (descriptor as TypedPropertyDescriptor<any>).value,
             {
-              apply(target: any, thisArg: any, args: any[]): any {
+              async apply(target: any, thisArg: any, args: any[]): Promise<any> {
                 const {
                   action,
                   select,
@@ -62,9 +63,15 @@ export function query(options: QueryOptions = {}) {
                   offset,
                 } = MethodQueryBuilder.build(target.name, ...args);
 
-                const repo = thisArg as Repo<any>;
+                if(!(thisArg instanceof Repository)){
+                  throw new Error("thisArg must be an instance of Repository");
+                }
 
-                // Build statement based on action type
+                const repo = thisArg as Repo<any>;
+                
+                const {log, ctx, ctxArgs} = (await repo['logCtx'](args, query.name, true)).for(query)
+                
+                  // Build statement based on action type
                 let stmt: any;
                 switch (action) {
                   case "find":
@@ -159,10 +166,10 @@ export function query(options: QueryOptions = {}) {
                     typeof lastArg === "number"
                       ? lastArg
                       : ((lastArg as DirectionLimitOffset)?.limit ?? 10);
-                  return stmt.paginate(pageSize);
+                  return stmt.paginate(pageSize,ctx);
                 }
 
-                return stmt.execute();
+                return stmt.execute(ctx);
               },
             }
           );

@@ -59,6 +59,7 @@ export enum GroupOperator {
 export enum PreparedStatementKeys {
   LIST_BY = "listBy",
   FIND_BY = QueryClause.FIND_BY,
+  FIND_BY_PAGINATE = "findByPaginate",
   FIND_ONE_BY = "findOneBy",
   PAGE_BY = "paginateBy",
   FIND = "find",

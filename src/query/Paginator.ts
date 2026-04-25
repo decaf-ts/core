@@ -117,7 +117,7 @@ export abstract class Paginator<
       query.method &&
       query.method.match(
         new RegExp(
-          `${PreparedStatementKeys.FIND_BY}|${PreparedStatementKeys.LIST_BY}|${PreparedStatementKeys.FIND}`,
+          `${PreparedStatementKeys.FIND_BY}|${PreparedStatementKeys.FIND_BY_PAGINATE}|${PreparedStatementKeys.LIST_BY}|${PreparedStatementKeys.PAGE_BY}|${PreparedStatementKeys.FIND}`,
           "gi"
         )
       )
@@ -169,16 +169,27 @@ export abstract class Paginator<
       );
       return this.apply(result);
     }
-    const regexp = new RegExp(
-      `^${PreparedStatementKeys.FIND_BY}|${PreparedStatementKeys.LIST_BY}`,
-      "gi"
-    );
-    if (!method.match(regexp))
+    let pagedMethod: string | undefined;
+    if (method === PreparedStatementKeys.FIND_BY) {
+      pagedMethod = PreparedStatementKeys.FIND_BY_PAGINATE;
+    } else if (method.startsWith(PreparedStatementKeys.FIND_BY)) {
+      pagedMethod = method.replace(
+        PreparedStatementKeys.FIND_BY,
+        PreparedStatementKeys.PAGE_BY
+      );
+    } else if (method === PreparedStatementKeys.LIST_BY) {
+      pagedMethod = PreparedStatementKeys.PAGE_BY;
+    } else if (
+      method === PreparedStatementKeys.PAGE_BY ||
+      method === PreparedStatementKeys.FIND_BY_PAGINATE
+    ) {
+      pagedMethod = method;
+    }
+
+    if (!pagedMethod)
       throw new UnsupportedError(
         `Method ${method} is not supported for pagination`
       );
-    regexp.lastIndex = 0;
-    const pagedMethod = method.replace(regexp, PreparedStatementKeys.PAGE_BY);
 
     const preparedArgs = [pagedMethod, ...args];
     let preparedParams: DirectionLimitOffset = {

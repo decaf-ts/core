@@ -308,6 +308,18 @@ export class TaskService<
     return this.tasks.findBy(key, value, ...ctxArgs);
   }
 
+  async findByPaginate(
+    key: keyof TaskModel,
+    value: any,
+    ref: DirectionLimitOffset,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ) {
+    const { ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.FIND_BY_PAGINATE, true)
+    ).for(this.findByPaginate);
+    return this.tasks.findByPaginate(key, value, ref, ...ctxArgs);
+  }
+
   async statement(name: string, ...args: MaybeContextualArg<ContextOf<A>>) {
     const { ctxArgs } = (
       await this.logCtx(args, PersistenceKeys.STATEMENT, true)

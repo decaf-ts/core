@@ -88,6 +88,57 @@ describe("prepared statements", () => {
     const page11 = res22.data;
 
     expect(page1).toEqual(page11);
+
+    const res33 = await repo.findByPaginate("attr1", "user_name_1", {
+      offset: 1,
+      limit: 5,
+    });
+
+    const res44 = await repo.statement(
+      "findByPaginate",
+      "attr1",
+      "user_name_1",
+      {
+        limit: 5,
+        offset: 1,
+      }
+    );
+
+    expect(JSON.parse(JSON.stringify(res33))).toEqual(
+      JSON.parse(JSON.stringify(res44))
+    );
+  });
+
+  it("supports bookmark pagination in findByPaginate like paginateBy", async () => {
+    const repo: RamRepository<TestBulkModel> = Repository.forModel<
+      TestBulkModel,
+      RamRepository<TestBulkModel>
+    >(TestBulkModel).override({
+      paginateByBookmark: true,
+    } as any);
+
+    const firstPage = await repo.findByPaginate("attr1", "user_name_1", {
+      offset: 1,
+      limit: 1,
+      direction: OrderDirection.DSC,
+    });
+    const secondPage = await repo.findByPaginate("attr1", "user_name_1", {
+      bookmark: firstPage.bookmark,
+      limit: 1,
+      direction: OrderDirection.DSC,
+    });
+
+    expect(firstPage).toEqual(
+      expect.objectContaining({
+        data: expect.any(Array),
+        bookmark: expect.anything(),
+      })
+    );
+    expect(secondPage).toEqual(
+      expect.objectContaining({
+        data: expect.any(Array),
+      })
+    );
   });
 
   it("fails for unprepared statements", async () => {

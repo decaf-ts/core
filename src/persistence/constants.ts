@@ -170,6 +170,7 @@ export const MultipleSelectOperationKeys: (
 )[] = [
   PersistenceKeys.QUERY,
   PreparedStatementKeys.PAGE_BY,
+  PreparedStatementKeys.FIND_BY_PAGINATE,
   PreparedStatementKeys.LIST_BY,
   PreparedStatementKeys.FIND_BY,
   PreparedStatementKeys.FIND,
@@ -182,4 +183,8 @@ export const PaginationOperationKeys: (
   | BulkCrudOperationKeys
   | PersistenceKeys
   | PreparedStatementKeys
-)[] = [PreparedStatementKeys.PAGE_BY, PreparedStatementKeys.PAGE];
+)[] = [
+  PreparedStatementKeys.PAGE_BY,
+  PreparedStatementKeys.FIND_BY_PAGINATE,
+  PreparedStatementKeys.PAGE,
+];

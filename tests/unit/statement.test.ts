@@ -210,6 +210,53 @@ describe("Statement execution strategy", () => {
     );
   });
 
+  it("uses findByPaginate for squashed filtered pagination", async () => {
+    const repoWithOverrides = repo.override({
+      allowRawStatements: false,
+      forcePrepareComplexQueries: false,
+      forcePrepareSimpleQueries: true,
+    });
+
+    const statementSpy = jest.spyOn(repoWithOverrides as any, "statement");
+
+    const result = await repoWithOverrides
+      .select()
+      .where(Condition.attr<StatementTestModel>("name").eq("alice"))
+      .paginate(2);
+
+    const page = await result.page();
+    const pageWithBookmark = await result.page(2, 42);
+
+    expect(page).toBeDefined();
+    expect(pageWithBookmark).toBeDefined();
+    expect(statementSpy).toHaveBeenCalledTimes(2);
+    expect(statementSpy).toHaveBeenCalledWith(
+      "findByPaginate",
+      "name",
+      "alice",
+      expect.objectContaining({
+        direction: "desc",
+        bookmark: undefined,
+        limit: 2,
+        offset: 1,
+      }),
+      expect.any(Context)
+    );
+    expect(statementSpy).toHaveBeenNthCalledWith(
+      2,
+      "findByPaginate",
+      "name",
+      "alice",
+      expect.objectContaining({
+        direction: "desc",
+        bookmark: 42,
+        limit: 2,
+        offset: 2,
+      }),
+      expect.any(Context)
+    );
+  });
+
   it("uses raw execution when raw statements are allowed", async () => {
     const repoWithOverrides = repo.override({
       allowRawStatements: true,

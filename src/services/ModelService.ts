@@ -256,6 +256,18 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     return this.repo.findBy(key, value, ...ctxArgs);
   }
 
+  async findByPaginate(
+    key: keyof M,
+    value: any,
+    ref: DirectionLimitOffset,
+    ...args: MaybeContextualArg<ContextOf<R>>
+  ) {
+    const { ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.FIND_BY_PAGINATE, true)
+    ).for(this.findByPaginate);
+    return this.repo.findByPaginate(key, value, ref, ...ctxArgs);
+  }
+
   async statement(name: string, ...args: MaybeContextualArg<ContextOf<R>>) {
     const { ctxArgs } = (
       await this.logCtx(args, PersistenceKeys.STATEMENT, true)

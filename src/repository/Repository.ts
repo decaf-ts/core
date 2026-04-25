@@ -1322,6 +1322,64 @@ export class Repository<
       .execute(...ctxArgs);
   }
 
+  @prepared()
+  async findByPaginate(
+    key: keyof M,
+    value: any,
+    ref: DirectionLimitOffset = {
+      direction: OrderDirection.DSC,
+      offset: 1,
+      limit: 10,
+    },
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<SerializedPage<M>> {
+    ref.direction = ref.direction || OrderDirection.DSC;
+    ref.offset = ref.offset || 1;
+    ref.limit = ref.limit || 10;
+    const { direction, offset, bookmark, limit } = ref;
+    if (!offset && !bookmark)
+      throw new QueryError(`FindByPaginate needs a page or a bookmark`);
+
+    const { log, ctx, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.FIND_BY_PAGINATE, true)
+    ).for(this.findByPaginate);
+    log.verbose(
+      `finding and paginating ${Model.tableName(this.class)} with ${key as string} ${value}`
+    );
+
+    const condition = this.attr(key).eq(value);
+    let paginator: Paginator<M>;
+    if (bookmark && ctx.get("paginateByBookmark")) {
+      const pk = Model.pk(this.class) as keyof M;
+      const bookmarkCondition =
+        direction === OrderDirection.ASC
+          ? this.attr(pk).gt(bookmark)
+          : this.attr(pk).lt(bookmark);
+      paginator = await this.override({
+        forcePrepareComplexQueries: false,
+        forcePrepareSimpleQueries: false,
+      } as any)
+        .select()
+        .where(condition.and(bookmarkCondition))
+        .orderBy([key, direction])
+        .paginate(limit as number, ...ctxArgs);
+    } else if (offset) {
+      paginator = await this.override({
+        forcePrepareComplexQueries: false,
+        forcePrepareSimpleQueries: false,
+      } as any)
+        .select()
+        .where(condition)
+        .orderBy([key, direction])
+        .paginate(limit as number, ...ctxArgs);
+    } else {
+      throw new QueryError(`FindByPaginate needs a page or a bookmark`);
+    }
+
+    const paged = await paginator.page(offset, bookmark, ...ctxArgs);
+    return paginator.serialize(paged) as SerializedPage<M>;
+  }
+
   /**
    * @description Counts records, optionally filtered by a key value
    * @summary Returns the count of records matching the optional key condition

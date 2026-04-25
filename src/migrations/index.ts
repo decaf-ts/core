@@ -7,5 +7,8 @@ export * from "./constants";
 export * from "./decorators";
 export * from "./Migration";
 export * from "./MigrationService";
+export * from "./MigrationTaskBuilder";
 export * from "./MigrationTasks";
+export * from "./StandardMigrationVersioning";
+export * from "./MigrationVersioning";
 export * from "./types";

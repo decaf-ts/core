@@ -28,7 +28,7 @@ export * from "./utils";
 
 // commented out
 // export * from "./ram";
-// export * from "./migrations";
+export * from "./migrations";
 
 //left to last on purpose
 export * from "./persistence";

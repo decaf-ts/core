@@ -32,38 +32,90 @@ export function migration(
 ): (target: object) => any;
 export function migration(
   reference: string,
-  precedence?: Constructor<Migration<any, any>> | string | null,
+  opts?: {
+    precedence?: Constructor<Migration<any, any>> | string | null;
+    flavour?: string;
+    rules?: MigrationRule[];
+  }
+): (target: object) => any;
+export function migration(
+  reference: string,
+  precedence?:
+    | Constructor<Migration<any, any>>
+    | string
+    | null
+    | {
+        precedence?: Constructor<Migration<any, any>> | string | null;
+        flavour?: string;
+        rules?: MigrationRule[];
+      },
   flavour?: string | MigrationRule[],
   rules?: MigrationRule[]
 ): (target: object) => any {
   function innerMigration(
-    precedence?: Constructor<Migration<any, any>> | string | null,
+    precedence?:
+      | Constructor<Migration<any, any>>
+      | string
+      | null
+      | {
+          precedence?: Constructor<Migration<any, any>> | string | null;
+          flavour?: string;
+          rules?: MigrationRule[];
+        },
     flavour?: string | MigrationRule[],
     rules?: MigrationRule[]
   ): (original: object) => void {
     return function (original: object) {
-      const usedPrecedenceAsFlavour = typeof precedence === "string";
-      const hasExplicitPrecedence =
-        !usedPrecedenceAsFlavour && typeof precedence !== "undefined";
+      const fromOptions =
+        precedence && typeof precedence === "object" && !("name" in precedence)
+          ? precedence
+          : undefined;
+      const explicitPrecedence = fromOptions?.precedence;
+      const explicitFlavour = fromOptions?.flavour;
+      const explicitRules = fromOptions?.rules;
+      const normalizedPrecedence = fromOptions
+        ? explicitPrecedence
+        : precedence;
+      const normalizedFlavour = fromOptions ? explicitFlavour : flavour;
+      const normalizedRules = fromOptions ? explicitRules : rules;
+      const positionalStringIsPrecedence =
+        typeof normalizedPrecedence === "string" &&
+        typeof normalizedFlavour === "string";
+      const hasExplicitPrecedence = fromOptions
+        ? typeof explicitPrecedence !== "undefined"
+        : typeof normalizedPrecedence !== "undefined" &&
+          (typeof normalizedPrecedence !== "string" ||
+            positionalStringIsPrecedence);
 
       let parsedPrecedence:
         | Constructor<Migration<any, any>>
         | string
         | null
-        | undefined = precedence;
+        | undefined = normalizedPrecedence as any;
       let parsedFlavour: string | undefined;
       let parsedRules: MigrationRule[] | undefined;
 
-      if (Array.isArray(flavour)) {
-        parsedRules = flavour;
+      if (typeof normalizedPrecedence === "string") {
+        if (typeof normalizedFlavour === "string") {
+          parsedPrecedence = normalizedPrecedence;
+          parsedFlavour = normalizedFlavour;
+          parsedRules = normalizedRules;
+        } else if (Array.isArray(normalizedFlavour as any)) {
+          // Legacy overload support: @migration(reference, flavour, rules)
+          parsedPrecedence = undefined;
+          parsedFlavour = normalizedPrecedence;
+          parsedRules = normalizedFlavour as MigrationRule[];
+        } else {
+          // Legacy overload support: @migration(reference, flavour)
+          parsedPrecedence = undefined;
+          parsedFlavour = normalizedPrecedence;
+          parsedRules = normalizedRules;
+        }
+      } else if (Array.isArray(normalizedFlavour as any)) {
+        parsedRules = normalizedFlavour as MigrationRule[];
       } else {
-        parsedFlavour = flavour;
-        parsedRules = rules;
-      }
-
-      if (typeof precedence === "string") {
-        parsedFlavour = precedence;
-        parsedPrecedence = undefined;
+        parsedFlavour = normalizedFlavour as string | undefined;
+        parsedRules = normalizedRules;
       }
 
       if (parsedPrecedence === undefined && parsedPrecedence !== null)

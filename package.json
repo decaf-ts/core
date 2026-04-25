@@ -14,6 +14,11 @@
       "import": "./lib/esm/migrations/index.js",
       "types": "./lib/migrations/index.d.ts"
     },
+    "./migrations/SemverMigrationVersioning": {
+      "require": "./lib/migrations/SemverMigrationVersioning.cjs",
+      "import": "./lib/esm/migrations/SemverMigrationVersioning.js",
+      "types": "./lib/migrations/SemverMigrationVersioning.d.ts"
+    },
     "./ram": {
       "require": "./lib/ram/index.cjs",
       "import": "./lib/esm/ram/index.js",
@@ -115,6 +120,9 @@
     "@decaf-ts/decorator-validation": "latest",
     "@decaf-ts/injectable-decorators": "latest",
     "@decaf-ts/transactional-decorators": "latest"
+  },
+  "optionalDependencies": {
+    "semver": "^7.7.2"
   },
   "overrides": {
     "minimatch": "^10.2.2",

@@ -69,7 +69,7 @@ export function query(options: QueryOptions = {}) {
 
                 const repo = thisArg as Repo<any>;
                 
-                const {log, ctx, ctxArgs} = (await repo['logCtx'](args, query.name, true)).for(query)
+                const { ctx } = (await repo['logCtx'](args, query.name, true)).for(query)
                 
                   // Build statement based on action type
                 let stmt: any;

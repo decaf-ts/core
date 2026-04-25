@@ -289,6 +289,122 @@ const taskEngine = new TaskEngine({
 await taskEngine.start();
 ```
 
+### Task Engine configuration reference
+
+`TaskEngine` exposes a rich `TaskEngineConfig` to tune how work is claimed, leased, and logged. The most common knobs are:
+
+- `adapter`: the persistence adapter where `TaskModel` records are stored.
+- `overrides`: forwarded to `adapter.for` when you need per-task configuration.
+- `registry`: `TaskHandlerRegistry` that maps classification strings to handlers.
+- `bus`: optional `TaskEventBus` to observe `TaskEventType` updates.
+- `workerId`: unique identifier used in lease ownership; any `taskMode` boot must use a `RamAdapter` alias that is never one of the adapters being migrated.
+- `concurrency`: number of work units to execute in parallel.
+- `leaseMs`: milliseconds before a running task is considered expired.
+- `pollMsIdle` / `pollMsBusy`: how frequently the engine polls when idle versus busy.
+- `logTailMax`, `streamBufferSize`, `maxLoggingBuffer`, `loggingBufferTruncation`: control how much log data is buffered before being emitted to `TaskEventBus`.
+- `gracefulShutdownMsTimeout`: how long `TaskEngine.shutdown()` waits for in-flight work.
+- `autoShutdown`: optional backoff configuration that gradually bumps `pollMsIdle` until it reaches `maxIdleDelayMs`.
+
+`TaskEngine` is also context-aware: `TaskContext` extends every run with helpers such as `progress`, `pipe`, and `heartbeat` so handlers can breathe through retries and tell the tracker what happened.
+
+### Task Engine task-mode and TaskService
+
+Migration orchestration often runs inside `TaskService`. Typical setup:
+
+1. Create a dedicated `Adapter`, e.g. `new RamAdapter({}, "decaf-cli-task-engine")`, and boot it before starting the `TaskService`.
+2. `await new TaskService().boot({ adapter: taskEngineAdapter })` to power the `TaskHandlerRegistry` and `TaskTracker`.
+3. Pass the `TaskService` instance into `MigrationService.migrateAdapters(..., { taskMode: true, taskService })`.
+
+The CLI already follows this pattern and explicitly prevents the task engine adapter alias from appearing inside the migrating aliases, which keeps persistence targets isolated. When `taskMode` is true, every migration version produces a `CompositeTask`; use `migration.track()` or `taskService.track(id)` to attach listeners so progress/status events flow through the command logger.
+
+`TaskService.track(id)` wires the CLI logger to the matching `TaskTracker` so status/progress logs stream through your console before `TaskTracker.wait()` resolves. If you need to retry a failed migration task, call `TaskService.track(id)` to fetch the tracker, inspect `task.status`, and then use the `TaskModel` repository override (the builder does this for you inside `MigrationService.retry`) to reset `status` to `PENDING`, clear `error`, and zero out lease metadata so the engine can re-claim the same task.
+
+Composite tasks are ordered by the sequence you pass to `CompositeTaskBuilder` or by using the `dependsOn`/`dependencies` array. Each step has a `classification` (matching a handler), an optional `name`, and `lock`/`dependsOn` metadata (`TaskStepSpecModel`). Locks avoid concurrent execution, and dependencies support either `<taskId>` or `<taskId>:<stepRef>` shorthand so you can mix tasks and steps as prerequisites.
+
+`TaskContext` enriches every handler callback with:
+
+- `progress(payload)`: emit structured progress updates (`TaskEventType.PROGRESS`).
+- `pipe(...log)` and `flush()`: buffer logs that eventually feed into `TaskEventType.LOG`.
+- `heartbeat()`: extend the lease before it expires (used in long-running handlers).
+- `scheduleCompositeSteps(...)`: dynamically insert extra steps when building migration tasks.
+
+Task attempts are bounded by `maxAttempts` and `backoff` (configured via builders). The engine records each attempt and automatically escalates to `WAITING_RETRY`/`RUNNING` states; if a task exhausts retries, the service surfaces the final error via `TaskTracker.wait()` so your migration command can decide between `retry()` or aborting.
+
+## Migration System
+
+`MigrationService` is the canonical upgrade runner. Use `MigrationService.migrateAdapters(adapters, config)` or `DecafCoreModule.migrate(config)` once your persistence layer is booted, but remember that live verification expects each migration to add a required column/property and backfill existing records before moving to the next version.
+
+### Migration configuration reference
+
+`MigrationService` speaks the `MigrationConfig` / `PersistenceMigrationConfig` language:
+
+- `persistMigrationSteps`: keep track of every migration run (defaults to `true`).
+- `persistenceFlavour`: restricts the execution plan to a single adapter flavour alias.
+- `targetVersion`: semver/string goal for this run (CLI defaults to `package.json.version`).
+- `taskMode`: when `true`, migrations are executed through the TaskService as `CompositeTask`s built per version. When `false`, `executeMigration` runs each migration inline.
+- `includeGenericInTaskMode`: when `false` (the default for multi-adapter runs), only flavour-scoped migrations execute inside tasks so generic migrations stay in relational mode.
+- `retrieveLastVersion` / `setCurrentVersion`: asynchronous handlers so each adapter can persist its own migration head. `retrieveLastVersion` is called prior to building the execution plan; `setCurrentVersion` runs after every successfully completed version (per task in task mode, once at the end in normal mode).
+- `taskService`: required when `taskMode` is enabled; the CLI boots a `TaskService` backed by a dedicated `RamAdapter` (`decaf-cli-task-engine`).
+- `versioning`: override the default npm-semver comparator (`MigrationVersioning`) if you deploy a non-semver scheme.
+- `handlers`: per-flavour overrides (typically wired via the CLI defaults) for `retrieveLastVersion`/`setCurrentVersion` if you need special persistence beyond the default adapter cache.
+- `dryRun`: compatibility flag that is parsed but does not alter runtime behaviour anymore; the migrations still execute against your database.
+
+Example handlers:
+
+```ts
+handlers: {
+  nano: {
+    async retrieveLastVersion(adapter) {
+      return (await new VersionRepo(adapter).read("nano"))?.version;
+    },
+    async setCurrentVersion(version, adapter) {
+      await new VersionRepo(adapter).upsert("nano", { version });
+    },
+  },
+}
+```
+
+Use `MigrationService.migrateAdapters([nanoAdapter, typeormAdapter], config)` with `taskMode: true` and the appropriate handlers to queue each version with the TaskService, then call `migration.track()` to wait on each version.
+
+### `@migration` metadata and precedence control
+
+Each migration class must be decorated with `@migration(...)`. The decorator accepts multiple overloads, but all forms populate the metadata that `MigrationService.sort()` uses to build a deterministic plan:
+
+```ts
+@migration("1.1.0-add-isActive", {
+  precedence: "1.1.0",
+  flavour: "nano",
+  rules: [
+    async (_, adapter) => Boolean(await adapter.exists("user")),
+  ],
+})
+export class AddIsActiveMigration implements Migration<any, NanoAdapter> { ... }
+```
+
+- `reference`: required string used for logging, dependency hints, and version normalization (typically the semver value).
+- `precedence`: optional hint that can be a `Migration` constructor, string token, or object referencing another migration. `MigrationService.extractPrecedenceTokens` reads it to break ties when migrations share the same version and flavour; use it to force ordering between otherwise identical migrations.
+- `flavour`: optional adapter flavour alias (e.g., `"nano"`, `"type-orm"`). Migrations are only considered when `targetFlavour` matches or (when `includeGeneric` is `true`) when a generic migration declares `DefaultFlavour`.
+- `rules`: optional array of async predicates `(qr, adapter, ctx)` that gate whether the migration should run. If any rule returns `false`, the migration is skipped.
+
+`MigrationService.sort()` first compares normalized versions (`normalize()` via `MigrationVersioning`), then uses `compareByPrecedence`, and finally falls back to flavour/reference lexicographic ordering. If two migrations share version/flavour and have conflicting precedence, an explicit `InternalError` is thrown so you can clarify the ordering.
+
+### Version tracking, task mode, and resume semantics
+
+`MigrationService` starts by calling `retrieveLastVersion` (when provided) to determine the persisted `currentVersion`. It builds an execution plan by filtering all decorated migrations whose normalized versions fall strictly greater than `currentVersion` and less than or equal to `targetVersion`.
+
+In **normal mode**, `migrateNormally` executes each migration with `executeMigration`. After the last migration succeeds, `setCurrentVersion` is invoked once with the last version so the next boot knows where to resume.
+
+In **task mode**, `migrateViaTasks` uses `MigrationTaskBuilder` (a `CompositeTaskBuilder` wrapper) to queue one `TaskModel` per version. Each queued task depends on the previous one (the CLI attaches the dependency chain automatically), and `MigrationService.track()` waits for the `TaskTracker` of each version to finish. Immediately after each task resolves, `track()` calls `setCurrentVersion` for that version (using `this.queuedTaskChain` to map task IDs to versions). This per-version update ensures that, after a crash, re-running the CLI will call `retrieveLastVersion` and resume at the correct position.
+
+If a task fails or is canceled, call `MigrationService.retry(taskId)`:
+
+1. `retry` checks for explicit IDs, pending context IDs (`Context.pending(PersistenceKeys.MIGRATION)`), or the queued chain.
+2. It queries the TaskRepository (with `ignoreHandlers: true`) and rewrites the `TaskModel` to `status = PENDING`, clears `error`, `leaseOwner`, and timestamps so the TaskEngine can reclaim it.
+
+If you want to rerun an entire migration from scratch, omit `taskIds` and let `retry()` call `migrateViaTasks` again.
+
+`MigrationService` rejects any configuration where the task engine adapter alias is also part of the migrating adapters; keeping the TaskService on a separate `RamAdapter` ensures migrations can persist their schema changes without racing the tasks that perform them.
+
 ## Advanced Repository Features
 
 The `Repository` class now includes several high-level methods for common query patterns, simplifying data access.

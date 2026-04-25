@@ -17,7 +17,7 @@ export abstract class AbsMigration<
   implements Migration<QUERYRUNNER, A, R>
 {
   private _reference?: string;
-  private _precedence?: Migration<any, any>;
+  private _precedence?: Migration<any, any> | string;
 
   transaction = true;
 

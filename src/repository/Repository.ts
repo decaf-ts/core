@@ -919,7 +919,6 @@ export class Repository<
     log.debug(
       `deleting new ${this.class.name} in table ${Model.tableName(this.class)} with pk ${id}`
     );
-
     const m = await this.adapter.delete(this.class, id, ...ctxArgs);
     return this.adapter.revert<M>(m, this.class, id, undefined, ctx);
   }
@@ -974,7 +973,6 @@ export class Repository<
     log.debug(
       `deleting ${keys.length} ${this.class.name} in table ${Model.tableName(this.class)}`
     );
-
     const results = await this.adapter.deleteAll(this.class, keys, ...ctxArgs);
     return results.map((r, i) =>
       this.adapter.revert(r, this.class, keys[i], undefined, ctx)

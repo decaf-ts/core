@@ -9,7 +9,7 @@ class ControlledMigrationService extends MigrationService<true, RamAdapter> {
     return this.plan;
   }
 
-  protected override async executeMigration(migration: any, ...): Promise<void> {
+  protected override async executeMigration(migration: any): Promise<void> {
     this.executed.push(migration.reference);
   }
 }

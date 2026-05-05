@@ -1714,9 +1714,17 @@ export class Repository<
     ...args: any[]
   ): R {
     let repo: R | Constructor<R> | undefined;
+    const rawRegisteredFlavour = Metadata.registeredFlavour(model);
+    const registeredFlavour =
+      rawRegisteredFlavour && rawRegisteredFlavour !== DefaultFlavour
+        ? rawRegisteredFlavour
+        : undefined;
 
     const _alias: string | undefined =
-      alias || Metadata.flavourOf(model) || Adapter.currentFlavour;
+      alias ||
+      registeredFlavour ||
+      Metadata.flavourOf(model) ||
+      Adapter.currentFlavour;
     try {
       repo = this.get(model, _alias) as Constructor<R> | R;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1728,6 +1736,7 @@ export class Repository<
       typeof repo === "function" ? (repo as Constructor<R>) : undefined;
     const flavour: string | undefined =
       alias ||
+      registeredFlavour ||
       Metadata.flavourOf(model) ||
       (repoConstructor &&
         Metadata.get(repoConstructor, PersistenceKeys.ADAPTER)) ||

@@ -61,9 +61,17 @@ import { AdapterTransaction } from "./ContextLock";
 
 const flavourResolver = Decoration["flavourResolver"].bind(Decoration);
 Decoration["flavourResolver"] = (obj: object) => {
+  const resolveAdapterFlavour = (value?: string): string | undefined => {
+    if (!value) return undefined;
+    const adapter = Adapter["_cache"]?.[value] as
+      | { flavour?: string }
+      | undefined;
+    return adapter?.flavour || value;
+  };
   try {
     const result = flavourResolver(obj);
-    if (result && result !== DefaultFlavour) return result;
+    if (result && result !== DefaultFlavour)
+      return resolveAdapterFlavour(result);
     const targetCtor =
       typeof obj === "function"
         ? (obj as Constructor)
@@ -75,12 +83,12 @@ Decoration["flavourResolver"] = (obj: object) => {
         ? Metadata.registeredFlavour(targetCtor)
         : undefined;
     if (registeredFlavour && registeredFlavour !== DefaultFlavour)
-      return registeredFlavour;
+      return resolveAdapterFlavour(registeredFlavour);
     const currentFlavour = Adapter["_currentFlavour"];
     if (currentFlavour) {
       const cachedAdapter = Adapter["_cache"]?.[currentFlavour];
       if (cachedAdapter?.flavour) return cachedAdapter.flavour;
-      return currentFlavour;
+      return resolveAdapterFlavour(currentFlavour);
     }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e: unknown) {
@@ -388,7 +396,9 @@ export abstract class Adapter<
       );
     Adapter._cache[this.alias] = this;
     if (this.alias !== this.flavour) {
-      Adapter._cache[this.flavour] = this;
+      if (!(this.flavour in Adapter._cache)) {
+        Adapter._cache[this.flavour] = this;
+      }
     }
     this.log.info(
       `Created ${this.alias} persistence adapter ${this._alias ? `(${this.flavour}) ` : ""} persistence adapter`

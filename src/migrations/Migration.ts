@@ -10,11 +10,10 @@ import { MigrationRuleError } from "../persistence/errors";
 
 export abstract class AbsMigration<
     A extends Adapter<any, any, any, any>,
-    QUERYRUNNER = ConnectionForAdapter<A>,
     R = void,
   >
   extends AbsContextual<ContextOf<A>>
-  implements Migration<QUERYRUNNER, A, R>
+  implements Migration<A, R>
 {
   private _reference?: string;
   private _precedence?: Migration<any, any> | string;
@@ -72,9 +71,15 @@ export abstract class AbsMigration<
     return Adapter.get(flavour) as A;
   }
 
-  protected abstract getQueryRunner(conn: ConnectionForAdapter<A>): QUERYRUNNER;
+  protected abstract getQueryRunner(
+    conn: ConnectionForAdapter<A>
+  ): ConnectionForAdapter<A>;
 
-  private async enforceRules(qr: QUERYRUNNER, adapter: A, ctx: ContextOf<A>) {
+  private async enforceRules(
+    qr: ConnectionForAdapter<A>,
+    adapter: A,
+    ctx: ContextOf<A>
+  ) {
     const rules: MigrationRule<any, any>[] = Metadata.get(
       this.constructor as any,
       PersistenceKeys.MIGRATION
@@ -89,10 +94,10 @@ export abstract class AbsMigration<
 
   private prefix(name: string) {
     return async function preffix(
-      this: AbsMigration<A, QUERYRUNNER>,
-      qrOrAdapter: QUERYRUNNER | A
-    ): Promise<[QUERYRUNNER, A, ContextOf<A>]> {
-      let qr: QUERYRUNNER;
+      this: AbsMigration<A, ConnectionForAdapter<A>>,
+      qrOrAdapter: ConnectionForAdapter<A> | A
+    ): Promise<[ConnectionForAdapter<A>, A, ContextOf<A>]> {
+      let qr: ConnectionForAdapter<A>;
       if (qrOrAdapter instanceof Adapter) {
         qr = this.getQueryRunner(qrOrAdapter.client);
       } else {
@@ -118,16 +123,20 @@ export abstract class AbsMigration<
   }
 
   abstract down(
-    qr: QUERYRUNNER,
+    qr: ConnectionForAdapter<A>,
     adapter: A,
     ...args: ContextualArgs<ContextOf<A>>
   ): Promise<void>;
 
   abstract migrate(
-    qr: QUERYRUNNER,
+    qr: ConnectionForAdapter<A>,
     adapter: A,
     ...args: ContextualArgs<ContextOf<A>>
   ): Promise<R>;
 
-  abstract up(qr: QUERYRUNNER, adapter: A, ctx: ContextOf<A>): Promise<void>;
+  abstract up(
+    qr: ConnectionForAdapter<A>,
+    adapter: A,
+    ctx: ContextOf<A>
+  ): Promise<void>;
 }

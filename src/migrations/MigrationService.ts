@@ -44,7 +44,7 @@ export class MigrationService<
     PERSIST extends boolean ? A : void,
     MigrationConfig<PERSIST>
   >
-  implements Migration<any, A, R>
+  implements Migration<A, R>
 {
   protected versioning: MigrationVersioning = new StandardMigrationVersioning();
   protected queuedTaskChain: Array<{ id: string; version: string }> = [];
@@ -70,7 +70,9 @@ export class MigrationService<
       (adapter) => !flavours || flavours.has(adapter.flavour)
     );
     const migratingAliases = new Set(
-      adapters.map((adapter) => adapter.alias || adapter.flavour).filter(Boolean)
+      adapters
+        .map((adapter) => adapter.alias || adapter.flavour)
+        .filter(Boolean)
     );
 
     const taskEngineClient = cfg.taskService?.client as any;
@@ -185,9 +187,7 @@ export class MigrationService<
     );
   }
 
-  protected precedenceHint(
-    migration: Migration<any, any>
-  ): string | undefined {
+  protected precedenceHint(migration: Migration<any, any>): string | undefined {
     return typeof migration.precedence === "string"
       ? migration.precedence
       : undefined;
@@ -253,7 +253,9 @@ export class MigrationService<
       PersistenceKeys.MIGRATION
     );
     const flavour =
-      (meta?.flavour as string | undefined) || migration.flavour || DefaultFlavour;
+      (meta?.flavour as string | undefined) ||
+      migration.flavour ||
+      DefaultFlavour;
     const reference =
       (meta?.reference as string | undefined) || migration.reference;
     const precedenceHint = this.precedenceHint(migration);
@@ -288,12 +290,12 @@ export class MigrationService<
       try {
         migration = new MigrationClass();
       } catch (e: unknown) {
-        throw new InternalError(`failed to create migration ${reference}: ${e}`);
+        throw new InternalError(
+          `failed to create migration ${reference}: ${e}`
+        );
       }
       const resolved = this.resolveMigration(migration);
-      if (
-        !this.shouldIncludeMigration(resolved, targetFlavour, includeGeneric)
-      )
+      if (!this.shouldIncludeMigration(resolved, targetFlavour, includeGeneric))
         continue;
       migrations.push(resolved);
     }
@@ -351,7 +353,9 @@ export class MigrationService<
     try {
       await m.up(qr, adapter, ...args);
     } catch (e: unknown) {
-      throw new MigrationError(`failed to initialize migration ${m.reference}: ${e}`);
+      throw new MigrationError(
+        `failed to initialize migration ${m.reference}: ${e}`
+      );
     }
     try {
       await m.migrate(qr, adapter, ...args);
@@ -361,7 +365,9 @@ export class MigrationService<
     try {
       await m.down(qr, adapter, ...args);
     } catch (e: unknown) {
-      throw new MigrationError(`failed to conclude migration ${m.reference}: ${e}`);
+      throw new MigrationError(
+        `failed to conclude migration ${m.reference}: ${e}`
+      );
     }
   }
 
@@ -406,7 +412,7 @@ export class MigrationService<
     const cfg = this.config;
     const taskMode = cfg.taskMode ?? false;
     const includeGeneric = taskMode
-      ? cfg.includeGenericInTaskMode ?? true
+      ? (cfg.includeGenericInTaskMode ?? true)
       : true;
 
     const plan = this.buildExecutionPlan({
@@ -427,7 +433,7 @@ export class MigrationService<
     const cfg = this.config;
     const taskMode = cfg.taskMode ?? false;
     const includeGeneric = taskMode
-      ? cfg.includeGenericInTaskMode ?? true
+      ? (cfg.includeGenericInTaskMode ?? true)
       : true;
 
     const plan = this.buildExecutionPlan({
@@ -461,8 +467,7 @@ export class MigrationService<
 
     if (this.config.taskMode)
       await this.migrateViaTasks(undefined, undefined, ...args);
-    else
-      await this.migrateNormally(undefined, undefined, ...args);
+    else await this.migrateNormally(undefined, undefined, ...args);
 
     return undefined as unknown as R;
   }
@@ -482,7 +487,7 @@ export class MigrationService<
     const cfg = this.config;
     const targetFlavour = cfg.persistenceFlavour;
     const includeGeneric = cfg.taskMode
-      ? cfg.includeGenericInTaskMode ?? true
+      ? (cfg.includeGenericInTaskMode ?? true)
       : true;
 
     const scopedAdapter = targetFlavour
@@ -491,7 +496,10 @@ export class MigrationService<
 
     let currentVersion: string | undefined;
     if (cfg.retrieveLastVersion && scopedAdapter) {
-      const retrieved = await cfg.retrieveLastVersion(scopedAdapter, ...ctxArgs);
+      const retrieved = await cfg.retrieveLastVersion(
+        scopedAdapter,
+        ...ctxArgs
+      );
       if (retrieved) currentVersion = this.normalizeVersion(retrieved);
     }
 
@@ -549,7 +557,10 @@ export class MigrationService<
 
     let currentVersion: string | undefined;
     if (cfg.retrieveLastVersion && scopedAdapter) {
-      const retrieved = await cfg.retrieveLastVersion(scopedAdapter, ...ctxArgs);
+      const retrieved = await cfg.retrieveLastVersion(
+        scopedAdapter,
+        ...ctxArgs
+      );
       if (retrieved) currentVersion = this.normalizeVersion(retrieved);
     }
 
@@ -587,7 +598,9 @@ export class MigrationService<
             version: versionTask.version,
           });
           if (!created?.id) {
-            log.warn(`TaskService.push returned missing id for version ${versionTask.version}`);
+            log.warn(
+              `TaskService.push returned missing id for version ${versionTask.version}`
+            );
           }
           ctx.pushPending(PersistenceKeys.MIGRATION, created.id);
         }
@@ -636,12 +649,11 @@ export class MigrationService<
       PersistenceKeys.MIGRATION,
       ctxArgs as any
     );
-    const ids =
-      explicitTaskIds?.length
-        ? explicitTaskIds
-        : queuedIds.length
-          ? queuedIds
-          : pendingIds;
+    const ids = explicitTaskIds?.length
+      ? explicitTaskIds
+      : queuedIds.length
+        ? queuedIds
+        : pendingIds;
     if (!ids.length) return;
 
     const versionByTaskId = this.queuedTaskChain.reduce(
@@ -693,12 +705,11 @@ export class MigrationService<
       PersistenceKeys.MIGRATION,
       ctxArgs as any
     );
-    const ids =
-      explicitTaskIds?.length
-        ? explicitTaskIds
-        : queuedIds.length
-          ? queuedIds
-          : pendingIds;
+    const ids = explicitTaskIds?.length
+      ? explicitTaskIds
+      : queuedIds.length
+        ? queuedIds
+        : pendingIds;
     if (!ids.length) {
       await this.migrateViaTasks(undefined, undefined, ...ctxArgs);
       return;

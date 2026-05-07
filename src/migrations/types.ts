@@ -4,31 +4,23 @@ import { AdapterFlags, ContextOf } from "../persistence/types";
 import { ContextualArgs } from "../utils/ContextualLoggedClass";
 import { TaskService } from "../tasks/TaskService";
 import type { MigrationVersioning } from "./MigrationVersioning";
-export interface Migration<
-  QUERYRUNNER,
-  A extends Adapter<any, any, any, any>,
-  R = void,
-> {
+export interface Migration<A extends Adapter<any, any, any, any>, R = void> {
   flavour?: string;
-  precedence:
-    | Migration<any, any>
-    | Migration<any, any>[]
-    | string
-    | null;
+  precedence: Migration<any, any> | Migration<any, any>[] | string | null;
   reference: string;
   transaction: boolean;
   up(
-    qr: QUERYRUNNER,
+    qr: ConnectionForAdapter<A>,
     adapter: A,
     ...args: ContextualArgs<ContextOf<A>>
   ): Promise<void>;
   migrate(
-    qr: QUERYRUNNER,
+    qr: ConnectionForAdapter<A>,
     adapter: A,
     ...args: ContextualArgs<ContextOf<A>>
   ): Promise<R>;
   down(
-    qr: QUERYRUNNER,
+    qr: ConnectionForAdapter<A>,
     adapter: A,
     ...args: ContextualArgs<ContextOf<A>>
   ): Promise<void>;

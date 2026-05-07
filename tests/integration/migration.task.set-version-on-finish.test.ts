@@ -1,27 +1,27 @@
-import { Adapter } from "../../src/persistence/Adapter";
-import { RamAdapter } from "../../src/ram";
-import { AbsMigration, migration, MigrationService } from "../../src/migrations";
+import { RamAdapter, RamFlavour } from "../../src/ram";
+import {
+  AbsMigration,
+  ConnectionForAdapter,
+  migration,
+  MigrationService,
+} from "../../src/migrations";
 import { MultiLock } from "@decaf-ts/transactional-decorators";
+import {
+  ContextOf,
+  MaybeContextualArg,
+  PersistenceKeys,
+} from "../../src/index";
 
-const MIGRATION_FLAVOUR = "core-task-mode-ram";
+const MIGRATION_FLAVOUR = RamFlavour;
 const TABLE = "core_task_migration_docs";
 const TARGET_VERSION = "1.1.0";
 
-class LiveRamMigrationAdapter extends RamAdapter {
-  constructor(conf: any = {}, alias?: string) {
-    super(conf, alias);
-    (this as any).flavour = MIGRATION_FLAVOUR;
-    (Adapter as any)._cache[MIGRATION_FLAVOUR] = this;
-  }
-}
-
 @migration("1.1.0-core-task-migration", TARGET_VERSION, MIGRATION_FLAVOUR)
-class TaskModeMigration extends AbsMigration<
-  LiveRamMigrationAdapter,
-  Map<string, Map<string, any>>
-> {
-  protected getQueryRunner(conn: LiveRamMigrationAdapter): Map<string, Map<string, any>> {
-    return conn.client;
+class TaskModeMigration extends AbsMigration<RamAdapter> {
+  protected getQueryRunner(
+    conn: ConnectionForAdapter<RamAdapter>
+  ): ConnectionForAdapter<RamAdapter> {
+    return conn;
   }
 
   async up(): Promise<void> {
@@ -32,8 +32,18 @@ class TaskModeMigration extends AbsMigration<
     return;
   }
 
-  async migrate(qr: Map<string, Map<string, any>>): Promise<void> {
-    const table = qr.get(TABLE);
+  async migrate(
+    qr: ConnectionForAdapter<RamAdapter>,
+
+    adapter: RamAdapter,
+
+    ...args: MaybeContextualArg<ContextOf<RamAdapter>>
+  ): Promise<void> {
+    const { log } = (
+      await this.logCtx(args, PersistenceKeys.MIGRATION, true)
+    ).for(this.migrate);
+    log.info("migrating");
+    const table = (qr as unknown as Map<string, any>).get(TABLE);
     if (!table) return;
     for (const [id, doc] of table.entries()) {
       table.set(id, {
@@ -48,8 +58,8 @@ void TaskModeMigration;
 
 describe("MigrationService version persistence", () => {
   it("records the target version after a live schema migration", async () => {
-    const migrationAdapter = new LiveRamMigrationAdapter(
-      { lock: new MultiLock() },
+    const migrationAdapter = new RamAdapter(
+      { user: "user", lock: new MultiLock() },
       "core-task-migration-adapter"
     );
     const versions: Record<string, string> = {

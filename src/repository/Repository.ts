@@ -1209,7 +1209,6 @@ export class Repository<
     if (typeof value !== "string")
       throw new QueryError("Find value must be a string");
     const attrs = this.getDefaultQueryAttributes();
-    const condition = this.buildDefaultStartsWithCondition(value, attrs);
     const { log, ctxArgs } = (
       await this.logCtx(args, PreparedStatementKeys.FIND, true)
     ).for(this.find);
@@ -1218,6 +1217,7 @@ export class Repository<
         ", "
       )}`
     );
+    const condition = this.buildDefaultStartsWithCondition(value, attrs);
     return this.select()
       .where(condition)
       .orderBy([attrs[0], order])

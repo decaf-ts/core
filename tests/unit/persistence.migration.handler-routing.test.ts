@@ -13,7 +13,7 @@ describe("MigrationService adapter migration handler routing", () => {
       .mockResolvedValue(undefined);
 
     await MigrationService.migrateAdapters(
-      [{ flavour: "adapter-a" }] as any,
+      [{ alias: "adapter-a", flavour: "ram" }] as any,
       {
         handlers: {
           "adapter-a": {

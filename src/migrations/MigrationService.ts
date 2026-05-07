@@ -67,12 +67,10 @@ export class MigrationService<
   ): Promise<MigrationService<true, AD>[]> {
     const flavours = cfg.flavours?.length ? new Set(cfg.flavours) : undefined;
     const selected = adapters.filter(
-      (adapter) => !flavours || flavours.has(adapter.flavour)
+      (adapter) => !flavours || flavours.has(adapter.alias)
     );
     const migratingAliases = new Set(
-      adapters
-        .map((adapter) => adapter.alias || adapter.flavour)
-        .filter(Boolean)
+      adapters.map((adapter) => adapter.alias).filter(Boolean)
     );
 
     const taskEngineClient = cfg.taskService?.client as any;
@@ -89,11 +87,13 @@ export class MigrationService<
     const services: MigrationService<true, AD>[] = [];
 
     for (const adapter of selected) {
-      const handlers = cfg.handlers?.[adapter.flavour] || {};
+      const scope = adapter.alias;
+      const handlers =
+        cfg.handlers?.[scope] || cfg.handlers?.[adapter.flavour] || {};
       const migrationService = new MigrationService<true, AD>();
       services.push(migrationService);
       await migrationService.boot({
-        persistenceFlavour: adapter.flavour,
+        persistenceFlavour: scope,
         targetVersion: cfg.toVersion,
         taskMode: !!cfg.taskMode,
         // In multi-adapter task mode, run flavour-scoped migrations only.

@@ -1,4 +1,4 @@
-import { RamAdapter, RamFlavour } from "../../src/ram";
+import { RamAdapter } from "../../src/ram";
 import {
   AbsMigration,
   ConnectionForAdapter,
@@ -12,11 +12,12 @@ import {
   PersistenceKeys,
 } from "../../src/index";
 
-const MIGRATION_FLAVOUR = RamFlavour;
+const MIGRATION_FLAVOUR = "core-task-mode-ram";
 const TABLE = "core_task_migration_docs";
 const TARGET_VERSION = "1.1.0";
 
 @migration("1.1.0-core-task-migration", TARGET_VERSION, MIGRATION_FLAVOUR)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 class TaskModeMigration extends AbsMigration<RamAdapter> {
   protected getQueryRunner(
     conn: ConnectionForAdapter<RamAdapter>
@@ -54,13 +55,11 @@ class TaskModeMigration extends AbsMigration<RamAdapter> {
   }
 }
 
-void TaskModeMigration;
-
 describe("MigrationService version persistence", () => {
   it("records the target version after a live schema migration", async () => {
     const migrationAdapter = new RamAdapter(
       { user: "user", lock: new MultiLock() },
-      "core-task-migration-adapter"
+      MIGRATION_FLAVOUR
     );
     const versions: Record<string, string> = {
       [MIGRATION_FLAVOUR]: "1.0.0",

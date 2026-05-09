@@ -133,5 +133,8 @@
   },
   "main": "./lib/cjs/index.cjs",
   "module": "./lib/esm/index.js",
-  "sideEffects": false
+  "sideEffects": [
+    "./lib/esm/overrides/index.js",
+    "./lib/cjs/overrides/index.cjs"
+  ]
 }

@@ -3,6 +3,8 @@
  * @summary This file exports all the necessary components for the overrides functionality, including Metadata, injectables, Model, and overrides.
  * @module core/overrides
  */
+import "./overrides";
+
 export * from "./Metadata";
 export * from "./injectables";
 export * from "./Model";

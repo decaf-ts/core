@@ -126,7 +126,8 @@
     "@decaf-ts/decoration": "latest",
     "@decaf-ts/decorator-validation": "latest",
     "@decaf-ts/injectable-decorators": "latest",
-    "@decaf-ts/transactional-decorators": "latest"
+    "@decaf-ts/transactional-decorators": "latest",
+    "@types/semver": "^7.7.1"
   },
   "optionalDependencies": {
     "semver": "^7.7.2"

@@ -5,49 +5,84 @@
   "type": "module",
   "exports": {
     ".": {
-      "require": "./lib/cjs/index.cjs",
-      "import": "./lib/esm/index.js",
-      "types": "./lib/types/index.d.ts",
+      "import": {
+        "types": "./lib/types/index.d.mts",
+        "default": "./lib/esm/index.js"
+      },
+      "require": {
+        "types": "./lib/types/index.d.cts",
+        "default": "./lib/cjs/index.cjs"
+      },
       "default": "./lib/esm/index.js"
     },
     "./migrations": {
-      "require": "./lib/cjs/migrations/index.cjs",
-      "import": "./lib/esm/migrations/index.js",
-      "types": "./lib/types/migrations/index.d.ts",
+      "import": {
+        "types": "./lib/types/migrations/index.d.mts",
+        "default": "./lib/esm/migrations/index.js"
+      },
+      "require": {
+        "types": "./lib/types/migrations/index.d.cts",
+        "default": "./lib/cjs/migrations/index.cjs"
+      },
       "default": "./lib/esm/migrations/index.js"
     },
     "./migrations/SemverMigrationVersioning": {
-      "require": "./lib/cjs/migrations/SemverMigrationVersioning.cjs",
-      "import": "./lib/esm/migrations/SemverMigrationVersioning.js",
-      "types": "./lib/types/migrations/SemverMigrationVersioning.d.ts",
+      "import": {
+        "types": "./lib/types/migrations/SemverMigrationVersioning.d.mts",
+        "default": "./lib/esm/migrations/SemverMigrationVersioning.js"
+      },
+      "require": {
+        "types": "./lib/types/migrations/SemverMigrationVersioning.d.cts",
+        "default": "./lib/cjs/migrations/SemverMigrationVersioning.cjs"
+      },
       "default": "./lib/esm/migrations/SemverMigrationVersioning.js"
     },
     "./ram": {
-      "require": "./lib/cjs/ram/index.cjs",
-      "import": "./lib/esm/ram/index.js",
-      "types": "./lib/types/ram/index.d.ts",
+      "import": {
+        "types": "./lib/types/ram/index.d.mts",
+        "default": "./lib/esm/ram/index.js"
+      },
+      "require": {
+        "types": "./lib/types/ram/index.d.cts",
+        "default": "./lib/cjs/ram/index.cjs"
+      },
       "default": "./lib/esm/ram/index.js"
     },
     "./fs": {
-      "require": "./lib/cjs/fs/index.cjs",
-      "import": "./lib/esm/fs/index.js",
-      "types": "./lib/types/fs/index.d.ts",
+      "import": {
+        "types": "./lib/types/fs/index.d.mts",
+        "default": "./lib/esm/fs/index.js"
+      },
+      "require": {
+        "types": "./lib/types/fs/index.d.cts",
+        "default": "./lib/cjs/fs/index.cjs"
+      },
       "default": "./lib/esm/fs/index.js"
     },
     "./tasks": {
-      "require": "./lib/cjs/tasks/index.cjs",
-      "import": "./lib/esm/tasks/index.js",
-      "types": "./lib/types/tasks/index.d.ts",
+      "import": {
+        "types": "./lib/types/tasks/index.d.mts",
+        "default": "./lib/esm/tasks/index.js"
+      },
+      "require": {
+        "types": "./lib/types/tasks/index.d.cts",
+        "default": "./lib/cjs/tasks/index.cjs"
+      },
       "default": "./lib/esm/tasks/index.js"
     },
     "./workers": {
-      "require": "./lib/cjs/workers/index.cjs",
-      "import": "./lib/esm/workers/index.js",
-      "types": "./lib/types/workers/index.d.ts",
+      "import": {
+        "types": "./lib/types/workers/index.d.mts",
+        "default": "./lib/esm/workers/index.js"
+      },
+      "require": {
+        "types": "./lib/types/workers/index.d.cts",
+        "default": "./lib/cjs/workers/index.cjs"
+      },
       "default": "./lib/esm/workers/index.js"
     }
   },
-  "types": "./lib/types/index.d.ts",
+  "types": "./lib/types/index.d.mts",
   "scripts": {
     "do-install": "NPM_TOKEN=$(cat .npmtoken) npm install",
     "update-dependencies": "PREFIX=\"decaf-ts\"; npm ls | grep \"$PREFIX\" | awk -F/ '{print $NF}' | sed 's/@.*//' | xargs -I package npm update @\"$PREFIX\"/package",

@@ -3,6 +3,8 @@
  * @summary This file exports all the necessary components for the ram functionality, including the RamAdapter, constants, handlers, and more.
  * @module core/ram
  */
+
+import "../overrides";
 import { RamAdapter } from "./RamAdapter";
 
 // Invoked there to ensure decoration override

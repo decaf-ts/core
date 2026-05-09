@@ -3,6 +3,9 @@
  * @summary This file exports all the necessary components for the tasks functionality, including models, builder, and more.
  * @module core/tasks
  */
+
+import "../overrides";
+
 export * from "./models";
 export * from "./builder";
 export * from "./CleanUpTask";

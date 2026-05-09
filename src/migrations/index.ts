@@ -3,6 +3,9 @@
  * @summary This file exports all the necessary components for the migrations functionality, including constants, decorators, and more.
  * @module core/migrations
  */
+
+import "../overrides";
+
 export * from "./constants";
 export * from "./decorators";
 export * from "./Migration";

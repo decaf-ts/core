@@ -5,7 +5,7 @@
  * model definitions, repository patterns, persistence layer, query building, and utility functions.
  * It exports functionality from various submodules and sets up the injectable registry for repository decorators.
  */
-
+import "./overrides";
 import { InjectablesRegistry } from "./repository/injectables";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import { Metadata } from "@decaf-ts/decoration";

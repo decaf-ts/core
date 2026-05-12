@@ -1708,7 +1708,7 @@ export class Repository<
    * @return {R} A repository instance for the model.
    * @throws {InternalError} If no adapter is registered for the flavour.
    */
-  static forModel<M extends Model, R extends Repo<M>>(
+  static forModel<M extends Model<boolean>, R extends Repo<M>>(
     model: Constructor<M>,
     alias?: string,
     ...args: any[]

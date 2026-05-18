@@ -17,8 +17,9 @@ import {
 } from "@decaf-ts/db-decorators";
 import { TaskEventType } from "../constants";
 import { uuid } from "../../persistence/decorators";
-import { index } from "../../model/index";
-import { OrderDirection } from "../../repository/index";
+import { index } from "../../model/indexing";
+import { OrderDirection } from "../../repository/constants";
+import { defaultQueryAttr } from "../../query/decorators";
 
 @table("task_event")
 @model()
@@ -37,6 +38,7 @@ export class TaskEventModel extends Model {
   @column()
   @readonly()
   @required()
+  @defaultQueryAttr()
   @index([OrderDirection.ASC, OrderDirection.DSC])
   taskId!: string;
 
@@ -50,6 +52,7 @@ export class TaskEventModel extends Model {
   @readonly()
   @required()
   @option(TaskEventType)
+  @defaultQueryAttr()
   @index([OrderDirection.ASC, OrderDirection.DSC])
   classification!: TaskEventType;
 

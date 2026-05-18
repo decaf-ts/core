@@ -60,7 +60,13 @@ import { UUID } from "./generators";
 import { AdapterTransaction } from "./ContextLock";
 
 const flavourResolver = Decoration["flavourResolver"].bind(Decoration);
-Decoration["flavourResolver"] = (obj: object) => {
+Decoration["flavourResolver"] = (
+  obj: object,
+  ...args: any[]
+) => {
+  const resolverMode = args[0];
+  const isHandlerResolution =
+    resolverMode === undefined || resolverMode === "handler";
   const resolveAdapterFlavour = (value?: string): string | undefined => {
     if (!value) return undefined;
     const adapter = Adapter["_cache"]?.[value] as
@@ -69,9 +75,11 @@ Decoration["flavourResolver"] = (obj: object) => {
     return adapter?.flavour || value;
   };
   try {
-    const result = flavourResolver(obj);
-    if (result && result !== DefaultFlavour)
-      return resolveAdapterFlavour(result);
+    const result = flavourResolver(obj, ...args);
+    if (result && result !== DefaultFlavour) {
+      if (isHandlerResolution) return resolveAdapterFlavour(result);
+      return result;
+    }
     const targetCtor =
       typeof obj === "function"
         ? (obj as Constructor)
@@ -82,13 +90,17 @@ Decoration["flavourResolver"] = (obj: object) => {
       targetCtor && typeof Metadata["registeredFlavour"] === "function"
         ? Metadata.registeredFlavour(targetCtor)
         : undefined;
-    if (registeredFlavour && registeredFlavour !== DefaultFlavour)
-      return resolveAdapterFlavour(registeredFlavour);
+    if (registeredFlavour && registeredFlavour !== DefaultFlavour) {
+      if (isHandlerResolution)
+        return resolveAdapterFlavour(registeredFlavour);
+      return registeredFlavour;
+    }
     const currentFlavour = Adapter["_currentFlavour"];
     if (currentFlavour) {
       const cachedAdapter = Adapter["_cache"]?.[currentFlavour];
       if (cachedAdapter?.flavour) return cachedAdapter.flavour;
-      return resolveAdapterFlavour(currentFlavour);
+      if (isHandlerResolution) return resolveAdapterFlavour(currentFlavour);
+      return currentFlavour;
     }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (e: unknown) {

@@ -29,6 +29,7 @@ import { TaskIOSerializer } from "./TaskIOSerializer";
 import { uuid } from "../../persistence/index";
 import { index } from "../../model/index";
 import { OrderDirection } from "../../repository/index";
+import { defaultQueryAttr } from "../../query/index";
 
 @description("Holds the current step when applicable")
 @table("tasks")
@@ -51,12 +52,14 @@ export class TaskModel<INPUT = any, OUTPUT = any> extends Model {
   @column()
   @required()
   @index([OrderDirection.ASC, OrderDirection.DSC])
+  @defaultQueryAttr()
   @description("Holds task classification - must match @task()")
   classification!: string;
 
   @column()
   @prop()
   @index([OrderDirection.ASC, OrderDirection.DSC])
+  @defaultQueryAttr()
   @description("optional task name for ambiguity")
   name?: string;
 

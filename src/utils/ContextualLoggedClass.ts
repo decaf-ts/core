@@ -28,7 +28,7 @@ function isContextLike(value: unknown): value is Context<any> {
 export type ContextualArgs<
   C extends Context<any>,
   ARGS extends any[] = any[],
-> = [...ARGS, C];
+> = [...ARGS, C] | [C];
 
 export type MethodOrOperation =
   | ((...args: any[]) => any)

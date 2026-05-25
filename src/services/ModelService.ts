@@ -61,11 +61,8 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     return this._repository;
   }
 
-  constructor(
-    private readonly clazz: Constructor<M>,
-    name?: string
-  ) {
-    super(name ?? `${clazz.name}Service`);
+  constructor(private readonly clazz: Constructor<M>) {
+    super();
   }
 
   static getService<M extends Model<boolean>, S extends ModelService<M>>(

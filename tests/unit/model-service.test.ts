@@ -179,8 +179,6 @@ describe("Model Services", () => {
 
       const serviceInstance = new TestNameModelService();
       const serviceFromRegistry = ModelService.forModel(TestNameModel);
-      expect(serviceInstance.name).toEqual("TestNameModelService");
-      expect(serviceInstance.name).toEqual(serviceFromRegistry.name);
       expect(serviceFromRegistry).toBeDefined();
       expect(() =>
         (serviceFromRegistry as TestNameModelService).method()

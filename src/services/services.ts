@@ -36,7 +36,7 @@ export abstract class Service<
 
   protected observerHandler?: ObserverHandler;
 
-  protected constructor(readonly name?: string) {
+  protected constructor() {
     super();
   }
 

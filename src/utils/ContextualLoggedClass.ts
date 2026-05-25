@@ -64,10 +64,11 @@ export abstract class ContextualLoggedClass<
   C extends Context<any>,
 > extends LoggedClass {
   protected logCtx<
+    CONTEXT extends Context<any> = C,
     ARGS extends any[] = any[],
     METHOD extends MethodOrOperation = MethodOrOperation,
   >(
-    args: MaybeContextualArg<C, ARGS>,
+    args: MaybeContextualArg<CONTEXT, ARGS>,
     operation: METHOD
   ): ContextualizedArgs<C, ARGS, METHOD extends string ? true : false>;
   protected logCtx<

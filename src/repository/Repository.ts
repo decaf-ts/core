@@ -55,6 +55,7 @@ import { PreparedStatementKeys } from "../query/constants";
 import { Paginator } from "../query/Paginator";
 import { SerializedPage } from "../query/Paginator";
 import { getFilters } from "../persistence/event-filters";
+import { Context } from "../persistence/index";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.
@@ -250,10 +251,11 @@ export class Repository<
   }
 
   protected logCtx<
+    CONTEXT extends Context<any> = ContextOf<A>,
     ARGS extends any[] = any[],
     METHOD extends MethodOrOperation = MethodOrOperation,
   >(
-    args: MaybeContextualArg<ContextOf<A>, ARGS>,
+    args: MaybeContextualArg<CONTEXT, ARGS>,
     operation: METHOD
   ): ContextualizedArgs<
     ContextOf<A>,
@@ -261,10 +263,11 @@ export class Repository<
     METHOD extends string ? true : false
   >;
   protected logCtx<
+    CONTEXT extends Context<any> = ContextOf<A>,
     ARGS extends any[] = any[],
     METHOD extends MethodOrOperation = MethodOrOperation,
   >(
-    args: MaybeContextualArg<ContextOf<A>, ARGS>,
+    args: MaybeContextualArg<CONTEXT, ARGS>,
     operation: METHOD,
     allowCreate: false
   ): ContextualizedArgs<
@@ -273,20 +276,22 @@ export class Repository<
     METHOD extends string ? true : false
   >;
   protected logCtx<
+    CONTEXT extends Context<any> = ContextOf<A>,
     ARGS extends any[] = any[],
     METHOD extends MethodOrOperation = MethodOrOperation,
   >(
-    args: MaybeContextualArg<ContextOf<A>, ARGS>,
+    args: MaybeContextualArg<CONTEXT, ARGS>,
     operation: METHOD,
     allowCreate: true
   ): Promise<
     ContextualizedArgs<ContextOf<A>, ARGS, METHOD extends string ? true : false>
   >;
   protected logCtx<
+    CONTEXT extends Context<any> = ContextOf<A>,
     ARGS extends any[] = any[],
     METHOD extends MethodOrOperation = MethodOrOperation,
   >(
-    args: MaybeContextualArg<ContextOf<A>, ARGS>,
+    args: MaybeContextualArg<CONTEXT, ARGS>,
     operation: METHOD,
     allowCreate: true,
     overrides?: Partial<FlagsOf<ContextOf<A>>>
@@ -294,10 +299,11 @@ export class Repository<
     ContextualizedArgs<ContextOf<A>, ARGS, METHOD extends string ? true : false>
   >;
   protected logCtx<
+    CONTEXT extends Context<any> = ContextOf<A>,
     ARGS extends any[] = any[],
     METHOD extends MethodOrOperation = MethodOrOperation,
   >(
-    args: MaybeContextualArg<ContextOf<A>, ARGS>,
+    args: MaybeContextualArg<CONTEXT, ARGS>,
     operation: METHOD,
     allowCreate: false,
     overrides?: Partial<FlagsOf<ContextOf<A>>>
@@ -307,10 +313,11 @@ export class Repository<
     METHOD extends string ? true : false
   >;
   protected logCtx<
+    CONTEXT extends Context<any> = ContextOf<A>,
     ARGS extends any[] = any[],
     METHOD extends MethodOrOperation = MethodOrOperation,
   >(
-    args: MaybeContextualArg<ContextOf<A>, ARGS>,
+    args: MaybeContextualArg<CONTEXT, ARGS>,
     operation: METHOD,
     allowCreate: boolean = false,
     overrides?: Partial<FlagsOf<ContextOf<A>>>

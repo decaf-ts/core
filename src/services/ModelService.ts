@@ -30,6 +30,7 @@ import { type Observer } from "../interfaces";
 import { PersistenceKeys } from "../persistence/constants";
 import { PreparedStatementKeys } from "../query/constants";
 import { SelectSelector, WhereOption } from "../query/index";
+import { Context } from "../persistence/index";
 
 export type ArrayMode = "one" | "many";
 
@@ -43,7 +44,7 @@ const resolveAlias = (
 };
 
 export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
-  extends Service
+  extends Service<ContextOf<R>>
   implements
     IRepository<M, ContextOf<R>>,
     PersistenceObservable<ContextOf<R>>,
@@ -325,10 +326,11 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
   }
 
   protected override logCtx<
+    CONTEXT extends Context<any> = Context<any>,
     ARGS extends any[] = any[],
     METHOD extends MethodOrOperation = MethodOrOperation,
   >(
-    args: MaybeContextualArg<ContextOf<this["repo"]>, ARGS>,
+    args: MaybeContextualArg<CONTEXT, ARGS>,
     operation: METHOD
   ): ContextualizedArgs<
     ContextOf<this["repo"]>,
@@ -336,10 +338,11 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     METHOD extends string ? true : false
   >;
   protected override logCtx<
+    CONTEXT extends Context<any> = Context<any>,
     ARGS extends any[] = any[],
     METHOD extends MethodOrOperation = MethodOrOperation,
   >(
-    args: MaybeContextualArg<ContextOf<this["repo"]>, ARGS>,
+    args: MaybeContextualArg<CONTEXT, ARGS>,
     operation: METHOD,
     allowCreate: false
   ): ContextualizedArgs<
@@ -348,10 +351,11 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     METHOD extends string ? true : false
   >;
   protected override logCtx<
+    CONTEXT extends Context<any> = Context<any>,
     ARGS extends any[] = any[],
     METHOD extends MethodOrOperation = MethodOrOperation,
   >(
-    args: MaybeContextualArg<ContextOf<this["repo"]>, ARGS>,
+    args: MaybeContextualArg<CONTEXT, ARGS>,
     operation: METHOD,
     allowCreate: true
   ): Promise<
@@ -362,10 +366,11 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     >
   >;
   protected override logCtx<
+    CONTEXT extends Context<any> = Context<any>,
     ARGS extends any[] = any[],
     METHOD extends MethodOrOperation = MethodOrOperation,
   >(
-    args: MaybeContextualArg<ContextOf<this["repo"]>, ARGS>,
+    args: MaybeContextualArg<CONTEXT, ARGS>,
     operation: METHOD,
     allowCreate: boolean = false
   ):

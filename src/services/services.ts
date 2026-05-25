@@ -252,13 +252,12 @@ export abstract class Service<
   }
 
   protected override logCtx<
-    CONTEXT extends Context<any> = C,
     ARGS extends any[] = any[],
     METHOD extends MethodOrOperation = MethodOrOperation,
   >(
-    args: MaybeContextualArg<CONTEXT, ARGS>,
+    args: MaybeContextualArg<C, ARGS>,
     operation: METHOD
-  ): ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>;
+  ): ContextualizedArgs<C, ARGS, METHOD extends string ? true : false>;
   protected override logCtx<
     CONTEXT extends Context<any> = C,
     ARGS extends any[] = any[],
@@ -268,7 +267,7 @@ export abstract class Service<
     operation: METHOD,
     allowCreate: false,
     overrides?: Partial<FlagsOf<CONTEXT>>
-  ): ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>;
+  ): ContextualizedArgs<C, ARGS, METHOD extends string ? true : false>;
   protected override logCtx<
     CONTEXT extends Context<any> = C,
     ARGS extends any[] = any[],
@@ -278,9 +277,7 @@ export abstract class Service<
     operation: METHOD,
     allowCreate: true,
     overrides?: Partial<FlagsOf<CONTEXT>>
-  ): Promise<
-    ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>
-  >;
+  ): Promise<ContextualizedArgs<C, ARGS, METHOD extends string ? true : false>>;
   protected override logCtx<
     CONTEXT extends Context<any> = C,
     CREATE extends boolean = false,
@@ -425,7 +422,7 @@ export abstract class ClientBasedService<
   CLIENT,
   CONF,
   C extends Context<any> = any,
-> extends Service {
+> extends Service<C> {
   protected _client?: CLIENT;
 
   protected _config?: CONF;

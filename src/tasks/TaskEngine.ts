@@ -52,7 +52,7 @@ type ParsedTaskDependency = {
 export class TaskEngine<
   A extends Adapter<any, any, any, any>,
   C extends TaskEngineConfig<A> = TaskEngineConfig<A>,
-> extends AbsContextual<ContextOf<A>> {
+> extends AbsContextual<TaskContext> {
   private _tasks?: Repo<TaskModel>;
   private _events?: Repo<TaskEventModel>;
   private _adapter?: A;

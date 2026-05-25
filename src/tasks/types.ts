@@ -44,6 +44,7 @@ export interface TaskFlags<LOG extends TaskLogger<any> = TaskLogger<any>>
   heartbeat: () => Promise<void>;
   scheduleCompositeSteps?: (steps: TaskStepSpecModel[]) => Promise<void>;
   resultCache?: Record<string, any>;
+  gracefulShutdownMsTimeout?: number; // to allow selective override
 }
 
 export type TaskEngineConfig<A extends Adapter<any, any, any, any>> = {

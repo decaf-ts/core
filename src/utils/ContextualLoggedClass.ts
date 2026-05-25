@@ -39,12 +39,12 @@ export type MethodOrOperation =
   | PreparedStatementKeys;
 
 export type MaybeContextualArg<
-  C extends Context<any>,
+  C extends Context<any> = any,
   ARGS extends any[] = any[],
 > = any[] | ContextualArgs<C, ARGS>;
 
 export type ContextualizedArgs<
-  C extends Context<any>,
+  C extends Context<any> = any,
   ARGS extends any[] = any[],
   EXTEND extends boolean = false,
 > = EXTEND extends true
@@ -64,13 +64,12 @@ export abstract class ContextualLoggedClass<
   C extends Context<any>,
 > extends LoggedClass {
   protected logCtx<
-    CONTEXT extends Context<any> = C,
     ARGS extends any[] = any[],
     METHOD extends MethodOrOperation = MethodOrOperation,
   >(
-    args: MaybeContextualArg<CONTEXT, ARGS>,
+    args: MaybeContextualArg<C, ARGS>,
     operation: METHOD
-  ): ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>;
+  ): ContextualizedArgs<C, ARGS, METHOD extends string ? true : false>;
   protected logCtx<
     CONTEXT extends Context<any> = C,
     ARGS extends any[] = any[],
@@ -79,8 +78,8 @@ export abstract class ContextualLoggedClass<
     args: MaybeContextualArg<CONTEXT, ARGS>,
     operation: METHOD,
     allowCreate: false,
-    overrides?: Partial<FlagsOf<CONTEXT>>
-  ): ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>;
+    overrides?: Partial<FlagsOf<C>>
+  ): ContextualizedArgs<C, ARGS, METHOD extends string ? true : false>;
   protected logCtx<
     CONTEXT extends Context<any> = C,
     ARGS extends any[] = any[],
@@ -89,10 +88,8 @@ export abstract class ContextualLoggedClass<
     args: MaybeContextualArg<CONTEXT, ARGS>,
     operation: METHOD,
     allowCreate: true,
-    overrides?: Partial<FlagsOf<CONTEXT>>
-  ): Promise<
-    ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>
-  >;
+    overrides?: Partial<FlagsOf<C>>
+  ): Promise<ContextualizedArgs<C, ARGS, METHOD extends string ? true : false>>;
   protected logCtx<
     CONTEXT extends Context<any> = C,
     CREATE extends boolean = false,
@@ -102,12 +99,10 @@ export abstract class ContextualLoggedClass<
     args: MaybeContextualArg<CONTEXT, ARGS>,
     operation: METHOD,
     allowCreate: CREATE = false as CREATE,
-    overrides?: Partial<FlagsOf<CONTEXT>>
+    overrides?: Partial<FlagsOf<C>>
   ):
-    | Promise<
-        ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>
-      >
-    | ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false> {
+    | Promise<ContextualizedArgs<C, ARGS, METHOD extends string ? true : false>>
+    | ContextualizedArgs<C, ARGS, METHOD extends string ? true : false> {
     return ContextualLoggedClass.logCtx.call(
       this,
       operation,
@@ -116,13 +111,9 @@ export abstract class ContextualLoggedClass<
       ...args.filter((e) => typeof e !== "undefined")
     ) as
       | Promise<
-          ContextualizedArgs<
-            CONTEXT,
-            ARGS,
-            METHOD extends string ? true : false
-          >
+          ContextualizedArgs<C, ARGS, METHOD extends string ? true : false>
         >
-      | ContextualizedArgs<CONTEXT, ARGS, METHOD extends string ? true : false>;
+      | ContextualizedArgs<C, ARGS, METHOD extends string ? true : false>;
   }
 
   static logFrom<

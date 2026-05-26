@@ -22,9 +22,11 @@ import { DefaultContextFlags, PersistenceKeys } from "../persistence/constants";
 import { injectableServiceKey } from "../utils/utils";
 import { Injectables } from "@decaf-ts/injectable-decorators";
 import { UUID } from "../persistence/generators";
+import type { Model } from "@decaf-ts/decorator-validation";
 import type { Observer } from "../interfaces/Observer";
 import { ObserverHandler } from "../persistence/ObserverHandler";
 import { Repository } from "../repository/index";
+import type { ModelService } from "./ModelService";
 
 export abstract class Service<
     C extends Context<ContextFlags<any>> = Context<ContextFlags<any>>,
@@ -317,7 +319,10 @@ export abstract class Service<
    * @param {string | Constructor<A>} name - Name of the API or its constructor
    * @return {A} The requested API instance
    */
-  static get<A extends Service>(name: string | symbol | Constructor<A>): A {
+  static get<A extends Service>(name: string | symbol): A;
+  static get<A extends Service>(name: Constructor<A>): A;
+  static get<M extends Model<boolean>>(name: Constructor<M>): ModelService<M>;
+  static get<A extends Service>(name: string | symbol | Constructor<any>): A {
     if (!name) throw new InternalError(`No name provided`);
     const key = injectableServiceKey(name);
     const injectable = Injectables.get(key);

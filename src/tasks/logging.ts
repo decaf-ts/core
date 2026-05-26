@@ -18,7 +18,7 @@ export class TaskLogger<LOG extends Logger> implements Logger {
   protected history: [LogLevel, string, any][] = [];
 
   constructor(
-    protected logger: Logger,
+    protected logger: LOG,
     protected bufferSize: number = 150,
     protected maxBufferSize: number = 300,
     protected pipe?: LogPipe
@@ -72,6 +72,18 @@ export class TaskLogger<LOG extends Logger> implements Logger {
 
   error(msg: StringLike | Error, e?: Error | LogMeta, meta?: LogMeta): void {
     this.logger.error(msg, e, meta);
+  }
+
+  fatal(msg: StringLike | Error, error?: Error | LogMeta, meta?: LogMeta): void {
+    this.logger.fatal(msg, error, meta);
+  }
+
+  critical(
+    msg: StringLike | Error,
+    error?: Error | LogMeta,
+    meta?: LogMeta
+  ): void {
+    this.logger.critical(msg, error, meta);
   }
 
   for(config: Partial<LoggingConfig>): this;

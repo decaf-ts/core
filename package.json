@@ -154,6 +154,7 @@
     "@decaf-ts/logging": "latest",
     "@decaf-ts/utils": "latest",
     "@types/jest": "^30.0.0",
+    "@types/semver": "^7.7.1",
     "typescript": "^5.9.3"
   },
   "dependencies": {
@@ -161,8 +162,7 @@
     "@decaf-ts/decoration": "latest",
     "@decaf-ts/decorator-validation": "latest",
     "@decaf-ts/injectable-decorators": "latest",
-    "@decaf-ts/transactional-decorators": "latest",
-    "@types/semver": "^7.7.1"
+    "@decaf-ts/transactional-decorators": "latest"
   },
   "optionalDependencies": {
     "semver": "^7.7.2"

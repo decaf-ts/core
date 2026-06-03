@@ -322,6 +322,9 @@ export abstract class Service<
   static get<A extends Service>(name: string | symbol): A;
   static get<A extends Service>(name: Constructor<A>): A;
   static get<M extends Model<boolean>>(name: Constructor<M>): ModelService<M>;
+  static get<S extends Service, M extends Model<boolean> = any>(
+    name: Constructor<M>
+  ): S;
   static get<A extends Service>(name: string | symbol | Constructor<any>): A {
     if (!name) throw new InternalError(`No name provided`);
     const key = injectableServiceKey(name);

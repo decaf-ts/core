@@ -32,7 +32,7 @@ describe("Service injection and setup", () => {
 
   it("properly handles and initializes services", async () => {
     await Service.boot();
-    const service1 = Service.get("something") as CLientService2;
+    const service1 = Service.get<CLientService2>("something");
     expect(service1).toBeDefined();
     expect(service1).toBeInstanceOf(CLientService2);
     expect(client1InitMock).toHaveBeenCalledTimes(1);

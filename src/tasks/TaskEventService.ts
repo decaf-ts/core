@@ -12,9 +12,7 @@ export class TaskEventService extends ModelService<TaskEventModel> {
 
   override get repo(): Repo<TaskEventModel> {
     if (!this._repository) {
-      this._repository = (Service.get(TaskModel as any) as TaskService<any>)[
-        "events"
-      ];
+      this._repository = Service.get<TaskService<any>>(TaskModel)["events"];
     }
     return this._repository;
   }

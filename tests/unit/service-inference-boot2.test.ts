@@ -99,7 +99,7 @@ describe("Service injection and setup", () => {
 
   it("properly handles and initializes services", async () => {
     await Service.boot();
-    const service1 = Service.get("something") as CLientService2;
+    const service1 = Service.get<CLientService2>("something");
     expect(service1).toBeDefined();
     expect(service1).toBeInstanceOf(CLientService2);
     expect(client1InitMock).toHaveBeenCalledTimes(2);
@@ -110,7 +110,7 @@ describe("Service injection and setup", () => {
   it("references class services properly", async () => {
     expect(client1InitMock).toHaveBeenCalledTimes(2);
     expect(client1InitMock).toHaveBeenNthCalledWith(2, { arg: "client3" });
-    const service2 = Service.get(Testmodel3 as any);
+    const service2 = Service.get<CLientService3>(Testmodel3);
     expect(service2).toBeDefined();
     expect(service2).toBeInstanceOf(CLientService3);
 

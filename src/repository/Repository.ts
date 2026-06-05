@@ -1201,7 +1201,11 @@ export class Repository<
     } else {
       throw new QueryError(`PaginateBy needs a page or a bookmark`);
     }
-    const paged = await paginator.page(offset, bookmark, ...ctxArgs);
+    const paged = await paginator.page(
+      offset,
+      bookmark && !ctx.get("paginateByBookmark") ? bookmark : undefined,
+      ...ctxArgs
+    );
     const serialization = paginator.serialize(paged) as SerializedPage<M>;
     // if (bookmark) serialization.current = requestedPage;
     return serialization;
@@ -1285,7 +1289,11 @@ export class Repository<
     } else {
       throw new QueryError(`PaginateBy needs a page or a bookmark`);
     }
-    const paged = await paginator.page(requestedPage, bookmark, ...ctxArgs);
+    const paged = await paginator.page(
+      requestedPage,
+      bookmark && !ctx.get("paginateByBookmark") ? bookmark : undefined,
+      ...ctxArgs
+    );
     const serialization = paginator.serialize(paged) as SerializedPage<M>;
     return serialization;
   }
@@ -1381,7 +1389,11 @@ export class Repository<
       throw new QueryError(`FindByPaginate needs a page or a bookmark`);
     }
 
-    const paged = await paginator.page(offset, bookmark, ...ctxArgs);
+    const paged = await paginator.page(
+      offset,
+      bookmark && !ctx.get("paginateByBookmark") ? bookmark : undefined,
+      ...ctxArgs
+    );
     return paginator.serialize(paged) as SerializedPage<M>;
   }
 

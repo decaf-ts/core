@@ -115,4 +115,70 @@ describe("tasks logging", () => {
     );
     expect(base.info.mock.calls[0][1]).toEqual({ ok: true });
   });
+
+  it("UPDATE event logs step change when logProgress is true", async () => {
+    const base = new TestLogger();
+    const pipe = getLogPipe(base, {
+      logProgress: true,
+      logStatus: false,
+      style: false,
+    });
+
+    const updateEvent = new TaskEventModel({
+      taskId: "task-1",
+      classification: TaskEventType.UPDATE,
+      payload: {
+        status: "update",
+        currentStep: 0,
+        totalSteps: 3,
+        output: { added: 1, insertionIndex: 1 },
+      },
+    });
+
+    // Before the fix this threw: InternalError("Unknown task event classification: update")
+    await expect(pipe(updateEvent)).resolves.toBeUndefined();
+    expect(base.info).toHaveBeenCalledWith(
+      expect.stringContaining("### UPDATE step 0/3 (+1 at index 1)")
+    );
+  });
+
+  it("UPDATE event is silently ignored when logProgress is false", async () => {
+    const base = new TestLogger();
+    const pipe = getLogPipe(base, {
+      logProgress: false,
+      logStatus: false,
+      style: false,
+    });
+
+    const updateEvent = new TaskEventModel({
+      taskId: "task-1",
+      classification: TaskEventType.UPDATE,
+      payload: {
+        status: "update",
+        currentStep: 0,
+        totalSteps: 2,
+        output: { added: 1, insertionIndex: 1 },
+      },
+    });
+
+    await expect(pipe(updateEvent)).resolves.toBeUndefined();
+    expect(base.info).not.toHaveBeenCalled();
+  });
+
+  it("unknown classification logs a warning instead of throwing", async () => {
+    const base = new TestLogger();
+    const pipe = getLogPipe(base, { logProgress: true, logStatus: true, style: false });
+
+    const unknownEvent = new TaskEventModel({
+      taskId: "task-1",
+      classification: "future-unknown-type" as TaskEventType,
+      payload: {},
+    });
+
+    // Before the fix this threw: InternalError("Unknown task event classification: future-unknown-type")
+    await expect(pipe(unknownEvent)).resolves.toBeUndefined();
+    expect(base.warn).toHaveBeenCalledWith(
+      expect.stringContaining("Unhandled task event classification: future-unknown-type")
+    );
+  });
 });

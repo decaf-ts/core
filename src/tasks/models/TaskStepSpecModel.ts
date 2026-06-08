@@ -1,4 +1,5 @@
 import {
+  min,
   minlength,
   Model,
   model,
@@ -7,6 +8,8 @@ import {
 } from "@decaf-ts/decorator-validation";
 import { description, prop } from "@decaf-ts/decoration";
 import { list } from "@decaf-ts/decorator-validation";
+import { serialize } from "@decaf-ts/db-decorators";
+import { TaskBackoffModel } from "./TaskBackoffModel";
 
 @model()
 export class TaskStepSpecModel extends Model {
@@ -34,6 +37,16 @@ export class TaskStepSpecModel extends Model {
   @prop()
   @list(() => String)
   dependsOn?: string[];
+
+  @prop()
+  @min(1)
+  @description("Max attempts for this step. Defaults to 1 (no per-step retry).")
+  maxAttempts?: number;
+
+  @prop()
+  @serialize()
+  @description("Step-level backoff config. Falls back to the parent task backoff when absent.")
+  backoff?: TaskBackoffModel;
 
   constructor(arg?: ModelArg<TaskStepSpecModel>) {
     super(arg);

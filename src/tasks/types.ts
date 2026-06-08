@@ -42,7 +42,8 @@ export interface TaskFlags<LOG extends TaskLogger<any> = TaskLogger<any>>
   flush: () => Promise<void>;
   progress: (data: any) => Promise<void>;
   heartbeat: () => Promise<void>;
-  scheduleCompositeSteps?: (steps: TaskStepSpecModel[]) => Promise<void>;
+  scheduleCompositeSteps?: (steps: TaskStepSpecModel[], ctx: TaskContext) => Promise<void>;
+  scheduleCompositeStepsAtEnd?: (steps: TaskStepSpecModel[], ctx: TaskContext) => Promise<void>;
   resultCache?: Record<string, any>;
   gracefulShutdownMsTimeout?: number; // to allow selective override
 }

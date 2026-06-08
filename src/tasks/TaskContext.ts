@@ -109,14 +109,23 @@ export class TaskContext extends Context<TaskFlags> {
       step instanceof TaskStepSpecModel ? step : new TaskStepSpecModel(step)
     );
     return {
-      afterCurrent: async (): Promise<void> => {
+      afterCurrent: async (ctx: TaskContext): Promise<void> => {
         const scheduler = this.getOrUndefined("scheduleCompositeSteps");
         if (!scheduler) {
           throw new InternalError(
             "scheduleSteps().afterCurrent() is only available while running a composite task step"
           );
         }
-        await scheduler(normalized);
+        await scheduler(normalized, ctx);
+      },
+      atEnd: async (ctx: TaskContext): Promise<void> => {
+        const scheduler = this.getOrUndefined("scheduleCompositeStepsAtEnd");
+        if (!scheduler) {
+          throw new InternalError(
+            "scheduleSteps().atEnd() is only available while running a composite task step"
+          );
+        }
+        await scheduler(normalized, ctx);
       },
     };
   }

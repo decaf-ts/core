@@ -989,7 +989,8 @@ export class TaskEngine<
       const stepIndex = idx;
       context.cache.put(
         "scheduleCompositeSteps",
-        async (newSteps: TaskStepSpecModel[]) => {
+        async (newSteps: TaskStepSpecModel[], ctx: TaskContext) => {
+          const log = ctx.logger.for("scheduleSteps.afterCurrent");
           const normalizedNewSteps = this.normalizeSteps(newSteps);
           if (!normalizedNewSteps.length) return;
           const currentSteps = this.normalizeSteps(task.steps);
@@ -999,6 +1000,39 @@ export class TaskEngine<
           const persisted = await this.tasks.update(task, context);
           Object.assign(task, persisted);
           steps = this.normalizeSteps(task.steps);
+          log.verbose(`Inserted ${normalizedNewSteps.length} steps at index ${insertionIndex}`);
+          const updateEvent = await this.persistEvent(
+            context,
+            task.id,
+            TaskEventType.UPDATE,
+            {
+              status: "update",
+              currentStep: stepIndex,
+              totalSteps: steps.length,
+              output: {
+                added: normalizedNewSteps.length,
+                insertionIndex,
+              },
+            }
+          );
+          this.bus.emit(updateEvent, context);
+        }
+      );
+
+      context.cache.put(
+        "scheduleCompositeStepsAtEnd",
+        async (newSteps: TaskStepSpecModel[], ctx: TaskContext) => {
+          const log = ctx.logger.for("scheduleSteps.atEnd");
+          const normalizedNewSteps = this.normalizeSteps(newSteps);
+          if (!normalizedNewSteps.length) return;
+          const currentSteps = this.normalizeSteps(task.steps);
+          const insertionIndex = currentSteps.length;
+          currentSteps.push(...normalizedNewSteps);
+          task.steps = currentSteps;
+          const persisted = await this.tasks.update(task, context);
+          Object.assign(task, persisted);
+          steps = this.normalizeSteps(task.steps);
+          log.verbose(`Appended ${normalizedNewSteps.length} steps at tail (index ${insertionIndex})`);
           const updateEvent = await this.persistEvent(
             context,
             task.id,
@@ -1022,36 +1056,61 @@ export class TaskEngine<
         `Composite step ${idx + 1}/${steps.length}: ${step.classification}`,
       ]);
 
-      try {
-        const out = await handler.run(step.input, context);
-        // Ensure step-tagged logs are flushed before advancing the step pointer.
-        await context.flush();
+      const stepMaxAttempts = step.maxAttempts ?? 1;
+      let stepAttempt = 0;
+      let lastStepErr: any;
 
-        const now = new Date();
-        results[stepIndex] = new TaskStepResultModel({
-          status: TaskStatus.SUCCEEDED,
-          output: out,
-          createdAt: now,
-          updatedAt: now,
-        });
-        const cacheKey = `${task.id}:step:${stepIndex}`;
-        cacheResult(step.classification, out);
-        cacheResult(cacheKey, out);
-        idx = stepIndex + 1;
-
-        task.stepResults = results;
-        task.currentStep = idx;
-
-        const persisted = await this.tasks.update(task);
-        Object.assign(task, persisted);
-        await this.emitProgress(context, task.id, {
-          currentStep: idx,
-          totalSteps: steps.length,
-          output: out,
-        });
-      } catch (err: any) {
+      while (stepAttempt < stepMaxAttempts) {
         try {
-          await handler.catch?.(step.input, err, context);
+          const out = await handler.run(step.input, context);
+          // Ensure step-tagged logs are flushed before advancing the step pointer.
+          await context.flush();
+
+          const now = new Date();
+          results[stepIndex] = new TaskStepResultModel({
+            status: TaskStatus.SUCCEEDED,
+            output: out,
+            attempt: stepAttempt + 1,
+            createdAt: now,
+            updatedAt: now,
+          });
+          const cacheKey = `${task.id}:step:${stepIndex}`;
+          cacheResult(step.classification, out);
+          cacheResult(cacheKey, out);
+          idx = stepIndex + 1;
+
+          task.stepResults = results;
+          task.currentStep = idx;
+
+          const persisted = await this.tasks.update(task);
+          Object.assign(task, persisted);
+          await this.emitProgress(context, task.id, {
+            currentStep: idx,
+            totalSteps: steps.length,
+            output: out,
+          });
+          lastStepErr = undefined;
+          break;
+        } catch (err: any) {
+          stepAttempt++;
+          lastStepErr = err;
+          if (stepAttempt < stepMaxAttempts) {
+            const stepBackoff = this.normalizeBackoff(step.backoff ?? task.backoff);
+            const delay = computeBackoffMs(stepAttempt, stepBackoff);
+            await context.pipe(
+              LogLevel.warn,
+              `Composite step ${idx} attempt ${stepAttempt}/${stepMaxAttempts} failed, retrying in ${delay}ms`,
+              { classification: step.classification, attempt: stepAttempt, delay }
+            );
+            await sleep(delay);
+            await context.heartbeat();
+          }
+        }
+      }
+
+      if (lastStepErr) {
+        try {
+          await handler.catch?.(step.input, lastStepErr, context);
         } catch (catchErr) {
           ctx.logger.warn("composite step catch() hook failed", {
             error: catchErr,
@@ -1060,18 +1119,19 @@ export class TaskEngine<
         const now = new Date();
         results[idx] = new TaskStepResultModel({
           status: TaskStatus.FAILED,
-          error: serializeError(err),
+          error: serializeError(lastStepErr),
+          attempt: stepAttempt,
           createdAt: now,
           updatedAt: now,
         });
         task.stepResults = results;
         task.currentStep = idx;
-        task.error = serializeError(err);
+        task.error = serializeError(lastStepErr);
 
         // persist failure context before throwing (retry logic happens outside)
         const persisted = await this.tasks.update(task);
         Object.assign(task, persisted);
-        throw err;
+        throw lastStepErr;
       }
     }
 

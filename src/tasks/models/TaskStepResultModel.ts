@@ -1,4 +1,5 @@
 import {
+  min,
   Model,
   model,
   type ModelArg,
@@ -21,6 +22,11 @@ export class TaskStepResultModel extends Model {
   @prop()
   @description("the error of a failed step")
   error?: TaskErrorModel;
+
+  @prop()
+  @min(1)
+  @description("Number of attempts taken to complete or fail this step")
+  attempt?: number;
 
   constructor(arg?: ModelArg<TaskStepResultModel>) {
     super(arg);

@@ -40,6 +40,7 @@ import {
 } from "../../src/tasks/TaskErrors";
 import { ValidationError } from "@decaf-ts/db-decorators";
 import { DateBuilder } from "@decaf-ts/decorator-validation";
+import { Logger } from "@decaf-ts/logging";
 
 jest.setTimeout(10000);
 
@@ -555,7 +556,7 @@ class DynamicEnqueueStep extends TaskHandler<
           input: { value },
         })
       )
-      .afterCurrent();
+      .afterCurrent(ctx);
     return value;
   }
 }
@@ -606,7 +607,7 @@ class DynamicPersistentEnqueueStep extends TaskHandler<
           classification: "dynamic-persistent-tail-step",
         })
       )
-      .afterCurrent();
+      .afterCurrent(ctx);
     return seed;
   }
 }
@@ -705,6 +706,119 @@ class CatchAwareFailHandler extends TaskHandler<void, never> {
 }
 
 // ============================================================================
+// DECAF-22: atEnd handlers
+// ============================================================================
+
+@task("at-end-enqueue-step")
+class AtEndEnqueueStep extends TaskHandler<{ value?: number } | void, number> {
+  async run(input: { value?: number } | void, ctx: TaskContext) {
+    const payload = (typeof input === "object" && input !== null ? input : {}) as { value?: number };
+    const value = payload?.value ?? 5;
+    await ctx
+      .scheduleSteps(
+        new TaskStepSpecModel({
+          ...createDates(),
+          classification: "at-end-tail-step",
+          input: { value },
+        })
+      )
+      .atEnd(ctx);
+    return value;
+  }
+}
+
+@task("at-end-middle-step")
+class AtEndMiddleStep extends TaskHandler<void, number> {
+  async run(_: void, ctx: TaskContext) {
+    const cache = ctx.resultCache ?? {};
+    const prev = cache["at-end-enqueue-step"] ?? 0;
+    return (prev as number) * 2;
+  }
+}
+
+@task("at-end-tail-step")
+class AtEndTailStep extends TaskHandler<{ value?: number } | void, number> {
+  async run(input: { value?: number } | void, _ctx: TaskContext) {
+    const payload = (typeof input === "object" && input !== null ? input : {}) as { value?: number };
+    return (payload?.value ?? 0) + 100;
+  }
+}
+
+// ============================================================================
+// DECAF-22: per-step retry handlers
+// ============================================================================
+
+@task("step-retry-flaky")
+class StepRetryFlakyHandler extends TaskHandler<void, string> {
+  static attempts: Record<string, number> = {};
+
+  async run(_: void, ctx: TaskContext) {
+    const count = (StepRetryFlakyHandler.attempts[ctx.taskId] ?? 0) + 1;
+    StepRetryFlakyHandler.attempts[ctx.taskId] = count;
+    if (count < 3) throw new Error(`step-retry-flaky: attempt ${count} failed`);
+    return "step-retry-success";
+  }
+}
+
+@task("step-retry-final")
+class StepRetryFinalHandler extends TaskHandler<void, string> {
+  async run(_: void, ctx: TaskContext) {
+    const cache = ctx.resultCache ?? {};
+    return `done:${cache["step-retry-flaky"] ?? "missing"}`;
+  }
+}
+
+@task("step-retry-always-fail")
+class StepRetryAlwaysFailHandler extends TaskHandler<void, never> {
+  static attempts: Record<string, number> = {};
+
+  async run(_: void, ctx: TaskContext): Promise<never> {
+    StepRetryAlwaysFailHandler.attempts[ctx.taskId] =
+      (StepRetryAlwaysFailHandler.attempts[ctx.taskId] ?? 0) + 1;
+    throw new Error("step-retry-always-fail: permanent error");
+  }
+}
+
+// ============================================================================
+// DECAF-22: dynamic steps survive early static-step failure + retry
+// ============================================================================
+
+@task("early-fail-with-dynamic-step")
+class EarlyFailWithDynamicStep extends TaskHandler<{ failCount?: number } | void, number> {
+  static attempts: Record<string, number> = {};
+  static enqueued: Record<string, number> = {};
+
+  async run(input: { failCount?: number } | void, ctx: TaskContext) {
+    const payload = (typeof input === "object" && input !== null ? input : {}) as { failCount?: number };
+    const failCount = payload?.failCount ?? 1;
+    const attempt = (EarlyFailWithDynamicStep.attempts[ctx.taskId] ?? 0) + 1;
+    EarlyFailWithDynamicStep.attempts[ctx.taskId] = attempt;
+
+    if ((EarlyFailWithDynamicStep.enqueued[ctx.taskId] ?? 0) === 0) {
+      EarlyFailWithDynamicStep.enqueued[ctx.taskId] = 1;
+      await ctx
+        .scheduleSteps(
+          new TaskStepSpecModel({
+            ...createDates(),
+            classification: "dynamic-survivor-tail-step",
+          })
+        )
+        .atEnd(ctx);
+    }
+
+    if (attempt <= failCount) throw new Error(`early-fail-with-dynamic-step: attempt ${attempt}`);
+    return attempt;
+  }
+}
+
+@task("dynamic-survivor-tail-step")
+class DynamicSurvivorTailStep extends TaskHandler<void, string> {
+  async run(_: void, _ctx: TaskContext) {
+    return "survivor-tail-ran";
+  }
+}
+
+// ============================================================================
 // Test Suite
 // ============================================================================
 
@@ -758,6 +872,10 @@ describe("Composite Tasks Integration", () => {
     DynamicPersistentEnqueueStep.runs = {};
     DynamicPersistentFlakyStep.runs = {};
     DynamicPersistentTailStep.runs = {};
+    StepRetryFlakyHandler.attempts = {};
+    StepRetryAlwaysFailHandler.attempts = {};
+    EarlyFailWithDynamicStep.attempts = {};
+    EarlyFailWithDynamicStep.enqueued = {};
   });
 
   afterEach(async () => {
@@ -1108,6 +1226,121 @@ describe("Composite Tasks Integration", () => {
       );
       expect(atomicCatch?.message).toContain("catch-aware-fail-boom");
       expect(compositeCatch?.message).toContain("catch-aware-fail-boom");
+    });
+
+    it("atEnd() appends steps after all currently queued steps", async () => {
+      // Step 0: at-end-enqueue-step (calls atEnd to queue at-end-tail-step)
+      // Step 1: at-end-middle-step
+      // Expected final order: [enqueue, middle, tail]
+      const composite = new CompositeTaskBuilder({
+        classification: "at-end-test",
+        atomicity: TaskType.COMPOSITE,
+        attempt: 0,
+        maxAttempts: 3,
+        ...createDates(),
+        backoff: createBackoff(),
+      })
+        .addStep("at-end-enqueue-step", { value: 7 })
+        .addStep("at-end-middle-step")
+        .build()
+        .build();
+
+      const { task, tracker } = await engine.push(composite, true);
+      const result = await tracker.resolve();
+
+      expect(result.stepResults.length).toBe(3);
+      expect(result.stepResults[0].output).toBe(7);     // enqueue returns value
+      expect(result.stepResults[1].output).toBe(14);    // middle: 7 * 2
+      expect(result.stepResults[2].output).toBe(107);   // tail: 7 + 100
+
+      const updates = eventsFor(task.id, TaskEventType.UPDATE);
+      expect(updates.length).toBeGreaterThan(0);
+    });
+
+    it("dynamic steps queued via atEnd() survive an early static-step failure and task retry", async () => {
+      // Step 0: early-fail-with-dynamic-step (fails once, enqueues survivor-tail via atEnd on first run)
+      // Step 1: dynamic-survivor-tail-step (appended at end, must still be present after retry)
+      const composite = new CompositeTaskBuilder({
+        classification: "survive-retry-test",
+        atomicity: TaskType.COMPOSITE,
+        attempt: 0,
+        maxAttempts: 3,
+        ...createDates(),
+        backoff: createBackoff({ baseMs: 10 }),
+      })
+        .addStep("early-fail-with-dynamic-step", { failCount: 1 })
+        .build();
+
+      const { task, tracker } = await engine.push(composite, true);
+      const result = await tracker.resolve();
+
+      // Both steps must complete: the original step and the dynamically added tail
+      expect(result.stepResults.length).toBe(2);
+      expect(result.stepResults[1].output).toBe("survivor-tail-ran");
+
+      const persisted = await taskRepo.read(task.id);
+      expect(persisted.status).toBe(TaskStatus.SUCCEEDED);
+    });
+  });
+
+  // ==========================================================================
+  // Per-Step Retry (DECAF-22)
+  // ==========================================================================
+
+  describe("Per-Step Retry", () => {
+    it("retries a flaky step in-place without cycling the task", async () => {
+      const composite = new CompositeTaskBuilder({
+        classification: "step-retry-flaky-test",
+        atomicity: TaskType.COMPOSITE,
+        attempt: 0,
+        maxAttempts: 1,
+        ...createDates(),
+        backoff: createBackoff(),
+      })
+        .addStep("step-retry-flaky")
+          .setMaxAttempts(3)
+          .setBackoff(createBackoff({ baseMs: 10 }))
+          .build()
+        .addStep("step-retry-final")
+        .build()
+        .build();
+
+      const { task, tracker } = await engine.push(composite, true);
+      const result = await tracker.resolve();
+
+      // Task-level attempt must stay at 0 — only the step retried in-place
+      const persisted = await taskRepo.read(task.id);
+      expect(persisted.attempt).toBe(0);
+      expect(result.stepResults.length).toBe(2);
+      expect(result.stepResults[0].status).toBe(TaskStatus.SUCCEEDED);
+      expect(result.stepResults[0].attempt).toBe(3);
+      expect(result.stepResults[0].output).toBe("step-retry-success");
+      expect(result.stepResults[1].output).toBe("done:step-retry-success");
+      expect(StepRetryFlakyHandler.attempts[task.id]).toBe(3);
+    });
+
+    it("step exhausting its own maxAttempts propagates to task-level retry", async () => {
+      const composite = new CompositeTaskBuilder({
+        classification: "step-retry-exhaust-test",
+        atomicity: TaskType.COMPOSITE,
+        attempt: 0,
+        maxAttempts: 2,
+        ...createDates(),
+        backoff: createBackoff({ baseMs: 10 }),
+      })
+        .addStep("step-retry-always-fail")
+          .setMaxAttempts(2)
+          .setBackoff(createBackoff({ baseMs: 10 }))
+          .build()
+        .build();
+
+      const { task, tracker } = await engine.push(composite, true);
+      await expect(tracker.resolve()).rejects.toBeInstanceOf(Error);
+
+      const persisted = await taskRepo.read(task.id);
+      expect(persisted.status).toBe(TaskStatus.FAILED);
+      // Step attempted twice per task attempt, task retried once → 4 total handler calls
+      expect(StepRetryAlwaysFailHandler.attempts[task.id]).toBe(4);
     });
   });
 
@@ -1908,6 +2141,78 @@ describe("Composite Tasks Integration", () => {
         }
 
         expect(cancelSpy).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    describe("Log Pipe", () => {
+      const makeLogger = () => {
+        const l: any = {
+          root: [],
+          info: jest.fn(),
+          warn: jest.fn(),
+          error: jest.fn(),
+          debug: jest.fn(),
+          trace: jest.fn(),
+          verbose: jest.fn(),
+          silly: jest.fn(),
+          fatal: jest.fn(),
+          critical: jest.fn(),
+          benchmark: jest.fn(),
+          setConfig: jest.fn(),
+          clear: function () { return this; },
+          for: function () { return this; },
+        };
+        return l as Logger;
+      };
+
+      it("tracker.attach() does not throw when composite step insertion emits UPDATE events", async () => {
+        // Regression: getLogPipe threw InternalError("Unknown task event classification: update")
+        // when TaskEventType.UPDATE events were emitted by afterCurrent() / atEnd() during execution.
+        const composite = new CompositeTaskBuilder({
+          classification: "log-pipe-update-event-test",
+          atomicity: TaskType.COMPOSITE,
+          attempt: 0,
+          maxAttempts: 1,
+          ...createDates(),
+          backoff: createBackoff(),
+        })
+          .addStep("dynamic-enqueue-step", { value: 5 })
+          .build();
+
+        const { tracker } = await engine.push(composite, true);
+        const log = makeLogger();
+        tracker.attach(log, { logProgress: true, logStatus: true, style: false });
+
+        // Before the fix, this would throw because the UPDATE event (emitted when
+        // dynamic-enqueue-step calls afterCurrent()) reached getLogPipe's default
+        // branch which threw InternalError.
+        await expect(tracker.resolve()).resolves.toBeDefined();
+
+        // The log pipe should have received and handled the UPDATE event
+        const infoCalls = (log.info as jest.Mock).mock.calls.map((c) => c[0]);
+        expect(infoCalls.some((msg: string) => msg.includes("### UPDATE"))).toBe(true);
+      });
+
+      it("tracker.attach() with logProgress=false silently skips UPDATE events", async () => {
+        const composite = new CompositeTaskBuilder({
+          classification: "log-pipe-update-silent-test",
+          atomicity: TaskType.COMPOSITE,
+          attempt: 0,
+          maxAttempts: 1,
+          ...createDates(),
+          backoff: createBackoff(),
+        })
+          .addStep("dynamic-enqueue-step", { value: 5 })
+          .build();
+
+        const { tracker } = await engine.push(composite, true);
+        const log = makeLogger();
+        tracker.attach(log, { logProgress: false, logStatus: false, style: false });
+
+        await expect(tracker.resolve()).resolves.toBeDefined();
+
+        const infoCalls = (log.info as jest.Mock).mock.calls.map((c) => c[0]);
+        expect(infoCalls.some((msg: string) => msg.includes("### UPDATE"))).toBe(false);
       });
     });
   });

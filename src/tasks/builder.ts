@@ -189,6 +189,16 @@ export class TaskStepSpecBuilder {
     return this;
   }
 
+  setMaxAttempts(value?: number): this {
+    this.step.maxAttempts = value;
+    return this;
+  }
+
+  setBackoff(value?: TaskBackoffModel): this {
+    this.step.backoff = value;
+    return this;
+  }
+
   addStep(classification: string): TaskStepSpecBuilder;
   addStep(classification: string, input: any): CompositeTaskBuilder;
   addStep(

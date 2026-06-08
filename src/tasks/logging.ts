@@ -11,7 +11,6 @@ import {
 import { EventPipe, LogPipe, LogPipeOptions } from "./types";
 import { TaskEventModel } from "./models/TaskEventModel";
 import { TaskEventType, TaskStatus } from "./constants";
-import { InternalError } from "@decaf-ts/db-decorators";
 import { TaskLogEntryModel } from "./models/index";
 
 export class TaskLogger<LOG extends Logger> implements Logger {
@@ -74,7 +73,11 @@ export class TaskLogger<LOG extends Logger> implements Logger {
     this.logger.error(msg, e, meta);
   }
 
-  fatal(msg: StringLike | Error, error?: Error | LogMeta, meta?: LogMeta): void {
+  fatal(
+    msg: StringLike | Error,
+    error?: Error | LogMeta,
+    meta?: LogMeta
+  ): void {
     this.logger.fatal(msg, error, meta);
   }
 
@@ -236,18 +239,25 @@ export function getLogPipe<LOG extends Logger>(
               status = status.cyan;
               break;
             default:
-              throw new InternalError(
-                `Received unknown task status: ${evt.payload}`
-              );
+              log.warn(`Received unknown task status: ${evt.payload}`);
           }
           log.info(`### STATUS ${status}`);
         }
         break;
       }
+      case TaskEventType.UPDATE: {
+        if (opts.logProgress) {
+          const { currentStep, totalSteps, output } = evt.payload ?? {};
+          const added = output?.added;
+          const insertionIndex = output?.insertionIndex;
+          const detail =
+            added != null ? ` (+${added} at index ${insertionIndex})` : "";
+          log.info(`### UPDATE step ${currentStep}/${totalSteps}${detail}`);
+        }
+        break;
+      }
       default:
-        throw new InternalError(
-          `Unknown task event classification: ${evt.classification}`
-        );
+        log.warn(`Unhandled task event classification: ${evt.classification}`);
     }
   };
 }

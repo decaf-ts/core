@@ -6,16 +6,89 @@ import {
   MaybeContextualArg,
 } from "./ContextualLoggedClass";
 
-export type BseThrottlingConfig = { delayMs?: number };
+export enum ThrottleMode {
+  BY_COUNT = "count",
+  BY_SIZE = "size",
+}
 
-export type ThrottlingConfig = ({ count: number } | { bufferSize: number }) &
-  BseThrottlingConfig;
+export type ThrottleSplitter<T = any> = (items: T[]) => T[][];
+
+export interface ThrottleOptions {
+  delayMs?: number;
+  argIndex?: number | number[];
+  breakOnSingleFailure?: boolean;
+}
+
+export function splitByCount<T>(count: number): ThrottleSplitter<T> {
+  if (count <= 0)
+    throw new InternalError("splitByCount: count must be greater than zero");
+  return (items: T[]): T[][] => {
+    const chunks: T[][] = [];
+    for (let i = 0; i < items.length; i += count)
+      chunks.push(items.slice(i, i + count));
+    return chunks;
+  };
+}
+
+export function splitBySize<T>(maxBytes: number): ThrottleSplitter<T> {
+  if (maxBytes <= 0)
+    throw new InternalError("splitBySize: maxBytes must be greater than zero");
+  return (items: T[]): T[][] => {
+    const chunks: T[][] = [];
+    let current: T[] = [];
+    let size = 0;
+    for (const item of items) {
+      const itemSize = safeByteLength(item);
+      if (current.length > 0 && size + itemSize > maxBytes) {
+        chunks.push(current);
+        current = [item];
+        size = itemSize;
+      } else {
+        current.push(item);
+        size += itemSize;
+      }
+    }
+    if (current.length > 0) chunks.push(current);
+    return chunks;
+  };
+}
 
 export function throttle(
-  cfg: ThrottlingConfig | ((...args: any[]) => ThrottlingConfig) = { count: 1 },
-  argIndex: number | number[] = 0
-) {
-  return function throttle(
+  value: number | ThrottleSplitter,
+  options?: ThrottleOptions
+): MethodDecorator;
+export function throttle(
+  value: number,
+  mode: ThrottleMode,
+  options?: ThrottleOptions
+): MethodDecorator;
+export function throttle(
+  value: number | ThrottleSplitter,
+  modeOrOptions?: ThrottleMode | ThrottleOptions,
+  maybeOptions?: ThrottleOptions
+): MethodDecorator {
+  let splitter: ThrottleSplitter;
+  let options: ThrottleOptions;
+
+  if (typeof value === "function") {
+    splitter = value;
+    options = (modeOrOptions as ThrottleOptions | undefined) ?? {};
+  } else {
+    const mode =
+      typeof modeOrOptions === "string"
+        ? (modeOrOptions as ThrottleMode)
+        : ThrottleMode.BY_COUNT;
+    options =
+      (typeof modeOrOptions === "object" && !Array.isArray(modeOrOptions)
+        ? modeOrOptions
+        : maybeOptions) ?? {};
+    splitter =
+      mode === ThrottleMode.BY_SIZE ? splitBySize(value) : splitByCount(value);
+  }
+
+  const { delayMs, argIndex = 0 } = options;
+
+  return function throttleDecorator(
     target: object,
     propertyKey?: any,
     descriptor?: any
@@ -23,40 +96,29 @@ export function throttle(
     function throttleDec(target: object, propertyKey?: any, descriptor?: any) {
       descriptor.value = new Proxy(descriptor.value, {
         async apply(
-          target,
+          originalFn,
           thisArg: ContextualLoggedClass<any>,
           args: MaybeContextualArg<any>
         ) {
           const invocationArgs = args as any[];
-          const effectiveCfg = (() => {
-            try {
-              return typeof cfg === "function"
-                ? cfg(...invocationArgs)
-                : cfg;
-            } catch (e: unknown) {
-              throw new InternalError(
-                `Failed to obtain throttling configuration from handler: ${e}`
-              );
-            }
-          })();
-
           const { log, ctx } = (
-            await thisArg["logCtx"](args, PersistenceKeys.THROTTLE, true)
+            await thisArg["logCtx"](args, originalFn.name as string, true)
           ).for(throttle);
+
           const normalizedIndices = normalizeArgIndex(argIndex);
-          if (!normalizedIndices.length) {
+          if (!normalizedIndices.length)
             throw new InternalError(
-              "@throttling() expects at least one argument index to throttle"
+              "@throttle() expects at least one argument index to throttle"
             );
-          }
+
           normalizedIndices.forEach((index) => {
             if (index >= invocationArgs.length)
               throw new InternalError(
-                `@throttling() requires argument index ${index} but only ${invocationArgs.length} provided`
+                `@throttle() requires argument index ${index} but only ${invocationArgs.length} provided`
               );
             if (!Array.isArray(invocationArgs[index]))
               throw new InternalError(
-                `@throttling() expects argument at index ${index} to be an array`
+                `@throttle() expects argument at index ${index} to be an array`
               );
           });
 
@@ -64,41 +126,48 @@ export function throttle(
             (idx) => invocationArgs[idx] as any[]
           );
           const total = arrays[0].length;
-          if (!arrays.every((arr) => arr.length === total)) {
+          if (!arrays.every((arr) => arr.length === total))
             throw new InternalError(
-              "@throttling() requires all targeted arguments to have the same length"
+              "@throttle() requires all targeted arguments to have the same length"
             );
-          }
 
-          if (total === 0) {
-            return target.apply(thisArg, invocationArgs);
-          }
+          if (total === 0) return originalFn.apply(thisArg, invocationArgs);
 
-          const chunkBounds = buildChunkBounds(total, arrays, effectiveCfg);
-          const chunkArgsList = chunkBounds.map(({ start, end }) =>
-            invocationArgs.map((arg, idx) => {
-              const targetIdx = normalizedIndices.indexOf(idx);
-              if (targetIdx === -1) return arg;
-              return arrays[targetIdx].slice(start, end);
-            })
+          const primaryChunks = splitter(arrays[0]);
+
+          const chunkArgsList = buildChunkArgsList(
+            primaryChunks,
+            arrays,
+            normalizedIndices,
+            invocationArgs
           );
 
           const breakOnSingleFailure =
-            ctx.get("breakOnSingleFailureInBulk") ?? true;
+            options.breakOnSingleFailure ??
+            (() => {
+              try {
+                return ctx.get("breakOnSingleFailureInBulk") as
+                  | boolean
+                  | undefined;
+              } catch {
+                return undefined;
+              }
+            })() ??
+            true;
+
           const collectedResults: any[] = [];
           const errors: any[] = [];
 
           for (const chunkArgs of chunkArgsList) {
             try {
-              const chunkResult = await target.apply(thisArg, chunkArgs);
+              const chunkResult = await originalFn.apply(thisArg, chunkArgs);
               mergeResult(chunkResult, collectedResults);
             } catch (error) {
               if (breakOnSingleFailure) throw error;
               errors.push(error);
             }
-            if (effectiveCfg.delayMs) {
-              await new Promise((resolve) => setTimeout(resolve, effectiveCfg.delayMs));
-            }
+            if (delayMs)
+              await new Promise((resolve) => setTimeout(resolve, delayMs));
           }
 
           if (errors.length) {
@@ -119,7 +188,10 @@ export function throttle(
     }
 
     return apply(
-      methodMetadata(Metadata.key(PersistenceKeys.THROTTLE, propertyKey), cfg),
+      methodMetadata(
+        Metadata.key(PersistenceKeys.THROTTLE, propertyKey),
+        options
+      ),
       throttleDec
     )(target, propertyKey, descriptor);
   };
@@ -130,7 +202,7 @@ function normalizeArgIndex(argIndex: number | number[]): number[] {
     (idx) => {
       if (!Number.isFinite(idx) || idx < 0)
         throw new InternalError(
-          "@throttling() argument indexes must be non-negative integers"
+          "@throttle() argument indexes must be non-negative integers"
         );
       return idx;
     }
@@ -138,55 +210,25 @@ function normalizeArgIndex(argIndex: number | number[]): number[] {
   return Array.from(new Set(entries)).sort((a, b) => a - b);
 }
 
-function buildChunkBounds(
-  total: number,
+function buildChunkArgsList(
+  primaryChunks: any[][],
   arrays: any[][],
-  cfg: ThrottlingConfig
-): { start: number; end: number }[] {
-  if ("count" in cfg) {
-    if (cfg.count <= 0)
-      throw new InternalError(
-        "@throttling() configuration 'count' must be greater than zero"
-      );
-    const spans: { start: number; end: number }[] = [];
-    for (let start = 0; start < total; start += cfg.count) {
-      spans.push({
-        start,
-        end: Math.min(total, start + cfg.count),
-      });
-    }
-    return spans;
-  }
-
-  if ("bufferSize" in cfg) {
-    if (cfg.bufferSize <= 0)
-      throw new InternalError(
-        "@throttling() configuration 'bufferSize' must be greater than zero"
-      );
-    const spans: { start: number; end: number }[] = [];
-    let start = 0;
-    let size = 0;
-    for (let idx = 0; idx < total; idx++) {
-      const entrySize = estimateEntrySize(arrays, idx);
-      if (size > 0 && size + entrySize > cfg.bufferSize) {
-        spans.push({ start, end: idx });
-        start = idx;
-        size = entrySize;
-      } else {
-        size += entrySize;
-      }
-    }
-    if (start < total || !spans.length) {
-      spans.push({ start, end: total });
-    }
-    return spans;
-  }
-
-  return [{ start: 0, end: total }];
-}
-
-function estimateEntrySize(arrays: any[][], index: number): number {
-  return arrays.reduce((acc, array) => acc + safeByteLength(array[index]), 0);
+  normalizedIndices: number[],
+  invocationArgs: any[]
+): any[][] {
+  let offset = 0;
+  return primaryChunks.map((chunk) => {
+    const chunkLen = chunk.length;
+    const args = invocationArgs.map((arg, idx) => {
+      const targetIdx = normalizedIndices.indexOf(idx);
+      if (targetIdx === -1) return arg;
+      return targetIdx === 0
+        ? chunk
+        : arrays[targetIdx].slice(offset, offset + chunkLen);
+    });
+    offset += chunkLen;
+    return args;
+  });
 }
 
 function safeByteLength(value: any): number {

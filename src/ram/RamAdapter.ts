@@ -22,6 +22,7 @@ import {
   BaseError,
   ConflictError,
   DBKeys,
+  generated,
   InternalError,
   NotFoundError,
   onCreate,
@@ -835,14 +836,16 @@ export class RamAdapter extends Adapter<
       .for(createdByKey)
       .define(
         onCreate(createdByOnRamCreateUpdate),
-        propMetadata(createdByKey, {})
+        propMetadata(createdByKey, {}),
+        generated(createdByKey)
       )
       .apply();
     Decoration.flavouredAs(RamFlavour)
       .for(updatedByKey)
       .define(
         onCreateUpdate(createdByOnRamCreateUpdate),
-        propMetadata(updatedByKey, {})
+        propMetadata(updatedByKey, {}),
+        generated(updatedByKey)
       )
       .apply();
   }

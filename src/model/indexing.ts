@@ -1,8 +1,9 @@
 import { IndexMetadata } from "../repository/types";
 import { OrderDirection } from "../repository/constants";
-import { PersistenceKeys } from "../persistence/constants";
+import { INDEX_SELF, PersistenceKeys } from "../persistence/constants";
 import { Decoration, propMetadata } from "@decaf-ts/decoration";
 import { Metadata } from "@decaf-ts/decoration";
+
 /**
  * @description Creates an index on a model property for improved query performance
  * @summary Decorator that marks a property to be indexed in the database, optionally with specific directions and compositions
@@ -70,11 +71,13 @@ export function index(
         }
       }
 
+      const variant =
+        compositions && compositions.length
+          ? compositions.join("_")
+          : INDEX_SELF;
+
       return propMetadata(
-        Metadata.key(
-          `${PersistenceKeys.INDEX}${compositions && compositions?.length ? `.${compositions.join(".")}` : ""}`,
-          attr
-        ),
+        Metadata.key(PersistenceKeys.INDEX, attr, variant),
         {
           directions: directions,
           compositions: compositions,

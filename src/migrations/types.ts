@@ -71,6 +71,8 @@ export type PersistenceMigrationConfig<
   flavours?: string[];
   taskService?: TaskService<any>;
   handlers?: Partial<Record<string, AdapterMigrationHandlers<AD>>>;
+  versioning?: MigrationVersioning;
+  references?: string[];
 };
 
 export type MigrationConfig<PERSIST extends boolean> = AdapterFlags<any> & {
@@ -83,4 +85,5 @@ export type MigrationConfig<PERSIST extends boolean> = AdapterFlags<any> & {
   setCurrentVersion?: SetCurrentVersionHandler;
   taskService?: TaskService<any>;
   versioning?: MigrationVersioning;
+  references?: string[];
 };

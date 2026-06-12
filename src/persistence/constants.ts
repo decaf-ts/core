@@ -13,6 +13,14 @@ import { PreparedStatementKeys } from "../query/constants";
  * @readonly
  * @memberOf module:core
  */
+/**
+ * @description Metadata key segment used for non-composite (single property) indexes
+ * @summary Reserved variant key under which a property's plain `@index()` metadata is stored, allowing it to coexist with composite `@index(directions, compositions)` declarations on the same property
+ * @const INDEX_SELF
+ * @memberOf module:core
+ */
+export const INDEX_SELF = "__self__";
+
 export enum PersistenceKeys {
   PERSISTENCE = "persistence",
   /** @description Key for index metadata */

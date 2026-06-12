@@ -47,6 +47,7 @@ export class MigrationService<
   implements Migration<A, R>
 {
   protected versioning: MigrationVersioning = new StandardMigrationVersioning();
+  protected allowedReferences: Set<string> | undefined = undefined;
   protected queuedTaskChain: Array<{ id: string; version: string }> = [];
   flavour?: string;
   readonly reference: string = MigrationService.name;
@@ -101,6 +102,8 @@ export class MigrationService<
         retrieveLastVersion: handlers.retrieveLastVersion as any,
         setCurrentVersion: handlers.setCurrentVersion as any,
         taskService: cfg.taskService,
+        versioning: cfg.versioning,
+        references: cfg.references,
       } as any);
 
       if (cfg.taskMode)
@@ -137,6 +140,9 @@ export class MigrationService<
       DefaultMigrationConfig
     );
     this.versioning = cfg.versioning || new StandardMigrationVersioning();
+    this.allowedReferences = cfg.references?.length
+      ? new Set(cfg.references)
+      : undefined;
     this.transaction = cfg.persistMigrationSteps;
     return {
       config: cfg,
@@ -321,6 +327,11 @@ export class MigrationService<
     );
 
     return migrations.filter((migration) => {
+      if (
+        this.allowedReferences &&
+        !this.allowedReferences.has(migration.reference)
+      )
+        return false;
       if (fromVersion && !this.versioning.gt(migration.version, fromVersion))
         return false;
       if (toVersion && !this.versioning.lte(migration.version, toVersion))

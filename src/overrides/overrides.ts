@@ -3,7 +3,7 @@ import { Model } from "@decaf-ts/decorator-validation";
 import { DBKeys, InternalError, OperationKeys } from "@decaf-ts/db-decorators";
 import { Adapter } from "../persistence/Adapter";
 
-import { PersistenceKeys } from "../persistence/constants";
+import { INDEX_SELF, PersistenceKeys } from "../persistence/constants";
 import { type ExtendedRelationsMetadata } from "../model";
 import { SequenceOptions } from "../interfaces/SequenceOptions";
 import { IndexMetadata } from "../repository/types";
@@ -278,8 +278,19 @@ import { type Migration } from "../migrations/types";
   );
 
   return Object.keys(indexDecorators || {}).reduce(
-    (acum: Record<string, Record<string, IndexMetadata>>, t: any) => {
-      acum[t] = { [PersistenceKeys.INDEX]: indexDecorators[t] };
+    (acum: Record<string, Record<string, IndexMetadata>>, attr: any) => {
+      const variants = indexDecorators[attr] || {};
+      acum[attr] = Object.keys(variants).reduce(
+        (vacum: Record<string, IndexMetadata>, variant: string) => {
+          const key =
+            variant === INDEX_SELF
+              ? PersistenceKeys.INDEX
+              : `${PersistenceKeys.INDEX}_${variant}`;
+          vacum[key] = variants[variant];
+          return vacum;
+        },
+        {}
+      );
       return acum;
     },
     {}

@@ -6,7 +6,12 @@ import { Repository } from "../repository/Repository";
 import { Adapter } from "../persistence/Adapter";
 import { ContextLock } from "../persistence/ContextLock";
 
-export function getAdapterTransaction(obj: any, ...args: any[]) {
+/**
+ * @description Resolves the transaction lock for a `@transactional`-decorated call
+ * @summary Finds the underlying adapter for the decorated object (Adapter, Repository, or
+ * ModelService) and asks it for a fresh `ContextLock` via `Adapter.transactionLock()`
+ */
+export function resolveTransactionLock(obj: any, ...args: any[]): ContextLock {
   let adapter: Adapter<any, any, any, any> | undefined;
   if (obj instanceof ModelService)
     adapter = obj.repo.adapter as Adapter<any, any, any, any>;
@@ -16,10 +21,6 @@ export function getAdapterTransaction(obj: any, ...args: any[]) {
   if (!adapter)
     throw new InternalError(`Could not find adapter to extract transaction`);
   return adapter.transactionLock(...args);
-}
-
-export function getContextLock(obj: any, ...args: any[]) {
-  return new ContextLock(getAdapterTransaction(obj, ...args));
 }
 
 function innerTransactional(...data: any[]) {
@@ -39,26 +40,48 @@ function innerTransactional(...data: any[]) {
         const { log, ctx } = (
           await thisArg["logCtx"](argArray, obj.name, true)
         ).for(obj);
-        const lock =
-          ctx.getOrUndefined("transactionLock") || getContextLock(thisArg);
-        ctx.put("transactionLock", lock);
-        await lock.acquire();
+
+        // Reuse an in-flight transaction (nested @transactional call) instead of starting a new one
+        const existing: ContextLock | undefined =
+          ctx.getOrUndefined("transactionLock");
+        const lock = existing || resolveTransactionLock(thisArg);
+
+        lock.depth++;
+        if (!existing) {
+          // only cache the lock once begin() succeeds, so a rejected begin() (e.g.
+          // maxConcurrentTransactions=0) leaves no stale lock/depth on the context
+          await lock.begin(ctx);
+          ctx.cache.put("transactionLock", lock);
+        }
+
         let results: any;
         try {
           results = await obj.call(thisArg, ...argArray, ctx);
         } catch (e: unknown) {
-          try {
-            await lock.rollback(e);
-          } catch (e: unknown) {
-            log.error(`Failed to rollback transaction`, e);
+          // An inner @transactional frame may have already rolled back and ended
+          // the transaction (depth forced to 0); enclosing frames must not roll back again
+          const alreadyEnded = lock.depth === 0;
+          lock.depth = 0;
+          if (!alreadyEnded) {
+            try {
+              await lock.rollback(e as Error, ctx);
+            } catch (rollbackError: unknown) {
+              log.error(
+                `Failed to rollback transaction`,
+                rollbackError as Error
+              );
+            }
           }
           throw e;
         }
 
-        try {
-          await lock.release();
-        } catch (e: unknown) {
-          throw new InternalError(`Failed to release transaction: ${e}`);
+        lock.depth--;
+        if (lock.depth === 0) {
+          try {
+            await lock.commit(ctx);
+          } catch (e: unknown) {
+            throw new InternalError(`Failed to commit transaction: ${e}`);
+          }
         }
 
         return results;
@@ -69,8 +92,24 @@ function innerTransactional(...data: any[]) {
   };
 }
 
-Decoration.for(TransactionalKeys.TRANSACTIONAL)
-  .define({
-    decorator: innerTransactional,
-  } as any)
-  .apply();
+/**
+ * @description Method decorator that wraps a method in core's transaction-lock mechanism
+ * @summary `@decaf-ts/transactional-decorators` exports its own `transactional()` factory, and that
+ * factory re-registers its own (base) decorator under the same Decoration key every time it is called
+ * — so importing core does not make core's implementation "stick" if anything also calls the base
+ * package's factory. Consumers that want core's `ContextLock`/per-adapter transaction-lock behavior
+ * MUST import `transactional` from `@decaf-ts/core` (this function), not from
+ * `@decaf-ts/transactional-decorators`. Whichever factory is called last determines the active
+ * implementation for the shared key/flavour going forward.
+ * @param {...any[]} data - Optional metadata available to the transaction-lock implementation
+ * @function transactional
+ * @category Decorators
+ */
+export function transactional(...data: any[]) {
+  return Decoration.for(TransactionalKeys.TRANSACTIONAL)
+    .define({
+      decorator: innerTransactional,
+      args: data,
+    } as any)
+    .apply();
+}

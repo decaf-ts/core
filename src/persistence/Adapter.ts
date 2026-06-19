@@ -57,7 +57,7 @@ import { Paginator } from "../query/Paginator";
 import { PreparedStatement } from "../query/types";
 import { promiseSequence } from "../utils/utils";
 import { UUID } from "./generators";
-import { AdapterTransaction } from "./ContextLock";
+import { ContextLock } from "./ContextLock";
 
 const flavourResolver = Decoration["flavourResolver"].bind(Decoration);
 Decoration["flavourResolver"] = (obj: object) => {
@@ -299,8 +299,16 @@ export abstract class Adapter<
     return Adapter._baseRepository as Constructor<R>;
   }
 
-  transactionLock(...args: any[]) {
-    return new AdapterTransaction(this, ...args);
+  /**
+   * @description Provides this adapter's transaction-lock implementation
+   * @summary Returns a fresh `ContextLock` instance used by `@transactional` to manage transaction
+   * boundaries. The base implementation is a no-op; adapters with native transaction support (e.g. a
+   * SQL adapter) should override this to return a `ContextLock` subclass that wraps the underlying
+   * driver's BEGIN/COMMIT/ROLLBACK. Nesting is handled by the `@transactional` proxy, not by this method
+   * or the returned lock.
+   */
+  transactionLock(...args: any[]): ContextLock<this> {
+    return new ContextLock(this, ...args);
   }
 
   protected async shutdownProxies(...args: ContextualArgs<any>): Promise<void>;

@@ -187,6 +187,15 @@ export type AdapterFlags<LOG extends Logger = Logger> = RepositoryFlags<LOG> &
     paginateByBookmark: boolean;
     dryRun: boolean;
     lock?: ContextLock;
+    /**
+     * @description Maximum number of concurrent transactions the default `ContextLock` allows for this adapter
+     * @summary `-1` (default) means no limit - the default lock behaves as a no-op. `0` disables transactions
+     * entirely (every `@transactional()` call throws). Any positive number gates concurrent transactions through
+     * a counting semaphore, queuing callers until a slot frees up. Adapters with native transaction support
+     * (e.g. a SQL adapter) that fully override `ContextLock.begin()`/`commit()`/`rollback()` are not affected by
+     * this flag - concurrency there is governed by the underlying database instead.
+     */
+    maxConcurrentTransactions: number;
   };
 
 export type RawResult<R, D extends boolean> = D extends true

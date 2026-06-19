@@ -135,6 +135,7 @@ export const DefaultAdapterFlags: AdapterFlags = Object.assign(
     paginateByBookmark: false,
     dryRun: false,
     afterQueryHandlers: false,
+    maxConcurrentTransactions: -1,
   }
 ) as AdapterFlags;
 

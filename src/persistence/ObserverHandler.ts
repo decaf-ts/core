@@ -159,7 +159,7 @@ export class ObserverHandler<C extends Context<any> = Context>
           }
         })
         .map((o) => {
-          o.observer.refresh(model, event, id, ...ctxArgs);
+          return o.observer.refresh(model, event, id, ...ctxArgs);
         })
     );
     results.forEach((result, i) => {

@@ -99,6 +99,7 @@ class RamMigration extends AbsMigration<RamAdapter> {
 void FailingNanoMigration;
 void RamMigration;
 
+// Skipped: requires link to pass due to Adapter cache.
 describe.skip("MigrationService multi-adapter migration (live)", () => {
   it("stops executing later adapters when a live migration fails", async () => {
     failedReferences.clear();

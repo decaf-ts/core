@@ -39,7 +39,7 @@ Decaf Core provides the foundational building blocks for the Decaf TypeScript ec
 
 Documentation [here](https://decaf-ts.github.io/injectable-decorators/), Test results [here](https://decaf-ts.github.io/injectable-decorators/workdocs/reports/html/test-report.html) and Coverage [here](https://decaf-ts.github.io/injectable-decorators/workdocs/reports/coverage/lcov-report/index.html)
 
-Minimal size: 46.9 KB kb gzipped
+Minimal size: 47.1 KB kb gzipped
 
 
 # Core Package — Detailed Description
@@ -319,6 +319,92 @@ class MyCustomAdapter extends Adapter<any, any, any, any> {
   // Implement other abstract methods: read, update, delete, raw
 }
 ```
+
+## Transactions (`@transactional`)
+
+`@transactional()` wraps a `Repository` or `Service`/`ModelService` method so every persistence call it makes - including calls to other `@transactional()` methods - runs inside a single transaction boundary. Always import it from `@decaf-ts/core`, **not** from `@decaf-ts/transactional-decorators`: the base package's own `transactional()` factory re-registers its (no-op-for-this-purpose) decorator every time it is used, so importing it anywhere in your process will silently override `@decaf-ts/core`'s implementation.
+
+```typescript
+import { Repository, transactional } from '@decaf-ts/core';
+import { User } from './models';
+
+class UserRepository extends Repository<User, any> {
+  @transactional()
+  async createPair(first: User, second: User, ...args: any[]): Promise<[User, User]> {
+    // both creates run inside the same transaction
+    const created1 = await this.create(first, ...args);
+    const created2 = await this.create(second, ...args);
+    return [created1, created2];
+  }
+
+  @transactional()
+  async createTriplet(a: User, b: User, c: User, ...args: any[]): Promise<User[]> {
+    const pair = await this.createPair(a, b, ...args); // reuses the SAME transaction
+    const third = await this.create(c, ...args);
+    return [...pair, third];
+  }
+}
+```
+
+Key points:
+
+*   **Always forward the trailing `...args`** between `@transactional()` methods (and into the `create`/`read`/`update`/`delete` calls you make from inside them). That trailing argument carries the `Context` that holds the active lock; drop it and a nested call will start its own, unrelated transaction.
+*   **Nesting is free and automatic.** The first `@transactional()` call to run acquires the lock (`lock.begin()`); calls nested inside it detect the lock already on the `Context` and reuse it, only incrementing a depth counter. The transaction only commits (`lock.commit()`) when the outermost call returns successfully, no matter how many levels deep the nesting goes or how many operations each level performs.
+*   **One error ends the whole transaction.** If any nested call throws, the transaction rolls back (`lock.rollback(err)`) exactly once and the error propagates - enclosing frames detect the lock is already done and don't roll back a second time.
+*   **`Service`/`ModelService` methods follow the exact same contract** - you can mix `@transactional()` Repository and Service methods in the same call tree and they will share one lock.
+*   **No configurable isolation level** is provided by the decorator itself; that's left to whatever the underlying adapter's native transaction mechanism supports. The default lock does support capping how many transactions can run concurrently - see below.
+
+### Limiting concurrent transactions (`maxConcurrentTransactions`)
+
+The default `ContextLock` (used by any adapter that doesn't override `transactionLock()`, e.g. `RamAdapter`) is gated by the `maxConcurrentTransactions` flag on `AdapterFlags`:
+
+*   **`-1` (the default)** - no limit; `begin`/`commit`/`rollback` behave as a no-op, exactly like before this flag existed.
+*   **`0`** - transactions are disabled outright; every `@transactional()` call immediately throws an `UnsupportedError`.
+*   **any positive number `N`** - at most `N` transactions run concurrently on that adapter. A `@transactional()` call beyond the limit queues (via an internal counting semaphore) until one of the `N` in-flight transactions commits or rolls back, then proceeds in FIFO order.
+
+Set it like any other flag, typically via `Repository.override(...)`:
+
+```typescript
+const repo = userRepository.override({ maxConcurrentTransactions: 1 });
+// at most one @transactional() call through `repo` runs at a time;
+// a second concurrent call waits until the first commits or rolls back
+await Promise.all([
+  repo.someTransactionalMethod(),
+  repo.someTransactionalMethod(),
+]);
+```
+
+The limit is shared by every `ContextLock` created for the same adapter instance (not per-call), so it caps total concurrent transactions against that adapter regardless of which repository or service triggered them.
+
+### How adapters provide native transactions
+
+An adapter with real transactional storage (e.g. a SQL database) overrides `transactionLock()` to return a `ContextLock` subclass that wraps its native `BEGIN`/`COMMIT`/`ROLLBACK` equivalent instead of relying on the default semaphore-gated implementation:
+
+```typescript
+import { Adapter, ContextLock } from '@decaf-ts/core';
+
+class MyNativeLock extends ContextLock<MyAdapter> {
+  override async begin(): Promise<void> {
+    // open a dedicated connection/transaction handle on this.adapter
+  }
+  override async commit(): Promise<void> {
+    // commit and release the handle
+  }
+  override async rollback(): Promise<void> {
+    // roll back and release the handle
+  }
+}
+
+class MyAdapter extends Adapter<any, any, any, any> {
+  override transactionLock(...args: any[]): MyNativeLock {
+    return new MyNativeLock(this, ...args);
+  }
+}
+```
+
+All the bookkeeping (reusing the lock across nested calls, tracking depth, deciding when to actually call `begin`/`commit`/`rollback`) is owned by the `@transactional()` proxy itself - your `ContextLock` subclass only needs to know how to start, end, and undo a transaction once. `@decaf-ts/for-typeorm`'s `TypeORMContextLock` is a complete real-world example of this pattern, backed by Postgres; see its "How to Use" guide for a worked example with real CRUD operations and concurrent transactions.
+
+Note that overriding `begin`/`commit`/`rollback` without calling `super.*()` (as `TypeORMContextLock` does) opts out of the `maxConcurrentTransactions` semaphore entirely - native adapters typically have their own, more appropriate way to manage concurrency (connection pooling, native locks, isolation levels), so `for-typeorm`'s documentation explicitly calls out that the flag has no effect there.
 
 ## Services
 

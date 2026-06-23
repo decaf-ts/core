@@ -167,6 +167,9 @@
   "optionalDependencies": {
     "semver": "^7.7.2"
   },
+  "overrides": {
+    "js-yaml": "^4.2.0"
+  },
   "main": "./lib/cjs/index.cjs",
   "module": "./lib/esm/index.js",
   "sideEffects": [

@@ -1,6 +1,7 @@
 import { ClientBasedService, ContextualArgs, Service } from "../../src/index";
 import { service } from "../../src/utils/decorators";
 import { Injectables } from "@decaf-ts/injectable-decorators";
+import { Metadata } from "@decaf-ts/decoration";
 
 describe("services", () => {
   @service("test")
@@ -24,7 +25,7 @@ describe("services", () => {
   it("Registers as a service for a class", () => {
     const services = Injectables.services();
     expect(services).toHaveProperty("test");
-    expect(services.test).toBe(TestService);
+    expect(services.test).toBe(Metadata.constr(TestService));
   });
 
   it("Initializes", async () => {
@@ -54,8 +55,8 @@ describe("services", () => {
   it("Registers as a service for a class without passing a service categrory", () => {
     const services = Injectables.services();
     expect(Object.keys(services).length).toBe(2);
-    expect(services.test).toBe(TestService);
-    expect(Object.values(services)[1]).toEqual(TestService2);
+    expect(services.test).toBe(Metadata.constr(TestService));
+    expect(Object.values(services)[1]).toBe(Metadata.constr(TestService2));
 
     expect(Service.get(TestService2)).toBeInstanceOf(TestService2);
     expect(Injectables.get(TestService2)).toBeInstanceOf(TestService2);

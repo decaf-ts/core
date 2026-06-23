@@ -176,6 +176,8 @@
     "./lib/esm/overrides/index.js",
     "./lib/esm/overrides/overrides.js",
     "./lib/cjs/overrides/index.cjs",
-    "./lib/cjs/overrides/overrides.cjs"
+    "./lib/cjs/overrides/overrides.cjs",
+    "./lib/esm/persistence/index.js",
+    "./lib/cjs/persistence/index.cjs"
   ]
 }

@@ -134,7 +134,12 @@ export async function uniqueOnCreateUpdate<M extends Model, R extends Repo<M>>(
   const existing = await this.select()
     .where(Condition.attribute(key).eq(model[key]))
     .execute();
-  if (existing.length)
+  const pkName = Model.pk(model) as keyof M;
+  const pkValue = (model as any)[pkName];
+  const conflict = existing.filter(
+    (r: any) => r[pkName] !== pkValue
+  );
+  if (conflict.length)
     throw new ConflictError(
       `model already exists with property ${key as string} equal to ${JSON.stringify((model as any)[key], undefined, 2)}`
     );

@@ -361,6 +361,8 @@ export abstract class Service<
 
     const { log, ctxArgs } = Service.prototype.logCtx(args, this.boot);
     const services = Injectables.services();
+    if (!services || !Object.keys(services).length)
+      throw new InternalError(`No services registered for shutdown`);
     for (const [key, service] of Object.entries(services)) {
       try {
         log.verbose(`Booting ${service.name} service...`);
@@ -402,6 +404,8 @@ export abstract class Service<
 
     const { log, ctxArgs } = Service.prototype.logCtx(args, this.shutdown);
     const services = Injectables.services();
+    if (!services || !Object.keys(services).length)
+      throw new InternalError(`No services registered for shutdown`);
     for (const [key, service] of Object.entries(services).reverse()) {
       try {
         log.verbose(`Shutting down ${service.name} service...`);

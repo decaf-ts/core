@@ -705,6 +705,19 @@ class CatchAwareFailHandler extends TaskHandler<void, never> {
   }
 }
 
+@task("catch-aware-tail")
+class CatchAwareTailHandler extends TaskHandler<void, string> {
+  static runs: Array<{ taskId: string; step?: number }> = [];
+
+  async run(_: void, ctx: TaskContext): Promise<string> {
+    CatchAwareTailHandler.runs.push({
+      taskId: ctx.taskId,
+      step: ctx.step,
+    });
+    return "tail-ran";
+  }
+}
+
 // ============================================================================
 // DECAF-22: atEnd handlers
 // ============================================================================
@@ -869,6 +882,7 @@ describe("Composite Tasks Integration", () => {
     CompositeRandStep4.calls = {};
     SharedLockTask.starts = [];
     CatchAwareFailHandler.catches = [];
+    CatchAwareTailHandler.runs = [];
     DynamicPersistentEnqueueStep.runs = {};
     DynamicPersistentFlakyStep.runs = {};
     DynamicPersistentTailStep.runs = {};
@@ -1188,7 +1202,7 @@ describe("Composite Tasks Integration", () => {
       ).toBeGreaterThan(120);
     });
 
-    it("invokes TaskHandler.catch for atomic and composite failures", async () => {
+    it("invokes TaskHandler.catch for atomic failures and blocks composite failures", async () => {
       const failingAtomic = new TaskBuilder({
         classification: "catch-aware-fail",
         attempt: 0,
@@ -1221,11 +1235,69 @@ describe("Composite Tasks Integration", () => {
       const atomicCatch = CatchAwareFailHandler.catches.find(
         (entry) => entry.step === undefined
       );
-      const compositeCatch = CatchAwareFailHandler.catches.find(
-        (entry) => entry.step === 0
-      );
       expect(atomicCatch?.message).toContain("catch-aware-fail-boom");
-      expect(compositeCatch?.message).toContain("catch-aware-fail-boom");
+      expect(CatchAwareFailHandler.catches.some((entry) => entry.step === 0)).toBe(false);
+    });
+
+    it("continues composite execution when a tolerated step fails and runs later steps", async () => {
+      const composite = new CompositeTaskBuilder({
+        classification: "catch-aware-composite-optional",
+        atomicity: TaskType.COMPOSITE,
+        attempt: 0,
+        maxAttempts: 1,
+        ...createDates(),
+        backoff: createBackoff(),
+      })
+        .addStep("catch-aware-fail")
+        .setCanFail(true)
+        .build()
+        .addStep("catch-aware-tail")
+        .build();
+
+      const { task, tracker } = await engine.push(composite, true);
+      const result = await tracker.resolve();
+
+      expect(result).toMatchObject({ stepResults: expect.any(Array) });
+      expect(result.stepResults).toHaveLength(2);
+      expect(result.stepResults[0]).toMatchObject({
+        status: TaskStatus.FAILED,
+      });
+      expect(result.stepResults[1]).toMatchObject({
+        status: TaskStatus.SUCCEEDED,
+        output: "tail-ran",
+      });
+
+      const persisted = await taskRepo.read(task.id);
+      expect(persisted.status).toBe(TaskStatus.SUCCEEDED);
+      expect(persisted.stepResults?.[0]?.status).toBe(TaskStatus.FAILED);
+      expect(persisted.stepResults?.[1]?.output).toBe("tail-ran");
+      expect(CatchAwareFailHandler.catches.find((entry) => entry.step === 0)).toBeDefined();
+      expect(CatchAwareTailHandler.runs).toHaveLength(1);
+      expect(CatchAwareTailHandler.runs[0]?.step).toBe(1);
+    });
+
+    it("fails fast when a non-tolerated step fails and does not run later steps", async () => {
+      const composite = new CompositeTaskBuilder({
+        classification: "catch-aware-composite-blocking",
+        atomicity: TaskType.COMPOSITE,
+        attempt: 0,
+        maxAttempts: 1,
+        ...createDates(),
+        backoff: createBackoff(),
+      })
+        .addStep("catch-aware-fail")
+        .addStep("catch-aware-tail")
+        .build();
+
+      const { task, tracker } = await engine.push(composite, true);
+      await expect(tracker.resolve()).rejects.toBeInstanceOf(Error);
+
+      const persisted = await taskRepo.read(task.id);
+      expect(persisted.status).toBe(TaskStatus.FAILED);
+      expect(persisted.stepResults?.[0]?.status).toBe(TaskStatus.FAILED);
+      expect(persisted.stepResults?.[1]).toBeUndefined();
+      expect(CatchAwareFailHandler.catches.some((entry) => entry.step === 0)).toBe(false);
+      expect(CatchAwareTailHandler.runs).toHaveLength(0);
     });
 
     it("atEnd() appends steps after all currently queued steps", async () => {

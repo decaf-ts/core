@@ -39,6 +39,10 @@ export class TaskStepSpecModel extends Model {
   dependsOn?: string[];
 
   @prop()
+  @description("Whether a failing step may be tolerated so the composite can continue")
+  canFail: boolean = false;
+
+  @prop()
   @min(1)
   @description("Max attempts for this step. Defaults to 1 (no per-step retry).")
   maxAttempts?: number;

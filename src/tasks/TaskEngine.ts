@@ -1109,29 +1109,41 @@ export class TaskEngine<
       }
 
       if (lastStepErr) {
-        try {
-          await handler.catch?.(step.input, lastStepErr, context);
-        } catch (catchErr) {
-          ctx.logger.warn("composite step catch() hook failed", {
-            error: catchErr,
-          });
-        }
         const now = new Date();
+        const canFail = step.canFail === true;
+        const serializedErr = serializeError(lastStepErr);
         results[idx] = new TaskStepResultModel({
           status: TaskStatus.FAILED,
-          error: serializeError(lastStepErr),
+          error: serializedErr,
           attempt: stepAttempt,
           createdAt: now,
           updatedAt: now,
         });
-        task.stepResults = results;
-        task.currentStep = idx;
-        task.error = serializeError(lastStepErr);
+        if (canFail) {
+          try {
+            await handler.catch?.(step.input, lastStepErr, context);
+          } catch (catchErr) {
+            ctx.logger.warn("composite step catch() hook failed", {
+              error: catchErr,
+            });
+          }
+        }
 
-        // persist failure context before throwing (retry logic happens outside)
+        task.stepResults = results;
+        task.error = canFail ? undefined : serializedErr;
+        if (canFail) {
+          idx = stepIndex + 1;
+          task.currentStep = idx;
+        } else {
+          task.currentStep = idx;
+        }
+
+        // persist composite progress before optionally continuing to the next step
         const persisted = await this.tasks.update(task);
         Object.assign(task, persisted);
-        throw lastStepErr;
+        if (!canFail) {
+          throw lastStepErr;
+        }
       }
     }
 

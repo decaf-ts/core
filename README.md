@@ -562,6 +562,8 @@ The CLI already follows this pattern and explicitly prevents the task engine ada
 
 Composite tasks are ordered by the sequence you pass to `CompositeTaskBuilder` or by using the `dependsOn`/`dependencies` array. Each step has a `classification` (matching a handler), an optional `name`, and `lock`/`dependsOn` metadata (`TaskStepSpecModel`). Locks avoid concurrent execution, and dependencies support either `<taskId>` or `<taskId>:<stepRef>` shorthand so you can mix tasks and steps as prerequisites.
 
+Steps can also opt into tolerated failure with `canFail: true`. When a tolerated step fails, the engine records the failure in `stepResults`, runs that step handler's `catch` hook, and continues to the next step. Steps without `canFail` keep the existing fail-fast behavior.
+
 Task attempts are bounded by `maxAttempts` and `backoff` (configured via builders). The engine records each attempt and automatically escalates to `WAITING_RETRY`/`RUNNING` states; if a task exhausts retries, the service surfaces the final error via `TaskTracker.wait()` so your migration command can decide between retrying or aborting.
 
 ## Migration System

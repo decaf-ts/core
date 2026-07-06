@@ -189,6 +189,11 @@ export class TaskStepSpecBuilder {
     return this;
   }
 
+  setCanFail(value: boolean): this {
+    this.step.canFail = value;
+    return this;
+  }
+
   setMaxAttempts(value?: number): this {
     this.step.maxAttempts = value;
     return this;
@@ -203,14 +208,34 @@ export class TaskStepSpecBuilder {
   addStep(classification: string, input: any): CompositeTaskBuilder;
   addStep(
     classification: string,
+    input: any,
+    canFail: boolean
+  ): CompositeTaskBuilder;
+  addStep(
+    classification: string,
     name: string,
     input?: any
   ): CompositeTaskBuilder;
   addStep(
     classification: string,
+    name: string,
+    input: any,
+    canFail: boolean
+  ): CompositeTaskBuilder;
+  addStep(
+    classification: string,
     nameOrInput?: any,
-    inputMaybe?: any
+    inputMaybe?: any,
+    canFailMaybe?: boolean
   ): CompositeTaskBuilder | TaskStepSpecBuilder {
+    if (arguments.length >= 4) {
+      return this.parent.addStep(
+        classification,
+        nameOrInput,
+        inputMaybe,
+        canFailMaybe
+      );
+    }
     return this.parent.addStep(classification, nameOrInput, inputMaybe);
   }
 
@@ -251,13 +276,22 @@ export class CompositeTaskBuilder extends TaskBuilder {
    * Backwards compatible:
    * - addStep(classification, input?)
    * - addStep(classification, name, input?)
+   * - addStep(classification, input, canFail)
+   * - addStep(classification, name, input, canFail)
    *
    * When called with only `classification`, returns a TaskStepSpecBuilder so
    * callers can configure the step and then `.build()` back to this builder.
    */
   addStep(classification: string): TaskStepSpecBuilder;
   addStep(classification: string, input: any): this;
+  addStep(classification: string, input: any, canFail: boolean): this;
   addStep(classification: string, name: string, input?: any): this;
+  addStep(
+    classification: string,
+    name: string,
+    input: any,
+    canFail?: boolean
+  ): this;
   addStep(
     classification: string,
     nameOrInput?: any,
@@ -267,17 +301,26 @@ export class CompositeTaskBuilder extends TaskBuilder {
     const now = new Date();
     const hasOnlyClassification = arguments.length === 1;
     const hasThirdArg = arguments.length >= 3;
+    const hasFourthArg = arguments.length >= 4;
     const name =
       hasThirdArg && typeof nameOrInput === "string" ? nameOrInput : undefined;
-    const input = hasThirdArg
+    const input = hasFourthArg
       ? inputMaybe
-      : hasOnlyClassification
-        ? undefined
-        : nameOrInput;
+      : hasThirdArg && typeof nameOrInput === "string"
+        ? inputMaybe
+        : hasOnlyClassification
+          ? undefined
+          : nameOrInput;
+    const canFail = hasFourthArg
+      ? Boolean(arguments[3])
+      : hasThirdArg && typeof nameOrInput !== "string"
+        ? Boolean(inputMaybe)
+        : false;
     const step = new TaskStepSpecModel({
       classification,
       name,
       input,
+      canFail,
       createdAt: now,
       updatedAt: now,
     });

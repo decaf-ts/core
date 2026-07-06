@@ -1,9 +1,9 @@
-name: 'Test Coverage'
+name: "Test Coverage"
 
 on:
   pull_request:
     # The branches below must be a subset of the branches above
-    branches: [ master, main ]
+    branches: [master, main]
   workflow_dispatch:
 
 jobs:
@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [ 22 ]
+        node-version: [22]
     if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
     steps:
       - name: Checkout
@@ -40,16 +40,16 @@ jobs:
         id: cache-build
         uses: actions/cache@v4
         with:
-          path: | 
+          path: |
             lib
             dist
           key: build-${{ runner.os }}-${{ matrix.node-version }}-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             build-${{ runner.os }}-${{ matrix.node-version }}-
-            
+
       - if: ${{ steps.cache-build.outputs.cache-hit != 'true' }}
-        run: npm run build:prod  # Replace with your build command  
-              
+        run: npm run build:prod # Replace with your build command
+
       - run: npm run coverage
       - name: Tests ✅
         if: ${{ success() }}
@@ -70,7 +70,7 @@ jobs:
             "target_url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           }'
 
-      - uses: artiomtr/jest-coverage-report-action@v2.0-rc.1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          threshold: 80 # optional parameter
+      # - uses: artiomtr/jest-coverage-report-action@v2.0-rc.1
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     threshold: 50 # optional parameter

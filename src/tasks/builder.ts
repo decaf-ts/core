@@ -290,7 +290,7 @@ export class CompositeTaskBuilder extends TaskBuilder {
     classification: string,
     name: string,
     input: any,
-    canFail: boolean
+    canFail?: boolean
   ): this;
   addStep(
     classification: string,

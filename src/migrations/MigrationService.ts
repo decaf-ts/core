@@ -506,9 +506,9 @@ export class MigrationService<
       : undefined;
 
     let currentVersion: string | undefined;
-    if (cfg.retrieveLastVersion && scopedAdapter) {
+    if (cfg.retrieveLastVersion) {
       const retrieved = await cfg.retrieveLastVersion(
-        scopedAdapter,
+        scopedAdapter as A,
         ...ctxArgs
       );
       if (retrieved) currentVersion = this.normalizeVersion(retrieved);
@@ -529,7 +529,7 @@ export class MigrationService<
       await this.executeMigration(migration, ...ctxArgs);
     }
 
-    if (cfg.setCurrentVersion && scopedAdapter) {
+    if (cfg.setCurrentVersion) {
       const finalVersion =
         cfg.targetVersion ||
         plan[plan.length - 1]?.version ||
@@ -538,7 +538,7 @@ export class MigrationService<
       if (finalVersion)
         await cfg.setCurrentVersion(
           this.normalizeVersion(finalVersion),
-          scopedAdapter,
+          scopedAdapter as A,
           ...ctxArgs
         );
     }
@@ -567,9 +567,9 @@ export class MigrationService<
       : undefined;
 
     let currentVersion: string | undefined;
-    if (cfg.retrieveLastVersion && scopedAdapter) {
+    if (cfg.retrieveLastVersion) {
       const retrieved = await cfg.retrieveLastVersion(
-        scopedAdapter,
+        scopedAdapter as A,
         ...ctxArgs
       );
       if (retrieved) currentVersion = this.normalizeVersion(retrieved);
@@ -619,7 +619,7 @@ export class MigrationService<
         for (const migration of plan) {
           await this.executeMigration(migration, ...ctxArgs);
         }
-        if (cfg.setCurrentVersion && scopedAdapter) {
+        if (cfg.setCurrentVersion) {
           const finalVersion =
             cfg.targetVersion ||
             plan[plan.length - 1]?.version ||
@@ -628,7 +628,7 @@ export class MigrationService<
           if (finalVersion)
             await cfg.setCurrentVersion(
               this.normalizeVersion(finalVersion),
-              scopedAdapter,
+              scopedAdapter as A,
               ...ctxArgs
             );
         }
@@ -681,10 +681,10 @@ export class MigrationService<
     for (const id of ids) {
       const { tracker } = await cfg.taskService.track(id, ...ctxArgs);
       await tracker.wait();
-      if (cfg.setCurrentVersion && scopedAdapter && versionByTaskId[id]) {
+      if (cfg.setCurrentVersion && versionByTaskId[id]) {
         await cfg.setCurrentVersion(
           this.normalizeVersion(versionByTaskId[id]),
-          scopedAdapter,
+          scopedAdapter as A,
           ...ctxArgs
         );
       }

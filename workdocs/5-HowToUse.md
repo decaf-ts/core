@@ -446,7 +446,7 @@ Task attempts are bounded by `maxAttempts` and `backoff` (configured via builder
 - `targetVersion`: semver/string goal for this run (CLI defaults to `package.json.version`).
 - `taskMode`: when `true`, migrations are executed through the TaskService as `CompositeTask`s built per version. When `false`, `executeMigration` runs each migration inline.
 - `includeGenericInTaskMode`: when `false` (the default for multi-adapter runs), only flavour-scoped migrations execute inside tasks so generic migrations stay in relational mode.
-- `retrieveLastVersion` / `setCurrentVersion`: asynchronous handlers so each adapter can persist its own migration head. `retrieveLastVersion` is called prior to building the execution plan; `setCurrentVersion` runs after every successfully completed version (per task in task mode, once at the end in normal mode).
+- `retrieveLastVersion` / `setCurrentVersion`: asynchronous handlers so each migration scope can persist its own migration head. `retrieveLastVersion` is called prior to building the execution plan; `setCurrentVersion` runs after every successfully completed version (per task in task mode, once at the end in normal mode). When no `persistenceFlavour` is configured, handlers still run and receive `undefined` for the adapter argument.
 - `taskService`: required when `taskMode` is enabled; the CLI boots a `TaskService` backed by a dedicated `RamAdapter` (`decaf-cli-task-engine`).
 - `versioning`: override the default npm-semver comparator (`MigrationVersioning`) if you deploy a non-semver scheme.
 - `handlers`: per-flavour overrides (typically wired via the CLI defaults) for `retrieveLastVersion`/`setCurrentVersion` if you need special persistence beyond the default adapter cache.
@@ -497,7 +497,7 @@ export class AddIsActiveMigration implements Migration<any, NanoAdapter> { ... }
 
 ### Version tracking, task mode, and resume semantics
 
-`MigrationService` starts by calling `retrieveLastVersion` (when provided) to determine the persisted `currentVersion`. It builds an execution plan by filtering all decorated migrations whose normalized versions fall strictly greater than `currentVersion` and less than or equal to `targetVersion`.
+`MigrationService` starts by calling `retrieveLastVersion` (when provided) to determine the persisted `currentVersion`. It builds an execution plan by filtering all decorated migrations whose normalized versions fall strictly greater than `currentVersion` and less than or equal to `targetVersion`. If no `persistenceFlavour` is configured, the handler still runs, but it receives `undefined` for the adapter argument so adapterless migration flows can manage their own version tracking.
 
 In **normal mode**, `migrateNormally` executes each migration with `executeMigration`. After the last migration succeeds, `setCurrentVersion` is invoked once with the last version so the next boot knows where to resume.
 

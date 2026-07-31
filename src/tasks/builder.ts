@@ -312,7 +312,8 @@ export class CompositeTaskBuilder extends TaskBuilder {
           ? undefined
           : nameOrInput;
     const canFail = hasFourthArg
-      ? Boolean(arguments[3])
+      ? // eslint-disable-next-line prefer-rest-params
+        Boolean(arguments[3])
       : hasThirdArg && typeof nameOrInput !== "string"
         ? Boolean(inputMaybe)
         : false;

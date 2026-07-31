@@ -39,7 +39,7 @@ Decaf Core provides the foundational building blocks for the Decaf TypeScript ec
 
 Documentation [here](https://decaf-ts.github.io/injectable-decorators/), Test results [here](https://decaf-ts.github.io/injectable-decorators/workdocs/reports/html/test-report.html) and Coverage [here](https://decaf-ts.github.io/injectable-decorators/workdocs/reports/coverage/lcov-report/index.html)
 
-Minimal size: 47.2 KB kb gzipped
+Minimal size: 47.4 KB kb gzipped
 
 
 # Core Package — Detailed Description
@@ -562,8 +562,6 @@ The CLI already follows this pattern and explicitly prevents the task engine ada
 
 Composite tasks are ordered by the sequence you pass to `CompositeTaskBuilder` or by using the `dependsOn`/`dependencies` array. Each step has a `classification` (matching a handler), an optional `name`, and `lock`/`dependsOn` metadata (`TaskStepSpecModel`). Locks avoid concurrent execution, and dependencies support either `<taskId>` or `<taskId>:<stepRef>` shorthand so you can mix tasks and steps as prerequisites.
 
-Steps can also opt into tolerated failure with `canFail: true`. When a tolerated step fails, the engine records the failure in `stepResults`, runs that step handler's `catch` hook, and continues to the next step. Steps without `canFail` keep the existing fail-fast behavior.
-
 Task attempts are bounded by `maxAttempts` and `backoff` (configured via builders). The engine records each attempt and automatically escalates to `WAITING_RETRY`/`RUNNING` states; if a task exhausts retries, the service surfaces the final error via `TaskTracker.wait()` so your migration command can decide between retrying or aborting.
 
 ## Migration System
@@ -579,7 +577,7 @@ Task attempts are bounded by `maxAttempts` and `backoff` (configured via builder
 - `targetVersion`: semver/string goal for this run (CLI defaults to `package.json.version`).
 - `taskMode`: when `true`, migrations are executed through the TaskService as `CompositeTask`s built per version. When `false`, `executeMigration` runs each migration inline.
 - `includeGenericInTaskMode`: when `false` (the default for multi-adapter runs), only flavour-scoped migrations execute inside tasks so generic migrations stay in relational mode.
-- `retrieveLastVersion` / `setCurrentVersion`: asynchronous handlers so each adapter can persist its own migration head. `retrieveLastVersion` is called prior to building the execution plan; `setCurrentVersion` runs after every successfully completed version (per task in task mode, once at the end in normal mode).
+- `retrieveLastVersion` / `setCurrentVersion`: asynchronous handlers so each migration scope can persist its own migration head. `retrieveLastVersion` is called prior to building the execution plan; `setCurrentVersion` runs after every successfully completed version (per task in task mode, once at the end in normal mode). When no `persistenceFlavour` is configured, handlers still run and receive `undefined` for the adapter argument.
 - `taskService`: required when `taskMode` is enabled; the CLI boots a `TaskService` backed by a dedicated `RamAdapter` (`decaf-cli-task-engine`).
 - `versioning`: override the default npm-semver comparator (`MigrationVersioning`) if you deploy a non-semver scheme.
 - `handlers`: per-flavour overrides (typically wired via the CLI defaults) for `retrieveLastVersion`/`setCurrentVersion` if you need special persistence beyond the default adapter cache.
@@ -630,7 +628,7 @@ export class AddIsActiveMigration implements Migration<any, NanoAdapter> { ... }
 
 ### Version tracking, task mode, and resume semantics
 
-`MigrationService` starts by calling `retrieveLastVersion` (when provided) to determine the persisted `currentVersion`. It builds an execution plan by filtering all decorated migrations whose normalized versions fall strictly greater than `currentVersion` and less than or equal to `targetVersion`.
+`MigrationService` starts by calling `retrieveLastVersion` (when provided) to determine the persisted `currentVersion`. It builds an execution plan by filtering all decorated migrations whose normalized versions fall strictly greater than `currentVersion` and less than or equal to `targetVersion`. If no `persistenceFlavour` is configured, the handler still runs, but it receives `undefined` for the adapter argument so adapterless migration flows can manage their own version tracking.
 
 In **normal mode**, `migrateNormally` executes each migration with `executeMigration`. After the last migration succeeds, `setCurrentVersion` is invoked once with the last version so the next boot knows where to resume.
 

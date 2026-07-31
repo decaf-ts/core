@@ -43,7 +43,7 @@ export type MigrationMetadata = {
 export type RetrieveLastVersionHandler<
   A extends Adapter<any, any, any, any> = Adapter<any, any, any, any>,
 > = (
-  adapter: A,
+  adapter?: A,
   ...args: ContextualArgs<ContextOf<A>>
 ) => Promise<string | undefined | null>;
 
@@ -51,7 +51,7 @@ export type SetCurrentVersionHandler<
   A extends Adapter<any, any, any, any> = Adapter<any, any, any, any>,
 > = (
   version: string,
-  adapter: A,
+  adapter?: A,
   ...args: ContextualArgs<ContextOf<A>>
 ) => Promise<void>;
 

@@ -445,7 +445,7 @@ Task attempts are bounded by `maxAttempts` and `backoff` (configured via builder
 - `persistenceFlavour`: restricts the execution plan to a single adapter flavour alias.
 - `targetVersion`: semver/string goal for this run (CLI defaults to `package.json.version`).
 - `taskMode`: when `true`, migrations are executed through the TaskService as `CompositeTask`s built per version. When `false`, `executeMigration` runs each migration inline.
-- `includeGenericInTaskMode`: when `false` (the default for multi-adapter runs), only flavour-scoped migrations execute inside tasks so generic migrations stay in relational mode.
+- `includeGenericInTaskMode`: set this to `true` to include generic migrations in multi-adapter task runs; it defaults to `false` for those runs and to `true` otherwise. An explicit value is forwarded to every selected adapter execution.
 - `retrieveLastVersion` / `setCurrentVersion`: asynchronous handlers so each migration scope can persist its own migration head. `retrieveLastVersion` is called prior to building the execution plan; `setCurrentVersion` runs after every successfully completed version (per task in task mode, once at the end in normal mode). When no `persistenceFlavour` is configured, handlers still run and receive `undefined` for the adapter argument.
 - `taskService`: required when `taskMode` is enabled; the CLI boots a `TaskService` backed by a dedicated `RamAdapter` (`decaf-cli-task-engine`).
 - `versioning`: override the default npm-semver comparator (`MigrationVersioning`) if you deploy a non-semver scheme.

@@ -67,6 +67,7 @@ export type PersistenceMigrationConfig<
 > = {
   toVersion?: string;
   taskMode?: boolean;
+  includeGenericInTaskMode?: boolean;
   dryRun?: boolean;
   flavours?: string[];
   taskService?: TaskService<any>;

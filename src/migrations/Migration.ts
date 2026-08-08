@@ -1,17 +1,24 @@
 import { Metadata } from "@decaf-ts/decoration";
 import { ConnectionForAdapter, Migration, MigrationRule } from "./types";
-import { AbsContextual, ContextualArgs } from "../utils/ContextualLoggedClass";
+import {
+  AbsContextual,
+  ContextualArgs,
+  ContextualizedArgs,
+  MaybeContextualArg,
+  MethodOrOperation,
+} from "../utils/ContextualLoggedClass";
 import { prefixMethod } from "../utils/utils";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { Adapter } from "../persistence/Adapter";
-import { ContextOf } from "../persistence/types";
+import { ContextOf, FlagsOf } from "../persistence/types";
 import { PersistenceKeys } from "../persistence/constants";
 import { MigrationRuleError } from "../persistence/errors";
+import { Context } from "../persistence/Context";
 
 export abstract class AbsMigration<
-    A extends Adapter<any, any, any, any>,
-    R = void,
-  >
+  A extends Adapter<any, any, any, any>,
+  R = void,
+>
   extends AbsContextual<ContextOf<A>>
   implements Migration<A, R>
 {
@@ -95,7 +102,8 @@ export abstract class AbsMigration<
   private prefix(name: string) {
     return async function preffix(
       this: AbsMigration<A, ConnectionForAdapter<A>>,
-      qrOrAdapter: ConnectionForAdapter<A> | A
+      qrOrAdapter: ConnectionForAdapter<A> | A,
+      ...args: MaybeContextualArg<ContextOf<A>>
     ): Promise<[ConnectionForAdapter<A>, A, ContextOf<A>]> {
       let qr: ConnectionForAdapter<A>;
       if (qrOrAdapter instanceof Adapter) {
@@ -105,7 +113,7 @@ export abstract class AbsMigration<
         qrOrAdapter = this.adapter;
       }
       const { ctx, log } = await this.logCtx(
-        [name],
+        [name, ...args],
         PersistenceKeys.MIGRATION,
         true
       );
@@ -139,4 +147,124 @@ export abstract class AbsMigration<
     adapter: A,
     ctx: ContextOf<A>
   ): Promise<void>;
+
+  protected override logCtx<
+    CONTEXT extends Context<any> = ContextOf<A>,
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: METHOD
+  ): ContextualizedArgs<
+    ContextOf<A>,
+    ARGS,
+    METHOD extends string ? true : false
+  >;
+  protected override logCtx<
+    CONTEXT extends Context<any> = ContextOf<A>,
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: METHOD,
+    allowCreate: false,
+    overrides?: Partial<FlagsOf<ContextOf<A>>>
+  ): ContextualizedArgs<
+    ContextOf<A>,
+    ARGS,
+    METHOD extends string ? true : false
+  >;
+  protected override logCtx<
+    CONTEXT extends Context<any> = ContextOf<A>,
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: METHOD,
+    allowCreate: true,
+    overrides?: Partial<FlagsOf<ContextOf<any>>>
+  ): Promise<
+    ContextualizedArgs<
+      ContextOf<A>,
+      ARGS,
+      METHOD extends string ? true : false
+    >
+  >;
+  protected override logCtx<
+    CONTEXT extends Context<any> = ContextOf<A>,
+    ARGS extends any[] = any[],
+    METHOD extends MethodOrOperation = MethodOrOperation,
+  >(
+    args: MaybeContextualArg<CONTEXT, ARGS>,
+    operation: METHOD,
+    allowCreate: boolean = false,
+    overrides?: Partial<FlagsOf<ContextOf<A>>>
+  ):
+    | ContextualizedArgs<
+        ContextOf<A>,
+        ARGS,
+        METHOD extends string ? true : false
+      >
+    | Promise<
+      ContextualizedArgs<
+          ContextOf<A>,
+          ARGS,
+          METHOD extends string ? true : false
+        >
+      > {
+    let adapter: Adapter<any, any, any> | undefined;
+    try {
+      adapter = this["adapter"];
+    } catch {
+      adapter = undefined;
+    }
+
+    if (!allowCreate || !adapter)
+      return super.logCtx(
+        args,
+        operation,
+        allowCreate as any,
+        overrides as any
+      ) as
+        | ContextualizedArgs<
+            ContextOf<A>,
+            ARGS,
+            METHOD extends string ? true : false
+          >
+        | Promise<
+            ContextualizedArgs<
+              ContextOf<A>,
+              ARGS,
+              METHOD extends string ? true : false
+            >
+          >;
+
+    return adapter
+      .context(
+        typeof operation === "string" ? operation : operation.name,
+        overrides || ({} as Partial<FlagsOf<ContextOf<A>>>),
+        undefined as any,
+        ...args
+      )
+      .then((ctx) =>
+        super.logCtx(
+          [typeof operation === "string" ? operation : operation.name, ...args.slice(0, -1), ctx] as any,
+          PersistenceKeys.MIGRATION,
+          false,
+          overrides as any
+        )
+      ) as
+      | ContextualizedArgs<
+          ContextOf<A>,
+          ARGS,
+          METHOD extends string ? true : false
+        >
+      | Promise<
+          ContextualizedArgs<
+            ContextOf<A>,
+            ARGS,
+            METHOD extends string ? true : false
+          >
+        >;
+  }
 }

@@ -35,6 +35,13 @@ type VersionTask = {
   task: TaskModel;
 };
 
+type QueuedMigrationTask<A extends Adapter<any, any, any, any>> = {
+  id: string;
+  version: string;
+  adapter?: A;
+  setCurrentVersion?: MigrationConfig<boolean>["setCurrentVersion"];
+};
+
 export class MigrationService<
     PERSIST extends boolean,
     A extends Adapter<any, any, any, any> = any,
@@ -46,9 +53,12 @@ export class MigrationService<
   >
   implements Migration<A, R>
 {
+  private static defaultSingleton?: MigrationService<true, any>;
+
   protected versioning: MigrationVersioning = new StandardMigrationVersioning();
   protected allowedReferences: Set<string> | undefined = undefined;
-  protected queuedTaskChain: Array<{ id: string; version: string }> = [];
+  protected queuedTaskChain: QueuedMigrationTask<A>[] = [];
+  protected orchestrationConfig?: MigrationConfig<true>;
   flavour?: string;
   readonly reference: string = MigrationService.name;
   readonly precedence: Migration<any, any> | Migration<any, any>[] | null =
@@ -65,7 +75,19 @@ export class MigrationService<
     adapters: AD[],
     cfg: PersistenceMigrationConfig<AD> = {},
     ...args: MaybeContextualArg<ContextOf<AD>>
-  ): Promise<MigrationService<true, AD>[]> {
+  ): Promise<MigrationService<true, AD>> {
+    const migrationService = (MigrationService.defaultSingleton ||=
+      new MigrationService<true, AD>()) as MigrationService<true, AD>;
+    return migrationService.migrateAdapters(adapters, cfg, ...args);
+  }
+
+  async migrateAdapters<
+    AD extends Adapter<any, any, any, any> = Adapter<any, any, any, any>,
+  >(
+    adapters: AD[],
+    cfg: PersistenceMigrationConfig<AD> = {},
+    ...args: MaybeContextualArg<ContextOf<AD>>
+  ): Promise<MigrationService<true, AD>> {
     const flavours = cfg.flavours?.length ? new Set(cfg.flavours) : undefined;
     const selected = adapters.filter(
       (adapter) => !flavours || flavours.has(adapter.alias)
@@ -85,34 +107,54 @@ export class MigrationService<
         `TaskEngine adapter alias "${taskServiceAdapterAlias}" cannot participate in the migration targets`
       );
     }
-    const services: MigrationService<true, AD>[] = [];
+    const migrationService = this as unknown as MigrationService<true, AD>;
+    migrationService.versioning =
+      cfg.versioning || new StandardMigrationVersioning();
+    migrationService.allowedReferences = cfg.references?.length
+      ? new Set(cfg.references)
+      : undefined;
+    migrationService.queuedTaskChain = [];
+    migrationService.orchestrationConfig = {
+      ...DefaultMigrationConfig,
+      targetVersion: cfg.toVersion,
+      taskMode: !!cfg.taskMode,
+      taskService: cfg.taskService,
+      versioning: cfg.versioning,
+      references: cfg.references,
+    } as MigrationConfig<true>;
 
     for (const adapter of selected) {
       const scope = adapter.alias;
       const handlers =
         cfg.handlers?.[scope] || cfg.handlers?.[adapter.flavour] || {};
-      const migrationService = new MigrationService<true, AD>();
-      services.push(migrationService);
-      await migrationService.boot({
+      const executionConfig = {
+        ...DefaultMigrationConfig,
         persistenceFlavour: scope,
         targetVersion: cfg.toVersion,
         taskMode: !!cfg.taskMode,
-        // In multi-adapter task mode, run flavour-scoped migrations only.
-        includeGenericInTaskMode: !(cfg.taskMode && selected.length > 1),
+        includeGenericInTaskMode:
+          cfg.includeGenericInTaskMode ??
+          !(cfg.taskMode && selected.length > 1),
         retrieveLastVersion: handlers.retrieveLastVersion as any,
         setCurrentVersion: handlers.setCurrentVersion as any,
         taskService: cfg.taskService,
         versioning: cfg.versioning,
         references: cfg.references,
-      } as any);
+      } as MigrationConfig<true>;
 
       if (cfg.taskMode)
-        await migrationService.migrateViaTasks(undefined, undefined, ...args);
+        await migrationService.migrateViaTasksWithConfig(
+          executionConfig,
+          ...args
+        );
       else
-        await migrationService.migrateNormally(undefined, undefined, ...args);
+        await migrationService.migrateNormallyWithConfig(
+          executionConfig,
+          ...args
+        );
     }
 
-    return services;
+    return migrationService;
   }
 
   async initialize(...args: MaybeContextualArg<ContextOf<A>>): Promise<{
@@ -488,14 +530,19 @@ export class MigrationService<
     adapter?: any,
     ...args: MaybeContextualArg<ContextOf<any>>
   ): Promise<R> {
+    void qr;
+    void adapter;
+    return this.migrateNormallyWithConfig(this.config, ...args);
+  }
+
+  protected async migrateNormallyWithConfig(
+    cfg: MigrationConfig<boolean>,
+    ...args: MaybeContextualArg<ContextOf<any>>
+  ): Promise<R> {
     const { ctxArgs, log } = (
       await this.logCtx(args, PersistenceKeys.MIGRATION, true)
     ).for(this.migrateNormally);
 
-    void qr;
-    void adapter;
-
-    const cfg = this.config;
     const targetFlavour = cfg.persistenceFlavour;
     const includeGeneric = cfg.taskMode
       ? (cfg.includeGenericInTaskMode ?? true)
@@ -551,14 +598,20 @@ export class MigrationService<
     adapter?: any,
     ...args: MaybeContextualArg<ContextOf<any>>
   ): Promise<R> {
+    void qr;
+    void adapter;
+    this.queuedTaskChain = [];
+    return this.migrateViaTasksWithConfig(this.config, ...args);
+  }
+
+  protected async migrateViaTasksWithConfig(
+    cfg: MigrationConfig<boolean>,
+    ...args: MaybeContextualArg<ContextOf<any>>
+  ): Promise<R> {
     const { ctx, ctxArgs, log } = (
       await this.logCtx(args, PersistenceKeys.MIGRATION, true)
     ).for(this.migrateViaTasks);
 
-    void qr;
-    void adapter;
-
-    const cfg = this.config;
     const targetFlavour = cfg.persistenceFlavour;
     const includeGeneric = cfg.includeGenericInTaskMode ?? true;
 
@@ -586,7 +639,6 @@ export class MigrationService<
       `sorted migration before execution: ${plan.map((s) => `${s.reference}@${s.version}`)}`
     );
 
-    this.queuedTaskChain = [];
     if (plan.length) {
       const tasks = this.buildMigrationTasksForPlan(plan, ...ctxArgs);
       if (cfg.taskService) {
@@ -607,6 +659,8 @@ export class MigrationService<
           this.queuedTaskChain.push({
             id: created.id,
             version: versionTask.version,
+            adapter: scopedAdapter,
+            setCurrentVersion: cfg.setCurrentVersion,
           });
           if (!created?.id) {
             log.warn(
@@ -646,7 +700,7 @@ export class MigrationService<
       await this.logCtx(args, PersistenceKeys.MIGRATION, true)
     ).for(this.track);
 
-    const cfg = this.config;
+    const cfg = this.orchestrationConfig || this.config;
     if (!cfg.taskService || !cfg.taskMode) return;
 
     const explicitTaskIds =
@@ -667,24 +721,23 @@ export class MigrationService<
         : pendingIds;
     if (!ids.length) return;
 
-    const versionByTaskId = this.queuedTaskChain.reduce(
-      (acc, task) => {
-        acc[task.id] = task.version;
-        return acc;
-      },
-      {} as Record<string, string>
+    const queuedByTaskId = new Map(
+      this.queuedTaskChain.map((task) => [task.id, task])
     );
 
-    const scopedAdapter = this.config.persistenceFlavour
-      ? (Adapter.get(this.config.persistenceFlavour) as A)
+    const scopedAdapter = cfg.persistenceFlavour
+      ? (Adapter.get(cfg.persistenceFlavour) as A)
       : undefined;
     for (const id of ids) {
       const { tracker } = await cfg.taskService.track(id, ...ctxArgs);
       await tracker.wait();
-      if (cfg.setCurrentVersion && versionByTaskId[id]) {
-        await cfg.setCurrentVersion(
-          this.normalizeVersion(versionByTaskId[id]),
-          scopedAdapter as A,
+      const queued = queuedByTaskId.get(id);
+      const setCurrentVersion =
+        queued?.setCurrentVersion || cfg.setCurrentVersion;
+      if (setCurrentVersion && queued?.version) {
+        await setCurrentVersion(
+          this.normalizeVersion(queued.version),
+          (queued.adapter || scopedAdapter) as A,
           ...ctxArgs
         );
       }
@@ -699,7 +752,7 @@ export class MigrationService<
       await this.logCtx(args, PersistenceKeys.MIGRATION, true)
     ).for(this.retry);
 
-    const cfg = this.config;
+    const cfg = this.orchestrationConfig || this.config;
     if (!cfg.taskMode || !cfg.taskService) {
       await this.migrateNormally(undefined, undefined, ...ctxArgs);
       return;

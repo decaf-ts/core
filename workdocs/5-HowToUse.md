@@ -299,7 +299,7 @@ const activeUsers = await userService.findActiveUsers();
 
 ## Task Engine
 
-The `TaskEngine` is a powerful tool for managing background jobs.
+The `TaskEngine` is a powerful tool for managing background jobs, including composite-step concurrency controls.
 
 ### Creating a Task Handler
 
@@ -387,6 +387,7 @@ await taskEngine.start();
 | `bus` | Optional `TaskEventBus` that receives progress/log/status events. |
 | `workerId` | Uniquely identifies the worker claiming leases. Each engine (including CLI migrations) must use a different `workerId` so leases do not clash. |
 | `concurrency` | Number of work units to execute in parallel (set to `1` when migration steps must stay sequential). |
+| `maxConcurrentCompositeSteps` | Maximum number of composite steps that may run at once for a single composite task. Defaults to `-1`, which means no limit. |
 | `leaseMs` | How long a running task can go without a heartbeat before it is re-queued. |
 | `pollMsIdle` | Poll interval when the queue is empty. |
 | `pollMsBusy` | Poll interval while tasks are running (shorter than `pollMsIdle`). |
@@ -403,6 +404,9 @@ await taskEngine.start();
 - `pipe(...log)` and `flush()`: buffer logs that eventually feed into `TaskEventType.LOG`.
 - `heartbeat()`: extend the lease before it expires (used in long-running handlers).
 - `scheduleCompositeSteps(...)`: dynamically insert extra steps when building migration tasks.
+- `stepWriteLock`: a shared lock used by composite steps to serialize writes to the task context, so logs and results stay consistent even when compatible steps run concurrently.
+
+Composite-step concurrency is opt-in and step-scoped. `allowConcurrent` lives on `TaskStepSpecBuilder`, defaults to `false`, and only affects composite steps that share the same `lock`. The per-task `maxConcurrentCompositeSteps` limit defaults to `-1` and is independent from the engine-wide `concurrency` limit for runnable tasks.
 
 ### Task Engine migration guardrails
 
@@ -429,7 +433,7 @@ The CLI already follows this pattern and explicitly prevents the task engine ada
 
 `TaskService.track(id)` wires the CLI logger to the matching `TaskTracker` so status/progress logs stream through your console before `TaskTracker.wait()` resolves. If a migration task fails, call `MigrationService.retry(taskId)`—it uses repository overrides to reset `status` to `PENDING`, clear `error`/lease metadata, and re-queue the work—then `taskService.track(id)` again so the TaskEngine reclaims it.
 
-Composite tasks are ordered by the sequence you pass to `CompositeTaskBuilder` or by using the `dependsOn`/`dependencies` array. Each step has a `classification` (matching a handler), an optional `name`, and `lock`/`dependsOn` metadata (`TaskStepSpecModel`). Locks avoid concurrent execution, and dependencies support either `<taskId>` or `<taskId>:<stepRef>` shorthand so you can mix tasks and steps as prerequisites.
+Composite tasks are ordered by the sequence you pass to `CompositeTaskBuilder` or by using the `dependsOn`/`dependencies` array. Each step has a `classification` (matching a handler), an optional `name`, and `lock`/`dependsOn` metadata (`TaskStepSpecModel`). Use `TaskStepSpecBuilder.setAllowConcurrent(true)` to let compatible steps that share the same lock value run together; the default remains `false`. The engine still serializes context writes through the shared task-context lock so logs and results are persisted safely. Dependencies support either `<taskId>` or `<taskId>:<stepRef>` shorthand so you can mix tasks and steps as prerequisites.
 
 Task attempts are bounded by `maxAttempts` and `backoff` (configured via builders). The engine records each attempt and automatically escalates to `WAITING_RETRY`/`RUNNING` states; if a task exhausts retries, the service surfaces the final error via `TaskTracker.wait()` so your migration command can decide between retrying or aborting.
 

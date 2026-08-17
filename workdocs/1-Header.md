@@ -11,7 +11,7 @@ Decaf Core provides the foundational building blocks for the Decaf TypeScript ec
 *   **`Repository`**: A class that implements the repository pattern, providing a consistent API for CRUD operations and querying.
 *   **`Adapter`**: An abstract class that defines the interface for connecting to different database backends.
 *   **`Statement`**: A query builder for creating complex database queries in a fluent, type-safe manner.
-*   **`TaskEngine`**: A system for managing background jobs and asynchronous operations.
+*   **`TaskEngine`**: A system for managing background jobs and asynchronous operations, including composite-step concurrency controls.
 *   **`ModelService` and `PersistenceService`**: Base classes for creating services that encapsulate business logic and data access.
 *   **Migrations**: A system for managing database schema changes over time.
 *   **RAM Adapter**: An in-memory adapter for testing and development.

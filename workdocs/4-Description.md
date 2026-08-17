@@ -4,7 +4,7 @@ The Decaf Core package provides a cohesive set of primitives for building strong
 
 - Models (from @decaf-ts/decorator-validation) enhanced with identity and persistence metadata.
 - A Repository abstraction that encapsulates CRUD, querying, and observation.
-- A powerful Task Engine for defining, scheduling, and executing background jobs with support for worker threads.
+- A powerful Task Engine for defining, scheduling, and executing background jobs with support for worker threads and composite-step concurrency controls.
 - Adapters that bridge repositories to underlying storage (in-memory, HTTP, TypeORM, etc.).
 - A fluent Query DSL (Statement/Condition) with pagination.
 - Lightweight dependency injection utilities to auto-resolve repositories.
@@ -44,7 +44,7 @@ Below is an overview of the main modules and their public APIs exposed by core.
 
 ## 2. Task Engine Module
 A robust system for managing background jobs.
-- **`TaskEngine<A>`**: The core engine that polls for and executes tasks. Manages the task lifecycle, concurrency, and worker threads.
+- **`TaskEngine<A>`**: The core engine that polls for and executes tasks. Manages the task lifecycle, global runnable-task concurrency, composite-step concurrency, and worker threads.
 - **`TaskService<A>`**: A high-level service providing a clean API for interacting with the `TaskEngine`. It's the recommended entry point for managing tasks.
   - `push(task, track?)`: Submits a new task for execution.
   - `schedule(task, track?).for(date)`: Schedules a task to run at a specific time.
@@ -52,13 +52,17 @@ A robust system for managing background jobs.
 - **Models**:
   - `TaskModel`: Represents a task, its status (`PENDING`, `RUNNING`, `SUCCEEDED`, `FAILED`), input, and configuration (e.g., `maxAttempts`, `backoff`). Can be `ATOMIC` or `COMPOSITE`.
   - `TaskEventModel`: Logs status changes and progress for a task.
+  - `TaskStepSpecModel`: Describes composite steps, including `classification`, `name`, `lock`, `dependsOn`, and `allowConcurrent` for opt-in parallel execution of compatible steps.
 - **Builders**:
-  - `TaskBuilder`: A fluent API for constructing `TaskModel` instances.
+  - `TaskBuilder`: A fluent API for constructing atomic `TaskModel` instances.
   - `CompositeTaskBuilder`: A builder for creating multi-step (`COMPOSITE`) tasks.
+  - `TaskStepSpecBuilder`: A fluent API for constructing composite step specs, including `setAllowConcurrent(false)` by default.
 - **Handlers & Tracking**:
   - `ITaskHandler`: The interface to implement for defining the logic of a task. Handlers are registered with the `TaskHandlerRegistry`.
   - `TaskTracker`: An object returned when tracking a task, allowing you to await its completion and receive progress updates.
 - **Worker Threads**: The engine can be configured to run tasks in Node.js `worker_threads`, providing true parallelism and non-blocking execution for CPU-intensive jobs. Configuration is done via the `workerPool` and `workerAdapter` properties in the `TaskEngineConfig`.
+
+Composite-step concurrency is opt-in at the step level. `allowConcurrent` exists on `TaskStepSpecBuilder`, defaults to `false`, and only affects composite steps that share the same `lock`. The per-task `maxConcurrentCompositeSteps` limit defaults to `-1` and is separate from the engine-wide `concurrency` limit for runnable tasks. The engine also uses a shared task-context write lock so logs and results remain serialized while compatible steps run in parallel.
 
 ## 3. Persistence Module
 - **`Adapter<N, Q, R, Ctx>`**: The bridge between a repository and the back-end storage.

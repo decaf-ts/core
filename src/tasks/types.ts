@@ -9,6 +9,7 @@ import { TaskEventModel } from "./models/TaskEventModel";
 import { TaskStatus } from "./constants";
 import { TaskErrorModel } from "./models/TaskErrorModel";
 import { TaskStepSpecModel } from "./models/TaskStepSpecModel";
+import { Lock } from "@decaf-ts/transactional-decorators";
 
 export interface ITaskHandler<I = any, O = any> {
   type: string;
@@ -38,6 +39,8 @@ export interface TaskFlags<LOG extends TaskLogger<any> = TaskLogger<any>>
   extends ContextFlags<LOG> {
   taskId: string;
   attempt: number;
+  step?: number;
+  stepWriteLock?: Lock;
   pipe: LogPipe;
   flush: () => Promise<void>;
   progress: (data: any) => Promise<void>;
@@ -55,6 +58,7 @@ export type TaskEngineConfig<A extends Adapter<any, any, any, any>> = {
   registry?: TaskHandlerRegistry;
   workerId: string;
   concurrency: number;
+  maxConcurrentCompositeSteps?: number;
   leaseMs: number;
   pollMsIdle: number;
   pollMsBusy: number;

@@ -38,6 +38,7 @@ export const TasksKey = "tasks";
 export const DefaultTaskEngineConfig: TaskEngineConfig<any> = {
   workerId: "default-worker",
   concurrency: 10,
+  maxConcurrentCompositeSteps: -1,
   leaseMs: 60000,
   pollMsIdle: 1000,
   pollMsBusy: 500,

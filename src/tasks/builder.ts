@@ -184,6 +184,11 @@ export class TaskStepSpecBuilder {
     return this;
   }
 
+  setAllowConcurrent(value: boolean = false): this {
+    this.step.allowConcurrent = value;
+    return this;
+  }
+
   setDependsOn(value?: string[]): this {
     this.step.dependsOn = value;
     return this;

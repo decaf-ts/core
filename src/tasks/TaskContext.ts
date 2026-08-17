@@ -8,6 +8,7 @@ import { serializeError } from "./utils";
 import { TaskStateChangeError, TaskStateChangeRequest } from "./TaskStateChangeError";
 import { TaskStepSpecModel } from "./models/TaskStepSpecModel";
 import { InternalError } from "@decaf-ts/db-decorators";
+import { Lock } from "@decaf-ts/transactional-decorators";
 
 export class TaskContext extends Context<TaskFlags> {
   get taskId(): string {
@@ -44,6 +45,10 @@ export class TaskContext extends Context<TaskFlags> {
 
   get heartbeat(): () => Promise<void> {
     return this.get("heartbeat");
+  }
+
+  get stepWriteLock(): Lock {
+    return this.get("stepWriteLock") as Lock;
   }
 
   cacheResult(taskId: string, payload: any) {

@@ -635,6 +635,51 @@ export class TaskEngine<
     return !(await this.hasLockConflict(task, stepIndex, ctx));
   }
 
+  protected getCompositeStepConcurrencyLimit(): number {
+    const limit = this.config.maxConcurrentCompositeSteps ?? -1;
+    if (limit === 0) return 1;
+    if (limit < 0) return Number.POSITIVE_INFINITY;
+    return Math.max(1, limit);
+  }
+
+  protected isConcurrentCompositeStep(step: TaskStepSpecModel): boolean {
+    return Boolean(step.allowConcurrent && step.lock);
+  }
+
+  protected createCompositeStepContext(
+    context: TaskContext,
+    stepIndex: number
+  ): TaskContext {
+    return TaskEngine.createTaskContext(context, { step: stepIndex });
+  }
+
+  protected async withStepWriteLock<T>(
+    ctx: TaskContext,
+    fn: () => Promise<T>
+  ): Promise<T> {
+    const lock = ctx.stepWriteLock;
+    await lock.acquire();
+    try {
+      return await fn();
+    } finally {
+      lock.release();
+    }
+  }
+
+  protected recalculateCompositeCurrentStep(
+    steps: TaskStepSpecModel[],
+    results: TaskStepResultModel[]
+  ): number {
+    let next = 0;
+    while (next < steps.length) {
+      const result = results[next];
+      if (!result) break;
+      if (result.status === TaskStatus.FAILED && !steps[next]?.canFail) break;
+      next += 1;
+    }
+    return next;
+  }
+
   // -------------------------
   // Execution
   // -------------------------
@@ -648,6 +693,7 @@ export class TaskEngine<
     let logPipeQueue: Promise<void> = Promise.resolve();
     const taskCtx: TaskContext = new TaskContext(ctx).accumulate({
       taskId: task.id,
+      stepWriteLock: new Lock(),
       logger: new TaskLogger(
         log,
         this.config.streamBufferSize,
@@ -930,6 +976,8 @@ export class TaskEngine<
     let steps = this.normalizeSteps(task.steps);
     let idx = task.currentStep ?? 0;
     const results = this.normalizeStepResults(task.stepResults);
+    const maxConcurrentSteps = this.getCompositeStepConcurrencyLimit();
+    const canBatchConcurrentSteps = maxConcurrentSteps > 1;
 
     const cacheResult = (key: string, value: any) => {
       context.cacheResult(key, value);
@@ -938,56 +986,25 @@ export class TaskEngine<
       }
     };
 
-    for (let i = 0; i < results.length; i += 1) {
-      const existing = results[i];
-      if (existing?.status === TaskStatus.SUCCEEDED) {
-        const prevStep = steps[i];
-        if (!prevStep) continue;
-        const cacheKey = `${task.id}:step:${i}`;
-        cacheResult(prevStep.classification, existing.output);
-        cacheResult(cacheKey, existing.output);
+    const refreshFromTask = () => {
+      steps = this.normalizeSteps(task.steps);
+      for (let i = 0; i < results.length; i += 1) {
+        const existing = results[i];
+        if (existing?.status === TaskStatus.SUCCEEDED) {
+          const prevStep = steps[i];
+          if (!prevStep) continue;
+          const cacheKey = `${task.id}:step:${i}`;
+          cacheResult(prevStep.classification, existing.output);
+          cacheResult(cacheKey, existing.output);
+        }
       }
-    }
+    };
 
-    while (idx < steps.length) {
-      context.setStep(idx);
-      const step = steps[idx];
-      const handler = this.registry.get(step.classification);
-      if (!handler)
-        throw new Error(
-          `No task handler registered for composite step: ${step.classification}`
-        );
-
-      const dependencies = this.normalizeDependencies(step.dependsOn);
-      const dependenciesSatisfied = await this.areDependenciesSatisfied(
-        dependencies,
-        context
-      );
-      if (!dependenciesSatisfied) {
-        context.reschedule(
-          new Date(Date.now() + this.config.pollMsIdle),
-          `Waiting dependencies for step ${idx} (${step.classification})`
-        );
-      }
-
-      const lockConflict = await this.hasLockConflict(task, idx, context);
-      if (lockConflict) {
-        context.reschedule(
-          new Date(Date.now() + this.config.pollMsIdle),
-          `Waiting lock for step ${idx} (${step.classification})`
-        );
-      }
-
-      task.currentStep = idx;
-      const persistedCurrent = await this.tasks.update(task);
-      Object.assign(task, persistedCurrent);
-      await context.progress({
-        currentStep: idx,
-        totalSteps: steps.length,
-      });
-
-      const stepIndex = idx;
-      context.cache.put(
+    const scheduleCompositeSteps = (
+      stepIndex: number,
+      taskStepContext: TaskContext
+    ) => {
+      taskStepContext.cache.put(
         "scheduleCompositeSteps",
         async (newSteps: TaskStepSpecModel[], ctx: TaskContext) => {
           const log = ctx.logger.for("scheduleSteps.afterCurrent");
@@ -999,8 +1016,10 @@ export class TaskEngine<
           task.steps = currentSteps;
           const persisted = await this.tasks.update(task, context);
           Object.assign(task, persisted);
-          steps = this.normalizeSteps(task.steps);
-          log.verbose(`Inserted ${normalizedNewSteps.length} steps at index ${insertionIndex}`);
+          refreshFromTask();
+          log.verbose(
+            `Inserted ${normalizedNewSteps.length} steps at index ${insertionIndex}`
+          );
           const updateEvent = await this.persistEvent(
             context,
             task.id,
@@ -1019,7 +1038,7 @@ export class TaskEngine<
         }
       );
 
-      context.cache.put(
+      taskStepContext.cache.put(
         "scheduleCompositeStepsAtEnd",
         async (newSteps: TaskStepSpecModel[], ctx: TaskContext) => {
           const log = ctx.logger.for("scheduleSteps.atEnd");
@@ -1031,8 +1050,10 @@ export class TaskEngine<
           task.steps = currentSteps;
           const persisted = await this.tasks.update(task, context);
           Object.assign(task, persisted);
-          steps = this.normalizeSteps(task.steps);
-          log.verbose(`Appended ${normalizedNewSteps.length} steps at tail (index ${insertionIndex})`);
+          refreshFromTask();
+          log.verbose(
+            `Appended ${normalizedNewSteps.length} steps at tail (index ${insertionIndex})`
+          );
           const updateEvent = await this.persistEvent(
             context,
             task.id,
@@ -1050,10 +1071,53 @@ export class TaskEngine<
           this.bus.emit(updateEvent, context);
         }
       );
+    };
 
-      await context.pipe([
+    const runSingleStep = async (stepIndex: number): Promise<void> => {
+      const step = steps[stepIndex];
+      const handler = this.registry.get(step.classification);
+      if (!handler) {
+        throw new Error(
+          `No task handler registered for composite step: ${step.classification}`
+        );
+      }
+
+      const taskStepContext = this.createCompositeStepContext(context, stepIndex);
+      scheduleCompositeSteps(stepIndex, taskStepContext);
+
+      const dependencies = this.normalizeDependencies(step.dependsOn);
+      const dependenciesSatisfied = await this.areDependenciesSatisfied(
+        dependencies,
+        taskStepContext
+      );
+      if (!dependenciesSatisfied) {
+        taskStepContext.reschedule(
+          new Date(Date.now() + this.config.pollMsIdle),
+          `Waiting dependencies for step ${stepIndex} (${step.classification})`
+        );
+      }
+
+      const lockConflict = await this.hasLockConflict(task, stepIndex, taskStepContext);
+      if (lockConflict) {
+        taskStepContext.reschedule(
+          new Date(Date.now() + this.config.pollMsIdle),
+          `Waiting lock for step ${stepIndex} (${step.classification})`
+        );
+      }
+
+      await this.withStepWriteLock(taskStepContext, async () => {
+        task.currentStep = stepIndex;
+        const persistedCurrent = await this.tasks.update(task, context);
+        Object.assign(task, persistedCurrent);
+      });
+      await taskStepContext.progress({
+        currentStep: stepIndex,
+        totalSteps: steps.length,
+      });
+
+      await taskStepContext.pipe([
         LogLevel.info,
-        `Composite step ${idx + 1}/${steps.length}: ${step.classification}`,
+        `Composite step ${stepIndex + 1}/${steps.length}: ${step.classification}`,
       ]);
 
       const stepMaxAttempts = step.maxAttempts ?? 1;
@@ -1062,9 +1126,8 @@ export class TaskEngine<
 
       while (stepAttempt < stepMaxAttempts) {
         try {
-          const out = await handler.run(step.input, context);
-          // Ensure step-tagged logs are flushed before advancing the step pointer.
-          await context.flush();
+          const out = await handler.run(step.input, taskStepContext);
+          await taskStepContext.flush();
 
           const now = new Date();
           results[stepIndex] = new TaskStepResultModel({
@@ -1077,33 +1140,34 @@ export class TaskEngine<
           const cacheKey = `${task.id}:step:${stepIndex}`;
           cacheResult(step.classification, out);
           cacheResult(cacheKey, out);
-          idx = stepIndex + 1;
 
-          task.stepResults = results;
-          task.currentStep = idx;
+          await this.withStepWriteLock(taskStepContext, async () => {
+            task.stepResults = results;
+            task.currentStep = this.recalculateCompositeCurrentStep(steps, results);
+            const persisted = await this.tasks.update(task, context);
+            Object.assign(task, persisted);
+          });
 
-          const persisted = await this.tasks.update(task);
-          Object.assign(task, persisted);
-          await this.emitProgress(context, task.id, {
-            currentStep: idx,
+          await this.emitProgress(taskStepContext, task.id, {
+            currentStep: task.currentStep ?? stepIndex + 1,
             totalSteps: steps.length,
             output: out,
           });
           lastStepErr = undefined;
           break;
         } catch (err: any) {
-          stepAttempt++;
+          stepAttempt += 1;
           lastStepErr = err;
           if (stepAttempt < stepMaxAttempts) {
             const stepBackoff = this.normalizeBackoff(step.backoff ?? task.backoff);
             const delay = computeBackoffMs(stepAttempt, stepBackoff);
-            await context.pipe(
+            await taskStepContext.pipe(
               LogLevel.warn,
-              `Composite step ${idx} attempt ${stepAttempt}/${stepMaxAttempts} failed, retrying in ${delay}ms`,
+              `Composite step ${stepIndex} attempt ${stepAttempt}/${stepMaxAttempts} failed, retrying in ${delay}ms`,
               { classification: step.classification, attempt: stepAttempt, delay }
             );
             await sleep(delay);
-            await context.heartbeat();
+            await taskStepContext.heartbeat();
           }
         }
       }
@@ -1112,7 +1176,7 @@ export class TaskEngine<
         const now = new Date();
         const canFail = step.canFail === true;
         const serializedErr = serializeError(lastStepErr);
-        results[idx] = new TaskStepResultModel({
+        results[stepIndex] = new TaskStepResultModel({
           status: TaskStatus.FAILED,
           error: serializedErr,
           attempt: stepAttempt,
@@ -1121,7 +1185,7 @@ export class TaskEngine<
         });
         if (canFail) {
           try {
-            await handler.catch?.(step.input, lastStepErr, context);
+            await handler.catch?.(step.input, lastStepErr, taskStepContext);
           } catch (catchErr) {
             ctx.logger.warn("composite step catch() hook failed", {
               error: catchErr,
@@ -1129,22 +1193,59 @@ export class TaskEngine<
           }
         }
 
-        task.stepResults = results;
-        task.error = canFail ? undefined : serializedErr;
-        if (canFail) {
-          idx = stepIndex + 1;
-          task.currentStep = idx;
-        } else {
-          task.currentStep = idx;
-        }
+        await this.withStepWriteLock(taskStepContext, async () => {
+          task.stepResults = results;
+          task.error = canFail ? undefined : serializedErr;
+          task.currentStep = this.recalculateCompositeCurrentStep(steps, results);
+          const persisted = await this.tasks.update(task, context);
+          Object.assign(task, persisted);
+        });
 
-        // persist composite progress before optionally continuing to the next step
-        const persisted = await this.tasks.update(task);
-        Object.assign(task, persisted);
         if (!canFail) {
           throw lastStepErr;
         }
       }
+    };
+
+    const runConcurrentBatch = async (indices: number[]): Promise<void> => {
+      const batch = indices.map((stepIndex) => runSingleStep(stepIndex));
+      const settled = await Promise.allSettled(batch);
+      const hardFailure = settled.find((result) => result.status === "rejected");
+      if (hardFailure && hardFailure.status === "rejected") {
+        throw hardFailure.reason;
+      }
+    };
+
+    refreshFromTask();
+
+    while (idx < steps.length) {
+      const step = steps[idx];
+      if (this.isConcurrentCompositeStep(step) && canBatchConcurrentSteps) {
+        const batchLock = step.lock;
+        const batchIndices = [idx];
+        for (
+          let cursor = idx + 1;
+          cursor < steps.length && batchIndices.length < maxConcurrentSteps;
+          cursor += 1
+        ) {
+          const candidate = steps[cursor];
+          if (!this.isConcurrentCompositeStep(candidate)) break;
+          if (candidate.lock !== batchLock) break;
+          if (candidate.dependsOn?.length) break;
+          batchIndices.push(cursor);
+        }
+
+        if (batchIndices.length > 1) {
+          await runConcurrentBatch(batchIndices);
+          steps = this.normalizeSteps(task.steps);
+          idx = this.recalculateCompositeCurrentStep(steps, results);
+          continue;
+        }
+      }
+
+      await runSingleStep(idx);
+      steps = this.normalizeSteps(task.steps);
+      idx = this.recalculateCompositeCurrentStep(steps, results);
     }
 
     return { stepResults: results };
@@ -1251,13 +1352,14 @@ export class TaskEngine<
       }
     );
 
-    const nextTail = [...(task.logTail ?? []), ...entries].slice(
-      -this.config.logTailMax
-    );
-    task.logTail = nextTail;
-
     try {
-      return [await this.tasks.update(task, ctx), entries];
+      return await this.withStepWriteLock(ctx as TaskContext, async () => {
+        const nextTail = [...(task.logTail ?? []), ...entries].slice(
+          -this.config.logTailMax
+        );
+        task.logTail = nextTail;
+        return [await this.tasks.update(task, ctx), entries];
+      });
     } catch {
       return [task, []];
     }

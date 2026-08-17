@@ -48,11 +48,15 @@ let adapter: RamAdapter;
 let eventBus: TaskEventBus;
 let registry: TaskHandlerRegistry;
 let engine: TaskEngine<RamAdapter>;
-let taskService: TaskService<any>;
+let taskService: TaskService<RamAdapter>;
 let taskRepo: Repo<TaskModel>;
 let unsubscribe: (() => void) | undefined;
 
 const recordedEvents: TaskEventModel[] = [];
+type StepCacheEntry = {
+  step0?: number;
+  step1?: number;
+};
 const uniqueId = (prefix: string) =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const createDates = () => {
@@ -199,8 +203,7 @@ class DuplicateClassificationStep extends TaskHandler<
 
     // step 0: seed value from input (default 41)
     if (step === 0) {
-      const payload =
-        parseObjectInput<{ base?: number }>(input) ?? (input as any);
+      const payload = parseObjectInput<{ base?: number }>(input);
       return payload?.base ?? 41;
     }
 
@@ -221,8 +224,7 @@ class DuplicateClassificationStep extends TaskHandler<
 @task("dup-retry-gate")
 class DuplicateRetryGateStep extends TaskHandler<void, number> {
   static runs: Record<string, number> = {};
-  static seenCacheByRun: Record<string, Array<{ step0?: any; step1?: any }>> =
-    {};
+  static seenCacheByRun: Record<string, StepCacheEntry[]> = {};
 
   async run(_: void, ctx: TaskContext) {
     const run = (DuplicateRetryGateStep.runs[ctx.taskId] ?? 0) + 1;
@@ -253,8 +255,7 @@ class DuplicateRescheduleGateStep extends TaskHandler<
   number
 > {
   static runs: Record<string, number> = {};
-  static seenCacheByRun: Record<string, Array<{ step0?: any; step1?: any }>> =
-    {};
+  static seenCacheByRun: Record<string, StepCacheEntry[]> = {};
 
   async run(input: { delayMs?: number } | void, ctx: TaskContext) {
     const run = (DuplicateRescheduleGateStep.runs[ctx.taskId] ?? 0) + 1;
@@ -277,8 +278,7 @@ class DuplicateRescheduleGateStep extends TaskHandler<
     }
 
     if (run === 1) {
-      const payload =
-        parseObjectInput<{ delayMs?: number }>(input) ?? (input as any);
+      const payload = parseObjectInput<{ delayMs?: number }>(input);
       const delayMs = payload?.delayMs ?? 25;
       ctx.reschedule(new Date(Date.now() + delayMs), "intentional reschedule");
     }
@@ -683,6 +683,152 @@ class SharedLockTask extends TaskHandler<{ delayMs?: number } | void, number> {
   }
 }
 
+@task("concurrent-shared-lock-step")
+class ConcurrentSharedLockStep extends TaskHandler<
+  { label?: string; delayMs?: number } | void,
+  string
+> {
+  static starts: Record<string, number[]> = {};
+  static ends: Record<string, number[]> = {};
+
+  async run(input: { label?: string; delayMs?: number } | void, ctx: TaskContext) {
+    const payload = parseObjectInput<{ label?: string; delayMs?: number }>(input) ?? input;
+    const label = payload?.label ?? `step-${ctx.step}`;
+    const delayMs = payload?.delayMs ?? 120;
+    const started = Date.now();
+    ConcurrentSharedLockStep.starts[ctx.taskId] =
+      ConcurrentSharedLockStep.starts[ctx.taskId] ?? [];
+    ConcurrentSharedLockStep.ends[ctx.taskId] =
+      ConcurrentSharedLockStep.ends[ctx.taskId] ?? [];
+    ConcurrentSharedLockStep.starts[ctx.taskId].push(started);
+    ctx.logger.info(`concurrent ${label} start`);
+    await ctx.flush();
+    await sleep(delayMs);
+    const ended = Date.now();
+    ConcurrentSharedLockStep.ends[ctx.taskId].push(ended);
+    ctx.logger.info(`concurrent ${label} end`);
+    await ctx.flush();
+    return label;
+  }
+}
+
+@task("concurrent-shared-lock-retry-step")
+class ConcurrentSharedRetryLockStep extends TaskHandler<
+  { label?: string; delayMs?: number; retryOnce?: boolean } | void,
+  string
+> {
+  static starts: Record<string, number[]> = {};
+  static ends: Record<string, number[]> = {};
+  static attempts: Record<string, Record<string, number>> = {};
+
+  async run(
+    input: { label?: string; delayMs?: number; retryOnce?: boolean } | void,
+    ctx: TaskContext
+  ) {
+    const payload = parseObjectInput<{
+      label?: string;
+      delayMs?: number;
+      retryOnce?: boolean;
+    }>(input) ?? input;
+    const label = payload?.label ?? `step-${ctx.step}`;
+    const delayMs = payload?.delayMs ?? 120;
+    const retryOnce = payload?.retryOnce ?? false;
+    const taskAttempts =
+      ConcurrentSharedRetryLockStep.attempts[ctx.taskId] ?? {};
+    const attempt = (taskAttempts[label] ?? 0) + 1;
+    taskAttempts[label] = attempt;
+    ConcurrentSharedRetryLockStep.attempts[ctx.taskId] = taskAttempts;
+
+    const started = Date.now();
+    ConcurrentSharedRetryLockStep.starts[ctx.taskId] =
+      ConcurrentSharedRetryLockStep.starts[ctx.taskId] ?? [];
+    ConcurrentSharedRetryLockStep.ends[ctx.taskId] =
+      ConcurrentSharedRetryLockStep.ends[ctx.taskId] ?? [];
+    ConcurrentSharedRetryLockStep.starts[ctx.taskId].push(started);
+    ctx.logger.info(`retry concurrent ${label} start attempt ${attempt}`);
+    await ctx.flush();
+    await sleep(delayMs);
+
+    if (retryOnce && attempt === 1) {
+      ctx.logger.warn(`retry concurrent ${label} requesting retry`);
+      await ctx.flush();
+      ctx.retry("intentional retry for concurrent batch stress");
+    }
+
+    const ended = Date.now();
+    ConcurrentSharedRetryLockStep.ends[ctx.taskId].push(ended);
+    ctx.logger.info(`retry concurrent ${label} end attempt ${attempt}`);
+    await ctx.flush();
+    return label;
+  }
+}
+
+@task("concurrent-shared-lock-reschedule-step")
+class ConcurrentSharedRescheduleLockStep extends TaskHandler<
+  {
+    label?: string;
+    delayMs?: number;
+    rescheduleOnce?: boolean;
+    rescheduleDelayMs?: number;
+  } | void,
+  string
+> {
+  static starts: Record<string, number[]> = {};
+  static ends: Record<string, number[]> = {};
+  static attempts: Record<string, Record<string, number>> = {};
+
+  async run(
+    input:
+      | {
+          label?: string;
+          delayMs?: number;
+          rescheduleOnce?: boolean;
+          rescheduleDelayMs?: number;
+        }
+      | void,
+    ctx: TaskContext
+  ) {
+    const payload = parseObjectInput<{
+      label?: string;
+      delayMs?: number;
+      rescheduleOnce?: boolean;
+      rescheduleDelayMs?: number;
+    }>(input) ?? input;
+    const label = payload?.label ?? `step-${ctx.step}`;
+    const delayMs = payload?.delayMs ?? 120;
+    const rescheduleOnce = payload?.rescheduleOnce ?? false;
+    const rescheduleDelayMs = payload?.rescheduleDelayMs ?? 2000;
+    const taskAttempts =
+      ConcurrentSharedRescheduleLockStep.attempts[ctx.taskId] ?? {};
+    const attempt = (taskAttempts[label] ?? 0) + 1;
+    taskAttempts[label] = attempt;
+    ConcurrentSharedRescheduleLockStep.attempts[ctx.taskId] = taskAttempts;
+
+    ConcurrentSharedRescheduleLockStep.starts[ctx.taskId] =
+      ConcurrentSharedRescheduleLockStep.starts[ctx.taskId] ?? [];
+    ConcurrentSharedRescheduleLockStep.ends[ctx.taskId] =
+      ConcurrentSharedRescheduleLockStep.ends[ctx.taskId] ?? [];
+    ConcurrentSharedRescheduleLockStep.starts[ctx.taskId].push(Date.now());
+    ctx.logger.info(`reschedule concurrent ${label} start attempt ${attempt}`);
+    await ctx.flush();
+    await sleep(delayMs);
+
+    if (rescheduleOnce && attempt === 1) {
+      ctx.logger.warn(`reschedule concurrent ${label} requesting reschedule`);
+      await ctx.flush();
+      ctx.reschedule(
+        new Date(Date.now() + rescheduleDelayMs),
+        "intentional reschedule for concurrent batch stress"
+      );
+    }
+
+    ConcurrentSharedRescheduleLockStep.ends[ctx.taskId].push(Date.now());
+    ctx.logger.info(`reschedule concurrent ${label} end attempt ${attempt}`);
+    await ctx.flush();
+    return label;
+  }
+}
+
 @task("catch-aware-fail")
 class CatchAwareFailHandler extends TaskHandler<void, never> {
   static catches: Array<{ taskId: string; step?: number; message: string }> =
@@ -851,7 +997,7 @@ describe("Composite Tasks Integration", () => {
       leaseMs: 500,
       pollMsIdle: 50,
       pollMsBusy: 25,
-      logTailMax: 200,
+      logTailMax: 5000,
       streamBufferSize: 5,
       maxLoggingBuffer: 500,
       loggingBufferTruncation: 50,
@@ -860,7 +1006,7 @@ describe("Composite Tasks Integration", () => {
 
     taskService = new TaskService();
     await taskService.boot(config);
-    engine = taskService.client as any;
+    engine = taskService.client;
     engine.start();
 
     unsubscribe = eventBus.observe({
@@ -1201,6 +1347,295 @@ describe("Composite Tasks Integration", () => {
         SharedLockTask.starts[1] - SharedLockTask.starts[0]
       ).toBeGreaterThan(120);
     });
+
+    it("runs allowConcurrent locked steps in parallel without dropping step logs", async () => {
+      ConcurrentSharedLockStep.starts = {};
+      ConcurrentSharedLockStep.ends = {};
+
+      const composite = new CompositeTaskBuilder({
+        classification: "shared-lock-concurrent-composite",
+        atomicity: TaskType.COMPOSITE,
+        attempt: 0,
+        maxAttempts: 1,
+        ...createDates(),
+        backoff: createBackoff(),
+      })
+        .addStep("concurrent-shared-lock-step")
+          .setInput({ label: "alpha", delayMs: 120 })
+          .setLock("shared-concurrent")
+          .setAllowConcurrent(true)
+          .build()
+        .addStep("concurrent-shared-lock-step")
+          .setInput({ label: "beta", delayMs: 120 })
+          .setLock("shared-concurrent")
+          .setAllowConcurrent(true)
+          .build()
+        .build();
+
+      const startedAt = Date.now();
+      const { task, tracker } = await engine.push(composite, true);
+      const result = await tracker.resolve();
+      const elapsed = Date.now() - startedAt;
+
+      expect(result.stepResults).toHaveLength(2);
+      expect(result.stepResults.map((step) => step.output)).toEqual([
+        "alpha",
+        "beta",
+      ]);
+      expect(ConcurrentSharedLockStep.starts[task.id]).toHaveLength(2);
+      expect(ConcurrentSharedLockStep.ends[task.id]).toHaveLength(2);
+      expect(ConcurrentSharedLockStep.starts[task.id][1]).toBeLessThan(
+        ConcurrentSharedLockStep.ends[task.id][0]
+      );
+      expect(elapsed).toBeLessThan(5000);
+
+      const persisted = await taskRepo.read(task.id);
+      expect(persisted.stepResults?.map((step) => step.output)).toEqual([
+        "alpha",
+        "beta",
+      ]);
+      expect(
+        persisted.logTail?.some((entry) => entry.msg.includes("alpha"))
+      ).toBe(true);
+      expect(
+        persisted.logTail?.some((entry) => entry.msg.includes("beta"))
+      ).toBe(true);
+      expect(
+        persisted.logTail?.every(
+          (entry) =>
+            entry.step === 0 ||
+            entry.step === 1 ||
+            entry.step === undefined
+        )
+      ).toBe(true);
+    });
+
+    it("runs three concurrent batches and preserves all outputs and logs", async () => {
+      ConcurrentSharedLockStep.starts = {};
+      ConcurrentSharedLockStep.ends = {};
+
+      const batchSizes = [3, 5, 7] as const;
+      const labels: string[] = [];
+      const compositeBuilder = new CompositeTaskBuilder({
+        classification: "shared-lock-concurrent-batches-composite",
+        atomicity: TaskType.COMPOSITE,
+        attempt: 0,
+        maxAttempts: 1,
+        ...createDates(),
+        backoff: createBackoff(),
+      });
+
+      batchSizes.forEach((size, batchIndex) => {
+        const lock = `shared-concurrent-batch-${batchIndex + 1}`;
+        for (let index = 0; index < size; index += 1) {
+          const label = `batch-${batchIndex + 1}-${index + 1}`;
+          labels.push(label);
+          compositeBuilder
+            .addStep("concurrent-shared-lock-step")
+            .setInput({ label, delayMs: 120 })
+            .setLock(lock)
+            .setAllowConcurrent(true)
+            .build();
+        }
+      });
+
+      const composite = compositeBuilder.build();
+      const { task, tracker } = await engine.push(composite, true);
+      const result = await tracker.resolve();
+
+      expect(result.stepResults).toHaveLength(labels.length);
+      expect(result.stepResults.map((step) => step.output)).toEqual(labels);
+
+      const starts = ConcurrentSharedLockStep.starts[task.id];
+      const ends = ConcurrentSharedLockStep.ends[task.id];
+      expect(starts).toHaveLength(labels.length);
+      expect(ends).toHaveLength(labels.length);
+
+      let offset = 0;
+      batchSizes.forEach((size) => {
+        const batchStarts = starts.slice(offset, offset + size);
+        const batchEnds = ends.slice(offset, offset + size);
+        expect(batchStarts).toHaveLength(size);
+        expect(batchEnds).toHaveLength(size);
+        expect(batchStarts[1]).toBeLessThan(batchEnds[0]);
+        offset += size;
+      });
+
+      const persisted = await taskRepo.read(task.id);
+      expect(persisted.stepResults?.map((step) => step.output)).toEqual(labels);
+
+      const concurrentLogs =
+        persisted.logTail?.filter((entry) => entry.msg.startsWith("concurrent batch-")) ??
+        [];
+      expect(concurrentLogs).toHaveLength(labels.length * 2);
+      for (const label of labels) {
+        expect(
+          concurrentLogs.some((entry) => entry.msg.includes(`concurrent ${label} start`))
+        ).toBe(true);
+        expect(
+          concurrentLogs.some((entry) => entry.msg.includes(`concurrent ${label} end`))
+        ).toBe(true);
+      }
+    }, 30000);
+
+    it("retries one step across concurrent batches without dropping logs or results", async () => {
+      ConcurrentSharedRetryLockStep.starts = {};
+      ConcurrentSharedRetryLockStep.ends = {};
+      ConcurrentSharedRetryLockStep.attempts = {};
+
+      const batchSizes = [3, 5, 7] as const;
+      const labels: string[] = [];
+      const retryLabel = "batch-2-5";
+      const compositeBuilder = new CompositeTaskBuilder({
+        classification: "shared-lock-concurrent-batches-retry-composite",
+        atomicity: TaskType.COMPOSITE,
+        attempt: 0,
+        maxAttempts: 2,
+        ...createDates(),
+        backoff: createBackoff(),
+      });
+
+      batchSizes.forEach((size, batchIndex) => {
+        const lock = `shared-concurrent-retry-batch-${batchIndex + 1}`;
+        for (let index = 0; index < size; index += 1) {
+          const label = `batch-${batchIndex + 1}-${index + 1}`;
+          labels.push(label);
+          compositeBuilder
+            .addStep("concurrent-shared-lock-retry-step")
+            .setInput({
+              label,
+              delayMs: 100,
+              retryOnce: label === retryLabel,
+            })
+            .setLock(lock)
+            .setAllowConcurrent(true)
+            .build();
+        }
+      });
+
+      const composite = compositeBuilder.build();
+      const { task, tracker } = await engine.push(composite, true);
+      const result = await tracker.resolve();
+
+      expect(result.stepResults).toHaveLength(labels.length);
+      expect(result.stepResults.map((step) => step.output)).toEqual(labels);
+
+      const attempts = ConcurrentSharedRetryLockStep.attempts[task.id];
+      expect(attempts).toBeDefined();
+      expect(attempts?.[retryLabel]).toBe(2);
+      for (const label of labels) {
+        if (label !== retryLabel) {
+          expect(attempts?.[label]).toBe(1);
+        }
+      }
+
+      const persisted = await taskRepo.read(task.id);
+      expect(persisted.stepResults?.map((step) => step.output)).toEqual(labels);
+
+      const logs = persisted.logTail ?? [];
+      expect(
+        logs.some((entry) =>
+          entry.msg.includes(`retry concurrent ${retryLabel} start attempt 1`)
+        )
+      ).toBe(true);
+      expect(
+        logs.some((entry) =>
+          entry.msg.includes(`retry concurrent ${retryLabel} requesting retry`)
+        )
+      ).toBe(true);
+      expect(
+        logs.some((entry) =>
+          entry.msg.includes(`retry concurrent ${retryLabel} start attempt 2`)
+        )
+      ).toBe(true);
+      expect(
+        logs.some((entry) =>
+          entry.msg.includes(`retry concurrent ${retryLabel} end attempt 2`)
+        )
+      ).toBe(true);
+    }, 40000);
+
+    it("reschedules one step across concurrent batches without dropping logs or results", async () => {
+      ConcurrentSharedRescheduleLockStep.starts = {};
+      ConcurrentSharedRescheduleLockStep.ends = {};
+      ConcurrentSharedRescheduleLockStep.attempts = {};
+
+      const batchSizes = [3, 5, 7] as const;
+      const labels: string[] = [];
+      const rescheduleLabel = "batch-2-5";
+      const compositeBuilder = new CompositeTaskBuilder({
+        classification: "shared-lock-concurrent-batches-reschedule-composite",
+        atomicity: TaskType.COMPOSITE,
+        attempt: 0,
+        maxAttempts: 2,
+        ...createDates(),
+        backoff: createBackoff(),
+      });
+
+      batchSizes.forEach((size, batchIndex) => {
+        const lock = `shared-concurrent-reschedule-batch-${batchIndex + 1}`;
+        for (let index = 0; index < size; index += 1) {
+          const label = `batch-${batchIndex + 1}-${index + 1}`;
+          labels.push(label);
+          compositeBuilder
+            .addStep("concurrent-shared-lock-reschedule-step")
+            .setInput({
+              label,
+              delayMs: 100,
+              rescheduleOnce: label === rescheduleLabel,
+              rescheduleDelayMs: 2000,
+            })
+            .setLock(lock)
+            .setAllowConcurrent(true)
+            .build();
+        }
+      });
+
+      const composite = compositeBuilder.build();
+      const { task, tracker } = await engine.push(composite, true);
+
+      const scheduledTask = await waitForTaskStatus(task.id, TaskStatus.SCHEDULED);
+      expect(scheduledTask.status).toBe(TaskStatus.SCHEDULED);
+
+      const result = await tracker.wait();
+      expect(result.stepResults).toHaveLength(labels.length);
+      expect(result.stepResults.map((step) => step.output)).toEqual(labels);
+
+      const attempts = ConcurrentSharedRescheduleLockStep.attempts[task.id];
+      expect(attempts).toBeDefined();
+      expect(attempts?.[rescheduleLabel]).toBe(2);
+      for (const label of labels) {
+        if (label !== rescheduleLabel) {
+          expect(attempts?.[label]).toBe(1);
+        }
+      }
+
+      const persisted = await taskRepo.read(task.id);
+      expect(persisted.status).toBe(TaskStatus.SUCCEEDED);
+      expect(persisted.stepResults?.map((step) => step.output)).toEqual(labels);
+
+      const logs = persisted.logTail ?? [];
+      expect(
+        logs.some((entry) =>
+          entry.msg.includes(`reschedule concurrent ${rescheduleLabel} start attempt 1`)
+        )
+      ).toBe(true);
+      expect(
+        logs.some((entry) =>
+          entry.msg.includes(`reschedule concurrent ${rescheduleLabel} requesting reschedule`)
+        )
+      ).toBe(true);
+      expect(
+        logs.some((entry) =>
+          entry.msg.includes(`reschedule concurrent ${rescheduleLabel} start attempt 2`)
+        )
+      ).toBe(true);
+      expect(
+        logs.some((entry) =>
+          entry.msg.includes(`reschedule concurrent ${rescheduleLabel} end attempt 2`)
+        )
+      ).toBe(true);
+    }, 60000);
 
     it("invokes TaskHandler.catch for atomic failures and blocks composite failures", async () => {
       const failingAtomic = new TaskBuilder({
@@ -1595,7 +2030,7 @@ describe("Composite Tasks Integration", () => {
       expect(result.stepResults.length).toBe(4);
 
       const step1 = result.stepResults[0].output;
-      const step2 = result.stepResults[1].output as any;
+      const step2 = result.stepResults[1].output as [number, number];
       const step3 = result.stepResults[2].output;
       const step4 = result.stepResults[3].output;
 
@@ -2218,7 +2653,23 @@ describe("Composite Tasks Integration", () => {
 
     describe("Log Pipe", () => {
       const makeLogger = () => {
-        const l: any = {
+        type TestLogger = {
+          root: unknown[];
+          info: jest.Mock;
+          warn: jest.Mock;
+          error: jest.Mock;
+          debug: jest.Mock;
+          trace: jest.Mock;
+          verbose: jest.Mock;
+          silly: jest.Mock;
+          fatal: jest.Mock;
+          critical: jest.Mock;
+          benchmark: jest.Mock;
+          setConfig: jest.Mock;
+          clear: () => TestLogger;
+          for: () => TestLogger;
+        };
+        const l: TestLogger = {
           root: [],
           info: jest.fn(),
           warn: jest.fn(),
@@ -2234,7 +2685,7 @@ describe("Composite Tasks Integration", () => {
           clear: function () { return this; },
           for: function () { return this; },
         };
-        return l as Logger;
+        return l as unknown as Logger;
       };
 
       it("tracker.attach() does not throw when composite step insertion emits UPDATE events", async () => {
@@ -2456,8 +2907,8 @@ describe("Composite Tasks Integration", () => {
   describe("Type Safety", () => {
     it("isTaskError type guard works correctly", () => {
       const regularError = new Error("regular error");
-      const taskError = new TaskFailError("task-1");
-      (taskError as any).nextAction = TaskStatus.FAILED;
+      const taskError = new TaskFailError("task-1") as TaskErrorFrom<TaskFailError>;
+      taskError.nextAction = TaskStatus.FAILED;
 
       expect(isTaskError(regularError)).toBe(false);
       expect(isTaskError(taskError)).toBe(true);

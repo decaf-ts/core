@@ -31,6 +31,12 @@ export class TaskStepSpecModel extends Model {
   @prop()
   lock?: string;
 
+  @prop()
+  @description(
+    "When true, compatible steps that share the same lock may run concurrently"
+  )
+  allowConcurrent: boolean = false;
+
   @description(
     "Task-step dependencies. Supports '<taskId>' or '<taskId>:<step index|step reference>'"
   )

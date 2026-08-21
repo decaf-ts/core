@@ -1,20 +1,16 @@
-name: Renovate
+name: "Renovate"
 
 on:
   repository_dispatch:
     types: [renovate-trigger]
+  workflow_dispatch:
 
 jobs:
   renovate:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run Renovate
-        uses: renovatebot/github-action@v46.1.14
-        with:
-          configurationFile: renovate.json
-        env:
-          RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
-          RENOVATE_REPOSITORIES: ${{ github.repository}}
+    name: Renovate security updates
+    if: github.event.action != 'renovate-dep-trigger'
+    uses: decaf-ts/reusable-actions/.github/workflows/renovate.yml@main
+    with:
+      pr-strategy: bump-dependents
+      clear-stale-overrides: false
+    secrets: inherit

@@ -261,16 +261,45 @@ export class MigrationService<
     return 0;
   }
 
+  /**
+   * Compare two migrations by their base version. The base version is the
+   * portion of the version string stripped of prerelease and build identifiers.
+   * If both migrations share the same base, the method returns `0` and the
+   * caller falls back to precedence comparison. When the versioning scheme
+   * cannot split a version, the full version is used as its own base.
+   *
+   * @param migration1 The first migration to compare.
+   * @param migration2 The second migration to compare.
+   * @returns Negative if `migration1` precedes `migration2`, positive if after,
+   *          or `0` when bases are equal.
+   */
+  protected compareByBaseVersion(
+    migration1: ResolvedMigration,
+    migration2: ResolvedMigration
+  ): number {
+    const base1 = this.versioning.base?.(migration1.version) ?? migration1.version;
+    const base2 = this.versioning.base?.(migration2.version) ?? migration2.version;
+    if (base1 === base2) return 0;
+    return this.versioning.compare(migration1.version, migration2.version);
+  }
+
   protected sort(migrations: ResolvedMigration[]) {
     const sorted = [...migrations].sort((migration1, migration2) => {
+      const baseDelta = this.compareByBaseVersion(migration1, migration2);
+      if (baseDelta !== 0) return baseDelta;
+
+      const precedenceDelta = this.compareByPrecedence(migration1, migration2);
+      if (precedenceDelta !== 0) return precedenceDelta;
+
+      // same base version: the versioning's own fine-grained compare stays
+      // as the deterministic fallback for undeclared pairs (e.g. consecutive
+      // prerelease ids or the legacy lexical strategy); the guard below
+      // rejects same-base same-flavour pairs that no resolvable precedence.
       const semverDelta = this.versioning.compare(
         migration1.version,
         migration2.version
       );
       if (semverDelta !== 0) return semverDelta;
-
-      const precedenceDelta = this.compareByPrecedence(migration1, migration2);
-      if (precedenceDelta !== 0) return precedenceDelta;
 
       const flavourDelta = migration1.flavour.localeCompare(migration2.flavour);
       if (flavourDelta !== 0) return flavourDelta;
@@ -282,9 +311,9 @@ export class MigrationService<
       const left = sorted[i];
       const right = sorted[i + 1];
       if (!left || !right) continue;
-      if (left.version !== right.version || left.flavour !== right.flavour)
-        continue;
+      if (left.flavour !== right.flavour) continue;
       if (this.compareByPrecedence(left, right) !== 0) continue;
+      if (this.compareByBaseVersion(left, right) !== 0) continue;
       throw new InternalError(
         `Unable to deterministically sort flavour migrations for version ${left.version} and flavour ${left.flavour}: ${left.reference} vs ${right.reference}`
       );

@@ -24,6 +24,18 @@ export class StandardMigrationVersioning implements MigrationVersioning {
     return a.localeCompare(b);
   }
 
+  base(version: string): string | undefined {
+    /**
+     * Returns the base version for the legacy strategy, which does not split
+     * prerelease identifiers. The full version string is treated as its own
+     * base, so identical versions are considered equal.
+     *
+     * @param version The version string.
+     * @returns The same version string as the base.
+     */
+    return version;
+  }
+
   gt(a: string, b: string): boolean {
     return this.compare(a, b) > 0;
   }

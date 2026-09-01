@@ -42,6 +42,21 @@ export class SemverMigrationVersioning implements MigrationVersioning {
     return semver.compare(a, b);
   }
 
+  /**
+   * Returns the core version (major.minor.patch) of a semver-compliant version.
+   * This base is used to rank declared precedence before comparing prerelease
+   * identifiers. Versions that are not parsable as semver return `undefined`,
+   * causing callers to fall back to identity semantics.
+   *
+   * @param version The full semver version string.
+   * @returns The core version without prerelease/build metadata, or `undefined`.
+   */
+  base(version: string): string | undefined {
+    const valid = semver.valid(version);
+    if (!valid) return undefined;
+    return valid.split(/[-+]/)[0];
+  }
+
   gt(a: string, b: string): boolean {
     return semver.gt(a, b);
   }

@@ -4,7 +4,7 @@ const config = {
   rootDir: __dirname,
   transform: { "^.+\\.ts$": "ts-jest" },
   testEnvironment: "node",
-  testRegex: "/tests/.*\\.(test|spec)\\.(ts|tsx)$",
+  testRegex: "/tests/.*\\.(test|e2e)\\.ts$",
   transformIgnorePatterns: ["node_modules/(uuid)/.*"],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "json", "node"],
   coverageDirectory: "./workdocs/reports/coverage",

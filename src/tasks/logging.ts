@@ -60,6 +60,29 @@ export class TaskLogger<LOG extends Logger> implements Logger {
     return this.logger.benchmark(msg);
   }
 
+  /**
+   * @description Logs a named action event (delegated to the wrapped logger).
+   * @summary {@link TaskLogger} does not track `action()` events in its
+   * in-memory history — the call is forwarded verbatim to the underlying
+   * {@link Logger.action} implementation, which owns action-level handling.
+   * Because only the single wrapped call is proxied, the entire received
+   * argument set including the optional status code is passed through.
+   * @param {string} action The name of the action being recorded.
+   * @param {number} [code] Optional integer code annotating the action outcome.
+   * @param {LogMeta} [meta] Optional structured metadata for the action.
+   * @memberOf module:tasks.TaskLogger
+   * @method action
+   */
+  action(action: string, meta?: LogMeta): void;
+  action(action: string, code: number, meta?: LogMeta): void;
+  action(
+    action: string,
+    codeOrMeta?: number | LogMeta,
+    meta?: LogMeta
+  ): void {
+    return (this.logger.action as any)(action, codeOrMeta, meta);
+  }
+
   clear(): this {
     this.logger = this.logger.clear();
     return this;

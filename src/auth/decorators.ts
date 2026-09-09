@@ -5,6 +5,7 @@ import {
 import { InternalError } from "@decaf-ts/db-decorators";
 import { AuthorizationError } from "../utils/errors";
 import { UnsupportedError } from "../persistence/errors";
+import { PersistenceKeys } from "../persistence/constants";
 
 export type AuthHandler = (
   ...args: ContextualArgs<any>
@@ -47,7 +48,15 @@ function createAuthProxy(
           `Failed to execute auth validation handler: ${e}`
         );
       }
-      if (error) throw error;
+      if (error) {
+        ctx.logger.action(PersistenceKeys.FORBIDDEN, error.code, {
+          decorator: decoratorName,
+          method: String(propertyKey),
+          operation: ctx.get("operation"),
+          error: error.message,
+        });
+        throw error;
+      }
       return targetFn.call(thisArg, ...ctxArgs);
     },
   });

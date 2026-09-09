@@ -88,10 +88,15 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     model: M,
     ...args: MaybeContextualArg<ContextOf<R>>
   ): Promise<M> {
-    const { ctxArgs } = (
+    const { log, ctxArgs } = (
       await this.logCtx(args, OperationKeys.CREATE, true)
     ).for(this.create);
-    return this.repo.create(model, ...ctxArgs);
+    const created = await this.repo.create(model, ...ctxArgs);
+    log.action(OperationKeys.CREATE, {
+      model: this.class.name,
+      operation: OperationKeys.CREATE,
+    });
+    return created;
   }
 
   @create()
@@ -99,10 +104,16 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     models: M[],
     ...args: MaybeContextualArg<ContextOf<R>>
   ): Promise<M[]> {
-    const { ctxArgs } = (
+    const { log, ctxArgs } = (
       await this.logCtx(args, BulkCrudOperationKeys.CREATE_ALL, true)
     ).for(this.createAll);
-    return this.repo.createAll(models, ...ctxArgs);
+    const created = await this.repo.createAll(models, ...ctxArgs);
+    log.action(BulkCrudOperationKeys.CREATE_ALL, {
+      model: this.class.name,
+      operation: BulkCrudOperationKeys.CREATE_ALL,
+      count: created.length,
+    });
+    return created;
   }
 
   @del()
@@ -110,10 +121,16 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     key: PrimaryKeyType,
     ...args: MaybeContextualArg<ContextOf<R>>
   ): Promise<M> {
-    const { ctxArgs } = (
+    const { log, ctxArgs } = (
       await this.logCtx(args, OperationKeys.DELETE, true)
     ).for(this.delete);
-    return this.repo.delete(key, ...ctxArgs);
+    const deleted = await this.repo.delete(key, ...ctxArgs);
+    log.action(OperationKeys.DELETE, {
+      model: this.class.name,
+      operation: OperationKeys.DELETE,
+      id: String(key),
+    });
+    return deleted;
   }
 
   @del()
@@ -121,10 +138,17 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     keys: PrimaryKeyType[],
     ...args: MaybeContextualArg<ContextOf<R>>
   ): Promise<M[]> {
-    const { ctxArgs } = (
+    const { log, ctxArgs } = (
       await this.logCtx(args, BulkCrudOperationKeys.DELETE_ALL, true)
     ).for(this.deleteAll);
-    return this.repo.deleteAll(keys, ...ctxArgs);
+    const deleted = await this.repo.deleteAll(keys, ...ctxArgs);
+    log.action(BulkCrudOperationKeys.DELETE_ALL, {
+      model: this.class.name,
+      operation: BulkCrudOperationKeys.DELETE_ALL,
+      count: deleted.length,
+      ids: keys.map(String),
+    });
+    return deleted;
   }
 
   @read()
@@ -132,10 +156,16 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     key: PrimaryKeyType,
     ...args: MaybeContextualArg<ContextOf<R>>
   ): Promise<M> {
-    const { ctxArgs } = (await this.logCtx(args, OperationKeys.READ, true)).for(
-      this.read
-    );
-    return this.repo.read(key, ...ctxArgs);
+    const { log, ctxArgs } = (
+      await this.logCtx(args, OperationKeys.READ, true)
+    ).for(this.read);
+    const result = await this.repo.read(key, ...ctxArgs);
+    log.action(OperationKeys.READ, {
+      model: this.class.name,
+      operation: OperationKeys.READ,
+      id: String(key),
+    });
+    return result;
   }
 
   @read()
@@ -143,10 +173,17 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     keys: PrimaryKeyType[],
     ...args: MaybeContextualArg<ContextOf<R>>
   ): Promise<M[]> {
-    const { ctxArgs } = (
+    const { log, ctxArgs } = (
       await this.logCtx(args, BulkCrudOperationKeys.READ_ALL, true)
     ).for(this.readAll);
-    return this.repo.readAll(keys, ...ctxArgs);
+    const result = await this.repo.readAll(keys, ...ctxArgs);
+    log.action(BulkCrudOperationKeys.READ_ALL, {
+      model: this.class.name,
+      operation: BulkCrudOperationKeys.READ_ALL,
+      count: result.length,
+      ids: keys.map(String),
+    });
+    return result;
   }
 
   @read()
@@ -154,14 +191,20 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     methodName: string,
     ...args: unknown[]
   ): Promise<R extends "one" ? M : M[]> {
-    const { ctxArgs } = (
+    const { log, ctxArgs } = (
       await this.logCtx(args, PersistenceKeys.QUERY, true)
     ).for(this.query);
     const method = (this.repo as any)?.[methodName];
     if (typeof method !== "function")
       throw new InternalError(`Method "${methodName}" is not implemented`);
 
-    return method.apply(this.repo, ctxArgs);
+    const result = await method.apply(this.repo, ctxArgs);
+    log.action(PersistenceKeys.PREPARED_STATEMENT, {
+      model: this.class.name,
+      operation: PersistenceKeys.QUERY,
+      method: methodName,
+    });
+    return result;
   }
 
   @update()
@@ -169,18 +212,29 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     model: M,
     ...args: MaybeContextualArg<ContextOf<R>>
   ): Promise<M> {
-    const { ctxArgs } = (
+    const { log, ctxArgs } = (
       await this.logCtx(args, OperationKeys.UPDATE, true)
     ).for(this.update);
-    return this.repo.update(model, ...ctxArgs);
+    const updated = await this.repo.update(model, ...ctxArgs);
+    log.action(OperationKeys.UPDATE, {
+      model: this.class.name,
+      operation: OperationKeys.UPDATE,
+    });
+    return updated;
   }
 
   @update()
   async updateAll(models: M[], ...args: any[]): Promise<M[]> {
-    const { ctxArgs } = (
+    const { log, ctxArgs } = (
       await this.logCtx(args, BulkCrudOperationKeys.UPDATE_ALL, true)
     ).for(this.updateAll);
-    return this.repo.updateAll(models, ...ctxArgs);
+    const updated = await this.repo.updateAll(models, ...ctxArgs);
+    log.action(BulkCrudOperationKeys.UPDATE_ALL, {
+      model: this.class.name,
+      operation: BulkCrudOperationKeys.UPDATE_ALL,
+      count: updated.length,
+    });
+    return updated;
   }
 
   select<
@@ -214,10 +268,17 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     order: OrderDirection,
     ...args: MaybeContextualArg<ContextOf<R>>
   ) {
-    const { ctxArgs } = (
+    const { log, ctxArgs } = (
       await this.logCtx(args, PreparedStatementKeys.LIST_BY, true)
     ).for(this.listBy);
-    return this.repo.listBy(key, order, ...ctxArgs);
+    const result = await this.repo.listBy(key, order, ...ctxArgs);
+    log.action(PersistenceKeys.QUERY, {
+      model: this.class.name,
+      operation: PreparedStatementKeys.LIST_BY,
+      field: String(key),
+      order,
+    });
+    return result;
   }
 
   async paginateBy(
@@ -226,10 +287,17 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     ref: Omit<DirectionLimitOffset, "direction">,
     ...args: MaybeContextualArg<ContextOf<R>>
   ) {
-    const { ctxArgs } = (
+    const { log, ctxArgs } = (
       await this.logCtx(args, PreparedStatementKeys.PAGE_BY, true)
     ).for(this.paginateBy);
-    return this.repo.paginateBy(key, order, ref, ...ctxArgs);
+    const result = await this.repo.paginateBy(key, order, ref, ...ctxArgs);
+    log.action(PersistenceKeys.QUERY, {
+      model: this.class.name,
+      operation: PreparedStatementKeys.PAGE_BY,
+      field: String(key),
+      order,
+    });
+    return result;
   }
 
   async findOneBy(
@@ -237,10 +305,16 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     value: any,
     ...args: MaybeContextualArg<ContextOf<R>>
   ) {
-    const { ctxArgs } = (
+    const { log, ctxArgs } = (
       await this.logCtx(args, PreparedStatementKeys.FIND_ONE_BY, true)
     ).for(this.findOneBy);
-    return this.repo.findOneBy(key, value, ...ctxArgs);
+    const result = await this.repo.findOneBy(key, value, ...ctxArgs);
+    log.action(PersistenceKeys.TABLE_SCAN, {
+      model: this.class.name,
+      operation: PreparedStatementKeys.FIND_ONE_BY,
+      field: String(key),
+    });
+    return result;
   }
 
   async findBy(
@@ -248,10 +322,16 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     value: any,
     ...args: MaybeContextualArg<ContextOf<R>>
   ) {
-    const { ctxArgs } = (
+    const { log, ctxArgs } = (
       await this.logCtx(args, PreparedStatementKeys.FIND_BY, true)
     ).for(this.findBy);
-    return this.repo.findBy(key, value, ...ctxArgs);
+    const result = await this.repo.findBy(key, value, ...ctxArgs);
+    log.action(PersistenceKeys.TABLE_SCAN, {
+      model: this.class.name,
+      operation: PreparedStatementKeys.FIND_BY,
+      field: String(key),
+    });
+    return result;
   }
 
   async findByPaginate(
@@ -260,17 +340,29 @@ export class ModelService<M extends Model<boolean>, R extends Repo<M> = Repo<M>>
     ref: DirectionLimitOffset,
     ...args: MaybeContextualArg<ContextOf<R>>
   ) {
-    const { ctxArgs } = (
+    const { log, ctxArgs } = (
       await this.logCtx(args, PreparedStatementKeys.FIND_BY_PAGINATE, true)
     ).for(this.findByPaginate);
-    return this.repo.findByPaginate(key, value, ref, ...ctxArgs);
+    const result = await this.repo.findByPaginate(key, value, ref, ...ctxArgs);
+    log.action(PersistenceKeys.TABLE_SCAN, {
+      model: this.class.name,
+      operation: PreparedStatementKeys.FIND_BY_PAGINATE,
+      field: String(key),
+    });
+    return result;
   }
 
   async statement(name: string, ...args: MaybeContextualArg<ContextOf<R>>) {
-    const { ctxArgs } = (
+    const { log, ctxArgs } = (
       await this.logCtx(args, PersistenceKeys.STATEMENT, true)
     ).for(this.statement);
-    return this.repo.statement(name, ...ctxArgs);
+    const result = await this.repo.statement(name, ...ctxArgs);
+    log.action(PersistenceKeys.PREPARED_STATEMENT, {
+      model: this.class.name,
+      operation: PersistenceKeys.STATEMENT,
+      statement: name,
+    });
+    return result;
   }
 
   static forModel<M extends Model<boolean>, S extends ModelService<M>>(

@@ -10,8 +10,15 @@ function makeFixture(
   handler: (...args: any[]) => any
 ) {
   class Fixture {
+    public logger = { action: jest.fn() };
+
     public logCtx = jest.fn(async (args: any[], methodName: string) => ({
-      ctx: { methodName, args },
+      ctx: {
+        methodName,
+        args,
+        logger: this.logger,
+        get: jest.fn(() => "operation-value"),
+      },
       ctxArgs: args,
     }));
 
@@ -36,10 +43,13 @@ describe.each([
     const sut = new Fixture();
 
     await expect(sut.execute("value")).resolves.toBe("handled:value");
-    expect(handler).toHaveBeenCalledWith("value", {
-      methodName: "execute",
-      args: ["value"],
-    });
+    expect(handler).toHaveBeenCalledWith(
+      "value",
+      expect.objectContaining({
+        methodName: "execute",
+        args: ["value"],
+      })
+    );
     expect(sut.calls).toEqual(["value"]);
     expect(sut.logCtx).toHaveBeenCalledWith(["value"], "execute", true);
   });
@@ -52,6 +62,16 @@ describe.each([
 
     await expect(sut.execute("value")).rejects.toBe(authError);
     expect(sut.calls).toEqual([]);
+    expect(sut.logger.action).toHaveBeenCalledWith(
+      "forbidden",
+      authError.code,
+      expect.objectContaining({
+        decorator: _decoratorName,
+        method: "execute",
+        operation: "operation-value",
+        error: authError.message,
+      })
+    );
   });
 
   it("wraps handler throws in InternalError", async () => {

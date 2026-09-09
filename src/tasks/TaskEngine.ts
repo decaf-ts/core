@@ -1382,6 +1382,13 @@ export class TaskEngine<
     else if (outputOrError) payload.output = outputOrError;
     if (task.nextRunAt) payload.nextRunAt = task.nextRunAt;
     if (task.scheduledTo) payload.scheduledTo = task.scheduledTo;
+
+    ctx.logger.action(status, {
+      taskId: task.id,
+      classification: task.classification,
+      name: task.name,
+    });
+
     const persisted = await this.persistEvent(
       ctx,
       task.id,

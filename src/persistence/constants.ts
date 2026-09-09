@@ -88,6 +88,12 @@ export enum PersistenceKeys {
 
   QUERY = "query",
 
+  /** @description Action log grouping for value-based scans over a model's records (findOneBy/findBy/findByPaginate) */
+  TABLE_SCAN = "table-scan",
+
+  /** @description Action log grouping for dynamic dispatch to `@prepared()`/`@query()`-decorated repository methods */
+  PREPARED_STATEMENT = "prepared-statement",
+
   UUID = "uuid",
 
   TAG_FOR_DELETION = "tag_for_deletion",
@@ -98,6 +104,9 @@ export enum PersistenceKeys {
   BY_KEY = "by-key",
 
   AUTH = "auth",
+
+  /** @description Action log key for authorization/authentication failures - the inverse of {@link PersistenceKeys.AUTH} */
+  FORBIDDEN = "forbidden",
 
   AUTH_ROLE = "auth-role",
 

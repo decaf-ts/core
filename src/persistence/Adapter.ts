@@ -352,11 +352,15 @@ export abstract class Adapter<
 
   /**
    * @description Shuts down the adapter
-   * @summary Performs any necessary cleanup tasks, such as closing connections
+   * @summary Performs any necessary cleanup tasks, such as closing connections.
+   * The event dispatch is disposed first — a listening session still starting is
+   * abandoned, and none starts until the adapter is initialized again — then
+   * closed, waiting for any start in flight to settle.
    * When overriding this method, ensure to call the base method first
    * @return {Promise<void>} A promise that resolves when shutdown is complete
    */
   async shutdown(...args: MaybeContextualArg<CONTEXT>): Promise<void> {
+    this.dispatch?.dispose?.();
     const { log, ctxArgs } = (
       await this.logCtx(args, PersistenceKeys.SHUTDOWN, true)
     ).for(this.shutdown);
@@ -474,12 +478,17 @@ export abstract class Adapter<
 
   /**
    * @description Initializes the adapter
-   * @summary Performs any necessary setup for the adapter, such as establishing connections
+   * @summary Performs any necessary setup for the adapter, such as establishing
+   * connections. After a {@link shutdown}, re-enables the event dispatch (which
+   * starts listening again when observers are registered). When overriding this
+   * method, call the base method.
    * @param {...any[]} args - Initialization arguments
    * @return {Promise<void>} A promise that resolves when initialization is complete
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async initialize(...args: any[]): Promise<void> {}
+  async initialize(...args: any[]): Promise<void> {
+    await this.dispatch?.revive?.();
+  }
 
   /**
    * @description Creates a sequence generator
@@ -1071,7 +1080,14 @@ export abstract class Adapter<
           "No active observers for adpter. Closing dispatcher and unobserving."
         );
 
-      this.dispatch?.close([] as any); // close first
+      // close first
+      this.dispatch
+        ?.close([] as any)
+        .catch((e: unknown) =>
+          this.log
+            .for(this.unObserve)
+            .error(`Failed to close the ${this.alias} event dispatch: ${e}`)
+        );
       this.dispatch?.unObserve(this); // unobserve later
       // Once initialized, the Dispatch instance must be preserved,
       // because it enhances the adapter’s original methods and links itself to them

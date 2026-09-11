@@ -57,6 +57,8 @@ export class FilesystemAdapter extends RamAdapter {
   private readonly tableWatchers = new Map<string, FSWatcher>();
   private rootWatcher?: FSWatcher;
   private watching = false;
+  /** bumped by stopWatching(), so a start racing a stop gives up */
+  private watchGeneration = 0;
   private ready = false;
   private readonly watchDebounceMs: number;
   private readonly watchEnabled: boolean;
@@ -104,6 +106,19 @@ export class FilesystemAdapter extends RamAdapter {
     await this.initializeFromDisk();
     await this.ensureWatching();
     this.ready = true;
+  }
+
+  /**
+   * @description Shuts the adapter down
+   * @summary Runs the base shutdown (closing the event dispatch) and stops the
+   * filesystem watchers and their pending refreshes. {@link initialize} resumes
+   * watching.
+   * @param {...MaybeContextualArg} args - Contextual shutdown arguments
+   * @return {Promise<void>} Resolves once the adapter is shut down
+   */
+  override async shutdown(...args: MaybeContextualArg<any>): Promise<void> {
+    await super.shutdown(...args);
+    this.stopWatching();
   }
 
   public getFs(): typeof defaultFs {
@@ -156,7 +171,10 @@ export class FilesystemAdapter extends RamAdapter {
 
   public async ensureWatching(): Promise<void> {
     if (!this.watchEnabled || this.watching) return;
+    const generation = this.watchGeneration;
     await this.ensureReady();
+    // stopped (e.g. shut down) meanwhile, or started by a concurrent call
+    if (generation !== this.watchGeneration || this.watching) return;
     this.watching = true;
     this.startRootWatcher();
     const tables = await readDirSafe(this.fs, this.dbPath);
@@ -167,6 +185,7 @@ export class FilesystemAdapter extends RamAdapter {
   }
 
   public stopWatching(): void {
+    this.watchGeneration++;
     if (!this.watching) return;
     this.watching = false;
     this.rootWatcher?.close();

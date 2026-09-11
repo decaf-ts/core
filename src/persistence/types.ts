@@ -139,6 +139,12 @@ export interface AdapterDispatch<A extends Adapter<any, any, any, any>>
   extends PersistenceObservable<ContextOf<A>> {
   close(...args: ContextualArgs<ContextOf<A>>): Promise<void>;
 
+  /** stops listening until {@link revive} — called when the adapter shuts down */
+  dispose?(): void;
+
+  /** listens again after {@link dispose} — called when the adapter initializes */
+  revive?(): Promise<void>;
+
   updateObservers<M extends Model>(
     table: Constructor<M> | string,
     event: OperationKeys | BulkCrudOperationKeys | string,

@@ -81,6 +81,15 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
    */
   protected models!: ModelConstructor<any>[];
 
+  /** generation of the listening session; {@link close} and {@link dispose} supersede it */
+  private listeningGeneration = 0;
+
+  /** the session start in flight (see {@link start}), awaited by {@link close} */
+  private startInFlight?: Promise<void>;
+
+  /** set by {@link dispose} until {@link revive}: no session is started meanwhile */
+  private disposedUntilRevived = false;
+
   /**
    * @description Creates a new Dispatch instance
    * @summary Initializes a new Dispatch instance without any adapter
@@ -304,13 +313,98 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
   }
 
   /**
+   * @description Generation of the current listening session
+   * @summary Dispatches that connect to a backend asynchronously capture it when
+   * they start and check {@link isSuperseded} after every await: once the dispatch
+   * was closed (or disposed) meanwhile, they must abandon the start instead of
+   * opening a connection nobody would close.
+   * @return {number} The current generation
+   */
+  protected currentGeneration(): number {
+    return this.listeningGeneration;
+  }
+
+  /**
+   * @description Whether a session started at `generation` was closed since
+   * @param {number} generation - The value of {@link currentGeneration} when the session started
+   * @return {boolean} True when the session was closed or the dispatch disposed
+   */
+  protected isSuperseded(generation: number): boolean {
+    return this.disposedUntilRevived || generation !== this.listeningGeneration;
+  }
+
+  /**
+   * @description Starts a listening session
+   * @summary Runs {@link initialize} as the current session, tracking it so
+   * {@link close} can wait for it. Failures are logged, never left as unhandled
+   * rejections. No-op while the dispatch is disposed.
+   * @param {...MaybeContextualArg} args - Arguments forwarded to {@link initialize}
+   * @return {Promise<void>} Resolves once the start settled (never rejects)
+   */
+  protected start(...args: MaybeContextualArg<ContextOf<A>>): Promise<void> {
+    const log = this.log.for(this.start);
+    if (this.disposedUntilRevived) {
+      log.verbose(`Dispatch disposed; not starting until revived`);
+      return Promise.resolve();
+    }
+    const run = this.initialize(...args).then(
+      () =>
+        log.verbose(
+          `Dispatch initialized for ${this.adapter?.alias ?? "unknown"} adapter`
+        ),
+      (e: unknown) =>
+        log.error(
+          `Failed to initialize dispatch for ${this.adapter?.alias ?? "unknown"} adapter: ${e}`
+        )
+    );
+    this.startInFlight = run;
+    void run.then(() => {
+      if (this.startInFlight === run) this.startInFlight = undefined;
+    });
+    return run;
+  }
+
+  /**
    * @description Closes the dispatch
-   * @summary Performs any necessary cleanup when the dispatch is no longer needed
+   * @summary Supersedes the current listening session and waits for a start
+   * still in flight to settle, so nothing it opens outlives the call. Overrides
+   * release their own connections and must call `super.close()`.
+   * @param {...ContextualArgs} ctxArgs - Contextual arguments
    * @return {Promise<void>} A promise that resolves when closing is complete
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async close(...ctxArgs: ContextualArgs<ContextOf<A>>): Promise<void> {
-    // to nothing in this instance but may be required for closing connections
+    this.listeningGeneration++;
+    const starting = this.startInFlight;
+    this.startInFlight = undefined;
+    if (starting) await starting;
+  }
+
+  /**
+   * @description Stops the dispatch until it is revived
+   * @summary Called when the adapter shuts down, before {@link close}: supersedes
+   * any session still starting and prevents new ones — even when observers
+   * register — until {@link revive}.
+   */
+  dispose(): void {
+    this.disposedUntilRevived = true;
+    this.listeningGeneration++;
+  }
+
+  /**
+   * @description Re-enables a disposed dispatch
+   * @summary Called when the adapter is initialized again after a shutdown: undoes
+   * {@link dispose} and starts listening again when observers are registered.
+   * No-op when the dispatch was not disposed.
+   * @return {Promise<void>} Resolves once the new session start settled
+   */
+  async revive(): Promise<void> {
+    if (!this.disposedUntilRevived) return;
+    this.disposedUntilRevived = false;
+    if (!this.adapter) return;
+    const observers =
+      (this.adapter as any)["observerHandler"]?.count?.() ?? 0;
+    if (observers > 0) await this.start();
   }
 
   /**
@@ -333,11 +427,7 @@ export class Dispatch<A extends Adapter<any, any, any, any>>
 
     this.adapter = observer;
     this.models = Adapter.models(this.adapter.alias);
-    this.initialize().then(() =>
-      this.log.verbose(
-        `Dispatch initialized for ${this.adapter!.alias} adapter`
-      )
-    );
+    void this.start();
 
     return () => this.unObserve(observer);
   }

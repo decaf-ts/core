@@ -175,6 +175,8 @@
   "main": "./lib/cjs/index.cjs",
   "module": "./lib/esm/index.js",
   "sideEffects": [
+    "./lib/esm/index.js",
+    "./lib/cjs/index.cjs",
     "./lib/esm/overrides/index.js",
     "./lib/esm/overrides/overrides.js",
     "./lib/cjs/overrides/index.cjs",

@@ -175,11 +175,23 @@
   "main": "./lib/cjs/index.cjs",
   "module": "./lib/esm/index.js",
   "sideEffects": [
+    "./lib/esm/index.js",
+    "./lib/cjs/index.cjs",
     "./lib/esm/overrides/index.js",
-    "./lib/esm/overrides/overrides.js",
     "./lib/cjs/overrides/index.cjs",
+    "./lib/esm/overrides/overrides.js",
     "./lib/cjs/overrides/overrides.cjs",
     "./lib/esm/persistence/index.js",
-    "./lib/cjs/persistence/index.cjs"
+    "./lib/cjs/persistence/index.cjs",
+    "./lib/esm/persistence/Sequence.js",
+    "./lib/cjs/persistence/Sequence.cjs",
+    "./lib/esm/persistence/Dispatch.js",
+    "./lib/cjs/persistence/Dispatch.cjs",
+    "./lib/esm/repository/index.js",
+    "./lib/cjs/repository/index.cjs",
+    "./lib/esm/repository/Repository.js",
+    "./lib/cjs/repository/Repository.cjs",
+    "./lib/esm/ram/index.js",
+    "./lib/cjs/ram/index.cjs"
   ]
 }

@@ -229,11 +229,11 @@ export type AdapterSubClass<A> =
  *   Adapter --|> ErrorParser
  */
 export abstract class Adapter<
-    CONF,
-    CONN,
-    QUERY,
-    CONTEXT extends Context<AdapterFlags> = Context<AdapterFlags>,
-  >
+  CONF,
+  CONN,
+  QUERY,
+  CONTEXT extends Context<AdapterFlags> = Context<AdapterFlags>,
+>
   extends AbsContextual<CONTEXT>
   implements
     RawPagedExecutor<QUERY>,
@@ -443,6 +443,10 @@ export abstract class Adapter<
    * @return {Dispatch} A new dispatch instance
    */
   protected Dispatch(): Dispatch<Adapter<CONF, CONN, QUERY, CONTEXT>> {
+    if (!Adapter._baseDispatch)
+      throw new InternalError(
+        `No base Dispatch registered on Adapter. is it "sideEffects" , or override Dispatch() on ${this.flavour}.`
+      );
     return new Adapter._baseDispatch() as Dispatch<
       Adapter<CONF, CONN, QUERY, CONTEXT>
     >;
@@ -500,6 +504,13 @@ export abstract class Adapter<
     options: SequenceOptions,
     overrides?: Partial<FlagsOf<CONTEXT>>
   ): Promise<Sequence> {
+    if (!Adapter._baseSequence)
+      throw new InternalError(
+        `No base Sequence registered on Adapter. The registration in persistence/Sequence.ts ` +
+          `runs as a module side effect, so it is lost when a bundler tree-shakes that module ` +
+          `out of the graph. Ensure the import chain down to persistence/Sequence is listed in ` +
+          `the "sideEffects" field of the consuming build, or override Sequence() on ${this.flavour}.`
+      );
     return new Adapter._baseSequence(options, this, overrides);
   }
 
@@ -623,7 +634,9 @@ export abstract class Adapter<
       }
     })();
 
-    overrides = ctx ? Object.assign({}, ctx.toOverrides(), overrides) : overrides;
+    overrides = ctx
+      ? Object.assign({}, ctx.toOverrides(), overrides)
+      : overrides;
     if (ctxAllowGenerationOverride) {
       (overrides as any).allowGenerationOverride = true;
     }

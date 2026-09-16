@@ -124,9 +124,9 @@ export type Repo<M extends Model<boolean>> = Repository<M, any>;
  *   R-->>-C: created model
  */
 export class Repository<
-    M extends Model<boolean>,
-    A extends Adapter<any, any, any, any>,
-  >
+  M extends Model<boolean>,
+  A extends Adapter<any, any, any, any>,
+>
   extends Rep<M, ContextOf<A>>
   implements
     PersistenceObservable<ContextOf<A>>,
@@ -1663,7 +1663,7 @@ export class Repository<
    * @param {EventIds} id - The ID or IDs of the affected records.
    * @param {...any[]} args - Additional arguments.
    * @return {Promise<void>} A promise that resolves when all observers have been notified.
-   * @throws {InternalError} If the observer handler is not initialized.
+   * @throws {InternalError} If the observer handler or the base Sequence is not initialized.
    */
   async updateObservers(
     table: Constructor<M> | string,
@@ -1675,6 +1675,11 @@ export class Repository<
       throw new InternalError(
         "ObserverHandler not initialized. Did you register any observables?"
       );
+    const sequence = Adapter["_baseSequence"] as any;
+    if (!sequence)
+      throw new InternalError(
+        `No base Sequence registered on Adapter. is it "sideEffects"?`
+      );
     const { log, ctxArgs } = this.logCtx(args, this.updateObservers);
     log.verbose(
       `Updating ${this.observerHandler.count()} observers for ${this}`
@@ -1685,12 +1690,12 @@ export class Repository<
       Array.isArray(id)
         ? id.map(
             (i) =>
-              (Adapter["_baseSequence"] as any).parseValue(
+              sequence.parseValue(
                 Model.sequenceFor(this.class).type,
                 i
               ) as string
           )
-        : ((Adapter["_baseSequence"] as any).parseValue(
+        : (sequence.parseValue(
             Model.sequenceFor(this.class).type,
             id
           ) as string),

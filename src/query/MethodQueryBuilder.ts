@@ -7,7 +7,7 @@ import {
   QueryAssist,
   QueryClause,
 } from "./types";
-import { OperatorsMap } from "./utils";
+import { OperatorsMap, getOperatorArity } from "./utils";
 import { Context } from "@decaf-ts/db-decorators";
 import { LoggedClass, Logger, Logging } from "@decaf-ts/logging";
 import { OrderDirection } from "../repository/constants";
@@ -133,7 +133,7 @@ export class MethodQueryBuilder extends LoggedClass {
   static build(methodName: string, ...values: any[]): QueryAssist {
     const actionInfo = this.getActionFromMethodName(methodName);
     if (!actionInfo) {
-      throw new Error(`Unsupported method ${methodName}`);
+      throw new QueryError(`Unsupported method ${methodName}`);
     }
 
     const { action, prefix } = actionInfo;
@@ -391,6 +391,8 @@ export class MethodQueryBuilder extends LoggedClass {
    * @summary
    * Splits the core string by logical operators (`And`, `Or`), parses each token into a field
    * and operator, and combines them into a `Condition` object using the provided values.
+   * Each condition consumes as many values as its operator arity dictates (e.g. two for `Between`),
+   * so multi-value operators are supported generically.
    *
    * @param core {string} - The extracted core string from the method name.
    * @param values {any[]} - The values corresponding to the conditions.
@@ -413,18 +415,24 @@ export class MethodQueryBuilder extends LoggedClass {
     const operators = core.match(/And|Or/g) || [];
 
     let where: Condition<any> | undefined;
+    let valueIndex = 0;
 
     conditions.forEach((token, idx) => {
-      const { field, operator } = this.parseFieldAndOperator(token);
+      const { field, operator, arity } = this.parseFieldAndOperator(token);
       const parser = operator ? OperatorsMap[operator] : OperatorsMap.Equals;
-      if (!parser) throw new Error(`Unsupported operator ${operator}`);
+      if (!parser) throw new QueryError(`Unsupported operator ${operator}`);
 
-      const conditionValue = values[idx];
-      if (typeof conditionValue === "undefined") {
-        throw new Error(`Invalid value for field ${field}`);
+      const valueArity = arity ?? 1;
+      const conditionValues = values.slice(valueIndex, valueIndex + valueArity);
+      if (
+        conditionValues.length < valueArity ||
+        conditionValues.some((value) => typeof value === "undefined")
+      ) {
+        throw new QueryError(`Invalid value for field ${field}`);
       }
+      valueIndex += valueArity;
 
-      const condition = parser(field, conditionValue);
+      const condition = parser(field, ...conditionValues);
       where =
         idx === 0
           ? condition
@@ -442,20 +450,24 @@ export class MethodQueryBuilder extends LoggedClass {
    *
    * @summary
    * Identifies the operator suffix (if present) and returns a descriptor containing the field
-   * name in lowercase-first format along with the operator.
+   * name in lowercase-first format along with the operator and the number of values it consumes.
    *
    * @param str {string} - The token string to parse.
    *
-   * @return {FilterDescriptor} An object containing the field name and operator.
+   * @return {FilterDescriptor} An object containing the field name, operator, and value arity.
    */
   private static parseFieldAndOperator(str: string): FilterDescriptor {
     for (const operator of Object.keys(OperatorsMap)) {
       if (str.endsWith(operator)) {
         const field = str.slice(0, -operator.length);
-        return { field: lowerFirst(field), operator };
+        return {
+          field: lowerFirst(field),
+          operator,
+          arity: getOperatorArity(operator),
+        };
       }
     }
-    return { field: lowerFirst(str) };
+    return { field: lowerFirst(str), arity: getOperatorArity() };
   }
 
   private static extractOrderByField(methodName: string): string | undefined {
@@ -501,8 +513,9 @@ export class MethodQueryBuilder extends LoggedClass {
    * Extracts `orderBy`, `limit`, and `offset` clauses from method arguments.
    *
    * @summary
-   * Determines the number of condition arguments, then checks the remaining arguments
-   * to resolve sorting, limiting, and pagination.
+   * Determines the number of condition values (summing each condition's operator arity, so a
+   * multi-value `Between` consumes two), then checks the remaining arguments to resolve sorting,
+   * limiting, and pagination.
    *
    * @param methodName {string} - The method name.
    * @param values {any[]} - The values corresponding to method arguments, including conditions and extras.
@@ -516,9 +529,7 @@ export class MethodQueryBuilder extends LoggedClass {
     core?: string
   ): OrderLimitOffsetExtract {
     const coreString = core ?? this.extractCore(methodName);
-    const conditionCount = coreString
-      ? coreString.split(/And|Or/).filter((s) => s.length > 0).length
-      : 0;
+    const conditionCount = this.countConditionValues(coreString);
     const extraArgs: any[] = values.slice(conditionCount) ?? [];
 
     let orderBy: Array<OrderBySelector<any>> | undefined;
@@ -540,5 +551,34 @@ export class MethodQueryBuilder extends LoggedClass {
       offset = extraArgs[2];
 
     return { orderBy, limit, offset };
+  }
+
+  /**
+   * @description
+   * Counts how many query values the conditions in a core string consume.
+   *
+   * @summary
+   * Splits the core string by logical operators (`And`, `Or`) and sums the value arity of each
+   * condition's operator, so multi-value operators such as `Between` are counted correctly and
+   * trailing `orderBy`/`limit`/`offset` arguments remain aligned.
+   *
+   * @param core {string} - The extracted core string from the method name.
+   *
+   * @return {number} The number of values consumed by the conditions.
+   */
+  private static countConditionValues(core: string): number {
+    if (!core) return 0;
+
+    const parts = core.split(/OrderBy|GroupBy/)[0] || "";
+    if (!parts) return 0;
+
+    return parts
+      .split(/And|Or/)
+      .filter((c) => c.length > 0)
+      .reduce(
+        (count, token) =>
+          count + (this.parseFieldAndOperator(token).arity ?? 1),
+        0
+      );
   }
 }

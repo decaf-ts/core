@@ -40,6 +40,62 @@ describe("MethodQueryBuilder", () => {
       expect(result.where).toEqual(expected);
     });
 
+    it("should handle two-value Between", () => {
+      const result = MethodQueryBuilder.build("findByAgeBetween", 18, 30);
+
+      expect(result.where).toEqual(
+        Condition.attribute("age").between(18, 30)
+      );
+    });
+
+    it("should keep orderBy/limit/offset aligned after a two-value Between", () => {
+      const result = MethodQueryBuilder.build(
+        "findByAgeBetweenOrderByName",
+        18,
+        30,
+        OrderDirection.ASC,
+        5,
+        2
+      );
+
+      expect(result.where).toEqual(
+        Condition.attribute("age").between(18, 30)
+      );
+      expect(result.orderBy).toEqual([["name", OrderDirection.ASC]]);
+      expect(result.limit).toBe(5);
+      expect(result.offset).toBe(2);
+    });
+
+    it("should compose Between with And", () => {
+      const result = MethodQueryBuilder.build(
+        "findByAgeBetweenAndActive",
+        18,
+        30,
+        true
+      );
+
+      expect(result.where).toEqual(
+        Condition.attribute("age")
+          .between(18, 30)
+          .and(Condition.attribute("active").eq(true))
+      );
+    });
+
+    it("should compose Between with Or", () => {
+      const result = MethodQueryBuilder.build(
+        "findByAgeBetweenOrActive",
+        18,
+        30,
+        true
+      );
+
+      expect(result.where).toEqual(
+        Condition.attribute("age")
+          .between(18, 30)
+          .or(Condition.attribute("active").eq(true))
+      );
+    });
+
     it("should handle True and False", () => {
       const trueQuery = MethodQueryBuilder.build("findByActive", true);
       expect(trueQuery.where).toEqual(Condition.attribute("active").eq(true));

@@ -152,6 +152,10 @@ export type OperatorParser = (field: string, ...args: any) => Condition<any>;
 export interface FilterDescriptor {
   field: string;
   operator?: string;
+  /**
+   * Number of query values the operator consumes (e.g. `Between` consumes two).
+   */
+  arity?: number;
 }
 
 export type ViewKey = string | string[];

@@ -32,10 +32,32 @@ describe("MethodQueryBuilder Decorator", () => {
       expect(result.every((u) => u.age >= 22 && u.age <= 24)).toBe(true);
     });
 
-    // between deprecated
-    it.skip("should filter with Between", async () => {
+    it("should filter with Between", async () => {
       const result = await userRepo.findByAgeBetween(25, 35);
+      expect(result.length).toBeGreaterThan(0);
       expect(result.every((u) => u.age >= 25 && u.age <= 35)).toBe(true);
+    });
+
+    it("should filter with Between and trailing orderBy/limit/offset", async () => {
+      const result = await userRepo.findByAgeBetweenOrderByName(
+        25,
+        35,
+        OrderDirection.DSC,
+        2,
+        1
+      );
+      expect(result.length).toBeLessThanOrEqual(2);
+      expect(result.every((u) => u.age >= 25 && u.age <= 35)).toBe(true);
+      const names = result.map((r) => r.name);
+      expect(names).toEqual([...names].sort().reverse());
+    });
+
+    it("should compose Between with And", async () => {
+      const result = await userRepo.findByAgeBetweenAndActive(25, 35, true);
+      expect(result.length).toBeGreaterThan(0);
+      expect(
+        result.every((u) => u.age >= 25 && u.age <= 35 && u.active)
+      ).toBe(true);
     });
 
     it("should filter with True and False", async () => {

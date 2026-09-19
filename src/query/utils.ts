@@ -33,8 +33,7 @@ import { OperatorParser } from "./types";
  *   Map->>Parser: Call corresponding operator function
  *   Parser->>Cond: Condition.attribute(field)
  *   Cond-->>Parser: Condition instance
- *   Parser->>Cond: Apply gte(v1)
- *   Parser->>Cond: Apply and(lte(v2))
+ *   Parser->>Cond: Apply between(v1, v2)
  *   Parser-->>Client: Return built Condition
  *
  * @memberOf module:query
@@ -46,11 +45,43 @@ export const OperatorsMap: Record<string, OperatorParser> = {
   LessThanEqual: (f, v) => Condition.attribute(f as any).lte(v),
   GreaterThan: (f, v) => Condition.attribute(f as any).gt(v),
   GreaterThanEqual: (f, v) => Condition.attribute(f as any).gte(v),
-  // Between deprecated due to GreaterThan/LessThanEqual
-  // Between: (f, v1, v2) =>
-  //   Condition.attribute(f as any)
-  //     .gte(v1)
-  //     .and(Condition.attribute(f as any).lte(v2)),
+  Between: (f, v1, v2) => Condition.attribute(f as any).between(v1, v2),
   In: (f, v) => Condition.attribute(f as any).in(v),
   Matches: (f, v) => Condition.attribute(f as any).regexp(v),
 };
+
+/**
+ * @description
+ * Number of method arguments each operator consumes from the query value list.
+ *
+ * @summary
+ * Most operators consume a single value, but range-style operators such as
+ * `Between` consume two (`min` and `max`). The map is consulted by the
+ * method-name parser so arity is resolved from operator metadata rather than
+ * hardcoded per operator at each call site.
+ *
+ * @memberOf module:query
+ */
+export const OperatorsArityMap: Record<string, number> = {
+  Between: 2,
+};
+
+/**
+ * @description
+ * Resolves how many values an operator consumes.
+ *
+ * @summary
+ * Returns the declared arity for the given operator, defaulting to `1` for
+ * single-value operators (and for an absent operator, which falls back to `Equals`).
+ *
+ * @param operator {string} - The operator name (e.g. `Between`).
+ *
+ * @return {number} The number of values the operator consumes.
+ *
+ * @function getOperatorArity
+ * @memberOf module:query
+ */
+export function getOperatorArity(operator?: string): number {
+  if (!operator) return 1;
+  return OperatorsArityMap[operator] ?? 1;
+}

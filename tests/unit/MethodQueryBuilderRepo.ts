@@ -160,6 +160,29 @@ export class MethodQueryBuilderRepo extends Repository<TestUserModel, any> {
   }
 
   @query()
+  findByAgeBetweenOrderByName(
+    age1: number,
+    age2: number,
+    orderBy?: OrderDirection,
+    limit?: number,
+    offset?: number
+  ): Promise<TestUserModel[]> {
+    throw new UnsupportedError(`Method overridden by @query decorator.`);
+  }
+
+  @query()
+  findByAgeBetweenAndActive(
+    age1: number,
+    age2: number,
+    active: boolean,
+    orderBy?: OrderDirection,
+    limit?: number,
+    offset?: number
+  ): Promise<TestUserModel[]> {
+    throw new UnsupportedError(`Method overridden by @query decorator.`);
+  }
+
+  @query()
   async findByActive(
     active: boolean,
     orderBy?: OrderDirection,

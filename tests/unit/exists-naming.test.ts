@@ -55,13 +55,13 @@ class ExistsNamingRepository extends Repository<
   }
 
   @query()
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   async existsByName(): Promise<boolean> {
     throw new UnsupportedError(`Method overridden by @query decorator.`);
   }
 
   @query()
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   async existsByTenantId(): Promise<boolean> {
     throw new UnsupportedError(`Method overridden by @query decorator.`);
   }

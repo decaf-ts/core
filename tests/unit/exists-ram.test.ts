@@ -1,13 +1,6 @@
 import { model } from "@decaf-ts/decorator-validation";
 import { uses } from "@decaf-ts/decoration";
-import {
-  BaseModel,
-  Condition,
-  column,
-  pk,
-  Repository,
-  table,
-} from "../../src";
+import { BaseModel, Condition, column, pk, Repository, table } from "../../src";
 import { Adapter } from "../../src/persistence/Adapter";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { RamRepository } from "../../src/ram/types";
@@ -36,7 +29,7 @@ class ExistsRamModel extends BaseModel {
 }
 
 describe("exists against the RAM adapter", () => {
-  let adapter: RamAdapter;
+  // let adapter: RamAdapter;
   let repo: RamRepository<ExistsRamModel>;
 
   beforeAll(async () => {

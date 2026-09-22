@@ -27,6 +27,8 @@ export enum Operator {
   /** Inclusion operator (IN) */
   IN = "IN",
   // IS = "IS",
+  /** Attribute existence operator (property is defined on the record) */
+  EXISTS = "EXISTS",
   /** Regular expression matching */
   REGEXP = "REGEXP",
   /** String starts-with comparison */
@@ -71,4 +73,5 @@ export enum PreparedStatementKeys {
   SUM_OF = "sumOf",
   DISTINCT_OF = "distinctOf",
   GROUP_OF = "groupOf",
+  EXISTS_OF = "existsOf",
 }

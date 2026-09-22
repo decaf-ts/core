@@ -583,6 +583,13 @@ export abstract class Statement<
         result.method = `${attr1} in`;
         result.args = [...(result.args || []), comparison];
         break;
+      case Operator.EXISTS:
+        // existence is a unary condition: it carries no comparison value and
+        // cannot be serialized to a method name. The squashed path handles it
+        // through the repository `existsOf` prepared statement instead.
+        throw new UnsupportedError(
+          "EXISTS conditions cannot be serialized to a prepared method name; enable forcePrepareSimpleQueries (or an equivalent squashing option) so the query squashes to the existsOf prepared statement"
+        );
       default:
         throw new QueryError(`Unsupported operator ${operator}`);
     }
@@ -609,6 +616,20 @@ export abstract class Statement<
     if (this.whereCondition) {
       if (this.whereCondition["comparison"] instanceof Condition)
         return undefined;
+    }
+
+    // Simple exists query: a single existence condition maps directly onto the
+    // repository existsOf prepared statement
+    if (
+      this.whereCondition &&
+      this.whereCondition["operator"] === Operator.EXISTS
+    ) {
+      return {
+        class: this.fromSelector,
+        method: PreparedStatementKeys.EXISTS_OF,
+        args: [this.whereCondition["attr1"]],
+        params: {},
+      } as PreparedStatement<M>;
     }
 
     // Try to squash simple aggregation queries without where conditions

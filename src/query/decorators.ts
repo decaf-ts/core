@@ -102,6 +102,9 @@ export function query(options: QueryOptions = {}) {
                       stmt = stmt.groupBy(selector as any);
                     }
                     break;
+                  case "exists":
+                    stmt = repo.select();
+                    break;
                   default:
                     throw new QueryError(`Unsupported action: ${action}`);
                 }
@@ -155,6 +158,16 @@ export function query(options: QueryOptions = {}) {
                       stmt = (stmt as any)[param.key](param.value);
                     }
                   }
+                }
+
+                // For exists action, execute the statement and reduce the result
+                // to a boolean: existence is delivered through the standard
+                // `.execute()` path, never through a statement terminal.
+                if (action === "exists") {
+                  const result = await stmt.execute(ctx);
+                  return Array.isArray(result)
+                    ? result.length > 0
+                    : !!result;
                 }
 
                 // For page action, call paginate instead of execute

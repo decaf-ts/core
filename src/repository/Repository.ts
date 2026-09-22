@@ -1419,6 +1419,32 @@ export class Repository<
   }
 
   /**
+   * @description Checks whether records exist, optionally filtered by a key value
+   * @summary Returns true when at least one record exists for the optional key
+   * existence condition
+   * @param {string} key - The field to test for existence
+   * @param {...any[]} args - Additional arguments including context
+   * @return {Promise<boolean>} true when at least one matching record exists
+   */
+  @prepared()
+  async existsOf(
+    key: keyof M,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<boolean> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.EXISTS_OF, true)
+    ).for(this.existsOf);
+    log.verbose(
+      `checking existence of ${Model.tableName(this.class)} by ${key as string}`
+    );
+    const result = await this.select()
+      .where(this.attr(key).exists())
+      .limit(1)
+      .execute(...ctxArgs);
+    return Array.isArray(result) ? result.length > 0 : !!result;
+  }
+
+  /**
    * @description Finds the maximum value of a field
    * @summary Returns the maximum value for the specified field across all records
    * @param {string} key - The field to find the maximum value of

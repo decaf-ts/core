@@ -145,6 +145,7 @@ export interface OrderAndGroupOption<M extends Model, R>
     GroupByOption<M>,
     LimitOption<M, R>,
     OffsetOption<M, R> {}
+
 /**
  * @summary Where Option interface
  * @description Exposes the WHERE method and remaining options
@@ -421,6 +422,16 @@ export interface AttributeOption<M extends Model> {
    * @param {any[]} val
    */
   in(val: any[]): Condition<M>;
+  /**
+   * @summary Test the attribute is defined on the record
+   * @description Builds a condition that matches records where the attribute is
+   * present (defined). This is especially relevant for document stores such as
+   * CouchDB-based systems where undefined properties are omitted from the
+   * stored document.
+   * @return {Condition<M>} A new condition testing the attribute existence
+   * @method
+   */
+  exists(): Condition<M>;
   /**
    * @summary Test value is between min and max (inclusive)
    * @param {any} min the minimum value

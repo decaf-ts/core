@@ -357,6 +357,17 @@ export class Condition<M extends Model<any>> extends Model<InferAsync<M>> {
     }
 
     /**
+     * @description Creates an attribute existence condition
+     * @summary Builds a condition that matches records where the attribute is
+     * present (defined). Undefined properties are omitted from document stores
+     * such as CouchDB, so this is the idiomatic way to test presence.
+     * @return {Condition<M>} A new condition testing the attribute existence
+     */
+    exists() {
+      return this.setOp(Operator.EXISTS, true);
+    }
+
+    /**
      * @description Creates a regular expression condition
      * @summary Builds a condition that checks if the attribute matches the specified regular expression pattern
      * @param {any} val - The regular expression pattern to match against

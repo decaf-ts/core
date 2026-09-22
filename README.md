@@ -72,6 +72,7 @@ Below is an overview of the main modules and their public APIs exposed by core.
       - `maxOf(key)`, `minOf(key)`, `avgOf(key)`, `sumOf(key)`: Perform aggregate calculations.
       - `distinctOf(key)`: Retrieves distinct values for an attribute.
       - `groupOf(key)`: Groups records by a given attribute.
+      - `existsOf(key)`: Resolves to `true` when at least one record defines the attribute, without materializing records.
       - `page(value, direction?, ref?)`: Paginates through records matching a default partial-match query.
       - `paginateBy(key, order, ref?)`: Paginates records ordered by a specific key.
   - Observation: `observe(observer, filter?)`, `unObserve(observer)`, `updateObservers(...)`, `refresh(...)`
@@ -697,6 +698,45 @@ const avgAge = await userRepo.avgOf('age');
 const totalAge = await userRepo.sumOf('age');
 
 const distinctCities = await userRepo.distinctOf('city');
+```
+
+### Existence Checks
+
+Sometimes you only need to know whether at least one record matches, without fetching it. `existsOf(key)` resolves to `true` when at least one record defines the given attribute. This is the idiomatic presence test on document stores such as the CouchDB-based adapters, where `undefined` properties are omitted from the stored document; SQL-based adapters translate the same condition into a native `IS NOT NULL` check:
+
+```typescript
+const hasNickname = await userRepo.existsOf('nickname');
+```
+
+The same check is available on the fluent statement chain by executing the condition-level `exists()` with `.execute()` (or `.paginate()`), and `Condition.attribute(...).exists()` builds the unary condition so it can be combined with `and()`/`or()` like any other condition:
+
+```typescript
+import { Condition } from '@decaf-ts/core';
+
+const anyNamedUser = await userRepo
+  .select()
+  .where(Condition.attribute<User>('name').exists())
+  .execute();
+
+const withFullProfile = await userRepo
+  .select()
+  .where(
+    Condition.attribute<User>('name')
+      .exists()
+      .and(Condition.attribute<User>('age').exists())
+  )
+  .execute();
+```
+
+Repository methods decorated with `@query()` also support the `existsBy<Field>` naming convention (e.g. `existsByName`, `existsByNameAndAge`, `existsByNameOrAge`). The method name encodes the query exactly like the `findBy`-style prefixes, but each condition simply asserts that the attribute is defined - existence conditions consume no comparison values:
+
+```typescript
+@query()
+existsByNickname(): Promise<boolean> {
+  throw new UnsupportedError(`Method overridden by @query decorator.`);
+}
+
+const usersWithNickname = await userRepo.existsByNickname();
 ```
 
 ### Pagination

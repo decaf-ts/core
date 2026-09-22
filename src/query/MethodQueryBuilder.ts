@@ -16,6 +16,13 @@ import { QueryError } from "./errors";
 const lowerFirst = (str: string): string =>
   str.charAt(0).toLowerCase() + str.slice(1);
 
+/**
+ * Comparison-operator suffix marker used by the exists naming convention to
+ * fail closed when a comparison-shaped field token receives a call value.
+ */
+const COMPARISON_SUFFIX =
+  /(Equals|Diff|LessThan|LessThanEqual|GreaterThan|GreaterThanEqual|BiggerThan|SmallerThan|Bigger|Smaller|Between|In|Exists|Matches|Regexp|Not)$/;
+
 export type QueryActionPrefix = {
   action: QueryAction;
   prefix: string;
@@ -60,6 +67,27 @@ export type QueryActionPrefix = {
  * // }
  * ```
  *
+ * @example
+ * ```ts
+ * // Existence methods follow the `existsBy<Field>` convention: the fields are
+ * // asserted to be defined, no comparison values are consumed, and the action
+ * // is `"exists"` (resolving to `Promise<boolean>` at the repository level).
+ * const existsQuery = MethodQueryBuilder.build("existsByNameAndAge");
+ *
+ * console.log(existsQuery);
+ * // {
+ * //   action: "exists",
+ * //   select: undefined,
+ * //   where: {
+ * //     ...name EXISTS condition and-ed with age EXISTS condition...
+ * //   },
+ * //   groupBy: undefined,
+ * //   orderBy: undefined,
+ * //   limit: undefined,
+ * //   offset: undefined
+ * // }
+ * ```
+ *
  * @mermaid
  * sequenceDiagram
  *   participant Repo as Repository Method
@@ -70,7 +98,7 @@ export type QueryActionPrefix = {
  *   MQB->>MQB: extractCore(methodName)
  *   MQB->>MQB: extractSelect(methodName)
  *   MQB->>MQB: extractGroupBy(methodName)
- *   MQB->>MQB: buildWhere(core, values)
+ *   MQB->>MQB: buildWhere(core, values, action)
  *   MQB->>MQB: extractOrderLimitOffset(core, values)
  *   MQB->>Query: return structured QueryAssist object
  */
@@ -96,6 +124,7 @@ export class MethodQueryBuilder extends LoggedClass {
     [QueryClause.MAX_BY]: "max",
     [QueryClause.DISTINCT_BY]: "distinct",
     [QueryClause.GROUP_BY_PREFIX]: "group",
+    [QueryClause.EXISTS_BY]: "exists",
   };
 
   /**
@@ -151,7 +180,7 @@ export class MethodQueryBuilder extends LoggedClass {
     const core = this.extractCore(methodName, prefix);
     const select = this.extractSelect(methodName);
     const groupBy = this.extractGroupBy(methodName);
-    const where = this.buildWhere(core, values);
+    const where = this.buildWhere(core, values, action);
     const { orderBy, limit, offset } = this.extractOrderLimitOffset(
       methodName,
       values,
@@ -212,9 +241,11 @@ export class MethodQueryBuilder extends LoggedClass {
   ): string {
     const afterPrefix = methodName.substring(prefix.length);
 
-    // For aggregation methods (not findBy or pageBy), we need to skip the selector field
+    // For aggregation methods (not findBy, pageBy or existsBy), we need to skip the selector field
     const isAggregationPrefix =
-      prefix !== QueryClause.FIND_BY && prefix !== QueryClause.PAGE_BY;
+      prefix !== QueryClause.FIND_BY &&
+      prefix !== QueryClause.PAGE_BY &&
+      prefix !== QueryClause.EXISTS_BY;
 
     if (isAggregationPrefix) {
       // For aggregation methods, we need to find where actual conditions start
@@ -396,12 +427,14 @@ export class MethodQueryBuilder extends LoggedClass {
    *
    * @param core {string} - The extracted core string from the method name.
    * @param values {any[]} - The values corresponding to the conditions.
+   * @param action {QueryAction} - The query action the method name encodes.
    *
    * @return {Condition<any>} A structured condition object representing the query's where clause.
    */
   private static buildWhere(
     core: string,
-    values: any[]
+    values: any[],
+    action?: QueryAction
   ): Condition<any> | undefined {
     // Empty core means no where conditions
     if (!core) return undefined;
@@ -419,6 +452,36 @@ export class MethodQueryBuilder extends LoggedClass {
 
     conditions.forEach((token, idx) => {
       const { field, operator, arity } = this.parseFieldAndOperator(token);
+      if (action === "exists") {
+        // `existsBy<field>` asserts that the field is defined. An explicit
+        // comparison-operator suffix (recognized, e.g. `existsByTenantIdEquals`,
+        // or unrecognized, e.g. `existsByAgeBiggerThan`) is not part of the
+        // exists contract: reject it instead of silently dropping the
+        // comparison filter. Plain `existsBy<field>` keeps the field-existence
+        // semantics, and any trailing call values are not part of the condition
+        // (matching the delivered `findBy`-style naming convention).
+        if (operator && operator !== "Exists") {
+          throw new QueryError(
+            `Unsupported operator ${operator} for exists action: exists methods assert field existence and do not accept comparison-operator suffixes`
+          );
+        }
+        if (
+          values.some((value) => !(value instanceof Context)) &&
+          COMPARISON_SUFFIX.test(field)
+        ) {
+          throw new QueryError(
+            `Invalid value for exists action: exists methods assert field existence and do not accept comparison-operator suffixes`
+          );
+        }
+        const existsCondition = Condition.attribute(field as any).exists();
+        where =
+          idx === 0
+            ? existsCondition
+            : operators[idx - 1] === QueryClause.AND
+              ? where!.and(existsCondition)
+              : where!.or(existsCondition);
+        return;
+      }
       const parser = operator ? OperatorsMap[operator] : OperatorsMap.Equals;
       if (!parser) throw new QueryError(`Unsupported operator ${operator}`);
 

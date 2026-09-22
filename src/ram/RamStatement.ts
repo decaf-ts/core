@@ -327,6 +327,9 @@ export class RamStatement<
                 comparableValue >= minComparable && comparableValue <= maxComparable
               );
             }
+            case Operator.EXISTS:
+              return m[attr1 as keyof Model] !== undefined &&
+                m[attr1 as keyof Model] !== null;
             default:
               throw new InternalError(
                 `Invalid operator for standard comparisons: ${operator}`

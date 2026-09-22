@@ -63,7 +63,9 @@ export type PreparedStatement<M extends Model> = {
  *
  * @summary
  * The `QueryAction` type defines the possible actions that can be
- * performed by a query built from a method name.
+ * performed by a query built from a method name, including the terminal
+ * `exists` action which resolves whether any record matches instead of
+ * materializing the records.
  *
  * @memberOf module:query
  */
@@ -76,7 +78,8 @@ export type QueryAction =
   | "min"
   | "max"
   | "distinct"
-  | "group";
+  | "group"
+  | "exists";
 
 export interface QueryAssist {
   action: QueryAction;
@@ -110,6 +113,7 @@ export enum QueryClause {
   MAX_BY = "maxBy",
   DISTINCT_BY = "distinctBy",
   GROUP_BY_PREFIX = "groupBy",
+  EXISTS_BY = "existsBy",
   SELECT = "Select",
   AND = "And",
   OR = "Or",

@@ -11,6 +11,8 @@ import { OperatorParser } from "./types";
  * function that constructs a `Condition` object for that operator.
  * These functions translate query clauses into concrete condition
  * builders, enabling dynamic query construction from method names.
+ * The `Exists` operator is unary: it takes only a field name and builds
+ * an attribute-existence condition (no comparison value).
  *
  * @template T The type of the field values used in conditions.
  *
@@ -47,6 +49,7 @@ export const OperatorsMap: Record<string, OperatorParser> = {
   GreaterThanEqual: (f, v) => Condition.attribute(f as any).gte(v),
   Between: (f, v1, v2) => Condition.attribute(f as any).between(v1, v2),
   In: (f, v) => Condition.attribute(f as any).in(v),
+  Exists: (f) => Condition.attribute(f as any).exists(),
   Matches: (f, v) => Condition.attribute(f as any).regexp(v),
 };
 
@@ -56,14 +59,16 @@ export const OperatorsMap: Record<string, OperatorParser> = {
  *
  * @summary
  * Most operators consume a single value, but range-style operators such as
- * `Between` consume two (`min` and `max`). The map is consulted by the
- * method-name parser so arity is resolved from operator metadata rather than
- * hardcoded per operator at each call site.
+ * `Between` consume two (`min` and `max`), and unary operators such as
+ * `Exists` consume none (they only assert that a field is defined). The map
+ * is consulted by the method-name parser so arity is resolved from operator
+ * metadata rather than hardcoded per operator at each call site.
  *
  * @memberOf module:query
  */
 export const OperatorsArityMap: Record<string, number> = {
   Between: 2,
+  Exists: 0,
 };
 
 /**

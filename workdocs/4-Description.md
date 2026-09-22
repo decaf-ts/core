@@ -28,6 +28,7 @@ Below is an overview of the main modules and their public APIs exposed by core.
       - `maxOf(key)`, `minOf(key)`, `avgOf(key)`, `sumOf(key)`: Perform aggregate calculations.
       - `distinctOf(key)`: Retrieves distinct values for an attribute.
       - `groupOf(key)`: Groups records by a given attribute.
+      - `existsOf(key)`: Resolves to `true` when at least one record defines the attribute, without materializing records.
       - `page(value, direction?, ref?)`: Paginates through records matching a default partial-match query.
       - `paginateBy(key, order, ref?)`: Paginates records ordered by a specific key.
   - Observation: `observe(observer, filter?)`, `unObserve(observer)`, `updateObservers(...)`, `refresh(...)`

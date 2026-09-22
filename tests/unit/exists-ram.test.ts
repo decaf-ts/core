@@ -1,6 +1,14 @@
 import { model } from "@decaf-ts/decorator-validation";
 import { uses } from "@decaf-ts/decoration";
-import { BaseModel, Condition, column, pk, Repository, table } from "../../src";
+import {
+  BaseModel,
+  Condition,
+  UnsupportedError,
+  column,
+  pk,
+  Repository,
+  table,
+} from "../../src";
 import { Adapter } from "../../src/persistence/Adapter";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { RamRepository } from "../../src/ram/types";
@@ -129,5 +137,49 @@ describe("exists against the RAM adapter", () => {
       args: ["alias"],
     });
     await expect(stmt.execute()).resolves.toBe(false);
+  });
+
+  it("delivers negated condition-level EXISTS through .execute()", async () => {
+    const results = await repo
+      .select()
+      .where(Condition.attribute<ExistsRamModel>("nickname").exists(false))
+      .execute();
+
+    expect(Array.isArray(results)).toBe(true);
+    expect(
+      (results as ExistsRamModel[]).map((r) => r.id).sort()
+    ).toEqual(["3"]);
+  });
+
+  it("delivers negated condition-level EXISTS for an always-absent attribute", async () => {
+    const results = await repo
+      .select()
+      .where(Condition.attribute<ExistsRamModel>("alias").exists(false))
+      .execute();
+
+    expect(
+      (results as ExistsRamModel[]).map((r) => r.id).sort()
+    ).toEqual(["1", "2", "3"]);
+  });
+
+  it("delivers negated condition-level EXISTS through .paginate()", async () => {
+    const paginator = await repo
+      .select()
+      .where(Condition.attribute<ExistsRamModel>("nickname").exists(false))
+      .paginate(2);
+
+    const page = await paginator.page();
+    expect(Array.isArray(page)).toBe(true);
+    expect(page.map((r) => r.id).sort()).toEqual(["3"]);
+  });
+
+  it("classifies exists(false) as a simple query but does not squash it to existsOf", async () => {
+    const stmt = repo
+      .override({ forcePrepareSimpleQueries: true })
+      .select()
+      .where(Condition.attribute<ExistsRamModel>("nickname").exists(false));
+
+    expect((stmt as any).isSimpleQuery()).toBe(true);
+    await expect(stmt.prepare()).rejects.toThrow(UnsupportedError);
   });
 });

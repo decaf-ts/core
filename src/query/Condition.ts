@@ -359,12 +359,18 @@ export class Condition<M extends Model<any>> extends Model<InferAsync<M>> {
     /**
      * @description Creates an attribute existence condition
      * @summary Builds a condition that matches records where the attribute is
-     * present (defined). Undefined properties are omitted from document stores
-     * such as CouchDB, so this is the idiomatic way to test presence.
+     * present (defined) or absent, depending on the comparison value. Undefined
+     * properties are omitted from document stores such as CouchDB, so this is the
+     * idiomatic way to test presence.
+     * @param {boolean} [value=true] - When `true` (the default) the condition
+     * matches records where the attribute is present; `exists(false)` is the
+     * supported negation path and matches records where the attribute is absent.
+     * NOT-compounding is intentionally not supported: negation is expressed
+     * exclusively through this boolean.
      * @return {Condition<M>} A new condition testing the attribute existence
      */
-    exists() {
-      return this.setOp(Operator.EXISTS, true);
+    exists(value: boolean = true) {
+      return this.setOp(Operator.EXISTS, value);
     }
 
     /**

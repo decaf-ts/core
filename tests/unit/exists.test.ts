@@ -79,6 +79,79 @@ describe("exists query option", () => {
     });
   });
 
+  describe("Condition.attribute(...).exists(false)", () => {
+    it("builds the negated EXISTS condition shape", () => {
+      const condition = Condition.attribute<ExistsConditionModel>("nickname")
+        .exists(false);
+
+      expect(condition).toBeDefined();
+      expect(condition.operator).toBe(Operator.EXISTS);
+      expect((condition as any).attr1).toBe("nickname");
+      expect((condition as any).comparison).toBe(false);
+      expect(condition.hasErrors()).toBeUndefined();
+    });
+
+    it("serializes to the documented negated EXISTS shape", () => {
+      const condition = Condition.attribute<ExistsConditionModel>("name")
+        .exists(false);
+
+      expect(JSON.parse(JSON.stringify(condition))).toEqual({
+        attr1: "name",
+        operator: "EXISTS",
+        comparison: false,
+      });
+    });
+
+    it("keeps the positive and negated comparison distinct", () => {
+      const positive = Condition.attribute<ExistsConditionModel>("name")
+        .exists();
+      const negated = Condition.attribute<ExistsConditionModel>("name")
+        .exists(false);
+
+      expect((positive as any).comparison).toBe(true);
+      expect((negated as any).comparison).toBe(false);
+      expect(negated).not.toEqual(positive);
+    });
+
+    it("can be combined with AND and OR", () => {
+      const andCondition = Condition.attribute<ExistsConditionModel>("name")
+        .exists(false)
+        .and(Condition.attribute<ExistsConditionModel>("age").exists());
+      expect(andCondition).toBeDefined();
+      expect(andCondition.hasErrors()).toBeUndefined();
+
+      const orCondition = Condition.attribute<ExistsConditionModel>("name")
+        .exists()
+        .or(Condition.attribute<ExistsConditionModel>("age").exists(false));
+      expect(orCondition).toBeDefined();
+      expect(orCondition.hasErrors()).toBeUndefined();
+    });
+
+    it("serializes a negated AND-combined condition", () => {
+      const condition = Condition.attribute<ExistsConditionModel>("name")
+        .exists(false)
+        .and(Condition.attribute<ExistsConditionModel>("age").exists(false));
+
+      expect(JSON.parse(JSON.stringify(condition))).toEqual({
+        attr1: { attr1: "name", operator: "EXISTS", comparison: false },
+        operator: "AND",
+        comparison: { attr1: "age", operator: "EXISTS", comparison: false },
+      });
+    });
+
+    it("serializes a mixed OR-combined condition", () => {
+      const condition = Condition.attribute<ExistsConditionModel>("name")
+        .exists()
+        .or(Condition.attribute<ExistsConditionModel>("age").exists(false));
+
+      expect(JSON.parse(JSON.stringify(condition))).toEqual({
+        attr1: { attr1: "name", operator: "EXISTS", comparison: true },
+        operator: "OR",
+        comparison: { attr1: "age", operator: "EXISTS", comparison: false },
+      });
+    });
+  });
+
   describe("MethodQueryBuilder existsBy naming convention", () => {
     it("maps existsByName to the exists action and EXISTS where clause", () => {
       const result = MethodQueryBuilder.build("existsByName");
@@ -117,6 +190,21 @@ describe("exists query option", () => {
       expect(JSON.parse(JSON.stringify(result))).toEqual({
         action: "exists",
         where: { attr1: "name", operator: "EXISTS", comparison: true },
+      });
+    });
+
+    it("stays positive-only and never emits a negated comparison", () => {
+      const single = MethodQueryBuilder.build("existsByName");
+      const combined = MethodQueryBuilder.build("existsByNameAndAge");
+
+      expect(JSON.parse(JSON.stringify(single)).where.comparison).toBe(true);
+      expect(JSON.parse(JSON.stringify(combined))).toEqual({
+        action: "exists",
+        where: {
+          attr1: { attr1: "name", operator: "EXISTS", comparison: true },
+          operator: "AND",
+          comparison: { attr1: "age", operator: "EXISTS", comparison: true },
+        },
       });
     });
   });

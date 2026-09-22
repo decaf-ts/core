@@ -425,13 +425,16 @@ export interface AttributeOption<M extends Model> {
   /**
    * @summary Test the attribute is defined on the record
    * @description Builds a condition that matches records where the attribute is
-   * present (defined). This is especially relevant for document stores such as
-   * CouchDB-based systems where undefined properties are omitted from the
+   * present (defined) or absent. This is especially relevant for document stores
+   * such as CouchDB-based systems where undefined properties are omitted from the
    * stored document.
+   * @param {boolean} [value=true] - When `true` (the default) the condition
+   * matches records where the attribute is present; `exists(false)` is the
+   * supported negation path and matches records where the attribute is absent.
    * @return {Condition<M>} A new condition testing the attribute existence
    * @method
    */
-  exists(): Condition<M>;
+  exists(value?: boolean): Condition<M>;
   /**
    * @summary Test value is between min and max (inclusive)
    * @param {any} min the minimum value

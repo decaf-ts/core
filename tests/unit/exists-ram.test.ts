@@ -29,7 +29,8 @@ class ExistsRamModel extends BaseModel {
 }
 
 describe("exists against the RAM adapter", () => {
-  // let adapter: RamAdapter;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  let adapter: RamAdapter;
   let repo: RamRepository<ExistsRamModel>;
 
   beforeAll(async () => {

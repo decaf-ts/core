@@ -116,7 +116,7 @@ describe("exists against the RAM adapter", () => {
     expect(page.length).toBeGreaterThan(0);
   });
 
-  it("squashes EXISTS to existsOf and resolves true through the standard execute path", async () => {
+  it("squashes EXISTS to listByExists and resolves the full matching list through the standard execute path", async () => {
     const stmt = repo
       .override({ forcePrepareSimpleQueries: true })
       .select()
@@ -125,13 +125,19 @@ describe("exists against the RAM adapter", () => {
     await stmt.prepare();
 
     expect((stmt as any).prepared).toMatchObject({
-      method: "existsOf",
+      method: "listByExists",
       args: ["nickname"],
     });
-    await expect(stmt.execute()).resolves.toBe(true);
+
+    const results = await stmt.execute();
+    expect(Array.isArray(results)).toBe(true);
+    expect((results as ExistsRamModel[]).map((r) => r.id).sort()).toEqual([
+      "1",
+      "2",
+    ]);
   });
 
-  it("squashes EXISTS to existsOf and resolves false through the standard execute path", async () => {
+  it("squashes EXISTS to listByExists and resolves an empty list for an always-absent field", async () => {
     const stmt = repo
       .override({ forcePrepareSimpleQueries: true })
       .select()
@@ -140,10 +146,10 @@ describe("exists against the RAM adapter", () => {
     await stmt.prepare();
 
     expect((stmt as any).prepared).toMatchObject({
-      method: "existsOf",
+      method: "listByExists",
       args: ["alias"],
     });
-    await expect(stmt.execute()).resolves.toBe(false);
+    await expect(stmt.execute()).resolves.toEqual([]);
   });
 
   it("delivers negated condition-level EXISTS through .execute()", async () => {
@@ -180,7 +186,7 @@ describe("exists against the RAM adapter", () => {
     expect(page.map((r) => r.id).sort()).toEqual(["3"]);
   });
 
-  it("squashes exists(false) to existsNotOf and resolves the negated boolean through execute()", async () => {
+  it("squashes exists(false) to listByNotExists and resolves the full negated list through execute()", async () => {
     const stmt = repo
       .override({ forcePrepareSimpleQueries: true })
       .select()
@@ -190,9 +196,14 @@ describe("exists against the RAM adapter", () => {
     await stmt.prepare();
 
     expect((stmt as any).prepared).toMatchObject({
-      method: "existsNotOf",
+      method: "listByNotExists",
       args: ["nickname"],
     });
-    await expect(stmt.execute()).resolves.toBe(true);
+
+    const results = await stmt.execute();
+    expect(Array.isArray(results)).toBe(true);
+    expect((results as ExistsRamModel[]).map((r) => r.id).sort()).toEqual([
+      "3",
+    ]);
   });
 });

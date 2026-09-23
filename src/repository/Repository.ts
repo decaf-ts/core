@@ -1463,6 +1463,58 @@ export class Repository<
   }
 
   /**
+   * @description Lists the records that define a field
+   * @summary Returns the full list of records whose field is present.
+   * Unlike `existsOf` (a boolean existence check), this prepared statement
+   * keeps list semantics so a squashed single-EXISTS select returns every
+   * matching record.
+   * @param {string} key - The field to test for existence
+   * @param {...any[]} args - Additional arguments including context
+   * @return {Promise<M[]>} The matching records
+   */
+  @prepared()
+  async listByExists(
+    key: keyof M,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<M[]> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.LIST_BY_EXISTS, true)
+    ).for(this.listByExists);
+    log.verbose(
+      `listing ${Model.tableName(this.class)} where ${key as string} exists`
+    );
+    return this.select()
+      .where(this.attr(key).exists())
+      .execute(...ctxArgs);
+  }
+
+  /**
+   * @description Lists the records that do not define a field
+   * @summary Returns the full list of records whose field is absent.
+   * Unlike `existsNotOf` (a boolean existence check), this prepared statement
+   * keeps list semantics so a squashed single-EXISTS select returns every
+   * matching record.
+   * @param {string} key - The field to test for absence
+   * @param {...any[]} args - Additional arguments including context
+   * @return {Promise<M[]>} The matching records
+   */
+  @prepared()
+  async listByNotExists(
+    key: keyof M,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<M[]> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.LIST_BY_NOT_EXISTS, true)
+    ).for(this.listByNotExists);
+    log.verbose(
+      `listing ${Model.tableName(this.class)} where ${key as string} does not exist`
+    );
+    return this.select()
+      .where(this.attr(key).exists(false))
+      .execute(...ctxArgs);
+  }
+
+  /**
    * @description Finds the maximum value of a field
    * @summary Returns the maximum value for the specified field across all records
    * @param {string} key - The field to find the maximum value of

@@ -585,15 +585,15 @@ export abstract class Statement<
         break;
       case Operator.EXISTS:
         // existence is a unary condition: it carries no comparison value and
-        // therefore has no `findBy`-style method name. A single EXISTS
-        // condition is squashed to its `existsOf`/`existsNotOf` prepared
-        // statement by `squash()` before this method is reached; when reached
-        // here (e.g. as a leg of a complex AND/OR condition) the unary
-        // prepared method name is the only serialization available.
+        // therefore has no `findBy`-style method name. It serializes to the
+        // list-returning prepared statement (`listByExists`/`listByNotExists`)
+        // so a select keeps full-list semantics; the boolean
+        // `existsOf`/`existsNotOf` methods are reserved for their own
+        // existence-check contract and are never used to execute a select.
         result.method =
           comparison === false
-            ? PreparedStatementKeys.EXISTS_NOT_OF
-            : PreparedStatementKeys.EXISTS_OF;
+            ? PreparedStatementKeys.LIST_BY_NOT_EXISTS
+            : PreparedStatementKeys.LIST_BY_EXISTS;
         result.args = [...(result.args || []), attr1 as string];
         break;
       default:
@@ -625,8 +625,10 @@ export abstract class Statement<
     }
 
     // Simple exists query: a single existence condition maps directly onto the
-    // repository `existsOf` prepared statement when positive, and onto the
-    // `existsNotOf` prepared statement when negated (`exists(false)`).
+    // list-returning repository prepared statement (`listByExists` when positive,
+    // `listByNotExists` when negated via `exists(false)`). The boolean
+    // `existsOf`/`existsNotOf` methods are deliberately NOT used here: they are
+    // `.limit(1)` existence checks and would collapse a select to one result.
     if (
       this.whereCondition &&
       this.whereCondition["operator"] === Operator.EXISTS
@@ -635,8 +637,8 @@ export abstract class Statement<
         class: this.fromSelector,
         method:
           this.whereCondition["comparison"] === false
-            ? PreparedStatementKeys.EXISTS_NOT_OF
-            : PreparedStatementKeys.EXISTS_OF,
+            ? PreparedStatementKeys.LIST_BY_NOT_EXISTS
+            : PreparedStatementKeys.LIST_BY_EXISTS,
         args: [this.whereCondition["attr1"]],
         params: {},
       } as PreparedStatement<M>;
@@ -852,6 +854,30 @@ export abstract class Statement<
     return undefined;
   }
 
+  /**
+   * @description Checks whether a condition tree embeds an EXISTS leg
+   * @summary Recursively walks an AND/OR condition tree looking for an
+   * `Operator.EXISTS` leaf. Used by `prepare()` to keep EXISTS conditions
+   * that cannot be serialized to a method name on the raw build path, so the
+   * select keeps full-list semantics.
+   * @param {Condition<any>} condition - The condition to inspect
+   * @return {boolean} true when the condition contains an EXISTS leg
+   */
+  private static containsExists(condition: Condition<any> | undefined): boolean {
+    if (!condition) return false;
+    const { attr1, operator, comparison } = condition as unknown as {
+      attr1: any;
+      operator: Operator | GroupOperator;
+      comparison: any;
+    };
+    if (operator === Operator.EXISTS) return true;
+    if (attr1 instanceof Condition && Statement.containsExists(attr1))
+      return true;
+    if (comparison instanceof Condition && Statement.containsExists(comparison))
+      return true;
+    return false;
+  }
+
   private getOrderDirection(): OrderDirection {
     return (
       (this.orderBySelectors?.[0]?.[1] as OrderDirection) ?? OrderDirection.ASC
@@ -868,8 +894,10 @@ export abstract class Statement<
       ));
 
     // A single EXISTS condition is unary: it has no general method-name
-    // serialization, so it always squashes to its `existsOf`/`existsNotOf`
-    // prepared statement, whether or not the force flags are set.
+    // serialization, so it always squashes to its list-returning prepared
+    // statement (`listByExists`/`listByNotExists`), whether or not the force
+    // flags are set. This keeps the full matching list instead of the boolean
+    // `.limit(1)` result of the `existsOf`/`existsNotOf` existence checks.
     if (
       this.isSimpleQuery() &&
       this.whereCondition &&
@@ -880,6 +908,14 @@ export abstract class Statement<
         this.prepared = squashed;
         return this;
       }
+    }
+
+    // An EXISTS leg embedded in a complex AND/OR condition cannot be
+    // serialized to a method name (there is no prepared statement for the
+    // combination). Keep the raw build path so the select still returns the
+    // full matching list rather than failing or collapsing to one record.
+    if (this.whereCondition && Statement.containsExists(this.whereCondition)) {
+      return this;
     }
 
     if (
@@ -1050,8 +1086,15 @@ export abstract class Statement<
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const ctx = args.pop() as ContextOf<A>; // handled by prefix. kept for example for overrides
     try {
+      // The list-returning EXISTS prepared statement has no paged variant:
+      // paginating it directly would dispatch to an unsupported method.
+      // Fall back to the raw build (identical to the default path) so
+      // `paginate()` keeps returning full pages for an EXISTS select.
+      const isExistsList =
+        this.prepared?.method === PreparedStatementKeys.LIST_BY_EXISTS ||
+        this.prepared?.method === PreparedStatementKeys.LIST_BY_NOT_EXISTS;
       return this.adapter.Paginator(
-        this.prepared || this.build(),
+        this.prepared && !isExistsList ? this.prepared : this.build(),
         size,
         this.fromSelector
       );

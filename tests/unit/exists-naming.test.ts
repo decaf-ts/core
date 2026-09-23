@@ -166,16 +166,16 @@ describe("exists query option — naming and prepared-path regressions", () => {
       expect(typeof (chain as any).exists).not.toBe("function");
     });
 
-    it("does not reject when prepare() squashes a simple EXISTS query", async () => {
+    it("does not reject when prepare() squashes a simple EXISTS query to the list prepared form", async () => {
       const stmt = existsStatement();
       await expect(stmt.prepare()).resolves.toBeDefined();
       expect((stmt as any).prepared).toMatchObject({
-        method: "existsOf",
+        method: "listByExists",
         args: ["nickname"],
       });
     });
 
-    it("still squashes a simple EXISTS query to existsOf when forcePrepareSimpleQueries is set", async () => {
+    it("still squashes a simple EXISTS query to listByExists when forcePrepareSimpleQueries is set", async () => {
       const repo = Repository.forModel<
         ExistsNamingModel,
         RamRepository<ExistsNamingModel>
@@ -188,7 +188,7 @@ describe("exists query option — naming and prepared-path regressions", () => {
       await stmt.prepare();
 
       expect((stmt as any).prepared).toMatchObject({
-        method: "existsOf",
+        method: "listByExists",
         args: ["nickname"],
       });
     });

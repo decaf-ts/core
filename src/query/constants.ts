@@ -74,4 +74,5 @@ export enum PreparedStatementKeys {
   DISTINCT_OF = "distinctOf",
   GROUP_OF = "groupOf",
   EXISTS_OF = "existsOf",
+  EXISTS_NOT_OF = "existsNotOf",
 }

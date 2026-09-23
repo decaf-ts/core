@@ -125,6 +125,7 @@ export class MethodQueryBuilder extends LoggedClass {
     [QueryClause.DISTINCT_BY]: "distinct",
     [QueryClause.GROUP_BY_PREFIX]: "group",
     [QueryClause.EXISTS_BY]: "exists",
+    [QueryClause.EXISTS_NOT_BY]: "exists",
   };
 
   /**
@@ -180,7 +181,12 @@ export class MethodQueryBuilder extends LoggedClass {
     const core = this.extractCore(methodName, prefix);
     const select = this.extractSelect(methodName);
     const groupBy = this.extractGroupBy(methodName);
-    const where = this.buildWhere(core, values, action);
+    const where = this.buildWhere(
+      core,
+      values,
+      action,
+      prefix === QueryClause.EXISTS_NOT_BY
+    );
     const { orderBy, limit, offset } = this.extractOrderLimitOffset(
       methodName,
       values,
@@ -241,11 +247,12 @@ export class MethodQueryBuilder extends LoggedClass {
   ): string {
     const afterPrefix = methodName.substring(prefix.length);
 
-    // For aggregation methods (not findBy, pageBy or existsBy), we need to skip the selector field
+    // For aggregation methods (not findBy, pageBy, existsBy or existsNotBy), we need to skip the selector field
     const isAggregationPrefix =
       prefix !== QueryClause.FIND_BY &&
       prefix !== QueryClause.PAGE_BY &&
-      prefix !== QueryClause.EXISTS_BY;
+      prefix !== QueryClause.EXISTS_BY &&
+      prefix !== QueryClause.EXISTS_NOT_BY;
 
     if (isAggregationPrefix) {
       // For aggregation methods, we need to find where actual conditions start
@@ -428,13 +435,16 @@ export class MethodQueryBuilder extends LoggedClass {
    * @param core {string} - The extracted core string from the method name.
    * @param values {any[]} - The values corresponding to the conditions.
    * @param action {QueryAction} - The query action the method name encodes.
+   * @param negated {boolean} - Whether the existence assertion is negated
+   * (`existsNotBy<Field>`).
    *
    * @return {Condition<any>} A structured condition object representing the query's where clause.
    */
   private static buildWhere(
     core: string,
     values: any[],
-    action?: QueryAction
+    action?: QueryAction,
+    negated = false
   ): Condition<any> | undefined {
     // Empty core means no where conditions
     if (!core) return undefined;
@@ -453,11 +463,13 @@ export class MethodQueryBuilder extends LoggedClass {
     conditions.forEach((token, idx) => {
       const { field, operator, arity } = this.parseFieldAndOperator(token);
       if (action === "exists") {
-        // `existsBy<field>` asserts that the field is defined. An explicit
-        // comparison-operator suffix (recognized, e.g. `existsByTenantIdEquals`,
-        // or unrecognized, e.g. `existsByAgeBiggerThan`) is not part of the
-        // exists contract: reject it instead of silently dropping the
-        // comparison filter. Plain `existsBy<field>` keeps the field-existence
+        // `existsBy<field>` asserts that the field is defined; the negated
+        // `existsNotBy<field>` convention asserts that the field is absent.
+        // An explicit comparison-operator suffix (recognized, e.g.
+        // `existsByTenantIdEquals`, or unrecognized, e.g.
+        // `existsByAgeBiggerThan`) is not part of the exists contract: reject
+        // it instead of silently dropping the comparison filter. Plain
+        // `existsBy<field>`/`existsNotBy<field>` keeps the field-existence
         // semantics, and any trailing call values are not part of the condition
         // (matching the delivered `findBy`-style naming convention).
         if (operator && operator !== "Exists") {
@@ -473,7 +485,9 @@ export class MethodQueryBuilder extends LoggedClass {
             `Invalid value for exists action: exists methods assert field existence and do not accept comparison-operator suffixes`
           );
         }
-        const existsCondition = Condition.attribute(field as any).exists();
+        const existsCondition = Condition.attribute(field as any).exists(
+          !negated
+        );
         where =
           idx === 0
             ? existsCondition

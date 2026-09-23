@@ -128,6 +128,35 @@ describe("exists query option — naming and prepared-path regressions", () => {
       expect(result.action).toBe("find");
       expect(result.where).toEqual(Condition.attribute("name").exists());
     });
+
+    it("resolves existsNotByName to a single negated EXISTS condition", () => {
+      const result = MethodQueryBuilder.build("existsNotByName");
+
+      expect(result.action).toBe("exists");
+      expect(result.where).toEqual(Condition.attribute("name").exists(false));
+    });
+
+    it("resolves existsNotByNameAndAge to AND-combined negated EXISTS conditions", () => {
+      const result = MethodQueryBuilder.build("existsNotByNameAndAge");
+
+      expect(result.action).toBe("exists");
+      expect(result.where).toEqual(
+        Condition.attribute("name")
+          .exists(false)
+          .and(Condition.attribute("age").exists(false))
+      );
+    });
+
+    it("resolves existsNotByNameOrAge to OR-combined negated EXISTS conditions", () => {
+      const result = MethodQueryBuilder.build("existsNotByNameOrAge");
+
+      expect(result.action).toBe("exists");
+      expect(result.where).toEqual(
+        Condition.attribute("name")
+          .exists(false)
+          .or(Condition.attribute("age").exists(false))
+      );
+    });
   });
 
   describe("Scenario B — statement-level exists terminal must not exist", () => {
@@ -137,12 +166,13 @@ describe("exists query option — naming and prepared-path regressions", () => {
       expect(typeof (chain as any).exists).not.toBe("function");
     });
 
-    it("throws UnsupportedError (not a misleading QueryError) when prepare() cannot squash EXISTS", async () => {
-      await expect(existsStatement().prepare()).rejects.toThrow(UnsupportedError);
-    });
-
-    it("names the EXISTS/squashing requirement in the error message", async () => {
-      await expect(existsStatement().prepare()).rejects.toThrow(/EXISTS/i);
+    it("does not reject when prepare() squashes a simple EXISTS query", async () => {
+      const stmt = existsStatement();
+      await expect(stmt.prepare()).resolves.toBeDefined();
+      expect((stmt as any).prepared).toMatchObject({
+        method: "existsOf",
+        args: ["nickname"],
+      });
     });
 
     it("still squashes a simple EXISTS query to existsOf when forcePrepareSimpleQueries is set", async () => {

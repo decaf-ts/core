@@ -114,6 +114,7 @@ export enum QueryClause {
   DISTINCT_BY = "distinctBy",
   GROUP_BY_PREFIX = "groupBy",
   EXISTS_BY = "existsBy",
+  EXISTS_NOT_BY = "existsNotBy",
   SELECT = "Select",
   AND = "And",
   OR = "Or",

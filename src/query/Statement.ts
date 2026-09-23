@@ -585,13 +585,17 @@ export abstract class Statement<
         break;
       case Operator.EXISTS:
         // existence is a unary condition: it carries no comparison value and
-        // cannot be serialized to a method name. A positive `exists()` squashes
-        // to the repository `existsOf` prepared statement; a negated
-        // `exists(false)` has no prepared equivalent and must run on the general
-        // query path, so it cannot be forced into a prepared method name.
-        throw new UnsupportedError(
-          "EXISTS conditions cannot be serialized to a prepared method name; a positive exists() squashes to the existsOf prepared statement when forcePrepareSimpleQueries is enabled, while exists(false) must run on the general query path without forced simple-query preparation"
-        );
+        // therefore has no `findBy`-style method name. A single EXISTS
+        // condition is squashed to its `existsOf`/`existsNotOf` prepared
+        // statement by `squash()` before this method is reached; when reached
+        // here (e.g. as a leg of a complex AND/OR condition) the unary
+        // prepared method name is the only serialization available.
+        result.method =
+          comparison === false
+            ? PreparedStatementKeys.EXISTS_NOT_OF
+            : PreparedStatementKeys.EXISTS_OF;
+        result.args = [...(result.args || []), attr1 as string];
+        break;
       default:
         throw new QueryError(`Unsupported operator ${operator}`);
     }
@@ -620,33 +624,22 @@ export abstract class Statement<
         return undefined;
     }
 
-    // Simple exists query: a single positive existence condition maps directly
-    // onto the repository existsOf prepared statement. Negated existence
-    // (`exists(false)`) cannot be expressed by that positive-only prepared
-    // method, so it deliberately stays on the general query path (build +
-    // adapter parseCondition) instead of squashing.
-    if (
-      this.whereCondition &&
-      this.whereCondition["operator"] === Operator.EXISTS &&
-      this.whereCondition["comparison"] !== false
-    ) {
-      return {
-        class: this.fromSelector,
-        method: PreparedStatementKeys.EXISTS_OF,
-        args: [this.whereCondition["attr1"]],
-        params: {},
-      } as PreparedStatement<M>;
-    }
-
-    // Any other existence condition (i.e. negated `exists(false)`) has no
-    // prepared-statement representation. Return undefined so the general query
-    // path handles it; without this guard the generic findBy fallback below would
-    // serialize EXISTS into a bogus method name and silently return wrong results.
+    // Simple exists query: a single existence condition maps directly onto the
+    // repository `existsOf` prepared statement when positive, and onto the
+    // `existsNotOf` prepared statement when negated (`exists(false)`).
     if (
       this.whereCondition &&
       this.whereCondition["operator"] === Operator.EXISTS
     ) {
-      return undefined;
+      return {
+        class: this.fromSelector,
+        method:
+          this.whereCondition["comparison"] === false
+            ? PreparedStatementKeys.EXISTS_NOT_OF
+            : PreparedStatementKeys.EXISTS_OF,
+        args: [this.whereCondition["attr1"]],
+        params: {},
+      } as PreparedStatement<M>;
     }
 
     // Try to squash simple aggregation queries without where conditions
@@ -873,6 +866,21 @@ export abstract class Statement<
         this.overrides || {},
         this.fromSelector
       ));
+
+    // A single EXISTS condition is unary: it has no general method-name
+    // serialization, so it always squashes to its `existsOf`/`existsNotOf`
+    // prepared statement, whether or not the force flags are set.
+    if (
+      this.isSimpleQuery() &&
+      this.whereCondition &&
+      this.whereCondition["operator"] === Operator.EXISTS
+    ) {
+      const squashed = this.squash(ctx as ContextOf<A>);
+      if (squashed) {
+        this.prepared = squashed;
+        return this;
+      }
+    }
 
     if (
       this.isSimpleQuery() &&

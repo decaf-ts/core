@@ -1444,6 +1444,24 @@ export class Repository<
     return Array.isArray(result) ? result.length > 0 : !!result;
   }
 
+  @prepared()
+  async existsNotOf(
+    key: keyof M,
+    ...args: MaybeContextualArg<ContextOf<A>>
+  ): Promise<boolean> {
+    const { log, ctxArgs } = (
+      await this.logCtx(args, PreparedStatementKeys.EXISTS_NOT_OF, true)
+    ).for(this.existsNotOf);
+    log.verbose(
+      `checking absence of ${Model.tableName(this.class)} by ${key as string}`
+    );
+    const result = await this.select()
+      .where(this.attr(key).exists(false))
+      .limit(1)
+      .execute(...ctxArgs);
+    return Array.isArray(result) ? result.length > 0 : !!result;
+  }
+
   /**
    * @description Finds the maximum value of a field
    * @summary Returns the maximum value for the specified field across all records

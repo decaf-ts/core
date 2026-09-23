@@ -3,7 +3,6 @@ import { uses } from "@decaf-ts/decoration";
 import {
   BaseModel,
   Condition,
-  UnsupportedError,
   column,
   pk,
   Repository,
@@ -59,6 +58,14 @@ describe("exists against the RAM adapter", () => {
 
   it("Repository.existsOf returns false when the field is absent on every record", async () => {
     await expect(repo.existsOf("alias")).resolves.toBe(false);
+  });
+
+  it("Repository.existsNotOf returns true when the field is absent on some record", async () => {
+    await expect(repo.existsNotOf("nickname")).resolves.toBe(true);
+  });
+
+  it("Repository.existsNotOf returns false when the field is present on every record", async () => {
+    await expect(repo.existsNotOf("name")).resolves.toBe(false);
   });
 
   it("does not expose a statement-level exists terminal on the query chain", () => {
@@ -173,13 +180,19 @@ describe("exists against the RAM adapter", () => {
     expect(page.map((r) => r.id).sort()).toEqual(["3"]);
   });
 
-  it("classifies exists(false) as a simple query but does not squash it to existsOf", async () => {
+  it("squashes exists(false) to existsNotOf and resolves the negated boolean through execute()", async () => {
     const stmt = repo
       .override({ forcePrepareSimpleQueries: true })
       .select()
       .where(Condition.attribute<ExistsRamModel>("nickname").exists(false));
 
     expect((stmt as any).isSimpleQuery()).toBe(true);
-    await expect(stmt.prepare()).rejects.toThrow(UnsupportedError);
+    await stmt.prepare();
+
+    expect((stmt as any).prepared).toMatchObject({
+      method: "existsNotOf",
+      args: ["nickname"],
+    });
+    await expect(stmt.execute()).resolves.toBe(true);
   });
 });

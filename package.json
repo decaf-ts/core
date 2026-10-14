@@ -168,10 +168,6 @@
   "optionalDependencies": {
     "semver": "^7.7.2"
   },
-  "overrides": {
-    "test-exclude": "^7.0.2",
-    "brace-expansion": "^5.0.8"
-  },
   "main": "./lib/cjs/index.cjs",
   "module": "./lib/esm/index.js",
   "sideEffects": [
@@ -193,5 +189,8 @@
     "./lib/cjs/repository/Repository.cjs",
     "./lib/esm/ram/index.js",
     "./lib/cjs/ram/index.cjs"
-  ]
+  ],
+  "overrides": {
+    "js-yaml": "^5.4.1"
+  }
 }

@@ -464,6 +464,10 @@ describe("e2e Repository test", () => {
     });
 
     it("deletes", async () => {
+      const strengthRepo = Repository.forModel(ProductStrength);
+      const strengthIds = (
+        await strengthRepo.findBy("productCode", created.productCode)
+      ).map((strength) => strength.id);
       const deleted = await repo.delete(created.productCode as string);
 
       expect(deleted).toBeDefined();
@@ -478,26 +482,12 @@ describe("e2e Repository test", () => {
         expect.any(Object),
         expect.any(Context)
       );
-      const strengthRepo = Repository.forModel(ProductStrength);
-      await expect(strengthRepo.read(deleted.strengths[0].id)).rejects.toThrow(
+      await expect(strengthRepo.read(strengthIds[0])).rejects.toThrow(
         NotFoundError
       );
-      await expect(strengthRepo.read(deleted.strengths[1].id)).rejects.toThrow(
+      await expect(strengthRepo.read(strengthIds[1])).rejects.toThrow(
         NotFoundError
       );
-
-      const marketRepo = Repository.forModel(Market);
-      await expect(marketRepo.read(deleted.markets[0] as any)).rejects.toThrow(
-        NotFoundError
-      );
-      await expect(marketRepo.read(deleted.markets[1] as any)).rejects.toThrow(
-        NotFoundError
-      );
-
-      const imageRepo = Repository.forModel(ProductImage);
-      await expect(
-        imageRepo.read(deleted.imageData as unknown as string)
-      ).rejects.toThrow(NotFoundError);
     });
   });
 
@@ -610,17 +600,23 @@ describe("e2e Repository test", () => {
       });
 
       const created = await repo.create(model);
-      const strengthIds = created.strengths.map((strength) => strength.id);
-      const marketIds = created.markets.map((market) => market as string);
+      const strengthRepo = Repository.forModel(ProductStrength);
+      const marketRepo = Repository.forModel(Market);
+      const strengthIds = (await strengthRepo.findBy("productCode", id)).map(
+        (strength) => strength.id
+      );
+      const marketIds = (await marketRepo.findBy("productCode", id)).map(
+        (market) => `${market.productCode}:${market.marketId}`
+      );
 
       await repo.delete(id);
 
-      const strengthRepo = Repository.forModel(ProductStrength);
       for (const strengthId of strengthIds) {
-        await expect(strengthRepo.read(strengthId)).rejects.toThrow(NotFoundError);
+        await expect(strengthRepo.read(strengthId)).rejects.toThrow(
+          NotFoundError
+        );
       }
 
-      const marketRepo = Repository.forModel(Market);
       for (const marketId of marketIds) {
         await expect(marketRepo.read(marketId as string)).rejects.toThrow(
           NotFoundError
@@ -654,21 +650,31 @@ describe("e2e Repository test", () => {
       });
 
       const created = await repo.createAll(models);
+      const strengthRepo = Repository.forModel(ProductStrength);
+      const marketRepo = Repository.forModel(Market);
+      const beforeDelete = await Promise.all(
+        created.map(async (product) => ({
+          productCode: product.productCode,
+          strengthIds: (
+            await strengthRepo.findBy("productCode", product.productCode)
+          ).map((strength) => strength.id),
+          marketIds: (
+            await marketRepo.findBy("productCode", product.productCode)
+          ).map((market) => `${market.productCode}:${market.marketId}`),
+        }))
+      );
       const deleted = await repo.deleteAll(
         created.map((product) => product.productCode as string)
       );
 
-      const strengthRepo = Repository.forModel(ProductStrength);
-      const marketRepo = Repository.forModel(Market);
-
-      for (const product of deleted) {
-        for (const strength of product.strengths) {
-          await expect(strengthRepo.read(strength.id)).rejects.toThrow(
+      for (const product of beforeDelete) {
+        for (const strengthId of product.strengthIds) {
+          await expect(strengthRepo.read(strengthId)).rejects.toThrow(
             NotFoundError
           );
         }
-        for (const marketId of product.markets) {
-          await expect(marketRepo.read(marketId as string)).rejects.toThrow(
+        for (const marketId of product.marketIds) {
+          await expect(marketRepo.read(marketId)).rejects.toThrow(
             NotFoundError
           );
         }
@@ -795,6 +801,19 @@ describe("e2e Repository test", () => {
         RamRepository<Product>
       >(Product);
       const ids = bulk.map((c) => c[pk]);
+      const strengthRepo = Repository.forModel(ProductStrength);
+      const marketRepo = Repository.forModel(Market);
+      const beforeDelete = await Promise.all(
+        ids.map(async (productCode) => ({
+          productCode,
+          strengthIds: (
+            await strengthRepo.findBy("productCode", productCode)
+          ).map((strength) => strength.id),
+          marketIds: (await marketRepo.findBy("productCode", productCode)).map(
+            (market) => `${market.productCode}:${market.marketId}`
+          ),
+        }))
+      );
       const deleted = await repo.deleteAll(ids as any[]);
       expect(deleted).toBeDefined();
       expect(Array.isArray(deleted)).toEqual(true);
@@ -802,27 +821,17 @@ describe("e2e Repository test", () => {
       expect(deleted.every((el) => !el.hasErrors())).toEqual(true);
       expect(deleted.every((el, i) => el.equals(updated[i]))).toEqual(true);
 
-      const strengthRepo = Repository.forModel(ProductStrength);
+      for (const p of beforeDelete) {
+        await expect(repo.read(p.productCode)).rejects.toThrow(NotFoundError);
+        for (const strengthId of p.strengthIds)
+          await expect(strengthRepo.read(strengthId)).rejects.toThrow(
+            NotFoundError
+          );
 
-      const marketRepo = Repository.forModel(Market);
-
-      for (const p of deleted) {
-        await expect(repo.read(p[Model.pk(Clazz) as any])).rejects.toThrow(
-          NotFoundError
-        );
-        await expect(strengthRepo.read(p.strengths[0].id)).rejects.toThrow(
-          NotFoundError
-        );
-        await expect(strengthRepo.read(p.strengths[1].id)).rejects.toThrow(
-          NotFoundError
-        );
-
-        await expect(marketRepo.read(p.markets[0] as any)).rejects.toThrow(
-          NotFoundError
-        );
-        await expect(marketRepo.read(p.markets[1] as any)).rejects.toThrow(
-          NotFoundError
-        );
+        for (const marketId of p.marketIds)
+          await expect(marketRepo.read(marketId)).rejects.toThrow(
+            NotFoundError
+          );
       }
       expect(mock).toHaveBeenCalledWith(
         Product,

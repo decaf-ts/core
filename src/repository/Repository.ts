@@ -56,6 +56,7 @@ import { Paginator } from "../query/Paginator";
 import { SerializedPage } from "../query/Paginator";
 import { getFilters } from "../persistence/event-filters";
 import { Context } from "../persistence/index";
+import { UnsupportedError } from "../persistence/errors";
 
 /**
  * @description Type alias for Repository class with simplified generic parameters.
@@ -211,6 +212,16 @@ export class Repository<
 
   get filters() {
     return getFilters(this);
+  }
+
+  private assertDefinedPrimaryKeys(
+    keys: PrimaryKeyType | PrimaryKeyType[] | undefined
+  ): asserts keys is PrimaryKeyType | PrimaryKeyType[] {
+    if (typeof keys === "undefined")
+      throw new UnsupportedError("Primary key cannot be undefined");
+
+    if (Array.isArray(keys) && keys.some((key) => typeof key === "undefined"))
+      throw new UnsupportedError("Primary keys cannot contain undefined");
   }
 
   constructor(
@@ -600,6 +611,7 @@ export class Repository<
     key: PrimaryKeyType,
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<[PrimaryKeyType, ...any[], ContextOf<A>]> {
+    this.assertDefinedPrimaryKeys(key);
     const { ctx, ctxArgs, log } = (
       await this.logCtx(args, OperationKeys.READ, true)
     ).for(this.readPrefix);
@@ -650,6 +662,7 @@ export class Repository<
     keys: PrimaryKeyType[],
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<[PrimaryKeyType[], ...any[], ContextOf<A>]> {
+    this.assertDefinedPrimaryKeys(keys);
     const { ctx, ctxArgs, log } = (
       await this.logCtx(args, BulkCrudOperationKeys.READ_ALL, true)
     ).for(this.readAllPrefix);
@@ -891,6 +904,7 @@ export class Repository<
     key: PrimaryKeyType,
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<[PrimaryKeyType, ...any[], ContextOf<A>]> {
+    this.assertDefinedPrimaryKeys(key);
     const { ctx, ctxArgs, log } = (
       await this.logCtx(args, OperationKeys.DELETE, true)
     ).for(this.deletePrefix);
@@ -941,6 +955,7 @@ export class Repository<
     keys: PrimaryKeyType[],
     ...args: MaybeContextualArg<ContextOf<A>>
   ): Promise<[PrimaryKeyType[], ...any[], ContextOf<A>]> {
+    this.assertDefinedPrimaryKeys(keys);
     const { ctx, ctxArgs, log } = (
       await this.logCtx(args, BulkCrudOperationKeys.DELETE_ALL, true)
     ).for(this.deleteAllPrefix);

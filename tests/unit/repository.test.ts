@@ -11,9 +11,13 @@ const ramAdapter = new RamAdapter();
 import { Repository } from "../../src/repository/Repository";
 import { model, Model } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
-import { Context, NotFoundError, OperationKeys } from "@decaf-ts/db-decorators";
+import {
+  Context,
+  NotFoundError,
+  OperationKeys,
+} from "@decaf-ts/db-decorators";
+import { Repo, UnsupportedError } from "../../src";
 import { TestModel } from "./TestModel";
-import { Repo } from "../../src";
 import { uses } from "@decaf-ts/decoration";
 
 describe("Repository", () => {
@@ -105,6 +109,23 @@ describe("Repository", () => {
       expect.any(Object),
       expect.any(Context)
     );
+  });
+
+  it("rejects undefined keys before invoking the adapter", async () => {
+    const undefinedKey = undefined as unknown as string;
+    const undefinedKeys = [undefinedKey];
+    const read = jest.spyOn(ramAdapter, "read");
+    const remove = jest.spyOn(ramAdapter, "delete");
+
+    await expect(repo.read(undefinedKey)).rejects.toThrow(UnsupportedError);
+    await expect(repo.readAll(undefinedKeys)).rejects.toThrow(UnsupportedError);
+    await expect(repo.delete(undefinedKey)).rejects.toThrow(UnsupportedError);
+    await expect(repo.deleteAll(undefinedKeys)).rejects.toThrow(
+      UnsupportedError
+    );
+
+    expect(read).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
   });
 
   describe("Repository registration", () => {

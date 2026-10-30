@@ -35,7 +35,7 @@ export type MigrationRule<
 > = (qr: QUERYRUNNER, adapter: A, ctx: ContextOf<A>) => Promise<boolean>;
 
 export type MigrationMetadata = {
-  precedence?: Migration<any, any> | string;
+  precedence?: Migration<any, any> | string | null;
   flavour: string;
   rules?: MigrationRule[];
 };

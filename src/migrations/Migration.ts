@@ -23,7 +23,7 @@ export abstract class AbsMigration<
   implements Migration<A, R>
 {
   private _reference?: string;
-  private _precedence?: Migration<any, any> | string;
+  private _precedence?: Migration<any, any> | string | null;
 
   transaction = true;
 
@@ -42,19 +42,19 @@ export abstract class AbsMigration<
     return this._reference;
   }
 
-  get precedence() {
+  get precedence(): Migration<any, any> | string | null {
     if (typeof this._precedence === "undefined") {
       const meta = Metadata.get(
         this.constructor as any,
         PersistenceKeys.MIGRATION
       );
-      this._precedence = meta.precedence;
-      if (!this._precedence)
+      if (!meta || typeof meta.precedence === "undefined")
         throw new InternalError(
-          `No precedence defined for ${this.constructor.name}. did you use @migration()?`
+          `No migration metadata found for ${this.constructor.name}. did you use @migration()?`
         );
+      this._precedence = meta.precedence;
     }
-    return this._precedence;
+    return this._precedence!;
   }
 
   protected constructor() {

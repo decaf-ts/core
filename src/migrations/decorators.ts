@@ -118,8 +118,10 @@ export function migration(
         parsedRules = normalizedRules;
       }
 
-      if (parsedPrecedence === undefined && parsedPrecedence !== null)
-        parsedPrecedence = MigrationService;
+      // Missing precedence means this migration is not part of a versioned
+      // migration plan. Keep it registered so callers can still invoke it by
+      // reference (for example through a contract migration endpoint).
+      if (parsedPrecedence === undefined) parsedPrecedence = null;
 
       const fallbackFlavour =
         Metadata.flavourOf(original as Constructor) || DefaultFlavour;

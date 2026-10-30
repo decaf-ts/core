@@ -27,8 +27,10 @@ type ResolvedMigration = {
   migration: Migration<any, any>;
   flavour: string;
   reference: string;
-  version: string;
+  version?: string;
 };
+
+type VersionedMigration = ResolvedMigration & { version: string };
 
 type VersionTask = {
   version: string;
@@ -274,8 +276,8 @@ export class MigrationService<
    *          or `0` when bases are equal.
    */
   protected compareByBaseVersion(
-    migration1: ResolvedMigration,
-    migration2: ResolvedMigration
+    migration1: VersionedMigration,
+    migration2: VersionedMigration
   ): number {
     const base1 = this.versioning.base?.(migration1.version) ?? migration1.version;
     const base2 = this.versioning.base?.(migration2.version) ?? migration2.version;
@@ -283,7 +285,7 @@ export class MigrationService<
     return this.versioning.compare(migration1.version, migration2.version);
   }
 
-  protected sort(migrations: ResolvedMigration[]) {
+  protected sort(migrations: VersionedMigration[]): VersionedMigration[] {
     const sorted = [...migrations].sort((migration1, migration2) => {
       const baseDelta = this.compareByBaseVersion(migration1, migration2);
       if (baseDelta !== 0) return baseDelta;
@@ -337,11 +339,16 @@ export class MigrationService<
       (meta?.reference as string | undefined) || migration.reference;
     const precedenceHint = this.precedenceHint(migration);
 
+    const hasVersion =
+      migration.precedence !== null &&
+      typeof migration.precedence !== "undefined";
     return {
       migration,
       flavour,
       reference,
-      version: this.normalizeVersion(reference, precedenceHint),
+      version: hasVersion
+        ? this.normalizeVersion(reference, precedenceHint)
+        : undefined,
     };
   }
 
@@ -393,22 +400,36 @@ export class MigrationService<
       ? this.normalizeVersion(options.toVersion)
       : undefined;
 
-    const migrations = this.sort(
-      this.collectMigrations(options?.targetFlavour, options?.includeGeneric)
-    );
+    const candidates = this.collectMigrations(
+      options?.targetFlavour,
+      options?.includeGeneric
+    ).filter((migration) => {
+      if (migration.version)
+        return (
+          !this.allowedReferences ||
+          this.allowedReferences.has(migration.reference)
+        );
+      return this.allowedReferences?.has(migration.reference) ?? false;
+    });
 
-    return migrations.filter((migration) => {
-      if (
-        this.allowedReferences &&
-        !this.allowedReferences.has(migration.reference)
+    // Unversioned migrations are callable only by explicitly naming their
+    // reference. They never enter version comparisons or version sorting.
+    const namedUnversioned = candidates.filter(
+      (migration) => !migration.version
+    );
+    const versioned = this.sort(
+      candidates.filter(
+        (migration): migration is VersionedMigration => !!migration.version
       )
+    ).filter((migration) => {
+      if (fromVersion && !this.versioning.gt(migration.version!, fromVersion))
         return false;
-      if (fromVersion && !this.versioning.gt(migration.version, fromVersion))
-        return false;
-      if (toVersion && !this.versioning.lte(migration.version, toVersion))
+      if (toVersion && !this.versioning.lte(migration.version!, toVersion))
         return false;
       return true;
     });
+
+    return [...versioned, ...namedUnversioned];
   }
 
   protected async executeMigration(
@@ -475,6 +496,10 @@ export class MigrationService<
   ): VersionTask[] {
     const byVersion = new Map<string, ResolvedMigration[]>();
     for (const migration of plan) {
+      if (!migration.version)
+        throw new InternalError(
+          `Unversioned migration ${migration.reference} cannot be queued as a version task; run it directly by reference`
+        );
       const current = byVersion.get(migration.version) || [];
       current.push(migration);
       byVersion.set(migration.version, current);

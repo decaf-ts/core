@@ -121,45 +121,25 @@ describe("Adapter migrations", () => {
 
   it("runs migrations", async () => {
     await migrations.migrate();
-    expect(f1).toHaveBeenCalledTimes(2);
-    expect(fMigrate).toHaveBeenCalledTimes(2);
-    expect(f2).toHaveBeenCalledTimes(2);
+    // The migration with no version/precedence is callable only by reference.
+    expect(f1).toHaveBeenCalledTimes(1);
+    expect(fMigrate).toHaveBeenCalledTimes(1);
+    expect(f2).toHaveBeenCalledTimes(1);
 
-    expect(f1).toHaveBeenNthCalledWith(
-      1,
-      expect.anything(),
-      expect.any(RamAdapter),
-      expect.anything()
-    );
-    expect(f1).toHaveBeenNthCalledWith(
-      2,
-      expect.anything(),
+    expect(f1).toHaveBeenCalledWith(
+      "2",
       expect.any(OtherAdapter),
       expect.anything()
     );
 
-    expect(fMigrate).toHaveBeenNthCalledWith(
-      1,
-      expect.anything(),
-      expect.any(RamAdapter),
-      expect.anything()
-    );
-    expect(fMigrate).toHaveBeenNthCalledWith(
-      2,
-      expect.anything(),
+    expect(fMigrate).toHaveBeenCalledWith(
+      "2",
       expect.any(OtherAdapter),
       expect.anything()
     );
 
-    expect(f2).toHaveBeenNthCalledWith(
-      1,
-      expect.anything(),
-      expect.any(RamAdapter),
-      expect.anything()
-    );
-    expect(f2).toHaveBeenNthCalledWith(
-      2,
-      expect.anything(),
+    expect(f2).toHaveBeenCalledWith(
+      "2",
       expect.any(OtherAdapter),
       expect.anything()
     );

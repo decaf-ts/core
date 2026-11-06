@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 
 import { Model, model } from "@decaf-ts/decorator-validation";
 import { pk, sequence } from "../../src/identity/decorators";

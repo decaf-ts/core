@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { MethodQueryBuilderRepo } from "./MethodQueryBuilderRepo";
 import { OrderDirection, QueryError } from "../../src";
 // import { RamAdapter } from "../../src/ram/RamAdapter";

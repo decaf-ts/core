@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { uses, Decoration } from "@decaf-ts/decoration";
 import { Model, ModelArg, model } from "@decaf-ts/decorator-validation";
 import { DBKeys } from "@decaf-ts/db-decorators";

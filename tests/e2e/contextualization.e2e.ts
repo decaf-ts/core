@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { RamAdapter, RamRepository } from "../../src/ram";
 import {
   column,
@@ -204,7 +205,7 @@ describe("Contextualization", () => {
           expect(ctxLog).toEqual(expect.arrayContaining(["ram adapter"]));
 
           let m: TestContextModel | number | number[] | TestContextModel[];
-          let args: any[] = [];
+          let args: any[];
           switch (op) {
             case OperationKeys.CREATE:
               m = new TestContextModel(cached);

@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { ClientBasedService, Service, service } from "../../src/index";
 
 describe("Service injection and setup", () => {

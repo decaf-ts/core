@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { Metadata } from "@decaf-ts/decoration";
 import { RamAdapter, RamFlavour } from "../../src/ram";
 import { AbsMigration, migration, MigrationService } from "../../src/migrations";

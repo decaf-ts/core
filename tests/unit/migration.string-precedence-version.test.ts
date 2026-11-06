@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { migration } from "../../src/migrations/decorators";
 import { MigrationService } from "../../src/migrations/MigrationService";
 import { AbsMigration } from "../../src/migrations/Migration";

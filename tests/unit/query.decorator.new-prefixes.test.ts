@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { model } from "@decaf-ts/decorator-validation";
 import { uses } from "@decaf-ts/decoration";
 import { BaseModel, column, pk, query, table, OrderDirection } from "../../src";

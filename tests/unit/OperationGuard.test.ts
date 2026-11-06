@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { BaseModel, column, ModelService, pk, read, table } from "../../src";
 import { BlockOperations, OperationKeys } from "@decaf-ts/db-decorators";
 import { model, type ModelArg, required } from "@decaf-ts/decorator-validation";

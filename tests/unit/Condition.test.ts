@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { Condition } from "../../src/query/Condition";
 import { Operator } from "../../src/query/constants";
 import { Model } from "@decaf-ts/decorator-validation";

@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { TaskLogger, getLogPipe } from "../../src/tasks/logging";
 import { LogLevel, Logger, LoggingConfig, LogMeta } from "@decaf-ts/logging";
 import { TaskEventModel } from "../../src/tasks/models/TaskEventModel";

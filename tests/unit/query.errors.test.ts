@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { PagingError, QueryError } from "../../src/query/errors";
 import { BaseError } from "@decaf-ts/db-decorators";
 

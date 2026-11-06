@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 

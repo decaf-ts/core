@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 /**
  * This test validates that the TypeScript interfaces are correctly defined
  * and that all the new features compile without errors

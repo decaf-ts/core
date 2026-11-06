@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { MigrationService } from "../../src/migrations/MigrationService";
 import { TaskModel } from "../../src/tasks/models/TaskModel";
 import { TaskStatus } from "../../src/tasks/constants";

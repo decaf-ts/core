@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { RamAdapter, RamFlavour } from "../../src/ram";
 import { column, ModelService, pk, Repo, repository, table } from "../../src";
 import { service } from "../../src/utils/decorators";

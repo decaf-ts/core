@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { ObserverError } from "../../src/repository/errors";
 
 // Group related tests for repository errors

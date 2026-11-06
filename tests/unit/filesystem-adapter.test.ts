@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import "../../src/overrides";
 import { promises as fs } from "node:fs";
 import * as path from "node:path";

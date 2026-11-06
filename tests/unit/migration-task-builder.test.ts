@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { MigrationTaskBuilder } from "../../src/migrations/MigrationTaskBuilder";
 import { TaskType } from "../../src/tasks/constants";
 

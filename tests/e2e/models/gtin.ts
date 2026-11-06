@@ -65,7 +65,7 @@ function calculateGtinCheckSum(digits: string): string {
 
     return nearest - sum + "";
   } catch (e) {
-    throw new Error(`Did this received numbers? ${e}`);
+    throw new Error(`Did this received numbers? ${e}`, { cause: e });
   }
 }
 

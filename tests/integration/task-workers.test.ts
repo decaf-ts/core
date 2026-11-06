@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { FilesystemAdapter } from "../../src/fs";
 import "../../src/index";
 import "../../src/overrides/index";

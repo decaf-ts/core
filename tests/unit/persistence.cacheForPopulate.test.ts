@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { Adapter } from "../../src";
 import { cacheModelForPopulate } from "../../src/model/construction";
 import { RamAdapter, RamFlavour } from "../../src/ram";

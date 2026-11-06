@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { RamAdapter, RamFlavour } from "../../src/ram/index";
 RamAdapter.decoration();
 import { Adapter, createdBy, pk, Repository } from "../../src/index";

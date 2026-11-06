@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import "reflect-metadata";
 import { repository } from "../../src/repository/decorators";
 import { Repository } from "../../src/repository/Repository";

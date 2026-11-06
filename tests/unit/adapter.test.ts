@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { RamAdapter, RamRepository } from "../../src/ram";
 const adapter = new RamAdapter();
 import { Adapter, repository, Repository } from "../../src";

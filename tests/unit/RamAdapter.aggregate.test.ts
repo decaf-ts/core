@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { RamAdapter } from "../../src/ram/RamAdapter";
 import { Model, model } from "@decaf-ts/decorator-validation";
 import { pk } from "../../src";

@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { allowIf, blockIf } from "../../src/auth/decorators";
 import { AuthorizationError } from "../../src/utils/errors";

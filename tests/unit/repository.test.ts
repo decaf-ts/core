@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { Dispatch } from "../../src/persistence/Dispatch";
 console.log(Dispatch);
 import { Adapter, BaseModel, Observer, repository } from "../../src";

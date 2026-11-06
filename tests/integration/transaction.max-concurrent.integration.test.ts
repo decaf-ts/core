@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 /**
  * @description Integration tests for the default `ContextLock`'s `maxConcurrentTransactions` gating
  * @summary Verifies the default (non-overridden) `ContextLock` behavior driven by the

@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { InternalError } from "@decaf-ts/db-decorators";
 import { MigrationService } from "../../src/migrations/MigrationService";
 import { SemverMigrationVersioning } from "../../src/migrations/SemverMigrationVersioning";

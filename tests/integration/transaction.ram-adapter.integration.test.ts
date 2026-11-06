@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 /**
  * @description End-to-end test of @transactional through a real Repository+RamAdapter CRUD flow
  * @summary Verifies that wrapping real create/read operations in @transactional doesn't break normal

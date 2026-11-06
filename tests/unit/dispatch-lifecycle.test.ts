@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 /**
  * Dispatch lifecycle: a dispatcher that listens to a backend (changes feed,
  * event stream, ...) starts asynchronously. Closing it — the last observer

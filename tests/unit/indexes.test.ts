@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { Model, model, required } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { index, pk } from "../../src";

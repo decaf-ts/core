@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 /**
  * @description Test pinning down @transactional registration semantics
  * @summary `@decaf-ts/transactional-decorators` and `@decaf-ts/core` both register a decorator under

@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { MigrationService } from "../../src/migrations/MigrationService";
 import { SemverMigrationVersioning } from "../../src/migrations/SemverMigrationVersioning";
 import { StandardMigrationVersioning } from "../../src/migrations/StandardMigrationVersioning";

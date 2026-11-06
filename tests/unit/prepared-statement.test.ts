@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { minlength, model, required, Model } from "@decaf-ts/decorator-validation";
 import type { ModelArg } from "@decaf-ts/decorator-validation";
 import { RamAdapter } from "../../src/ram/RamAdapter";

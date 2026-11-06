@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import "reflect-metadata";
 import { Service, service } from "../../src/index";
 import { Injectables } from "@decaf-ts/injectable-decorators";

@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 /**
  * @description End-to-end test of @transactional with deep nesting and real CRUD operations
  * @summary Verifies that 3+ levels of nested @transactional calls, each performing several

@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 /**
  * @description Test for single transaction survival across nested @transactional calls
  * @summary Verifies that nested @transactional() calls (across Repository method boundaries) reuse

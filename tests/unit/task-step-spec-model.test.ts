@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import "../../src/index";
 import { CompositeTaskBuilder } from "../../src/tasks/builder";
 import { TaskStepSpecModel } from "../../src/tasks/models/TaskStepSpecModel";

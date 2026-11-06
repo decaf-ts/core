@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { ClientBasedService, ContextualArgs, Service } from "../../src/index";
 import { service } from "../../src/utils/decorators";
 import { Injectables } from "@decaf-ts/injectable-decorators";

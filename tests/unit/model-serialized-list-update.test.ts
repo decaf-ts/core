@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import "../../src/overrides";
 import { Adapter, BaseModel, column, pk, Repository, table } from "../../src";
 import { RamFlavour } from "../../src/ram/index";

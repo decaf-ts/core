@@ -1,3 +1,4 @@
+import { it } from "@decaf-ts/for-testing";
 import { Condition, MethodQueryBuilder, OrderDirection } from "../../src";
 
 describe("MethodQueryBuilder - New Prefixes", () => {

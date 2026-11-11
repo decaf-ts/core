@@ -153,7 +153,6 @@
   "homepage": "https://github.com/decaf-ts/core#readme",
   "devDependencies": {
     "@decaf-ts/for-testing": "^1.3.7",
-    "@decaf-ts/logging": "^0.30.3",
     "@decaf-ts/utils": "^2.0.6",
     "@eslint/js": "^10.0.1",
     "@types/jest": "^30.0.0",
@@ -167,9 +166,10 @@
   "dependencies": {
     "@decaf-ts/db-decorators": "^0.20.0",
     "@decaf-ts/decoration": "^0.20.0",
-    "@decaf-ts/decorator-validation": "^1.24.0",
-    "@decaf-ts/injectable-decorators": "^1.21.0",
-    "@decaf-ts/transactional-decorators": "^0.14.0"
+    "@decaf-ts/decorator-validation": "^1.24.1",
+    "@decaf-ts/injectable-decorators": "^1.21.1",
+    "@decaf-ts/transactional-decorators": "^0.14.1",
+    "@decaf-ts/logging": "^0.30.3"
   },
   "optionalDependencies": {
     "semver": "^7.8.6"

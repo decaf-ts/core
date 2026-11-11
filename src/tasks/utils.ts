@@ -31,3 +31,10 @@ export function serializeError(err: any): TaskErrorModel {
 export function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
+
+/**
+ * @description Value that clears a persisted task field on update.
+ * @summary Updates merge into the stored record and ignore `undefined`, so fields are
+ * cleared by assigning `null`. Typed as `any` so it can be assigned to optional fields.
+ */
+export const CLEARED: any = null;

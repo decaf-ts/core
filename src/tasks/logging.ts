@@ -13,8 +13,11 @@ import { TaskEventModel } from "./models/TaskEventModel";
 import { TaskEventType, TaskStatus } from "./constants";
 import { TaskLogEntryModel } from "./models/index";
 
+/** buffered log entry; the optional 4th element is the composite step that produced it */
+export type TaskLogTuple = [LogLevel, string, any, number?];
+
 export class TaskLogger<LOG extends Logger> implements Logger {
-  protected history: [LogLevel, string, any][] = [];
+  protected history: TaskLogTuple[] = [];
 
   constructor(
     protected logger: LOG,
@@ -26,23 +29,41 @@ export class TaskLogger<LOG extends Logger> implements Logger {
       (this as any)[level] = new Proxy(this[level], {
         apply: (target, thisArg, argArray) => {
           target.apply(thisArg, argArray as [string, any]);
-          thisArg.push(level, ...argArray);
+          // only msg + first meta are buffered (push's 4th argument is the step)
+          thisArg.push(level, argArray[0], argArray[1]);
         },
       });
     });
   }
 
-  push(level: LogLevel, string: string, meta?: any) {
+  push(level: LogLevel, string: string, meta?: any, step?: number) {
     if (this.history.length >= this.maxBufferSize)
       this.history.splice(0, this.history.length - this.bufferSize);
-    this.history.push([level, string, meta]);
+    this.history.push(
+      step === undefined ? [level, string, meta] : [level, string, meta, step]
+    );
+  }
+
+  /**
+   * @description Returns a view of this logger whose buffered entries are tagged with `step`.
+   * @summary The view shares this logger's buffer, so a single flush still persists every
+   * step's entries, each attributed to the step that logged it (concurrent composite steps
+   * share one task logger).
+   */
+  forStep(step: number): TaskLogger<LOG> {
+    return new Proxy(this, {
+      get(target: TaskLogger<LOG>, p: string | symbol, receiver: any): any {
+        if (p === "push")
+          return (level: LogLevel, msg: string, meta?: any) =>
+            target.push(level, msg, meta, step);
+        return Reflect.get(target, p, receiver);
+      },
+    });
   }
 
   flush<PIPE extends LogPipe>(
     pipe?: PIPE
-  ): PIPE extends LogPipe
-    ? Promise<[LogLevel, string, any][]>
-    : [LogLevel, string, any][] {
+  ): PIPE extends LogPipe ? Promise<TaskLogTuple[]> : TaskLogTuple[] {
     const result = this.history;
     this.history = [];
     if (pipe && result.length)

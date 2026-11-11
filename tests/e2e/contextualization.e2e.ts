@@ -187,7 +187,7 @@ describe("Contextualization", () => {
     crudOps
       // .filter((c) => c === OperationKeys.CREATE)
       .forEach((op) => {
-        it.skip(`Should always expect a context for ${op} operation`, async () => {
+        it(`Should always expect a context for ${op} operation`, async () => {
           await expect(adapter[op](testModel)).rejects.toThrow(
             "No context provided"
           );

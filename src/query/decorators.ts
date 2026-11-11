@@ -137,11 +137,12 @@ export function query(options: QueryOptions = {}) {
                   ...options,
                 } as QueryOptions;
 
+                const [primaryOrder, ...secondaryOrders] = orderBy || [];
                 const params = [
                   // keep the order to ensure the expected behavior
                   {
                     key: "orderBy",
-                    value: (orderBy || [])[0], // orderBy only supports one sentence
+                    value: primaryOrder,
                     allowed: allowOrderBy,
                   },
                   { key: "limit", value: limit, allowed: allowLimit },
@@ -156,6 +157,10 @@ export function query(options: QueryOptions = {}) {
                       );
                     } else if (param.allowed) {
                       stmt = (stmt as any)[param.key](param.value);
+                      // further sort keys (OrderBy...ThenBy...) continue the orderBy chain
+                      if (param.key === "orderBy")
+                        for (const order of secondaryOrders)
+                          stmt = (stmt as any).thenBy(order);
                     }
                   }
                 }

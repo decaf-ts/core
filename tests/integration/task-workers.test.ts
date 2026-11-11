@@ -4,6 +4,7 @@ import "../../src/index";
 import "../../src/overrides/index";
 import { promises as fs } from "node:fs";
 import * as path from "node:path";
+import * as ts from "typescript";
 import { MultiLock } from "@decaf-ts/transactional-decorators";
 import { Model } from "@decaf-ts/decorator-validation";
 import { TaskBuilder } from "../../src/tasks/builder";
@@ -20,9 +21,29 @@ import { createTempFs, TempFsHandle } from "../unit/fs/tempFs";
 import "./fixtures/WorkerThreadTask";
 import { Adapter } from "../../src/index";
 
-const workerEntry = path.join(__dirname, "../../lib/workers/workerThread.cjs");
+const workerEntry = path.join(__dirname, "../../lib/cjs/workers/workerThread.cjs");
 
 jest.setTimeout(300000);
+
+const fixtureSource = path.join(__dirname, "fixtures", "WorkerThreadTask.ts");
+
+// worker threads load plain CJS against the built package; generate it from the TS fixture
+// (the .cjs is gitignored, so it must not be assumed to exist)
+async function buildWorkerFixture() {
+  const source = await fs.readFile(fixtureSource, "utf8");
+  const { outputText } = ts.transpileModule(
+    source.replace("../../../src/tasks", "@decaf-ts/core/tasks"),
+    {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2022,
+        experimentalDecorators: true,
+        esModuleInterop: true,
+      },
+    }
+  );
+  await fs.writeFile(fixtureSource.replace(/\.ts$/, ".cjs"), outputText);
+}
 
 describe("Task workers with FilesystemAdapter", () => {
   let tempHandle: TempFsHandle;
@@ -32,6 +53,7 @@ describe("Task workers with FilesystemAdapter", () => {
   let config: TaskServiceConfig<any>;
 
   beforeAll(async () => {
+    await buildWorkerFixture();
     tempHandle = await createTempFs();
     adapter = new FilesystemAdapter({
       rootDir: path.join(tempHandle.root, "main"),
@@ -95,7 +117,7 @@ describe("Task workers with FilesystemAdapter", () => {
     engine = service.client as unknown as TaskEngine<FilesystemAdapter>;
   });
 
-  it.skip("executes worker tasks while persisting through filesystem", async () => {
+  it("executes worker tasks while persisting through filesystem", async () => {
     const taskBuilder = new TaskBuilder()
       .setClassification("worker-thread-task")
       .setInput({ value: 7, delayMs: 10 })
@@ -114,5 +136,27 @@ describe("Task workers with FilesystemAdapter", () => {
     );
     const persisted = JSON.parse(await fs.readFile(recordPath, "utf8"));
     expect(persisted.record.status).toBe(TaskStatus.SUCCEEDED);
+  });
+
+  it("retries a failed worker task once its cause is fixed", async () => {
+    const gate = path.join(tempHandle.root, "worker-gate");
+    await fs.writeFile(gate, "closed");
+    const taskBuilder = new TaskBuilder()
+      .setClassification("worker-thread-gated-task")
+      .setInput({ gate })
+      .setMaxAttempts(1);
+    const { task, tracker } = await service.push(taskBuilder.build(), true);
+    await expect(tracker.wait()).rejects.toBeDefined();
+    const failed = await service.read(task.id);
+    expect(failed.status).toBe(TaskStatus.FAILED);
+    expect(failed.error?.message).toContain("gate closed");
+
+    await fs.rm(gate);
+    const requeued = await service.retry(task.id);
+    expect(requeued.status).toBe(TaskStatus.PENDING);
+    expect(requeued.error).toBeUndefined();
+    const { tracker: retried } = await service.track(task.id);
+    expect(await retried.wait()).toBe("gate-open");
+    expect((await service.read(task.id)).status).toBe(TaskStatus.SUCCEEDED);
   });
 });

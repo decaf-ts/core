@@ -570,6 +570,7 @@ export abstract class Statement<
         break;
       case Operator.BIGGER_EQ:
         result.method = `${attr1} bigger than equal`;
+        result.args = [...(result.args || []), comparison];
         break;
       case Operator.SMALLER:
         result.method = `${attr1} less`;
@@ -732,6 +733,10 @@ export abstract class Statement<
 
     let attrFromWhere: string | undefined;
     if (this.whereCondition) {
+      // findBy(attr, value) is an equality lookup: squashing any other operator
+      // (bigger, less, in, ...) would silently turn it into an equality match.
+      // Let prepare() build the operator-aware method name instead.
+      if (this.whereCondition["operator"] !== Operator.EQUAL) return undefined;
       attrFromWhere = this.whereCondition["attr1"] as string;
     }
 

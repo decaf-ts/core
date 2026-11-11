@@ -14,7 +14,7 @@ import { FsTestModel } from "./fs/models/FsTestModel";
 
 const DefaultSeparator = "_";
 
-describe.skip("FilesystemAdapter", () => {
+describe("FilesystemAdapter", () => {
   let tempHandle: TempFsHandle;
   const activeAdapters: FilesystemAdapter[] = [];
   const usedAliases = new Set<string>();
@@ -45,8 +45,14 @@ describe.skip("FilesystemAdapter", () => {
     alias: string,
     extra?: Partial<FilesystemConfig>
   ) => {
+    // watchers hold inotify instances: only the watcher test enables them
     const adapter = new FilesystemAdapter(
-      { user: "tester", rootDir: tempHandle.root, ...(extra || {}) },
+      {
+        user: "tester",
+        rootDir: tempHandle.root,
+        watch: false,
+        ...(extra || {}),
+      },
       alias
     );
     await adapter.initialize();
@@ -346,10 +352,10 @@ describe.skip("FilesystemAdapter", () => {
 
   it("mirrors changes across adapters using filesystem watchers", async () => {
     const alias = `fs-adapter-${Date.now()}-mirror`;
-    const adapterA = await createAdapter(alias);
+    const adapterA = await createAdapter(alias, { watch: true });
     const cache = (Adapter as any)._cache as Record<string, Adapter>;
     delete cache[alias];
-    const adapterB = await createAdapter(alias);
+    const adapterB = await createAdapter(alias, { watch: true });
     try {
       const repoA = new Repository(adapterA, FsTestModel);
       clearRepositoryCache(FsTestModel, alias);

@@ -138,4 +138,76 @@ export class TaskContext extends Context<TaskFlags> {
   constructor(ctx?: Context<any>) {
     super(ctx);
   }
+
+  /**
+   * Keys that hold per-step state. They are kept local to a step context so that
+   * concurrently running composite steps do not overwrite each other's values.
+   */
+  static readonly STEP_LOCAL_KEYS: readonly string[] = [
+    "step",
+    "logger",
+    "scheduleCompositeSteps",
+    "scheduleCompositeStepsAtEnd",
+  ];
+
+  /**
+   * @description Creates the context for a composite step.
+   * @summary The step context shares the parent's cache: every flag, override and cached value
+   * is read from and written to the shared task context (so whatever a step accumulates is seen
+   * by the following steps). Only {@link TaskContext.STEP_LOCAL_KEYS} live in a per-step overlay.
+   */
+  static forStep(parent: Context<any>, step: number): TaskContext {
+    const shared = (parent as any).cache;
+    const local: Record<string | symbol, any> = {};
+    const isLocal = (p: string | symbol) =>
+      typeof p === "string" && TaskContext.STEP_LOCAL_KEYS.includes(p);
+    const descriptor = (value: any): PropertyDescriptor => ({
+      value,
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
+    const view = new Proxy(shared, {
+      get: (target, p, receiver) =>
+        isLocal(p) && p in local ? local[p] : Reflect.get(target, p, receiver),
+      has: (target, p) => (isLocal(p) && p in local) || Reflect.has(target, p),
+      set: (target, p, value) => {
+        if (isLocal(p)) {
+          local[p] = value;
+          return true;
+        }
+        return Reflect.set(target, p, value);
+      },
+      defineProperty: (target, p, desc) => {
+        if (!isLocal(p)) return Reflect.defineProperty(target, p, desc);
+        local[p] = desc.get ? desc.get() : desc.value;
+        return true;
+      },
+      deleteProperty: (target, p) => {
+        if (!isLocal(p)) return Reflect.deleteProperty(target, p);
+        delete local[p];
+        return true;
+      },
+      ownKeys: (target) =>
+        Array.from(new Set([...Reflect.ownKeys(target), ...Reflect.ownKeys(local)])),
+      getOwnPropertyDescriptor: (target, p) =>
+        isLocal(p) && p in local
+          ? descriptor(local[p])
+          : Reflect.getOwnPropertyDescriptor(target, p),
+    });
+
+    const ctx = new TaskContext();
+    Object.defineProperty(ctx, "cache", {
+      value: view,
+      writable: false,
+      enumerable: false,
+      configurable: true,
+    });
+    const logger = parent.logger as TaskLogger<any> | undefined;
+    return ctx.accumulate({
+      step,
+      // a view over the same task logger that tags buffered entries with this step
+      ...(logger instanceof TaskLogger ? { logger: logger.forStep(step) } : {}),
+    }) as TaskContext;
+  }
 }

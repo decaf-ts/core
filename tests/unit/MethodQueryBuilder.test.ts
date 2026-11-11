@@ -13,6 +13,18 @@ describe("MethodQueryBuilder", () => {
       );
     });
 
+    it("should parse the operator names generated for prepared statements", () => {
+      // Statement.prepare() names gt/gte/lt conditions Bigger / BiggerThanEqual / Less
+      expect(
+        MethodQueryBuilder.build("findByAgeBiggerAndAgeLess", 18, 30).where
+      ).toEqual(
+        Condition.attribute("age").gt(18).and(Condition.attribute("age").lt(30))
+      );
+      expect(
+        MethodQueryBuilder.build("findByAgeBiggerThanEqual", 18).where
+      ).toEqual(Condition.attribute("age").gte(18));
+    });
+
     it("should handle GreaterThan and LessThan together", () => {
       const result = MethodQueryBuilder.build(
         "findByAgeGreaterThanAndAgeLessThan",
@@ -188,8 +200,7 @@ describe("MethodQueryBuilder", () => {
       ).toThrow(/Invalid OrderBy direction UP. Expected one of:/);
     });
 
-    // Now OrderBy currently supports only a single clause
-    it.skip("should parse multiple ThenBy orderings", () => {
+    it("should parse multiple ThenBy orderings", () => {
       const result = MethodQueryBuilder.build(
         "findByActiveOrderByAgeDescThenByCountryDsc",
         true,
@@ -204,6 +215,51 @@ describe("MethodQueryBuilder", () => {
         ["age", OrderDirection.DSC],
         ["country", OrderDirection.DSC],
       ]);
+    });
+
+    it("accepts the params object passed by prepared statements", () => {
+      const single = MethodQueryBuilder.build("findByAgeOrderByName", 18, {
+        direction: OrderDirection.DSC,
+        limit: 5,
+        skip: 10,
+      });
+      expect(single.orderBy).toEqual([["name", OrderDirection.DSC]]);
+      expect(single.limit).toBe(5);
+      expect(single.offset).toBe(10);
+
+      const multi = MethodQueryBuilder.build(
+        "findByAgeOrderByNameThenByCountry",
+        18,
+        {
+          direction: OrderDirection.ASC,
+          order: [
+            ["name", OrderDirection.ASC],
+            ["country", OrderDirection.DSC],
+          ],
+        }
+      );
+      expect(multi.orderBy).toEqual([
+        ["name", OrderDirection.ASC],
+        ["country", OrderDirection.DSC],
+      ]);
+      // pagination's page number (offset) is not a record offset
+      expect(
+        MethodQueryBuilder.build("findByAgeOrderByName", 18, {
+          direction: OrderDirection.ASC,
+          offset: 3,
+        }).offset
+      ).toBeUndefined();
+    });
+
+    it("rejects malformed [field, direction] lists", () => {
+      expect(() =>
+        MethodQueryBuilder.build("findByActiveOrderByAge", true, [
+          ["age", "UP"],
+        ])
+      ).toThrow(/Invalid OrderBy selector/);
+      expect(() =>
+        MethodQueryBuilder.build("findByActiveOrderByAge", true, [])
+      ).toThrow(/Empty OrderBy list/);
     });
 
     it("should throw if no OrderBy in method name", () => {

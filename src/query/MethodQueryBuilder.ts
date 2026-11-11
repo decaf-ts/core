@@ -12,6 +12,7 @@ import { Context } from "@decaf-ts/db-decorators";
 import { LoggedClass, Logger, Logging } from "@decaf-ts/logging";
 import { OrderDirection } from "../repository/constants";
 import { QueryError } from "./errors";
+import type { DirectionLimitOffset } from "./types";
 
 const lowerFirst = (str: string): string =>
   str.charAt(0).toLowerCase() + str.slice(1);
@@ -615,10 +616,30 @@ export class MethodQueryBuilder extends LoggedClass {
 
     if (extraArgs.at(-1) instanceof Context) extraArgs.pop();
 
+    // prepared statements pass a single params object ({ direction, order, limit, skip })
+    if (this.isOrderParams(extraArgs[0])) {
+      const params = extraArgs[0] as DirectionLimitOffset & { skip?: number };
+      orderBy = params.order?.length
+        ? this.validateOrderBy(params.order)
+        : this.getProperlyOrderByOrThrow(
+            this.extractOrderByField(methodName),
+            params.direction
+          );
+      if (typeof params.limit === "number") limit = params.limit;
+      // `offset` in these params is a page number (pagination); records are skipped via `skip`
+      if (typeof params.skip === "number") offset = params.skip;
+      return { orderBy, limit, offset };
+    }
+
     if (extraArgs.length >= 1) {
       const direction = extraArgs[0];
-      const field = this.extractOrderByField(methodName);
-      orderBy = this.getProperlyOrderByOrThrow(field, direction);
+      // a list of [field, direction] tuples orders by several fields (OrderBy...ThenBy...)
+      orderBy = Array.isArray(direction)
+        ? this.validateOrderBy(direction)
+        : this.getProperlyOrderByOrThrow(
+            this.extractOrderByField(methodName),
+            direction
+          );
     }
 
     if (extraArgs.length >= 2 && typeof extraArgs[1] === "number")
@@ -628,6 +649,33 @@ export class MethodQueryBuilder extends LoggedClass {
       offset = extraArgs[2];
 
     return { orderBy, limit, offset };
+  }
+
+  private static isOrderParams(value: unknown): boolean {
+    return (
+      !!value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      !(value instanceof Context)
+    );
+  }
+
+  private static validateOrderBy(
+    order: OrderBySelector<any>[]
+  ): OrderBySelector<any>[] {
+    const allowedDirections = Object.values(OrderDirection);
+    if (!order.length) throw new QueryError(`Empty OrderBy list`);
+    return order.map((selector) => {
+      if (
+        !Array.isArray(selector) ||
+        typeof selector[0] !== "string" ||
+        !allowedDirections.includes(selector[1] as OrderDirection)
+      )
+        throw new QueryError(
+          `Invalid OrderBy selector ${JSON.stringify(selector)}. Expected [field, ${allowedDirections.join(" | ")}].`
+        );
+      return [selector[0], selector[1]] as OrderBySelector<any>;
+    });
   }
 
   /**

@@ -46,6 +46,17 @@ export class RamStatement<
   }
 
   /**
+   * @description Turns a raw RAM result into a model
+   * @summary {@link RamAdapter.raw} already reverts stored records into models (its predicates
+   * run on model properties) and builds projections from them. Reverting again would look up
+   * column names on model-shaped records and drop every property mapped with `@column`.
+   */
+  protected override processRecord(record: any): M {
+    if (record instanceof this.fromSelector) return record as M;
+    return new (this.fromSelector as Constructor<M>)(record);
+  }
+
+  /**
    * @description Creates a sort comparator function
    * @summary Generates a function that compares two model instances based on the orderBy criteria.
    * This method handles different data types (string, number, date) and sort directions (asc, desc).

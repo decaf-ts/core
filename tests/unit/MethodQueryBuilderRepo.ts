@@ -249,6 +249,16 @@ export class MethodQueryBuilderRepo extends Repository<TestUserModel, any> {
     throw new UnsupportedError(`Method overridden by @query decorator.`);
   }
 
+  @query()
+  findByAgeGreaterThanOrderByCountryThenByAge(
+    age: number,
+    orderBy: OrderBySelector<TestUserModel>[],
+    limit?: number,
+    offset?: number
+  ): Promise<TestUserModel[]> {
+    throw new UnsupportedError(`Method overridden by @query decorator.`);
+  }
+
   @query({
     allowOffset: false,
     allowLimit: false,

@@ -23,8 +23,13 @@ import {
   ContextualArgs,
   MaybeContextualArg,
 } from "../utils/ContextualLoggedClass";
-import { InternalError, OperationKeys } from "@decaf-ts/db-decorators";
-import { computeBackoffMs, serializeError, sleep } from "./utils";
+import {
+  BadRequestError,
+  ConflictError,
+  InternalError,
+  OperationKeys,
+} from "@decaf-ts/db-decorators";
+import { CLEARED, computeBackoffMs, serializeError, sleep } from "./utils";
 import { TaskContext } from "./TaskContext";
 import {
   TaskStateChangeError,
@@ -32,12 +37,13 @@ import {
 } from "./TaskStateChangeError";
 import { DateTarget } from "@decaf-ts/decorator-validation";
 import { Constructor } from "@decaf-ts/decoration";
-import { TaskLogger } from "./logging";
+import { TaskLogger, TaskLogTuple } from "./logging";
 import {
   TaskEngineConfig,
   TaskEngineAutoShutdownConfig,
   TaskFlags,
   TaskProgressPayload,
+  TaskRetryOptions,
 } from "./types";
 import { TaskErrorModel } from "./models/TaskErrorModel";
 import { TaskTracker } from "./TaskTracker";
@@ -274,12 +280,78 @@ export class TaskEngine<
       code: 400,
     });
     t.error = cancelError;
-    t.leaseOwner = undefined;
-    t.leaseExpiry = undefined;
-    t.nextRunAt = undefined;
-    t.scheduledTo = undefined;
+    t.leaseOwner = CLEARED;
+    t.leaseExpiry = CLEARED;
+    t.nextRunAt = CLEARED;
+    t.scheduledTo = CLEARED;
     const saved = await this.tasks.update(t, ctx);
     await this.emitStatus(ctx, saved, TaskStatus.CANCELED, cancelError);
+    return saved;
+  }
+
+  /**
+   * Re-queues a FAILED or CANCELED task.
+   * For composite tasks, execution resumes from `options.fromStep` (index or step
+   * name/classification), defaulting to the failed step. Results from that step onward
+   * are discarded; earlier step results are kept.
+   * Re-executed steps run their handlers again, so steps that enqueue dynamic steps
+   * must do so idempotently (same contract as automatic retries).
+   * Existing trackers are already settled; use {@link track} to follow the new run.
+   */
+  async retry(
+    id: string,
+    options?: TaskRetryOptions,
+    ...args: MaybeContextualArg<any>
+  ): Promise<TaskModel> {
+    const { ctx, log } = (await this.logCtx(args, "retry", true)).for(
+      this.retry
+    );
+    const { fromStep, resetAttempts = true, scheduledTo } = options ?? {};
+    const t = await this.tasks.read(id, ctx);
+    if (![TaskStatus.FAILED, TaskStatus.CANCELED].includes(t.status))
+      throw new ConflictError(
+        `Task ${id} can only be retried when ${TaskStatus.FAILED} or ${TaskStatus.CANCELED} (current: ${t.status})`
+      );
+
+    if (t.atomicity === TaskType.COMPOSITE) {
+      const steps = this.normalizeSteps(t.steps);
+      const results = this.normalizeStepResults(t.stepResults);
+      // first step that has no result or that failed without being tolerated
+      // (steps.length when every step already concluded: nothing is re-run)
+      const resumable = this.recalculateCompositeCurrentStep(steps, results);
+      let target = resumable;
+      if (fromStep != null) {
+        const resolved = this.resolveDependencyStepIndex(t, `${fromStep}`);
+        if (resolved == null || resolved >= steps.length)
+          throw new BadRequestError(
+            `Step ${fromStep} not found in task ${id} (${steps.length} steps)`
+          );
+        if (resolved > resumable)
+          throw new BadRequestError(
+            `Cannot retry task ${id} from step ${resolved}: step ${resumable} has not completed successfully`
+          );
+        target = resolved;
+      }
+      t.stepResults = results.slice(0, target);
+      t.currentStep = target;
+      log.verbose(`retrying composite task ${id} from step ${target}`);
+    } else if (fromStep != null) {
+      throw new BadRequestError(
+        `fromStep is only supported for ${TaskType.COMPOSITE} tasks`
+      );
+    }
+
+    if (resetAttempts) t.attempt = 0;
+    t.status = scheduledTo ? TaskStatus.SCHEDULED : TaskStatus.PENDING;
+    t.scheduledTo = scheduledTo;
+    t.error = CLEARED;
+    t.output = CLEARED;
+    t.leaseOwner = CLEARED;
+    t.leaseExpiry = CLEARED;
+    t.nextRunAt = CLEARED;
+    const saved = await this.tasks.update(t, ctx);
+    log.info(`${saved.classification} task ${id} re-queued as ${saved.status}`);
+    await this.emitStatus(ctx, saved, saved.status);
     return saved;
   }
 
@@ -470,8 +542,8 @@ export class TaskEngine<
       leaseExpiry: new Date(
         now + (parseInt(this.config.leaseMs.toString()) || 60_000)
       ),
-      scheduledTo: undefined,
-      nextRunAt: undefined,
+      scheduledTo: CLEARED,
+      nextRunAt: CLEARED,
     });
 
     log.info(
@@ -648,8 +720,13 @@ export class TaskEngine<
 
   protected createCompositeStepContext(
     context: TaskContext,
-    stepIndex: number
+    stepIndex: number,
+    concurrent = false
   ): TaskContext {
+    // Sequential steps use the task context itself. Steps of a concurrent batch run at the same
+    // time, so they get a view over that same context in which only the per-step keys
+    // (step index, logger view, step schedulers) are local and can't be overwritten by siblings.
+    if (concurrent) return TaskContext.forStep(context, stepIndex);
     return TaskEngine.createTaskContext(context, { step: stepIndex });
   }
 
@@ -781,9 +858,9 @@ export class TaskEngine<
 
       task.status = TaskStatus.SUCCEEDED;
       task.output = output;
-      task.error = undefined;
-      task.leaseOwner = undefined;
-      task.leaseExpiry = undefined;
+      task.error = CLEARED;
+      task.leaseOwner = CLEARED;
+      task.leaseExpiry = CLEARED;
 
       const persisted = await this.tasks.update(task, taskCtx);
       Object.assign(task, persisted);
@@ -841,8 +918,8 @@ export class TaskEngine<
         task.status = TaskStatus.WAITING_RETRY;
         task.nextRunAt = nextRunAt;
         task.error = serialized;
-        task.leaseOwner = undefined;
-        task.leaseExpiry = undefined;
+        task.leaseOwner = CLEARED;
+        task.leaseExpiry = CLEARED;
         const persisted = await this.tasks.update(task, taskCtx);
         Object.assign(task, persisted);
         log.warn(
@@ -864,8 +941,8 @@ export class TaskEngine<
         task.attempt = nextAttempt;
         task.status = TaskStatus.FAILED;
         task.error = serialized;
-        task.leaseOwner = undefined;
-        task.leaseExpiry = undefined;
+        task.leaseOwner = CLEARED;
+        task.leaseExpiry = CLEARED;
 
         const persisted = await this.tasks.update(task, taskCtx);
         Object.assign(task, persisted);
@@ -895,8 +972,8 @@ export class TaskEngine<
     task: TaskModel,
     ctx: TaskContext
   ): Promise<void> {
-    task.leaseOwner = undefined;
-    task.leaseExpiry = undefined;
+    task.leaseOwner = CLEARED;
+    task.leaseExpiry = CLEARED;
     switch (request.status) {
       case TaskStatus.CANCELED: {
         const cancelError =
@@ -906,8 +983,8 @@ export class TaskEngine<
           });
         task.status = TaskStatus.CANCELED;
         task.error = cancelError;
-        task.nextRunAt = undefined;
-        task.scheduledTo = undefined;
+        task.nextRunAt = CLEARED;
+        task.scheduledTo = CLEARED;
         task = await this.tasks.update(task, ctx);
         await this.emitStatus(ctx, task, TaskStatus.CANCELED, cancelError);
         await ctx.pipe(LogLevel.warn, `Task canceled via context`);
@@ -930,7 +1007,7 @@ export class TaskEngine<
         task.attempt = nextAttempt;
         task.error = retryError;
         task.nextRunAt = nextRunAt;
-        task.scheduledTo = undefined;
+        task.scheduledTo = CLEARED;
         task = await this.tasks.update(task, ctx);
         await this.emitStatus(ctx, task, TaskStatus.WAITING_RETRY, retryError);
         await ctx.pipe(LogLevel.warn, `Retry requested`, {
@@ -951,7 +1028,7 @@ export class TaskEngine<
         task.status = TaskStatus.SCHEDULED;
         task.scheduledTo = request.scheduledTo;
         task.error = rescheduleError;
-        task.nextRunAt = undefined;
+        task.nextRunAt = CLEARED;
         task = await this.tasks.update(task, ctx);
         await this.emitStatus(ctx, task, TaskStatus.SCHEDULED, rescheduleError);
         await ctx.pipe(LogLevel.info, `Task rescheduled`, {
@@ -1073,7 +1150,10 @@ export class TaskEngine<
       );
     };
 
-    const runSingleStep = async (stepIndex: number): Promise<void> => {
+    const runSingleStep = async (
+      stepIndex: number,
+      concurrent = false
+    ): Promise<void> => {
       const step = steps[stepIndex];
       const handler = this.registry.get(step.classification);
       if (!handler) {
@@ -1082,7 +1162,11 @@ export class TaskEngine<
         );
       }
 
-      const taskStepContext = this.createCompositeStepContext(context, stepIndex);
+      const taskStepContext = this.createCompositeStepContext(
+        context,
+        stepIndex,
+        concurrent
+      );
       scheduleCompositeSteps(stepIndex, taskStepContext);
 
       const dependencies = this.normalizeDependencies(step.dependsOn);
@@ -1208,7 +1292,7 @@ export class TaskEngine<
     };
 
     const runConcurrentBatch = async (indices: number[]): Promise<void> => {
-      const batch = indices.map((stepIndex) => runSingleStep(stepIndex));
+      const batch = indices.map((stepIndex) => runSingleStep(stepIndex, true));
       const settled = await Promise.allSettled(batch);
       const hardFailure = settled.find((result) => result.status === "rejected");
       if (hardFailure && hardFailure.status === "rejected") {
@@ -1332,25 +1416,34 @@ export class TaskEngine<
     logEntries:
       | [LogLevel, string]
       | [LogLevel, string, any]
-      | ([LogLevel, string] | [LogLevel, string, any])[]
+      | ([LogLevel, string] | [LogLevel, string, any] | TaskLogTuple)[]
   ): Promise<[TaskModel, TaskLogEntryModel[]]> {
     const isMulti = Array.isArray(logEntries) && Array.isArray(logEntries[0]);
+    // currentStep equals steps.length once every step concluded: tag those with the last step
+    const currentStep =
+      task.currentStep != null
+        ? Math.max(
+            0,
+            Math.min(task.currentStep, this.normalizeSteps(task.steps).length - 1)
+          )
+        : undefined;
     const step =
       task.atomicity === TaskType.COMPOSITE
         ? ctx instanceof TaskContext
-          ? (ctx.step ?? task.currentStep)
-          : task.currentStep
+          ? (ctx.step ?? currentStep)
+          : currentStep
         : undefined;
-    const entries = (isMulti ? logEntries : [logEntries]).map(
-      ([level, msg, meta]) => {
-        return new TaskLogEntryModel({
-          level,
-          msg,
-          meta,
-          step,
-        });
-      }
-    );
+    const entries = (
+      (isMulti ? logEntries : [logEntries]) as TaskLogTuple[]
+    ).map(([level, msg, meta, entryStep]) => {
+      return new TaskLogEntryModel({
+        level,
+        msg,
+        meta,
+        // entries buffered by a step-scoped logger carry the step that produced them
+        step: step === undefined ? undefined : (entryStep ?? step),
+      });
+    });
 
     try {
       return await this.withStepWriteLock(ctx as TaskContext, async () => {

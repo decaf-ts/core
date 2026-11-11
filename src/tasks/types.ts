@@ -1,5 +1,5 @@
 import { TaskContext } from "./TaskContext";
-import { TaskLogger } from "./logging";
+import { TaskLogger, TaskLogTuple } from "./logging";
 import { LogLevel } from "@decaf-ts/logging";
 import { Adapter, ContextFlags } from "../persistence/index";
 import { ConfOf } from "../persistence/types";
@@ -30,7 +30,7 @@ export type LogPipeOptions = {
 export type EventPipe = (evt: TaskEventModel, ...args: any[]) => Promise<void>;
 
 export interface LogPipe {
-  (logs: [LogLevel, string, any][]): Promise<void>;
+  (logs: ([LogLevel, string, any] | TaskLogTuple)[]): Promise<void>;
   (entry: [LogLevel, string] | [LogLevel, string, any]): Promise<void>;
   (level: LogLevel, msg: string, meta?: any): Promise<void>;
 }
@@ -77,6 +77,20 @@ export type TaskProgressPayload = {
   output?: any;
   error?: TaskErrorModel;
   nextRunAt?: Date;
+  scheduledTo?: Date;
+};
+
+export type TaskRetryOptions = {
+  /**
+   * Composite tasks only: step to resume from, by index or by step name/classification.
+   * Defaults to the failed step (or the step where execution stopped).
+   * Results for this step and every following step are discarded and re-executed;
+   * results of earlier steps are kept and rehydrated into the result cache.
+   */
+  fromStep?: number | string;
+  /** resets the attempt counter so the task gets its full maxAttempts budget again (default true) */
+  resetAttempts?: boolean;
+  /** schedules the retry instead of making the task immediately runnable */
   scheduledTo?: Date;
 };
 

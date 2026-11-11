@@ -31,7 +31,7 @@ import { type DirectionLimitOffset } from "../query/types";
 import type { Constructor } from "@decaf-ts/decoration";
 import type { Observer } from "../interfaces/Observer";
 import type { ArrayMode } from "../services/ModelService";
-import { TaskEngineConfig } from "./types";
+import { TaskEngineConfig, TaskRetryOptions } from "./types";
 import { TaskTracker } from "./TaskTracker";
 import { TaskEventModel } from "./models/index";
 import { SelectSelector, WhereOption } from "../query/index";
@@ -127,6 +127,21 @@ export class TaskService<
       await this.logCtx(args, OperationKeys.CREATE, true)
     ).for(this.push);
     return this.client.track(id, ...ctxArgs);
+  }
+
+  async retry(
+    id: string,
+    options?: TaskRetryOptions,
+    ...args: MaybeContextualArg<any>
+  ): Promise<TaskModel> {
+    const { ctxArgs } = (await this.logCtx(args, "retry", true)).for(
+      this.retry
+    );
+    const retried = await this.client.retry(id, options, ...ctxArgs);
+    if (!(await this.client.isRunning())) {
+      void this.client.start();
+    }
+    return retried;
   }
 
   select<

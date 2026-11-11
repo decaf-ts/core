@@ -30,6 +30,7 @@ import {
   TaskType,
   serializeError,
   computeBackoffMs,
+  CLEARED,
 } from "../tasks";
 import {
   TaskEngineConfig,
@@ -560,9 +561,9 @@ export class TaskEngine<A extends Adapter<any, any, any, any>> extends TE<
 
       task.status = TaskStatus.SUCCEEDED;
       task.output = output;
-      task.error = undefined;
-      task.leaseOwner = undefined;
-      task.leaseExpiry = undefined;
+      task.error = CLEARED;
+      task.leaseOwner = CLEARED;
+      task.leaseExpiry = CLEARED;
 
       task = await this.tasks.update(task, taskCtx);
       taskCtx.logger.info(`task ${task.id} success state ${task.status}`);
@@ -606,8 +607,8 @@ export class TaskEngine<A extends Adapter<any, any, any, any>> extends TE<
         task.status = TaskStatus.WAITING_RETRY;
         task.nextRunAt = nextRunAt;
         task.error = serialized;
-        task.leaseOwner = undefined;
-        task.leaseExpiry = undefined;
+        task.leaseOwner = CLEARED;
+        task.leaseExpiry = CLEARED;
         task = await this.tasks.update(task, taskCtx);
         log.warn(
           `task ${task.id} waiting retry state ${task.status} attempt ${task.attempt}`
@@ -628,8 +629,8 @@ export class TaskEngine<A extends Adapter<any, any, any, any>> extends TE<
         task.attempt = nextAttempt;
         task.status = TaskStatus.FAILED;
         task.error = serialized;
-        task.leaseOwner = undefined;
-        task.leaseExpiry = undefined;
+        task.leaseOwner = CLEARED;
+        task.leaseExpiry = CLEARED;
 
         task = await this.tasks.update(task, taskCtx);
         log.error(

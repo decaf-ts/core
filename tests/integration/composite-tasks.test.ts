@@ -1409,6 +1409,15 @@ describe("Composite Tasks Integration", () => {
             entry.step === undefined
         )
       ).toBe(true);
+      // handler logs buffered while both steps run are attributed to the step that logged them
+      const stepsOf = (label: string) =>
+        new Set(
+          (persisted.logTail ?? [])
+            .filter((entry) => entry.msg.includes(`concurrent ${label}`))
+            .map((entry) => entry.step)
+        );
+      expect(stepsOf("alpha")).toEqual(new Set([0]));
+      expect(stepsOf("beta")).toEqual(new Set([1]));
     });
 
     it("runs three concurrent batches and preserves all outputs and logs", async () => {

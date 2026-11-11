@@ -69,7 +69,7 @@ describe("MethodQueryBuilder Decorator", () => {
       expect(inactives.every((u) => !u.active)).toBe(true);
     });
 
-    it.skip("should filter with In", async () => {
+    it("should filter with In", async () => {
       const result = await userRepo.findByCountryIn(["TH", "ON"]);
       expect(result.map((r) => r.country)).toEqual(
         expect.arrayContaining(["TH", "ON"])
@@ -128,6 +128,37 @@ describe("MethodQueryBuilder Decorator", () => {
     });
   });
 
+  describe("OrderBy ThenBy", () => {
+    it("orders by every [field, direction] pair passed for OrderBy...ThenBy", async () => {
+      const result =
+        await userRepo.findByAgeGreaterThanOrderByCountryThenByAge(0, [
+          ["country", OrderDirection.ASC],
+          ["age", OrderDirection.DSC],
+        ]);
+      expect(result.length).toBe(10);
+      const expected = [...result].sort((a, b) =>
+        a.country === b.country
+          ? b.age - a.age
+          : a.country.localeCompare(b.country)
+      );
+      expect(result.map((r) => r.id)).toEqual(expected.map((r) => r.id));
+      // the secondary key actually applies: same country, descending age
+      const th = result.filter((r) => r.country === "TH").map((r) => r.age);
+      expect(th.length).toBeGreaterThan(1);
+      expect(th).toEqual([...th].sort((a, b) => b - a));
+    });
+
+    it("rejects malformed order lists", async () => {
+      await expect(
+        userRepo.findByAgeGreaterThanOrderByCountryThenByAge(0, [
+          ["country", "sideways" as any],
+        ])
+      ).rejects.toThrow(QueryError);
+    });
+  });
+
+  // Placeholder specs: GroupBy through @query method names has no defined result shape yet
+  // (the calls below are still commented out), so there is nothing to assert against.
   describe.skip("GroupBy", () => {
     it("should group by state", async () => {
       const result = []; // await userRepo.findByActiveGroupByState(true);
@@ -135,7 +166,7 @@ describe("MethodQueryBuilder Decorator", () => {
       expect(groups).toEqual(expect.arrayContaining(data.map((d) => d.state)));
     });
 
-    it.skip("should group by age then by state", async () => {
+    it("should group by age then by state", async () => {
       const result = [];
       // await userRepo.findByAgeGreaterThanAndActiveGroupByAgeThenByStateOrderByAgeDescThenByCountryDsc(
       //   21,

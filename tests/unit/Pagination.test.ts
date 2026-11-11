@@ -57,10 +57,8 @@ class TestCountryModelRepo extends Repository<TestCountryModel, any> {
       .orderBy(["id", direction])
       .paginate(limit || 10, ...ctxArgs);
 
-    const paged =
-      bookmark !== undefined
-        ? await paginator.page(1, ...ctxArgs)
-        : await paginator.page(offset || 1, ...ctxArgs);
+    // the paginator always sends the requested page as offset (the bookmark is informative)
+    const paged = await paginator.page(offset || 1, ...ctxArgs);
 
     return paginator.serialize(paged) as SerializedPage<TestCountryModel>;
   }
@@ -91,12 +89,6 @@ describe(`Pagination`, function () {
   });
 
   let selected: TestCountryModel[];
-  it.skip("Fails to sort in an unindexed property", async () => {
-    await expect(
-      repo.select().orderBy(["id", OrderDirection.ASC]).execute()
-    ).rejects.toThrow(InternalError);
-  });
-
   it("indexes de database properly according to defined indexes", async () => {
     await adapter.initialize();
   });
@@ -210,8 +202,7 @@ describe(`Pagination`, function () {
     );
   });
 
-  // TODO @pedro compatibilize pagination with complex queries. I though we said the sort direction would be a 'query param'?
-  it.skip("handles complex queries", async () => {
+  it("handles complex queries", async () => {
     const paginator: Paginator<TestCountryModel> = await repo
       .override({
         forcePrepareSimpleQueries: true,

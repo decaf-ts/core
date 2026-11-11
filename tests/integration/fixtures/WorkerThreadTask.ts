@@ -21,3 +21,18 @@ export class WorkerThreadTask extends TaskHandler<WorkerInput, number> {
     return base + accumulator;
   }
 }
+
+type GatedInput = {
+  gate: string;
+};
+
+// fails while the `gate` file exists, so tests can drive failure/success across threads
+@task("worker-thread-gated-task")
+export class WorkerThreadGatedTask extends TaskHandler<GatedInput, string> {
+  async run(input: GatedInput, ctx: TaskContext): Promise<string> {
+    const { existsSync } = await import("node:fs");
+    if (existsSync(input.gate)) throw new Error(`gate closed: ${input.gate}`);
+    ctx.logger.info(`gated task passed ${input.gate}`);
+    return "gate-open";
+  }
+}

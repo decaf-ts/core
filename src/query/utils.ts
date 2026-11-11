@@ -47,6 +47,10 @@ export const OperatorsMap: Record<string, OperatorParser> = {
   LessThanEqual: (f, v) => Condition.attribute(f as any).lte(v),
   GreaterThan: (f, v) => Condition.attribute(f as any).gt(v),
   GreaterThanEqual: (f, v) => Condition.attribute(f as any).gte(v),
+  // aliases matching the method names Statement.prepare() generates for these operators
+  Bigger: (f, v) => Condition.attribute(f as any).gt(v),
+  BiggerThanEqual: (f, v) => Condition.attribute(f as any).gte(v),
+  Less: (f, v) => Condition.attribute(f as any).lt(v),
   Between: (f, v1, v2) => Condition.attribute(f as any).between(v1, v2),
   In: (f, v) => Condition.attribute(f as any).in(v),
   Exists: (f) => Condition.attribute(f as any).exists(),

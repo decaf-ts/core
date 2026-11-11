@@ -474,21 +474,32 @@ export class FilesystemAdapter extends RamAdapter {
     const tableName = Model.tableName(clazz);
     const descriptors: IndexDescriptor[] = [];
     Object.entries(indexes).forEach(([property, metadata]) => {
-      const rawMeta = metadata?.[PersistenceKeys.INDEX] as
-        | Record<string, any>
-        | undefined;
-      if (!rawMeta) return;
-      const flattened = this.collectIndexMetadata(property, rawMeta);
-      flattened.forEach(({ property: targetProp, meta }) => {
-        const columns = this.buildColumns(clazz, targetProp, meta.compositions);
-        const baseName =
-          meta.name ||
-          [tableName, targetProp, ...(meta.compositions ?? [])].join("_");
-        descriptors.push({
-          name: baseName,
-          fileName: toIndexFileName(baseName),
-          columns,
-          directions: meta.directions,
+      // Model.indexes() keys the property's own index as `index` and each
+      // composite variant as `index_<compositions>`
+      const variants = Object.entries(metadata || {}).filter(
+        ([key]) =>
+          key === PersistenceKeys.INDEX ||
+          key.startsWith(`${PersistenceKeys.INDEX}_`)
+      );
+      variants.forEach(([, variantMeta]) => {
+        const rawMeta = variantMeta as Record<string, any> | undefined;
+        if (!rawMeta) return;
+        const flattened = this.collectIndexMetadata(property, rawMeta);
+        flattened.forEach(({ property: targetProp, meta }) => {
+          const columns = this.buildColumns(
+            clazz,
+            targetProp,
+            meta.compositions
+          );
+          const baseName =
+            meta.name ||
+            [tableName, targetProp, ...(meta.compositions ?? [])].join("_");
+          descriptors.push({
+            name: baseName,
+            fileName: toIndexFileName(baseName),
+            columns,
+            directions: meta.directions,
+          });
         });
       });
     });

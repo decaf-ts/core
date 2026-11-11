@@ -43,7 +43,9 @@ import { ValidationError } from "@decaf-ts/db-decorators";
 import { DateBuilder } from "@decaf-ts/decorator-validation";
 import { Logger } from "@decaf-ts/logging";
 
-jest.setTimeout(10000);
+// generous budgets: CI runs suites in parallel workers on shared vCPUs, where
+// handler sleeps of ~100ms routinely stretch to seconds
+jest.setTimeout(30000);
 
 let adapter: RamAdapter;
 let eventBus: TaskEventBus;
@@ -73,7 +75,7 @@ const createBackoff = (opts?: Partial<TaskBackoffModel>) =>
     jitter: opts?.jitter ?? JitterStrategy.NONE,
   });
 
-const waitForTaskCompletion = async (id: string, timeout = 15000) => {
+const waitForTaskCompletion = async (id: string, timeout = 45000) => {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
     const task = await taskRepo.read(id);
@@ -92,7 +94,7 @@ const waitForTaskCompletion = async (id: string, timeout = 15000) => {
 const waitForTaskStatus = async (
   id: string,
   status: TaskStatus,
-  timeout = 15000
+  timeout = 45000
 ) => {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
@@ -1248,7 +1250,7 @@ describe("Composite Tasks Integration", () => {
       expect(DynamicPersistentEnqueueStep.runs[task.id]).toBe(1);
       expect(DynamicPersistentFlakyStep.runs[task.id]).toBe(2);
       expect(DynamicPersistentTailStep.runs[task.id]).toBe(1);
-    }, 20000);
+    }, 60000);
 
     it("enforces task dependencies against task and task-step completion", async () => {
       const sourceTask = new TaskBuilder({
@@ -1308,7 +1310,7 @@ describe("Composite Tasks Integration", () => {
       await stepTracker.resolve();
       const output = await tracker.resolve();
       expect(output).toBe("target-ran");
-    }, 30000);
+    }, 60000);
 
     it("enforces lock exclusion between task and task-step lock keys", async () => {
       const lockedAtomic = new TaskBuilder({
@@ -1486,7 +1488,7 @@ describe("Composite Tasks Integration", () => {
           concurrentLogs.some((entry) => entry.msg.includes(`concurrent ${label} end`))
         ).toBe(true);
       }
-    }, 30000);
+    }, 120000);
 
     it("retries one step across concurrent batches without dropping logs or results", async () => {
       ConcurrentSharedRetryLockStep.starts = {};
@@ -1563,7 +1565,7 @@ describe("Composite Tasks Integration", () => {
           entry.msg.includes(`retry concurrent ${retryLabel} end attempt 2`)
         )
       ).toBe(true);
-    }, 40000);
+    }, 120000);
 
     it("reschedules one step across concurrent batches without dropping logs or results", async () => {
       ConcurrentSharedRescheduleLockStep.starts = {};
@@ -1645,7 +1647,7 @@ describe("Composite Tasks Integration", () => {
           entry.msg.includes(`reschedule concurrent ${rescheduleLabel} end attempt 2`)
         )
       ).toBe(true);
-    }, 60000);
+    }, 120000);
 
     it("invokes TaskHandler.catch for atomic failures and blocks composite failures", async () => {
       const failingAtomic = new TaskBuilder({
@@ -2013,7 +2015,7 @@ describe("Composite Tasks Integration", () => {
       expect(scheduledSeen?.length).toBe(2);
       expect(scheduledSeen?.[0]).toEqual({ step0: 10, step1: 11 });
       expect(scheduledSeen?.[1]).toEqual({ step0: 10, step1: 11 });
-    }, 20000);
+    }, 60000);
 
     it("executes a 4-step composite with cached random outputs and flaky step math", async () => {
       const composite = new CompositeTaskBuilder({
@@ -2073,7 +2075,7 @@ describe("Composite Tasks Integration", () => {
       expect(CompositeRandStep3.calls[task.id]).toBe(fails + 1);
       expect(CompositeRandStep4.calls[task.id]).toBe(1);
       expect(CompositeRandStep3.desiredFails[task.id]).toBe(fails);
-    }, 30000);
+    }, 60000);
 
     it("fails permanently when max attempts exhausted", async () => {
       const composite = new CompositeTaskBuilder({

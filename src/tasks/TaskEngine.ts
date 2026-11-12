@@ -365,7 +365,10 @@ export class TaskEngine<
   async start(...args: MaybeContextualArg<any>): Promise<void> {
     const { ctx } = (await this.logCtx(args, "run", true)).for(this.start);
     await this.lock.acquire();
-    if (this.running) return;
+    if (this.running) {
+      this.lock.release();
+      return;
+    }
     this.running = true;
     this.lock.release();
     this.idleDelayMs = this.config.pollMsIdle;

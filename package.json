@@ -166,7 +166,7 @@
   "dependencies": {
     "@decaf-ts/decoration": "^0.20.2",
     "@decaf-ts/decorator-validation": "^1.25.0",
-    "@decaf-ts/db-decorators": "^0.20.1",
+    "@decaf-ts/db-decorators": "^0.21.0",
     "@decaf-ts/injectable-decorators": "^1.21.1",
     "@decaf-ts/transactional-decorators": "^0.14.0",
     "@decaf-ts/logging": "^0.30.3"

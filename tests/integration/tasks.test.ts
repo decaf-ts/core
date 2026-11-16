@@ -544,6 +544,9 @@ describe("Task Engine", () => {
     const persisted = await taskRepo.read(task.id);
     expect(persisted.status).toBe(TaskStatus.SUCCEEDED);
     expect(persisted.output).toBe(14);
+    // Completion releases the lease.
+    expect(persisted.leaseOwner).toBeUndefined();
+    expect(persisted.leaseExpiry).toBeUndefined();
 
     const statusEvents = eventsFor(task.id, TaskEventType.STATUS);
     const statusValues = statusEvents.map((evt) => evt.payload?.status);

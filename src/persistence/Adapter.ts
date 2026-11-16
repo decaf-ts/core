@@ -770,8 +770,12 @@ export abstract class Adapter<
     const result = Object.keys(m)
       .filter((k) => k !== pk)
       .reduce((accum: M, key) => {
-        (accum as Record<string, any>)[key] =
-          obj[Model.columnName(clazz, key as keyof M)];
+        const value = obj[Model.columnName(clazz, key as keyof M)];
+        // A cleared property is stored as NULL (writes clear with an explicit
+        // `null`); models read back expose it as `undefined`, like a property
+        // that was never set. Only top-level properties: nulls inside nested
+        // or serialized values are data and stay.
+        (accum as Record<string, any>)[key] = value === null ? undefined : value;
         return accum;
       }, m);
 

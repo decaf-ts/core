@@ -111,6 +111,8 @@ export class TaskEngine<
   }
 
   protected running = false;
+  /** The running {@link loop} (see {@link start}/{@link stop}). */
+  private loopRun?: Promise<void>;
   private idleDelayMs: number;
 
   static createTaskContext(
@@ -372,7 +374,11 @@ export class TaskEngine<
     this.running = true;
     this.lock.release();
     this.idleDelayMs = this.config.pollMsIdle;
-    void this.loop(ctx);
+    // Kept so stop() can wait for the loop to exit (a stopped engine must not
+    // still be querying when its adapter shuts down); never rejects.
+    this.loopRun = this.loop(ctx).catch((e: unknown) => {
+      ctx.logger.error(`task engine loop failed: ${e}`);
+    });
   }
 
   async stop(...args: MaybeContextualArg<any>): Promise<void> {
@@ -394,14 +400,18 @@ export class TaskEngine<
       ctx.getOrUndefined?.("gracefulShutdownMsTimeout") ??
       this.config.gracefulShutdownMsTimeout;
 
+    const loopExited = this.loopRun ?? Promise.resolve();
     return new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
         log.error(`Graceful shutdown interrupted after ${timeout} ms...`);
         resolve();
       }, timeout);
 
-      Promise.allSettled(
-        runningTasks.map(
+      Promise.allSettled([
+        // The loop finishes its current iteration (claims, executions) and
+        // exits once `running` is false.
+        loopExited,
+        ...runningTasks.map(
           ({ id }) =>
             new Promise((resolve, reject) => {
               this.track(id, ctx)
@@ -410,12 +420,12 @@ export class TaskEngine<
                 })
                 .catch(reject);
             })
-        )
-      )
+        ),
+      ])
         .then((result) => {
           clearTimeout(timer);
           log.info(
-            `Graceful shutdown completed before expiry. concluded ${result.length} tasks`
+            `Graceful shutdown completed before expiry. concluded ${result.length - 1} tasks`
           );
           resolve();
         })
@@ -445,8 +455,18 @@ export class TaskEngine<
     const backoffStepMs = autoShutdownConfig.backoffStepMs ?? 0;
 
     while (await this.isRunning()) {
-      const claimed = await this.claimBatch(ctx);
-      await Promise.allSettled(claimed.map((t) => this.executeClaimed(t)));
+      let claimed: TaskModel[];
+      try {
+        claimed = await this.claimBatch(ctx);
+        await Promise.allSettled(claimed.map((t) => this.executeClaimed(t)));
+      } catch (e: unknown) {
+        // A stopped engine exits quietly (its adapter may already be closing);
+        // a running one logs the failure and retries after the idle delay.
+        if (!(await this.isRunning())) break;
+        ctx.logger.error(`task engine iteration failed: ${e}`);
+        await sleep(Math.max(this.config.pollMsIdle, 0));
+        continue;
+      }
 
       const idle = claimed.length === 0;
       if (idle) {

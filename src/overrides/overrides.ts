@@ -346,7 +346,14 @@ import { type Migration } from "../migrations/types";
       return accum;
     }, {});
 
-  return new constructor(
+  const merged = new constructor(
     Object.assign({}, extract(oldModel), extract(newModel))
   );
+  // An explicit `null` in the new model clears the property (e.g. the task
+  // engine's `CLEARED`). The model constructor maps `null` to the property's
+  // default, which would silently keep the old value instead.
+  for (const [key, val] of Object.entries(newModel)) {
+    if (val === null) (merged as Record<string, any>)[key] = null;
+  }
+  return merged;
 }.bind(Model);

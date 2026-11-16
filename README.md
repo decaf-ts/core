@@ -38,7 +38,7 @@ Decaf Core provides the foundational building blocks for the Decaf TypeScript ec
 
 Documentation [here](https://decaf-ts.github.io/core/), Test results [here](https://decaf-ts.github.io/core/workdocs/reports/html/test-report.html) and Coverage [here](https://decaf-ts.github.io/core/workdocs/reports/coverage/lcov-report/index.html)
 
-Minimal size: 50.9 KB kb gzipped
+Minimal size: 51 KB kb gzipped
 
 
 # Core Package — Detailed Description

@@ -70,4 +70,25 @@ describe("Model.merge", () => {
     expect(merged.city).toEqual("Porto");
     expect(merged.country).toBeUndefined();
   });
+
+  it("clears a property set to null in the new model, keeps undefined ones", () => {
+    const oldModel = new TestAddressModel({
+      id: 1,
+      street: "Old Street",
+      doorNumber: "10",
+      apartmentNumber: "A",
+      areaCode: "1000-001",
+      city: "Lisbon",
+    });
+    const newModel = new TestAddressModel({ city: "Porto" });
+    (newModel as any).apartmentNumber = null; // explicit clear
+    (newModel as any).doorNumber = undefined; // not given
+
+    const merged = Model.merge(oldModel, newModel, TestAddressModel);
+
+    expect(merged.city).toEqual("Porto");
+    expect(merged.apartmentNumber).toBeNull();
+    expect(merged.doorNumber).toEqual("10");
+    expect(merged.street).toEqual("Old Street");
+  });
 });

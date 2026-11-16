@@ -1,4 +1,5 @@
 import type { Dirent, promises as FsPromises } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { PrimaryKeyType } from "@decaf-ts/db-decorators";
 
 export type JsonSpacing = number | string | undefined;
@@ -79,7 +80,7 @@ export async function atomicWrite(
   filePath: string,
   contents: string
 ): Promise<void> {
-  const tmp = `${filePath}.tmp-${process.pid}-${Date.now()}`;
+  const tmp = `${filePath}.tmp-${process.pid}-${randomUUID()}`;
   await fs.writeFile(tmp, contents);
   await fs.rename(tmp, filePath);
 }

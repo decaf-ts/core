@@ -291,7 +291,7 @@ describe("FilesystemAdapter", () => {
     }
   });
 
-  it("waits for locks when two adapters write simultaneously", async () => {
+  it("persists simultaneous writes from two adapters", async () => {
     const alias = `fs-adapter-${Date.now()}-lock`;
     const adapterA = await createAdapter(alias);
     delete (Adapter as any)._cache?.[adapterA.alias];
@@ -301,46 +301,42 @@ describe("FilesystemAdapter", () => {
       clearRepositoryCache(FsTestModel, alias);
       const repoB = new Repository(adapterB, FsTestModel);
 
-      const targetId = "lock-user";
-      const originalWriteFile = fs.writeFile.bind(fs);
-      const spy = jest
-        .spyOn(fs, "writeFile")
-        .mockImplementation(async (filePath, ...args) => {
-          if (
-            typeof filePath === "string" &&
-            filePath.includes(encodeURIComponent(targetId))
-          ) {
-            await new Promise((resolve) => setTimeout(resolve, 100));
-          }
-          return originalWriteFile(filePath as any, ...args);
-        });
-
-      try {
-        const createA = repoA.create(
+      const records = await Promise.all([
+        repoA.create(
           new FsTestModel({
-            id: targetId,
+            id: "lock-user",
             name: "Locked",
             nif: "111111111",
           })
-        );
-
-        await new Promise((resolve) => setTimeout(resolve, 10));
-
-        const start = Date.now();
-        await repoB.create(
+        ),
+        repoB.create(
           new FsTestModel({
-            id: `${targetId}-2`,
+            id: "lock-user-2",
             name: "Blocked",
             nif: "222222222",
           })
-        );
-        const waited = Date.now() - start;
-        expect(waited).toBeGreaterThanOrEqual(80);
+        ),
+      ]);
 
-        await createA;
-      } finally {
-        spy.mockRestore();
-      }
+      expect(records.map(({ id }) => id).sort()).toEqual([
+        "lock-user",
+        "lock-user-2",
+      ]);
+
+      const tableName = Model.tableName(FsTestModel);
+      const indexPath = path.join(
+        tempHandle.root,
+        alias,
+        tableName,
+        "indexes",
+        `${toIndexFileName(`${tableName}_id`)}.json`
+      );
+      const index = JSON.parse(await fs.readFile(indexPath, "utf8"));
+      const indexedIds = Object.values(index.entries)
+        .flat()
+        .map((entry: any) => entry.value)
+        .sort();
+      expect(indexedIds).toEqual(["lock-user", "lock-user-2"]);
     } finally {
       forgetAdapter(adapterA);
       forgetAdapter(adapterB);
